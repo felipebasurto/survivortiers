@@ -1,0 +1,12 @@
+# generado por build/catalog.py y build/render.py (Vercel lo regenera en cada despliegue)
+site/*.html
+site/pokemon/
+site/data/
+.vercel/
+__pycache__/
+*.pyc
+.DS_Store
+.wrangler/
+NOTA_PARA_JPTER78.md
+site/en/*.html
+site/en/pokemon/

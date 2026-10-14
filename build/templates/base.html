@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="$lang" data-assets="$assets" data-home="$home" data-page="$page_id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#fffff8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#151515" media="(prefers-color-scheme: dark)">
+<title>$title</title>
+<meta name="description" content="$description">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%23c4161c'/%3E%3Cpath d='M10.5 5.2C9.8 4.4 6 4.1 6 6.2c0 2.4 4.6 1.2 4.6 3.7 0 2.2-3.9 2-4.7 1' fill='none' stroke='%23fffff8' stroke-width='1.8' stroke-linecap='square'/%3E%3C/svg%3E">
+$alternates
+<link rel="stylesheet" href="${assets}style.css?v=$asset_v">
+</head>
+<body>
+<a class="skip" href="#main">$skip</a>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="${home}index.html"><b>Survivor</b>Tiers <small>$unofficial</small></a>
+    <nav class="nav" aria-label="$nav_aria">
+$nav
+    </nav>
+    $switch
+  </div>
+</header>
+<main id="main"><div class="wrap">
+$content
+</div></main>
+<footer class="foot">
+  <div class="wrap">
+    <nav aria-label="$foot_aria">
+$footer_nav
+    </nav>
+    <p class="disclaimer">$disclaimer</p>
+    <p>$sprites_line</p>
+    <p>$model_line</p>
+    <p>$no_tracking</p>
+  </div>
+</footer>
+<script src="${assets}app.js?v=$asset_v" defer></script>
+</body>
+</html>

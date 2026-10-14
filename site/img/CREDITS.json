@@ -1,0 +1,23 @@
+[
+ {
+  "set": "ui",
+  "files": [
+   "ui/sword.png",
+   "ui/bow.png",
+   "ui/sparkle.png",
+   "ui/potion.png",
+   "ui/heart.png",
+   "ui/crown.png",
+   "ui/trophy.png",
+   "ui/arrow.png",
+   "ui/ball.png",
+   "ui/dice.png"
+  ],
+  "title": "1-Bit Pack (v1.2), monochrome-transparent_packed tilesheet, 16x16 tiles",
+  "author": "Kenney (Kenney Vleugels, www.kenney.nl)",
+  "sourceUrl": "https://kenney.nl/assets/1-bit-pack",
+  "license": "CC0 1.0",
+  "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "modified": "Cropped single 16x16 tiles from Tilesheet/monochrome-transparent_packed.png (col,row: sword 36,8; bow 39,5; sparkle 28,12; potion 41,11; heart 39,10; crown 43,2; trophy 40,16; arrow 29,21; ball 43,12; dice 44,15) and recolored the white glyph to a single flat colour each; shape and size unchanged."
+ }
+]
