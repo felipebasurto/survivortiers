@@ -78,9 +78,9 @@ STR: dict[str, tuple[str, str]] = {
     "ficha_title": ("{name} · tier {tier} · {site}", "{name} · tier {tier} · {site}"),
     "ficha_desc": ("{label}: tier {tier}, puesto {rank} de {total} en {game}.",
                    "{label}: tier {tier}, rank {rank} of {total} in {game}."),
-    "flag_status": ("Su ataque aplica quemadura, veneno o ralentización. La simulación no las modela, "
+    "flag_status": ("Su ataque aplica quemadura, veneno, ralentización o confusión. La simulación no las modela, "
                     "así que su aguante puede estar infravalorado.",
-                    "Its move applies burn, poison or slow. The simulation does not model these, "
+                    "Its move applies burn, poison, slow or confusion. The simulation does not model these, "
                     "so its survival may be underrated."),
     "flag_melee": ("Empieza con un ataque cuerpo a cuerpo, que es objetivamente peor para empezar.",
                    "It starts with a melee move, which is objectively worse to start with."),
@@ -88,8 +88,9 @@ STR: dict[str, tuple[str, str]] = {
                     "y por eso le frenan el tier.",
                     "Its stats are too low for the tier its other measures would give, "
                     "so they hold its tier back."),
-    "flag_types": ("Sus ataques no cubren tres tipos, y para el tier S hacen falta tres; por eso no sube a S.",
-                   "Its attacks don't cover three types, and S needs three; that keeps it out of S."),
+    "flag_types": ("Solo tiene un tipo de ataque además del normal, que aprenden todos. Para S hacen falta dos; "
+                   "por eso no sube a S.",
+                   "It has only one attack type besides normal, which everyone learns. S needs two; that keeps it out of S."),
     "pager_aria": ("Pokémon vecinos", "Neighbouring Pokémon"),
     "dex_no": ("nº {dex}", "no. {dex}"),
     "noscript_ficha": ("Esta página necesita JavaScript.", "This page needs JavaScript."),
@@ -170,10 +171,12 @@ STR: dict[str, tuple[str, str]] = {
     "m_lateMax": ("Final, todas las mejoras al máximo", "Late game, all shop upgrades maxed"),
     "m_lateFresh": ("Final, sin mejoras de tienda", "Late game, no shop upgrades"),
     "methods_lede": ("Cada punto es el puesto que daría esa medida: 1 es el mejor de 966, a la izquierda. "
+                     "La escala se amplía hasta su peor puesto, así que un 24 parece lejos de 1, pero sigue siendo el 3 % superior. "
                      "«Final» estima cuánto aguanta al final de una partida, con la tienda sin comprar nada "
                      "o con todas sus mejoras permanentes al máximo. La línea naranja es el puesto final, "
                      "que mezcla todas las medidas.",
                      "Each dot is the rank that measure would give: 1 is the best of 966, on the left. "
+                     "The scale zooms in to its worst rank, so 24 looks far from 1 but is still the top 3%. "
                      "“Late game” estimates how long a Pokémon lasts at the end of a run, with no shop upgrades "
                      "bought or with all permanent upgrades maxed. The orange line is the final rank, which mixes every measure."),
     "methods_final": ("puesto final {rank}", "final rank {rank}"),
@@ -333,10 +336,12 @@ STR: dict[str, tuple[str, str]] = {
                    "Each measure becomes a percentile: 90 means better than 90% of Pokémon on that measure. That lets "
                    "us compare different things, like seconds survived and stats."),
     "met_step_3_h": ("Combinar", "Combine"),
-    "met_step_3": ("La ficha pesa {sheet}, las partidas {sim} y el final de la partida {late}. Es una media "
-                   "geométrica: una pieza muy floja arrastra la nota. Pruébalo abajo.",
-                   "The sheet weighs {sheet}, games {sim} and late game {late}. It is a geometric mean: one very "
-                   "weak piece drags the score down. Try it below."),
+    "met_step_3": ("La ficha pesa {sheet}, las partidas {sim} y el final de la partida {late}. Cada medida entra "
+                   "como percentil en escala logarítmica, así que las diferencias entre los primeros puestos apenas "
+                   "cuentan y una pieza muy floja sí baja la nota. Pruébalo abajo.",
+                   "The sheet weighs {sheet}, games {sim} and late game {late}. Each measure enters as a percentile on "
+                   "a log scale, so differences between the top ranks barely count, while one very weak piece does "
+                   "drag the score down. Try it below."),
     "met_step_4_h": ("Repetir 2.000 veces", "Repeat 2,000 times"),
     "met_step_4": ("Cada repetición cambia los datos un poco, dentro de su margen de error; también el peso entre "
                    "partidas y final, y una de las 80 suposiciones del modelo de final de partida. Así salen 2.000 "
@@ -350,11 +355,13 @@ STR: dict[str, tuple[str, str]] = {
                    "runs from the 10th to the 90th percentile of those positions."),
     "met_step_6_h": ("Tier", "Tier"),
     "met_step_6": ("Los puestos se reparten en tiers de tamaño fijo: {sizes}. Para entrar en S hace falta estar "
-                   "entre el {s} mejor en estadísticas, tener ataques de tres tipos distintos y no empezar con un "
+                   "entre el {s} mejor en estadísticas, tener ataques de tres tipos distintos contando el normal "
+                   "(que aprenden todos: son dos tipos además del normal) y no empezar con un "
                    "ataque cuerpo a cuerpo; en A, entre el {a}; en B, entre el {b}. Quien no cumple el mínimo espera "
                    "al siguiente tier en el que sí entre.",
                    "Ranks are split into tiers of fixed size: {sizes}. To enter S you must be in the top {s} for "
-                   "stats, have attacks of three different types, and not start with a melee attack; A, top {a}; "
+                   "stats, have attacks of three different types counting normal (everyone learns it: that is two "
+                   "types besides normal), and not start with a melee attack; A, top {a}; "
                    "B, top {b}. Whoever misses the minimum waits for the next tier they qualify for."),
     "pipe_title": ("Del dato al tier", "From data to tier"),
     "pipe_1": ("Medir", "Measure"),
@@ -438,7 +445,7 @@ STR: dict[str, tuple[str, str]] = {
                   "Animation of a simulated game. A Pokémon dodges and fires at approaching enemies."),
     "met_limits_h": ("Límites", "Limits"),
     "met_lim_1": ("Sin jefes ni grietas.", "No bosses or rifts."),
-    "met_lim_2": ("Sin quemadura, veneno ni ralentización.", "No burn, poison or slow."),
+    "met_lim_2": ("Sin quemadura, veneno, ralentización ni confusión.", "No burn, poison, slow or confusion."),
     "met_lim_3": ("El bot juega peor el cuerpo a cuerpo.", "The bot plays melee worse."),
     "met_lim_4": ("Estimación propia, sin contrastar con partidas reales.",
                   "Our own estimate, not checked against real games."),

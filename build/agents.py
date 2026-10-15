@@ -153,7 +153,7 @@ def llms_full_txt(meta: dict) -> str:
         f"2. Repeats: {m['repeats']} runs of the whole method. Each one shifts the data within its error margin, changes the weight between the sim and late-game pieces, and uses one of 80 assumptions of the late-game model. Final rank = median of the {m['repeats']} resulting ranks.",
         f"3. Tiers are filled in order of final rank, with fixed sizes. A Pokémon that misses a gate is skipped and waits for the next tier it qualifies for. Gates: {gates}; {types_min}; a melee starting attack keeps a Pokémon out of {no_melee}.",
         f"4. Agreement: rank correlation of each piece with the final rank: {agree}.",
-        f"5. Flags (bit values in `species.json` `d[7]`): 1 = status effect (burn, poison, slow) not modelled; 2 = melee starting attack; 4 = stats kept it out of its tier; 8 = fewer than three attack types kept it out of S.",
+        f"5. Flags (bit values in `species.json` `d[7]`): 1 = status effect (burn, poison, slow, confusion) not modelled; 2 = melee starting attack; 4 = stats kept it out of its tier; 8 = fewer than three attack types kept it out of S.",
         "",
         "## Files",
         "",
