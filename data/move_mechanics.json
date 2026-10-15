@@ -1,0 +1,386 @@
+{
+ "tackle": {
+  "kind": "melee",
+  "homing": 0,
+  "pierce": 0,
+  "count": 0
+ },
+ "quick-attack": {
+  "kind": "dash",
+  "homing": 0,
+  "pierce": 0,
+  "count": 0
+ },
+ "swords-dance": {
+  "kind": "buff",
+  "homing": 0,
+  "pierce": 0,
+  "count": 0
+ },
+ "agility": {
+  "kind": "buff",
+  "homing": 0,
+  "pierce": 0,
+  "count": 0
+ },
+ "harden": {
+  "kind": "buff",
+  "homing": 0,
+  "pierce": 0,
+  "count": 0
+ },
+ "ember": {
+  "kind": "projectile",
+  "homing": 0,
+  "pierce": 0,
+  "count": 1
+ },
+ "flamethrower": {
+  "kind": "cone",
+  "homing": 0,
+  "pierce": 1,
+  "count": 7
+ },
+ "fire-spin": {
+  "kind": "orbit",
+  "homing": 0,
+  "pierce": 0,
+  "count": 3
+ },
+ "heat-wave": {
+  "kind": "nova",
+  "homing": 0,
+  "pierce": 1,
+  "count": 10
+ },
+ "water-gun": {
+  "kind": "projectile",
+  "homing": 0,
+  "pierce": 1,
+  "count": 1
+ },
+ "bubble": {
+  "kind": "nova",
+  "homing": 0,
+  "pierce": 0,
+  "count": 8
+ },
+ "hydro-pump": {
+  "kind": "beam",
+  "homing": 0,
+  "pierce": 0,
+  "count": 0
+ },
+ "aqua-ring": {
+  "kind": "buff",
+  "homing": 0,
+  "pierce": 0,
+  "count": 0
+ },
+ "vine-whip": {
+  "kind": "melee",
+  "homing": 0,
+  "pierce": 0,
+  "count": 0
+ },
+ "razor-leaf": {
+  "kind": "boomerang",
+  "homing": 0,
+  "pierce": 0,
+  "count": 2
+ },
+ "leaf-storm": {
+  "kind": "orbit",
+  "homing": 0,
+  "pierce": 0,
+  "count": 4
+ },
+ "giga-drain": {
+  "kind": "aura",
+  "homing": 0,
+  "pierce": 0,
+  "count": 0
+ },
+ "thunder-shock": {
+  "kind": "projectile",
+  "homing": 0,
+  "pierce": 2,
+  "count": 1
+ },
+ "discharge": {
+  "kind": "aura",
+  "homing": 0,
+  "pierce": 0,
+  "count": 0
+ },
+ "thunderbolt": {
+  "kind": "chain",
+  "homing": 0,
+  "pierce": 0,
+  "count": 4
+ },
+ "confusion": {
+  "kind": "projectile",
+  "homing": 2,
+  "pierce": 0,
+  "count": 1
+ },
+ "psybeam": {
+  "kind": "beam",
+  "homing": 0,
+  "pierce": 0,
+  "count": 0
+ },
+ "psychic": {
+  "kind": "nova",
+  "homing": 1,
+  "pierce": 1,
+  "count": 12
+ },
+ "sludge": {
+  "kind": "projectile",
+  "homing": 0,
+  "pierce": 0,
+  "count": 1
+ },
+ "mud-shot": {
+  "kind": "nova",
+  "homing": 0,
+  "pierce": 0,
+  "count": 7
+ },
+ "gust": {
+  "kind": "orbit",
+  "homing": 0,
+  "pierce": 0,
+  "count": 3
+ },
+ "wing-attack": {
+  "kind": "melee",
+  "homing": 0,
+  "pierce": 0,
+  "count": 0
+ },
+ "body-slam": {
+  "kind": "melee",
+  "homing": 0,
+  "pierce": 0,
+  "count": 0
+ },
+ "hyper-voice": {
+  "kind": "nova",
+  "homing": 0,
+  "pierce": 1,
+  "count": 9
+ },
+ "poison-sting": {
+  "kind": "projectile",
+  "homing": 0,
+  "pierce": 0,
+  "count": 1
+ },
+ "toxic": {
+  "kind": "trail",
+  "homing": 0,
+  "pierce": 0,
+  "count": 0
+ },
+ "bulldoze": {
+  "kind": "aura",
+  "homing": 0,
+  "pierce": 0,
+  "count": 0
+ },
+ "bug-bite": {
+  "kind": "melee",
+  "homing": 0,
+  "pierce": 0,
+  "count": 0
+ },
+ "string-shot": {
+  "kind": "mine",
+  "homing": 0,
+  "pierce": 0,
+  "count": 2
+ },
+ "bug-buzz": {
+  "kind": "aura",
+  "homing": 0,
+  "pierce": 0,
+  "count": 0
+ },
+ "rock-throw": {
+  "kind": "projectile",
+  "homing": 0,
+  "pierce": 0,
+  "count": 1
+ },
+ "rock-slide": {
+  "kind": "meteor",
+  "homing": 0,
+  "pierce": 0,
+  "count": 3
+ },
+ "ice-beam": {
+  "kind": "beam",
+  "homing": 0,
+  "pierce": 0,
+  "count": 0
+ },
+ "powder-snow": {
+  "kind": "aura",
+  "homing": 0,
+  "pierce": 0,
+  "count": 0
+ },
+ "karate-chop": {
+  "kind": "melee",
+  "homing": 0,
+  "pierce": 0,
+  "count": 0
+ },
+ "aura-sphere": {
+  "kind": "projectile",
+  "homing": 4,
+  "pierce": 0,
+  "count": 1
+ },
+ "lick": {
+  "kind": "melee",
+  "homing": 0,
+  "pierce": 0,
+  "count": 0
+ },
+ "shadow-ball": {
+  "kind": "projectile",
+  "homing": 0,
+  "pierce": 2,
+  "count": 1
+ },
+ "dragon-rage": {
+  "kind": "beam",
+  "homing": 0,
+  "pierce": 0,
+  "count": 0
+ },
+ "dragon-dance": {
+  "kind": "buff",
+  "homing": 0,
+  "pierce": 0,
+  "count": 0
+ },
+ "fairy-wind": {
+  "kind": "nova",
+  "homing": 0,
+  "pierce": 0,
+  "count": 10
+ },
+ "dazzling-gleam": {
+  "kind": "aura",
+  "homing": 0,
+  "pierce": 0,
+  "count": 0
+ },
+ "metal-claw": {
+  "kind": "melee",
+  "homing": 0,
+  "pierce": 0,
+  "count": 0
+ },
+ "flash-cannon": {
+  "kind": "beam",
+  "homing": 0,
+  "pierce": 0,
+  "count": 0
+ },
+ "bite": {
+  "kind": "melee",
+  "homing": 0,
+  "pierce": 0,
+  "count": 0
+ },
+ "dark-pulse": {
+  "kind": "nova",
+  "homing": 0,
+  "pierce": 1,
+  "count": 10
+ },
+ "night-shade": {
+  "kind": "aura",
+  "homing": 0,
+  "pierce": 0,
+  "count": 0
+ },
+ "bonemerang": {
+  "kind": "boomerang",
+  "homing": 0,
+  "pierce": 0,
+  "count": 1
+ },
+ "psycho-cut": {
+  "kind": "boomerang",
+  "homing": 0,
+  "pierce": 0,
+  "count": 2
+ },
+ "spikes": {
+  "kind": "mine",
+  "homing": 0,
+  "pierce": 0,
+  "count": 2
+ },
+ "toxic-spikes": {
+  "kind": "mine",
+  "homing": 0,
+  "pierce": 0,
+  "count": 2
+ },
+ "hail": {
+  "kind": "meteor",
+  "homing": 0,
+  "pierce": 0,
+  "count": 4
+ },
+ "meteor-mash": {
+  "kind": "meteor",
+  "homing": 0,
+  "pierce": 0,
+  "count": 2
+ },
+ "will-o-wisp": {
+  "kind": "turret",
+  "homing": 0,
+  "pierce": 0,
+  "count": 1
+ },
+ "substitute": {
+  "kind": "turret",
+  "homing": 0,
+  "pierce": 0,
+  "count": 1
+ },
+ "aerial-ace": {
+  "kind": "dash",
+  "homing": 0,
+  "pierce": 0,
+  "count": 0
+ },
+ "flame-wheel": {
+  "kind": "trail",
+  "homing": 0,
+  "pierce": 0,
+  "count": 0
+ },
+ "bubble-beam": {
+  "kind": "cone",
+  "homing": 0,
+  "pierce": 0,
+  "count": 7
+ },
+ "hex": {
+  "kind": "chain",
+  "homing": 0,
+  "pierce": 0,
+  "count": 4
+ }
+}

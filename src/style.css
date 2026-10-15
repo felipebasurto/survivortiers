@@ -36,7 +36,7 @@
     --rule: #4a3f66;
     --rule-soft: #2a2140;
     --grid: rgba(242, 236, 216, .045);
-    --accent: #ff7b3d;
+    --accent: #e879f9;
     --on-accent: #1b1528;
     --link: #8fb4ff;
     --tb-A: #f2ecd8;
@@ -252,12 +252,20 @@ textarea {
 .lt-move.start { box-shadow: 0 0 0 2px var(--accent); }
 .lt-move em { font: .7rem var(--pix); color: var(--accent); text-transform: uppercase; }
 .lt-ico { width: 32px; height: 32px; flex: none; image-rendering: pixelated; }
+.cb-moves { list-style: none; display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 14px; padding: 0; }
+.cb-move { display: flex; align-items: center; gap: 6px; padding: 3px 10px 3px 4px; border: 1px solid var(--rule-soft); border-radius: 999px; font: .85rem/1.2 var(--sans); }
+.cb-bar { display: grid; grid-template-columns: minmax(0, 13rem) 1fr 3.5rem; align-items: center; gap: 12px; margin: 8px 0; font: .85rem var(--sans); }
+.cb-track { display: block; height: 10px; border-radius: 6px; background: var(--rule-soft); overflow: hidden; }
+.cb-track i { display: block; height: 100%; background: var(--accent); }
+.cb-neutral .cb-track i { background: var(--ink-2); }
+.cb-bar strong { text-align: right; font-variant-numeric: tabular-nums; }
+.cb-note { margin: 10px 0 0; font: .8rem/1.5 var(--sans); color: var(--ink-2); max-width: 66ch; }
 .rb-ticks span:first-child { transform: none; }
 .rb-ticks span:last-child { transform: translateX(-100%); }
 /* Banda de la ficha: mini-barra de los 966 con el tramo ampliado, y un marco con la vista ampliada. */
 .fig-band .fig-body:has(.rb-view) { padding-top: 0; }
 .rb-over { margin: 2px 0 26px; }
-.rb-ov { position: relative; display: flex; gap: 2px; height: 12px; }
+.rb-ov { position: relative; display: flex; gap: 2px; height: 18px; }
 .rb-ov i { background: var(--rule-soft); }
 .rb-ov-win { position: absolute; top: -5px; bottom: -5px; min-width: 6px; border: 2px solid var(--accent);
   background: color-mix(in srgb, var(--accent) 16%, transparent); }
@@ -289,6 +297,16 @@ textarea {
 .mt-track { position: relative; height: 2rem; }
 .mt-final { position: absolute; top: 0; bottom: 0; border-left: 1.5px solid var(--accent); }
 .mt-val.flip { margin-left: 0; margin-right: 12px; }
+/* Simulación: escala con marcas, el valor encima del punto y un tramo que muestra la diferencia. */
+.mt-grid { position: absolute; top: 0; bottom: 0; border-left: 1px dashed var(--rule); }
+.mt-gain { position: absolute; top: 50%; height: 7px; margin-top: -3.5px; background: var(--accent); opacity: .6; }
+.sim-chart .mt-track { height: 3.1rem; }
+.sim-chart .mt-val { top: 0; margin: 0; transform: translateX(-50%); }
+.sim-chart .mt-val.s-l { transform: none; }
+.sim-chart .mt-val.s-r { transform: translateX(-100%); }
+.sim-axis { display: block; position: relative; height: 1.3rem; }
+.sim-axis span { position: absolute; top: 4px; transform: translateX(-50%); white-space: nowrap; }
+.sim-gain { color: var(--ink); font-weight: 600; }
 .mt-axis { display: flex; justify-content: space-between; margin-left: var(--label); border-top: 1px solid var(--rule); padding-top: 3px; font: .6875rem var(--sans); color: var(--ink-2); }
 
 /* estadísticas base: barra sobre 255, color por tramo (bajo = rojo, alto = azul) y línea de la mediana */
@@ -439,7 +457,10 @@ summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
 .mv-tags { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; }
 .mv-kind { font: 600 .7rem var(--sans); text-transform: uppercase; letter-spacing: .06em; color: var(--ink-2); }
 .mv-meter .mb { max-width: none; }
-.mv-meter .mb-row { grid-template-columns: 4.6rem 1fr 3.4rem; }
+.mv-meter .mb-row { grid-template-columns: 1fr auto; row-gap: 6px; padding: 4px 0 8px; }
+.mv-meter .mb-name { grid-column: 1; grid-row: 1; }
+.mv-meter .mb-val { grid-column: 2; grid-row: 1; }
+.mv-meter .mb-track { grid-column: 1 / -1; grid-row: 2; height: 1.9rem; }
 .mv-facts { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font: .8125rem/1.4 var(--sans); color: var(--ink-2); }
 
 /* escenario: un Pokémon del tipo del ataque y su patrón (arco, disparo, órbita, caída o aura) */
@@ -480,11 +501,57 @@ summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
 @keyframes mv-fall { 0% { top: 6%; opacity: 0; } 15% { opacity: 1; } 88% { top: 74%; opacity: 1; } 100% { top: 74%; opacity: 0; } }
 @keyframes mv-dash { 0%, 100% { transform: translateX(0); } 40%, 60% { transform: translateX(46px); } }
 @keyframes mv-rise { 0% { top: 74%; opacity: 0; } 30% { opacity: 1; } 100% { top: 22%; opacity: 0; } }
+/* Trazos (rayo y cadena) en un SVG del tamaño del escenario; el grosor se mantiene en píxeles. */
+.mv-beams { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; overflow: visible; pointer-events: none; }
+.mv-beams line { stroke: var(--accent); stroke-width: 3px; stroke-linecap: round; vector-effect: non-scaling-stroke; opacity: 0; }
+/* Rayo: barra desde el Pokémon hasta el borde; crece en un instante, no viaja */
+.mv-ray { display: none; position: absolute; left: var(--hx); top: var(--hy); width: 50%; height: 7px; margin-top: -3.5px;
+  background: var(--accent); box-shadow: 0 0 10px var(--accent); transform-origin: left center; transform: scaleX(0); opacity: 0; z-index: 1; }
+.fx-beam .mv-ray { display: block; animation: mv-ray 1.4s ease-out infinite; }
+.fx-chain .mv-link.k1 { animation: mv-link-1 2s linear infinite; }
+.fx-chain .mv-link.k2 { animation: mv-link-2 2s linear infinite; }
+.fx-chain .mv-link.k3 { animation: mv-link-3 2s linear infinite; }
+.fx-chain .mv-link.k4 { animation: mv-link-4 2s linear infinite; }
+/* Orbe que viaja: el teledirigido sube en arco y cae sobre la diana; el perforante cruza todo en línea recta. */
+.mv-orb { display: none; position: absolute; left: var(--hx); top: var(--hy); width: 11px; height: 11px; border-radius: 50%; z-index: 2;
+  background: var(--accent); box-shadow: 0 0 0 2px var(--bg), 0 0 8px var(--accent); transform: translate(-50%, -50%); opacity: 0; }
+.fx-home .mv-orb, .fx-pierce .mv-orb { display: block; }
+.fx-home .mv-orb { animation: mv-home 1.4s ease-in-out infinite; }
+.fx-pierce .mv-orb { animation: mv-pierce 1.4s linear infinite; }
+/* Destellos de cada diana, en el instante en que la alcanza el ataque */
+.fx-beam .mv-foe.f1 { animation: mv-hit-10 1.4s ease-out infinite; }
+.fx-home .mv-foe.f1 { animation: mv-hit-72 1.4s ease-out infinite; }
+.fx-pierce .mv-foe.f1 { animation: mv-hit-44 1.4s ease-out infinite; }
+.fx-pierce .mv-foe.f2 { animation: mv-hit-76 1.4s ease-out infinite; }
+.fx-chain .mv-foe.f1 { animation: mv-hit-20 2s ease-out infinite; }
+.fx-chain .mv-foe.f2 { animation: mv-hit-40 2s ease-out infinite; }
+.fx-chain .mv-foe.f3 { animation: mv-hit-60 2s ease-out infinite; }
+.fx-chain .mv-foe.f4 { animation: mv-hit-80 2s ease-out infinite; }
+@keyframes mv-ray { 0% { transform: scaleX(0); opacity: 1; } 8% { transform: scaleX(1); opacity: 1; } 70% { opacity: 1; } 100% { opacity: 0; } }
+/* Cada salto aparece cuando el anterior llega a su diana (en 20 %, 40 %, 60 % del ciclo de 2 s) */
+@keyframes mv-link-1 { 0%, 88% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes mv-link-2 { 0%, 19% { opacity: 0; } 21%, 88% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes mv-link-3 { 0%, 39% { opacity: 0; } 41%, 88% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes mv-link-4 { 0%, 59% { opacity: 0; } 61%, 88% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes mv-home { 0% { left: var(--hx); top: var(--hy); opacity: 0; } 8% { opacity: 1; } 40% { left: calc((var(--hx) + var(--tx)) / 2); top: 12%; opacity: 1; } 72% { left: var(--tx); top: var(--hy); opacity: 1; } 80%, 100% { left: var(--tx); top: var(--hy); opacity: 0; } }
+@keyframes mv-pierce { 0% { left: var(--hx); opacity: 0; } 6% { left: var(--hx); opacity: 1; } 92% { opacity: 1; } 100% { left: 104%; opacity: 0; } }
+@keyframes mv-hit-10 { 0%, 2% { transform: translate(-50%, -50%) scale(1); border-color: var(--ink-2); } 10% { transform: translate(-50%, -50%) scale(1.22); border-color: var(--accent); } 18%, 100% { transform: translate(-50%, -50%) scale(1); border-color: var(--ink-2); } }
+@keyframes mv-hit-20 { 0%, 12% { transform: translate(-50%, -50%) scale(1); border-color: var(--ink-2); } 20% { transform: translate(-50%, -50%) scale(1.22); border-color: var(--accent); } 28%, 100% { transform: translate(-50%, -50%) scale(1); border-color: var(--ink-2); } }
+@keyframes mv-hit-40 { 0%, 32% { transform: translate(-50%, -50%) scale(1); border-color: var(--ink-2); } 40% { transform: translate(-50%, -50%) scale(1.22); border-color: var(--accent); } 48%, 100% { transform: translate(-50%, -50%) scale(1); border-color: var(--ink-2); } }
+@keyframes mv-hit-44 { 0%, 36% { transform: translate(-50%, -50%) scale(1); border-color: var(--ink-2); } 44% { transform: translate(-50%, -50%) scale(1.22); border-color: var(--accent); } 52%, 100% { transform: translate(-50%, -50%) scale(1); border-color: var(--ink-2); } }
+@keyframes mv-hit-60 { 0%, 52% { transform: translate(-50%, -50%) scale(1); border-color: var(--ink-2); } 60% { transform: translate(-50%, -50%) scale(1.22); border-color: var(--accent); } 68%, 100% { transform: translate(-50%, -50%) scale(1); border-color: var(--ink-2); } }
+@keyframes mv-hit-72 { 0%, 64% { transform: translate(-50%, -50%) scale(1); border-color: var(--ink-2); } 72% { transform: translate(-50%, -50%) scale(1.22); border-color: var(--accent); } 80%, 100% { transform: translate(-50%, -50%) scale(1); border-color: var(--ink-2); } }
+@keyframes mv-hit-76 { 0%, 68% { transform: translate(-50%, -50%) scale(1); border-color: var(--ink-2); } 76% { transform: translate(-50%, -50%) scale(1.22); border-color: var(--accent); } 84%, 100% { transform: translate(-50%, -50%) scale(1); border-color: var(--ink-2); } }
+@keyframes mv-hit-80 { 0%, 72% { transform: translate(-50%, -50%) scale(1); border-color: var(--ink-2); } 80% { transform: translate(-50%, -50%) scale(1.22); border-color: var(--accent); } 88%, 100% { transform: translate(-50%, -50%) scale(1); border-color: var(--ink-2); } }
 .mv-ex { align-self: flex-start; margin-top: -4px; font: .8125rem var(--sans); color: var(--link); text-decoration: none; }
 .mv-ex:hover { text-decoration: underline; }
 @media (prefers-reduced-motion: reduce) {
   .mv-arc, .mv-p, .mv-hero { animation: none !important; }
   .mv-arc, .mv-p { display: none; }
+  .mv-ray, .mv-link, .mv-orb, .mv-foe { animation: none !important; }
+  .mv-beams line { opacity: 1; }
+  .fx-beam .mv-ray { animation: none !important; transform: none; opacity: 1; }
+  .mv-orb { display: none; }
 }
 
 /* ---------- colección ---------- */

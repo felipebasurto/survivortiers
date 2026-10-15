@@ -222,12 +222,12 @@ def render_index(c: Ctx, pokemon: list[dict], meta: dict) -> str:
 
 FICHA_KEYS = (
     "crumb_home", "legendary", "stars_alt", "sprite_alt", "ficha_title", "ficha_desc", "flag_status", "flag_melee",
-    "flag_capped", "pager_aria", "dex_no", "tier", "f_missing", "t_band", "t_pillars", "t_methods", "t_sim",
-    "band_rank", "band_range", "band_alt", "band_zoom", "band_all", "t_learn", "learn_lede", "learn_start", "pill_stats", "pill_moves", "pill_typedef", "pill_size", "pillars_alt_item",
+    "flag_capped", "flag_types", "pager_aria", "dex_no", "tier", "f_missing", "t_band", "t_pillars", "t_methods", "t_sim",
+    "band_rank", "band_range", "band_alt", "band_zoom", "band_all", "t_learn", "learn_lede", "learn_start", "t_combo", "combo_lede", "combo_lede_two", "combo_lede_one", "combo_super", "combo_neutral", "combo_note", "pill_stats", "pill_moves", "pill_typedef", "pill_size", "pillars_alt_item",
     "median", "m_sheet", "m_simStart", "m_simBest", "m_lateMax", "m_lateFresh", "methods_final", "methods_alt",
-    "methods_alt_item", "sim_start", "sim_best", "sim_median", "sim_alt", "sim_lede", "sim_scale", "methods_lede",
+    "methods_alt_item", "sim_start", "sim_best", "sim_median", "sim_alt", "sim_lede", "sim_scale", "sim_gain", "methods_lede",
     "rar_1", "rar_2", "rar_3", "rar_4", "rar_5", "t_base", "bs_hp", "bs_atk", "bs_def", "bs_spa", "bs_spd", "bs_spe",
-    "bs_total", "bs_note", "bs_alt_item", "bs_s_hp", "bs_s_atk", "bs_s_def", "bs_s_spa", "bs_s_spd", "bs_s_spe")
+    "bs_total", "bs_alt_item", "bs_s_hp", "bs_s_atk", "bs_s_def", "bs_s_spa", "bs_s_spd", "bs_s_spe")
 
 
 def render_ficha(c: Ctx, index: list[dict], meta: dict) -> str:
@@ -253,7 +253,7 @@ def render_ficha(c: Ctx, index: list[dict], meta: dict) -> str:
 
 # Cada tipo de movimiento del juego se dibuja con uno de estos patrones (la animación de la tarjeta).
 KIND_FX = {"melee": "swing", "cone": "swing", "trail": "swing", "dash": "dash",
-           "projectile": "shot", "beam": "shot", "chain": "shot", "boomerang": "shot", "turret": "shot",
+           "projectile": "shot", "beam": "beam", "chain": "chain", "boomerang": "shot", "turret": "shot",
            "orbit": "ring", "aura": "ring", "nova": "ring", "mine": "drop", "meteor": "drop", "buff": "boost"}
 LETTERS = "abcdefghijklmnopqrstuvwxyz"  # la rejilla de píxeles de moves.json usa letras para la paleta
 
@@ -280,16 +280,51 @@ def move_icon_svg(icon: dict) -> str:
             f'focusable="false" shape-rendering="crispEdges">{"".join(rects)}</svg>')
 
 
+# Posiciones de las dianas en el escenario (%), según cómo las alcanza el ataque en el juego.
+# El Pokémon está en el centro (50 %, 64 %). Chain: cuatro dianas, las que golpea el juego (count 4).
+FOE_POS = {
+    "shot": [(80, 64)],
+    "home": [(74, 64)],
+    "pierce": [(72, 64), (90, 64)],          # atraviesa la primera y sigue hasta la segunda
+    "beam": [(72, 64)],                       # el rayo pasa por ella y sigue hasta el borde
+    # Chain: orden de salto del juego (combat.js chain): desde cada impacto, la diana no alcanzada más cercana.
+    "chain": [(68, 86), (88, 72), (90, 24), (70, 22)],
+}
+
+
+def move_fx(m: dict) -> str:
+    """El patrón de animación que enseña el juego: teledirigido, perforante, rayo, salto o el de su tipo de movimiento."""
+    if m["kind"] == "projectile":
+        mech = m["mech"]
+        if mech["homing"] > 0:
+            return "home"
+        if mech["pierce"] > 0:
+            return "pierce"
+        return "shot"
+    return KIND_FX[m["kind"]]
+
+
 def move_stage(L: Lang, m: dict, mon: dict, home: str) -> str:
-    """El escenario: el Pokémon de ejemplo y el patrón de ataque de ese tipo de movimiento, en CSS."""
-    fx = KIND_FX[m["kind"]]
+    """El escenario: el Pokémon de ejemplo y el patrón de ataque de ese movimiento, en CSS y SVG."""
+    fx = move_fx(m)
     name = L.mon(mon)
     particles = "".join(f'<i class="mv-p p{i}"></i>' for i in (1, 2, 3))
     hero = (f'<span class="mv-hero"><img src="{SPRITES}{mon["dex"]}{EXT}" width="{mon["w"]}" height="{mon["h"]}" '
             f'alt="" loading="lazy"></span>')
-    # Diana a la derecha: el ataque sale del Pokémon y acierta ahí. Los potenciadores no tienen objetivo.
-    foe = "" if fx == "boost" else '<span class="mv-foe"><i></i></span>'
-    return (f'<div class="mv-stage fx-{fx}" aria-hidden="true"><i class="mv-arc"></i>{particles}{foe}{hero}</div>'
+    # Dianas: el ataque sale del Pokémon y acierta ahí. Los potenciadores no tienen objetivo.
+    foes = "" if fx == "boost" else "".join(
+        f'<span class="mv-foe f{i + 1}" style="--tx:{x}%;--hy:{y}%"><i></i></span>'
+        for i, (x, y) in enumerate(FOE_POS.get(fx, FOE_POS["shot"])))
+    # Rayo: una barra desde el Pokémon hasta el borde. Cadena: un trazo por salto, en orden, hasta cada diana.
+    ray = '<i class="mv-ray"></i>' if fx == "beam" else ""
+    svg = ""
+    if fx == "chain":
+        pts = [(50, 64)] + FOE_POS["chain"]
+        links = "".join(f'<line class="mv-link k{i + 1}" x1="{a[0]}" y1="{a[1]}" x2="{b[0]}" y2="{b[1]}"/>'
+                        for i, (a, b) in enumerate(zip(pts, pts[1:])))
+        svg = f'<svg class="mv-beams" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">{links}</svg>'
+    orb = '<i class="mv-orb"></i>' if fx in ("home", "pierce") else ""
+    return (f'<div class="mv-stage fx-{fx}" aria-hidden="true"><i class="mv-arc"></i>{particles}{ray}{svg}{orb}{foes}{hero}</div>'
             f'<a class="mv-ex" href="{home}pokemon/?id={mon["dex"]}">{esc(L.t("mv_example", name=name))}</a>')
 
 
@@ -313,7 +348,8 @@ def move_facts(L: Lang, m: dict) -> str:
 
 def move_card(L: Lang, m: dict, mon: dict, home: str) -> str:
     name = m["en"]["name"] if L.en else m["name"]
-    kind = L.t("mv_kind_" + m["kind"])
+    # Teledirigido y perforante se nombran aparte del proyectil normal: cambian cómo se usa el ataque.
+    kind = L.t("mv_kind_" + {"home": "homing", "pierce": "pierce"}.get(move_fx(m), m["kind"]))
     bars = charts.buff_bars(L, m["score"], m["buff"]) if "buff" in m else charts.move_bars(L, m["score"])
     types = TYPE_NAMES["en" if L.en else "es"]
     search = " ".join([m["name"], m["en"]["name"] or "", types[m["type"]], kind]).lower()

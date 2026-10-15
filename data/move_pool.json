@@ -1,0 +1,102 @@
+{
+ "normal": [
+  "tackle",
+  "quick-attack",
+  "swords-dance",
+  "agility",
+  "harden",
+  "body-slam",
+  "hyper-voice",
+  "substitute"
+ ],
+ "fire": [
+  "ember",
+  "flamethrower",
+  "fire-spin",
+  "heat-wave",
+  "will-o-wisp",
+  "flame-wheel"
+ ],
+ "water": [
+  "water-gun",
+  "bubble",
+  "hydro-pump",
+  "aqua-ring",
+  "bubble-beam"
+ ],
+ "grass": [
+  "vine-whip",
+  "razor-leaf",
+  "leaf-storm",
+  "giga-drain"
+ ],
+ "electric": [
+  "thunder-shock",
+  "discharge",
+  "thunderbolt"
+ ],
+ "psychic": [
+  "confusion",
+  "psybeam",
+  "psychic",
+  "psycho-cut"
+ ],
+ "poison": [
+  "sludge",
+  "poison-sting",
+  "toxic",
+  "toxic-spikes"
+ ],
+ "ground": [
+  "mud-shot",
+  "bulldoze",
+  "bonemerang",
+  "spikes"
+ ],
+ "flying": [
+  "gust",
+  "wing-attack",
+  "aerial-ace"
+ ],
+ "bug": [
+  "bug-bite",
+  "string-shot",
+  "bug-buzz"
+ ],
+ "rock": [
+  "rock-throw",
+  "rock-slide"
+ ],
+ "ice": [
+  "ice-beam",
+  "powder-snow",
+  "hail"
+ ],
+ "fighting": [
+  "karate-chop",
+  "aura-sphere"
+ ],
+ "ghost": [
+  "lick",
+  "shadow-ball",
+  "hex"
+ ],
+ "dragon": [
+  "dragon-rage",
+  "dragon-dance"
+ ],
+ "fairy": [
+  "fairy-wind",
+  "dazzling-gleam"
+ ],
+ "steel": [
+  "metal-claw",
+  "flash-cannon",
+  "meteor-mash"
+ ],
+ "dark": [
+  "bite",
+  "dark-pulse",
+  "night-shade"
+ ]
+}

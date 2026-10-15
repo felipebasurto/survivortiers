@@ -21,6 +21,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import combos  # noqa: E402
 import credits as credits_mod  # noqa: E402
 import legal  # noqa: E402
 
@@ -108,6 +109,7 @@ def load_moves() -> list[dict]:
         raise CatalogError("data/move_tierlist_v4.csv está vacío")
     names_en = json.loads((DATA / "lang_en_moves.json").read_text(encoding="utf8"))
     icons = json.loads((DATA / "move_icons.json").read_text(encoding="utf8"))  # node build/export_move_icons.js
+    mechanics = json.loads((DATA / "move_mechanics.json").read_text(encoding="utf8"))  # node build/export_move_mechanics.js
     def en(name: str | None, table: str) -> str | None:
         if not name:
             return None
@@ -132,6 +134,13 @@ def load_moves() -> list[dict]:
         if (icon["type"], icon["kind"]) != (r["type"], r["kind"]):
             raise CatalogError(f"{r['move_id']}: el juego dice {icon['type']}/{icon['kind']}, la tier list {r['type']}/{r['kind']}")
         move["icon"] = {"size": icon["size"], "pal": icon["pal"], "rows": icon["rows"]}
+        # Cómo se comporta en el juego (node build/export_move_mechanics.js): distingue teledirigido, perforante y salto.
+        mech = mechanics.get(r["move_id"])
+        if mech is None:
+            raise CatalogError(f"sin mecánica del juego para {r['move_id']!r} (node build/export_move_mechanics.js)")
+        if mech["kind"] != r["kind"]:
+            raise CatalogError(f"{r['move_id']}: el juego dice {mech['kind']}, la tier list {r['kind']}")
+        move["mech"] = {"homing": mech["homing"], "pierce": mech["pierce"], "count": mech["count"]}
         moves.append(move)
     return moves
 
@@ -192,7 +201,7 @@ def load_pokemon(move_names: dict, credits: dict) -> list[dict]:
                     "best": {**_move(move_names, row["best_move"]), "seconds": float(row["best_median_s"])}},
             "pair": pair,
             "flags": {"statsCapped": row["stats_capped"] == "1", "statusUnmodelled": row["status_unmodelled"] == "1",
-                      "melee": row["melee_start"] == "1"},
+                      "melee": row["melee_start"] == "1", "typesCapped": row["types_capped"] == "1"},
         }
         entries.append({
             "dex": dex, "name": px["name"], "nameEn": name_en, "types": px["types"],
@@ -317,11 +326,13 @@ def sort_values(e: dict) -> dict:
             "st": round(100 * pil["stats"])}
 
 
-def species_details(entries: list[dict], sim_range: list[float], median: float) -> dict:
+def species_details(entries: list[dict], sim_range: list[float], median: float, combo: dict) -> dict:
     """Lo que la ficha necesita además de pokemon-index.json, en listas para que pese poco. Orden de cada entrada:
     [pilares (stats, moves, typedef, size), puestos por medida (METHOD_KEYS), ataque inicial, segundos, mejor ataque,
     segundos, pareja de ataques, banderas (1 estados, 2 cuerpo a cuerpo, 4 estadísticas), estadísticas base
-    oficiales [PS, ataque, defensa, ataque especial, defensa especial, velocidad]]. Lo lee src/ficha.js.
+    oficiales [PS, ataque, defensa, ataque especial, defensa especial, velocidad], trío de cobertura [% super efectivo,
+    % no resistido, ids de los ataques y el potenciador, tipos de ataque distintos (1-3)] (build/combos.py)].
+    Lo lee src/ficha.js.
     «statMedian» es la mediana de cada estadística base entre los 966, para la línea de referencia de la ficha."""
     out = {}
     for e in entries:
@@ -330,8 +341,9 @@ def species_details(entries: list[dict], sim_range: list[float], median: float) 
         out[str(e["dex"])] = [
             [r["pillars"][k] for k in ("stats", "moves", "typedef", "size")], [r["methods"][k] for k in METHOD_KEYS],
             r["sim"]["start"]["id"], r["sim"]["start"]["seconds"], r["sim"]["best"]["id"], r["sim"]["best"]["seconds"],
-            [m["id"] for m in r["pair"]], int(f["statusUnmodelled"]) + 2 * int(f["melee"]) + 4 * int(f["statsCapped"]),
-            e["stats"]]
+            [m["id"] for m in r["pair"]], int(f["statusUnmodelled"]) + 2 * int(f["melee"]) + 4 * int(f["statsCapped"]) + 8 * int(f["typesCapped"]),
+            e["stats"], [combo[e["dex"]]["super"], combo[e["dex"]]["neutral"], combo[e["dex"]]["moves"],
+                         combo[e["dex"]]["types"]]]
     medians = [statistics.median(e["stats"][i] for e in entries) for i in range(6)]
     return {"sim": [*sim_range, median], "statMedian": medians, "d": out}
 
@@ -359,7 +371,9 @@ def main() -> int:
     write_json("pokemon.json", entries)
     write_json("moves.json", moves)
     write_json("pokemon-index.json", slim(entries), public=True)
-    write_json("species.json", species_details(entries, meta["simRange"], meta["simMedianSeconds"]), public=True)
+    dex_types = {p["dex"]: p["types"] for p in json.loads((DATA / "pokedex_export.json").read_text(encoding="utf8"))}
+    write_json("species.json", species_details(entries, meta["simRange"], meta["simMedianSeconds"],
+                                               combos.compute_all(dex_types)), public=True)
     write_json("moves.json", moves, public=True)
     write_json("gachas.json", gachas, pretty=True)
     write_json("meta.json", meta, pretty=True)

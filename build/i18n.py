@@ -83,6 +83,8 @@ STR: dict[str, tuple[str, str]] = {
                     "y por eso le frenan el tier.",
                     "Its stats are too low for the tier its other measures would give, "
                     "so they hold its tier back."),
+    "flag_types": ("Sus ataques no cubren tres tipos, y para el tier S hacen falta tres; por eso no sube a S.",
+                   "Its attacks don't cover three types, and S needs three; that keeps it out of S."),
     "pager_aria": ("Pokémon vecinos", "Neighbouring Pokémon"),
     "dex_no": ("nº {dex}", "no. {dex}"),
     "noscript_ficha": ("Esta página necesita JavaScript.", "This page needs JavaScript."),
@@ -100,8 +102,6 @@ STR: dict[str, tuple[str, str]] = {
     "bs_spd": ("Defensa especial", "Sp. Defense"),
     "bs_spe": ("Velocidad", "Speed"),
     "bs_total": ("Total", "Total"),
-    "bs_note": ("Valores oficiales de PokéAPI, de 0 a 255. El hexágono discontinuo es la mediana de los 966 Pokémon.",
-                "Official PokéAPI values, from 0 to 255. The dashed hexagon is the median of all 966 Pokémon."),
     "bs_s_hp": ("PS", "HP"),
     "bs_s_atk": ("Atq", "Atk"),
     "bs_s_def": ("Def", "Def"),
@@ -118,6 +118,22 @@ STR: dict[str, tuple[str, str]] = {
                    "{n} moves: normal-type ones and those of its types, by overall tier (the same as on Moves). "
                    "They are not simulated with this Pokémon."),
     "learn_start": ("inicial", "start"),
+    "t_combo": ("Combo de cobertura", "Coverage combo"),
+    "combo_lede": ("Tres ataques de tipos distintos y un potenciador: lo que el juego lanza junto con un vínculo. "
+                   "Los porcentajes miran a los 966 Pokémon por igual.",
+                   "Three attacks of different types and a boost: what the game fires together with a bond. "
+                   "Percentages count all 966 Pokémon equally."),
+    "combo_lede_two": ("Dos tipos de ataque y un potenciador: no llega a tres tipos, así que cubre menos rivales. "
+                       "Los porcentajes miran a los 966 Pokémon por igual.",
+                       "Two attack types and a boost: it does not reach three types, so it covers fewer foes. "
+                       "Percentages count all 966 Pokémon equally."),
+    "combo_lede_one": ("Un solo tipo de ataque y un potenciador: cubre muy pocos rivales. "
+                       "Los porcentajes miran a los 966 Pokémon por igual.",
+                       "One attack type and a boost: it covers very few foes. Percentages count all 966 Pokémon equally."),
+    "combo_super": ("Golpea super efectivo", "Hits super effective"),
+    "combo_neutral": ("Nunca le resisten", "Never resisted"),
+    "combo_note": ("El tipo normal no es super efectivo contra nada: su papel es que ningún rival le resista.",
+                   "Normal type is not super effective against anything: its job is that no foe resists it."),
     "sort_by": ("Ordenar por", "Sort by"),
     "sort_rank": ("Puesto", "Rank"),
     "sort_name": ("Nombre", "Name"),
@@ -169,6 +185,8 @@ STR: dict[str, tuple[str, str]] = {
                  "It is not the game's defense or HP: it is how long it lasts in the simulation."),
     "sim_scale": ("Escala: de {lo} s a {hi} s, lo que aguantan todos los Pokémon.",
                   "Scale: {lo} s to {hi} s, what all Pokémon last."),
+    "sim_gain": ("Con el mejor ataque aguanta {d} s más que con el inicial.",
+                 "With the best move it lasts {d} s longer than with the starting move."),
 
     # ------------------------------------------------------------ ataques
     "ataques_title": ("Ataques · {site}", "Moves · {site}"),
@@ -211,6 +229,8 @@ STR: dict[str, tuple[str, str]] = {
     "mv_kind_dash": ("Embestida", "Dash"),
     "mv_kind_trail": ("Estela", "Trail"),
     "mv_kind_chain": ("Cadena", "Chain"),
+    "mv_kind_homing": ("Teledirigido", "Homing"),
+    "mv_kind_pierce": ("Perforante", "Piercing"),
     "mv_kind_cone": ("Cono", "Cone"),
     "mv_kind_turret": ("Torreta", "Turret"),
     "odds_title": ("Probabilidad por rareza", "Odds by rarity"),
@@ -325,10 +345,12 @@ STR: dict[str, tuple[str, str]] = {
                    "runs from the 10th to the 90th percentile of those positions."),
     "met_step_6_h": ("Tier", "Tier"),
     "met_step_6": ("Los puestos se reparten en tiers de tamaño fijo: {sizes}. Para entrar en S hace falta estar "
-                   "entre el {s} mejor en estadísticas; en A, entre el {a}; en B, entre el {b}. Quien no cumple el "
-                   "mínimo espera al siguiente tier en el que sí entre.",
+                   "entre el {s} mejor en estadísticas, tener ataques de tres tipos distintos y no empezar con un "
+                   "ataque cuerpo a cuerpo; en A, entre el {a}; en B, entre el {b}. Quien no cumple el mínimo espera "
+                   "al siguiente tier en el que sí entre.",
                    "Ranks are split into tiers of fixed size: {sizes}. To enter S you must be in the top {s} for "
-                   "stats; A, top {a}; B, top {b}. Whoever misses the minimum waits for the next tier they qualify for."),
+                   "stats, have attacks of three different types, and not start with a melee attack; A, top {a}; "
+                   "B, top {b}. Whoever misses the minimum waits for the next tier they qualify for."),
     "pipe_title": ("Del dato al tier", "From data to tier"),
     "pipe_1": ("Medir", "Measure"),
     "pipe_2": ("Percentil", "Percentile"),

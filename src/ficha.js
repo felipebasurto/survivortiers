@@ -16,7 +16,7 @@
   const CUTS = [['S', 1, 30], ['A', 31, 120], ['B', 121, 320], ['C', 321, 620], ['D', 621, 966]];
   const PILLARS = ['stats', 'moves', 'typedef', 'size'];
   const METHODS = ['sheet', 'simStart', 'simBest', 'lateMax', 'lateFresh'];
-  const FLAGS = [[1, 'potion', 'flag_status'], [2, 'sword', 'flag_melee'], [4, 'trophy', 'flag_capped']];
+  const FLAGS = [[1, 'potion', 'flag_status'], [2, 'sword', 'flag_melee'], [4, 'trophy', 'flag_capped'], [8, 'sparkle', 'flag_types']];
   // Mismos colores que build/typedata.py (TYPE_COLOR): tiñen el fondo del sprite.
   const TYPE_COLOR = {
     normal: '#b0a99f', fire: '#ff7b3d', water: '#4b9bff', grass: '#5fcb6a', electric: '#ffd33d', ice: '#7fe0e0',
@@ -161,8 +161,7 @@
         '<output class="bs-val">' + r.v + '</output></div>';
     });
     out += '<div class="bs-total"><span>' + esc(t('bs_total')) + '</span><b>' + total + '</b></div></div>';
-    const body = '<div class="bs-wrap"><div class="bs-radar">' + radar(s, medians) + '</div>' + out + '</div>' +
-      '<p class="fig-note">' + esc(t('bs_note')) + '</p>';
+    const body = '<div class="bs-wrap"><div class="bs-radar">' + radar(s, medians) + '</div>' + out + '</div>';
     const alt = name + ': ' + rows.map(r => t('bs_alt_item', { label: r.label, v: r.v })).join('; ') + '; ' + t('bs_total') + ' ' + total + '.';
     return fig('bases', t('t_base'), body, alt);
   }
@@ -197,6 +196,14 @@
     return fig('methods', t('t_methods'), body, alt);
   }
 
+  // Marcas redondas (20, 40, 60...) con a lo sumo unas seis en la escala: sin ellas no se lee la distancia.
+  function simTicks(lo, hi) {
+    const step = [5, 10, 20, 25, 50, 100].find(s => (hi - lo) / s <= 6) || 100;
+    const out = [];
+    for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) out.push(v);
+    return out;
+  }
+
   function sim(d, range, moveName) {
     const [lo, hi, median] = range;
     const items = [{ label: t('sim_start', { name: moveName(d[2]) }), s: d[3] }];
@@ -204,9 +211,23 @@
     const xOf = s => (s - lo) / (hi - lo) * 100;
     const xm = xOf(median);
     const secs = s => rnd(s) + ' s';
+    const grid = simTicks(lo, hi).map(v => '<i class="mt-grid" style="left:' + f2(xOf(v)) + '%"></i>').join('');
+    const rows = items.map((it, i) => {
+      const x = xOf(it.s);
+      const gain = i === 1 ? '<i class="mt-gain" style="left:' + f2(xOf(items[0].s)) + '%;width:' + f2(x - xOf(items[0].s)) + '%"></i>' : '';
+      const side = x < 10 ? ' s-l' : x > 90 ? ' s-r' : '';
+      return '<div class="mt-row" style="--i:' + i + '"><span class="mt-name">' + esc(it.label) + '</span>' +
+        '<span class="mt-track">' + grid + gain + '<i class="mt-final" style="left:' + f2(xm) + '%"></i>' +
+        '<b class="mt-dot" style="left:' + f2(x) + '%"></b>' +
+        '<em class="mt-val' + side + '" style="left:' + f2(x) + '%">' + esc(secs(it.s)) + '</em></span></div>';
+    }).join('');
+    const axis = simTicks(lo, hi).map(v => '<span style="left:' + f2(xOf(v)) + '%">' + v + ' s</span>').join('');
+    const ref = '<div class="mt-ref"><span class="' + side(xm) + '" style="left:' + f2(xm) + '%">' + esc(t('sim_median', { s: rnd(median) })) + '</span></div>';
+    const gainNote = items.length === 2 && items[1].s > items[0].s
+      ? '<p class="fig-note sim-gain">' + esc(t('sim_gain', { d: rnd(items[1].s - items[0].s) })) + '</p>' : '';
     const body = '<p class="fig-lede">' + esc(t('sim_lede')) + '</p>' +
-      dotplot({ text: t('sim_median', { s: rnd(median) }), x: xm, side: side(xm) },
-        items.map(i => ({ label: i.label, x: xOf(i.s), text: secs(i.s) })), [rnd(lo) + ' s', rnd(hi) + ' s']) +
+      '<div class="sim-chart">' + ref + rows + '<div class="mt-axis sim-axis" aria-hidden="true">' + axis + '</div></div>' +
+      gainNote +
       '<p class="fig-note">' + esc(t('sim_scale', { lo: rnd(lo), hi: rnd(hi) })) + '</p>';
     const alt = t('sim_alt') + items.map(i => i.label + ', ' + secs(i.s)).join('; ') + '.';
     return fig('sim', t('t_sim'), body, alt);
@@ -252,6 +273,25 @@
       '<p class="learn-lede">' + esc(t('learn_lede', { n: pool.length })) + '</p>' + rows + '</section>';
   }
 
+  // Trío de cobertura (build/combos.py): tres ataques de tipos distintos y un potenciador, con dos barras.
+  function combo(d, moves) {
+    const [superPct, neutralPct, ids, nTypes] = d[9];
+    // El texto sigue al número real de tipos de ataque: nunca dice «tres» si el trío tiene dos.
+    const chips = ids.map(id => {
+      const m = moves.find(x => x.id === id);
+      const name = m ? (EN ? m.en.name : m.name) : id;
+      return '<li class="cb-move">' + (m ? '<img class="lt-ico" src="' + iconUrl(m) + '" alt="" width="32" height="32">' : '') +
+        esc(name) + '</li>';
+    }).join('');
+    const bar = (label, pct, cls) => '<div class="cb-bar ' + cls + '"><span class="cb-label">' + esc(label) + '</span>' +
+      '<span class="cb-track" role="img" aria-label="' + pct + ' %"><i style="width:' + pct + '%"></i></span><strong>' + pct + ' %</strong></div>';
+    return '<section class="fig anim fig-combo"><figcaption><h3>' + esc(t('t_combo')) + '</h3></figcaption>' +
+      '<p class="learn-lede">' + esc(t(nTypes >= 3 ? 'combo_lede' : nTypes === 2 ? 'combo_lede_two' : 'combo_lede_one')) +
+      '</p><ul class="cb-moves">' + chips + '</ul>' +
+      bar(t('combo_super'), superPct, 'cb-super') + bar(t('combo_neutral'), neutralPct, 'cb-neutral') +
+      '<p class="cb-note">' + esc(t('combo_note')) + '</p></section>';
+  }
+
   const tpl = (id, attr, val) => {
     const el = document.querySelector('#' + id).content.querySelector('[' + attr + '="' + val + '"]');
     return el ? el.innerHTML : '';
@@ -289,7 +329,7 @@
       '<div class="facts">' + pills + ' ' + rarity + ' ' + legendary + ' ' + tpl('tpl-regions', 'data-gen', p.bannerId) + '</div>' +
       '<div class="rankline"><span class="tier-badge ' + tier + '" title="' + esc(t('tier', { t: tier })) + '">' + tier + '</span>' +
       '<strong>' + rank + '</strong><span>/ ' + TOTAL + '</span>' + flagsHtml(d[7]) + '</div></div></div>' +
-      baseStats(d, medians, name) + rankBand(p, name) + pillars(d, name) + sim(d, range, moveName) + learn(p, d, moves) + methods(p, d, name) +
+      baseStats(d, medians, name) + rankBand(p, name) + pillars(d, name) + sim(d, range, moveName) + learn(p, d, moves) + combo(d, moves) + methods(p, d, name) +
       '<nav class="pager" aria-label="' + esc(t('pager_aria')) + '">' + pager + '</nav>';
     const label = EN || p.nameEn === p.name ? name : p.name + ' (' + p.nameEn + ')';
     document.title = t('ficha_title', { name, tier });
