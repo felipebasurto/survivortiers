@@ -146,8 +146,29 @@ textarea {
 /* ---------- ficha ---------- */
 .crumbs { font: .875rem var(--sans); color: var(--ink-2); margin-bottom: 22px; }
 .ficha-head { display: grid; grid-template-columns: auto 1fr; gap: 20px 36px; align-items: center; }
-.ficha-sprite { width: 190px; height: 190px; display: grid; place-items: center; background: var(--rule-soft); }
-.ficha-sprite img { max-width: 100%; max-height: 100%; object-fit: contain; }
+/* Escenario del sprite: foco con el color del tipo (--tc, y --tc2 si tiene dos), rejilla de píxeles y suelo. */
+.ficha-sprite {
+  position: relative; isolation: isolate; overflow: hidden; width: 190px; height: 190px; display: grid; place-items: center;
+  background:
+    radial-gradient(ellipse 58% 46% at 50% 38%, color-mix(in srgb, var(--tc) 85%, transparent), transparent 74%),
+    radial-gradient(ellipse 50% 42% at 14% 92%, color-mix(in srgb, var(--tc2) 40%, transparent), transparent 70%),
+    linear-gradient(180deg, #2a2245 0%, #140f22 100%);
+  box-shadow: var(--notch);
+}
+.ficha-sprite::before {  /* rejilla de píxeles, muy suave */
+  content: ""; position: absolute; inset: 0; z-index: -1; opacity: .5;
+  background: repeating-conic-gradient(rgba(255, 255, 255, .04) 0 25%, transparent 0 50%) 0 0 / 12px 12px;
+}
+.ficha-sprite::after {  /* pedestal: anillo de luz del tipo sobre un suelo oscuro */
+  content: ""; position: absolute; left: 50%; bottom: 13%; width: 62%; height: 14%; transform: translateX(-50%); z-index: -1;
+  border-radius: 50%; border: 2px solid color-mix(in srgb, var(--tc) 80%, transparent);
+  box-shadow: 0 0 14px 2px color-mix(in srgb, var(--tc) 45%, transparent), inset 0 0 12px rgba(0, 0, 0, .6);
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--tc) 30%, transparent), rgba(0, 0, 0, .5));
+}
+.ficha-sprite img { position: relative; max-width: 100%; max-height: 100%; object-fit: contain;
+  filter: drop-shadow(0 3px 0 rgba(0, 0, 0, .35)); animation: ficha-bob 3.2s ease-in-out infinite; }
+@keyframes ficha-bob { 50% { transform: translateY(-5px); } }
+@media (prefers-reduced-motion: reduce) { .ficha-sprite img { animation: none; } }
 .ficha-head h1 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 14px; }
 .ficha-head h1 small { color: var(--ink-2); font: 500 1rem var(--sans); }
 .facts { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; margin: 8px 0; font: .875rem var(--sans); }
@@ -449,7 +470,6 @@ code, kbd { background: var(--rule-soft); box-shadow: 0 0 0 1px var(--rule); }
 .mon:hover { background: var(--rule-soft); border-color: var(--ink); }
 .mon .nm { font: 500 .7rem/1.2 var(--pix); }
 .mon .rk { font: .75rem var(--pix); }
-.ficha-sprite { box-shadow: var(--notch); background: var(--rule-soft) repeating-conic-gradient(var(--grid) 0 25%, transparent 0 50%) 0 0 / 16px 16px; }
 .stat b, .stat-small { font-family: var(--pix); }
 .stat-small { font-size: 1.2rem; }
 .bar-fill, .gt-fill, .lp-line, .bar i { background-image: repeating-linear-gradient(90deg, var(--bf, var(--ink-2)) 0 6px, transparent 6px 8px); background-color: transparent; opacity: 1; }

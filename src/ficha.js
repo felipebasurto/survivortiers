@@ -17,6 +17,12 @@
   const PILLARS = ['stats', 'moves', 'typedef', 'size'];
   const METHODS = ['sheet', 'simStart', 'simBest', 'lateMax', 'lateFresh'];
   const FLAGS = [[1, 'potion', 'flag_status'], [2, 'sword', 'flag_melee'], [4, 'trophy', 'flag_capped']];
+  // Mismos colores que build/typedata.py (TYPE_COLOR): tiñen el fondo del sprite.
+  const TYPE_COLOR = {
+    normal: '#b0a99f', fire: '#ff7b3d', water: '#4b9bff', grass: '#5fcb6a', electric: '#ffd33d', ice: '#7fe0e0',
+    fighting: '#e0533d', poison: '#b45ec4', ground: '#d6b25c', flying: '#9bb8ff', psychic: '#ff5f9e', bug: '#a3c43d',
+    rock: '#bfa96b', ghost: '#7a6bc4', dragon: '#6b58ff', dark: '#6b5c52', steel: '#a8b8c4', fairy: '#ff9ed8',
+  };
   const root = document.getElementById('ficha');
 
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -200,7 +206,8 @@
     const pager = (prev ? link(prev, true) : '<span></span>') + (next ? link(next, false) : '<span></span>');
     root.innerHTML =
       '<p class="crumbs"><a href="' + home + 'index.html">' + esc(t('crumb_home')) + '</a> › ' + esc(name) + '</p>' +
-      '<div class="ficha-head"><div class="ficha-sprite"><img class="px" src="' + sprites + p.dex + spriteExt + '" width="' + p.w * scale +
+      '<div class="ficha-head"><div class="ficha-sprite" style="--tc:' + (TYPE_COLOR[p.types[0]] || '#888') +
+      ';--tc2:' + (TYPE_COLOR[p.types[1] || p.types[0]] || '#888') + '"><img class="px" src="' + sprites + p.dex + spriteExt + '" width="' + p.w * scale +
       '" height="' + p.h * scale + '" alt="' + esc(t('sprite_alt', { name })) + '"></div><div>' +
       '<h1>' + esc(name) + ' ' + otherName + '<small>' + esc(t('dex_no', { dex: p.dex })) + '</small></h1>' +
       '<div class="facts">' + pills + ' ' + stars + ' ' + legendary + ' ' + tpl('tpl-regions', 'data-gen', p.bannerId) + '</div>' +
