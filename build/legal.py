@@ -9,6 +9,8 @@ SITE_NAME = "SurvivorTiers"
 
 GAME_NAME = "PokéSurvivor"
 X_HANDLE = "@fildotai"
+# Token público del sitio de Cloudflare Web Analytics para survivortiers.pages.dev (aparece en el HTML).
+WEB_ANALYTICS_TOKEN = "b25b980b4c074c92883d29239edc0bea"
 X_URL = "https://x.com/fildotai"
 GAME_URL = "https://pokesurvivor.com"   # CNAME del repositorio del juego en a9b21f0
 GAME_REPO_URL = "https://github.com/JPTER78/pokesurvivor"

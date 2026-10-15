@@ -166,6 +166,8 @@ def page(c: Ctx, page_id: str, title: str, description: str, content: str, meta:
     follow = (f'<a class="follow" href="{legal.X_URL}" target="_blank" rel="noopener" '
               f'aria-label="{esc(L.t("follow_label", handle=legal.X_HANDLE))}">{esc(legal.X_HANDLE)}</a>')
     social = "" if page_id == "404" else social_head(c, title, description)
+    analytics = (f"<script defer src='https://static.cloudflareinsights.com/beacon.min.js' "
+                 f"data-cf-beacon='{{\"token\": \"{legal.WEB_ANALYTICS_TOKEN}\"}}'></script>")
     current = ' aria-current="page"'
     nav = "\n".join(
         f'      <a href="{c.home}{href}"{current if pid == page_id else ""}>{esc(L.t(key))}</a>' for pid, href, key in NAV)
@@ -188,7 +190,7 @@ def page(c: Ctx, page_id: str, title: str, description: str, content: str, meta:
         nav_aria=esc(L.t("nav_main")), foot_aria=esc(L.t("nav_foot")), switch=switch, nav=nav, content=content,
         footer_nav=footer_nav, disclaimer=esc(L.t("disclaimer", game=legal.GAME_NAME)), sprites_line=sprites_line,
         build_info=esc(build_info.replace("--", "-")), agents=agents_html, extra_head=extra_head,
-        social=social, follow=follow)
+        social=social, follow=follow, analytics=analytics)
 
 
 def write(rel: str, text: str) -> None:

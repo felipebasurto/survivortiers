@@ -32,6 +32,7 @@ import legal  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 UA = {"User-Agent": "SurvivorTiers-check/1.0"}
+BEACON_URL = "https://static.cloudflareinsights.com/beacon.min.js"
 SPRITE_CDN_PREFIX = "https://cdn.jsdelivr.net/gh/felipebasurto/survivortiers@"
 MAX_FILES, MAX_BYTES = 50, 5_000_000  # presupuesto de site/ para el despliegue
 EXPECTED_COUNTS = {"S": 30, "A": 90, "B": 200, "C": 300, "D": 346}
@@ -145,6 +146,8 @@ def agent_check(base: str, body_by_url: dict[str, str], err, notes: list[str]) -
         if url.startswith(base) and html and not url.endswith("404.html"):
             if '<link rel="canonical" href="' not in html or any(t not in html for t in shared):
                 err(f"{url}: faltan las etiquetas para compartir (canónica, Open Graph o Twitter/X)")
+            if legal.WEB_ANALYTICS_TOKEN not in html:
+                err(f"{url}: falta el beacon de Cloudflare Web Analytics")
     st, png = fetch(base + "og.png")
     if st != 200 or png[:8] != b"\x89PNG\r\n\x1a\n" or int.from_bytes(png[16:20], "big") != 1200 or int.from_bytes(png[20:24], "big") != 630:
         err("og.png no es un PNG de 1200 × 630")
@@ -192,7 +195,10 @@ def browser_check(base: str, index: list[dict], args, err, notes: list[str]) -> 
             browser = pw.chromium.launch(executable_path=exe, args=["--no-sandbox"])
         page = browser.new_page(viewport={"width": 390, "height": 800})
         problems: list[str] = []
-        page.on("console", lambda m: problems.append(m.text) if m.type == "error" else None)
+        # el beacon de Cloudflare Web Analytics solo acepta hosts registrados: en local (127.0.0.1) su petición se bloquea
+        # por CORS, y eso no es un error de la ficha. Los demás errores de consola sí cuentan.
+        page.on("console", lambda m: problems.append(m.text)
+                if m.type == "error" and "cloudflareinsights" not in m.text and "ERR_FAILED" not in m.text else None)
         page.on("pageerror", lambda e: problems.append(str(e)))
         for lang in LANGS:
             en = lang == "en/"
@@ -368,7 +374,8 @@ def main() -> int:
                 sprite_refs.add(full)
                 continue
             if parts.netloc != origin:
-                if href in page.assets:
+                # el único recurso externo permitido en la página es el beacon de Web Analytics (sin cookies, CSP lo fija)
+                if href in page.assets and full != BEACON_URL:
                     err(f"{url}: carga un recurso externo {full}")
                 external.setdefault(full, url)
                 continue
