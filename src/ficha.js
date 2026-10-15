@@ -116,10 +116,39 @@
     return fig('band', t('t_band'), body, t('band_alt', { name, rank, total: TOTAL, tier, lo, hi }));
   }
 
-  // Estadísticas base oficiales (PokéAPI), como en la mayoría de fichas: barra sobre 255, color por tramo, valor a la
-  // derecha y una línea con la mediana de los 966 para ver si el Pokémon está por encima o por debajo.
+  // Estadísticas base oficiales (PokéAPI): un hexágono con los seis valores, como el radar de los juegos, y al lado la
+  // barra de cada uno. El hexágono discontinuo y la línea de cada barra marcan la mediana de los 966.
   const BASE_KEYS = ['bs_hp', 'bs_atk', 'bs_def', 'bs_spa', 'bs_spd', 'bs_spe'];
+  const SHORT_KEYS = ['bs_s_hp', 'bs_s_atk', 'bs_s_def', 'bs_s_spa', 'bs_s_spd', 'bs_s_spe'];
   const bandOf = v => (v < 50 ? 0 : v < 80 ? 1 : v < 100 ? 2 : v < 120 ? 3 : 4);
+  const RADAR = { cx: 150, cy: 128, r: 84, max: 255 };
+  // Vértice i: el primero arriba y los demás en sentido horario, en el mismo orden que BASE_KEYS.
+  const angle = i => (-90 + i * 60) * Math.PI / 180;
+  const vertex = (i, v) => [RADAR.cx + v / RADAR.max * RADAR.r * Math.cos(angle(i)), RADAR.cy + v / RADAR.max * RADAR.r * Math.sin(angle(i))];
+  const polyOf = fn => [0, 1, 2, 3, 4, 5].map(i => fn(i).map(f2).join(',')).join(' ');
+  const hexAt = (x, y, r) => [0, 1, 2, 3, 4, 5].map(k => f2(x + r * Math.cos(k * Math.PI / 3)) + ',' + f2(y + r * Math.sin(k * Math.PI / 3))).join(' ');
+  function radar(vals, meds) {
+    const { cx, cy, r, max } = RADAR;
+    const grid = [0.25, 0.5, 0.75, 1].map(f => '<polygon class="rd-grid" points="' + polyOf(i => vertex(i, max * f)) + '"/>').join('');
+    const axes = [0, 1, 2, 3, 4, 5].map(i => {
+      const [x, y] = vertex(i, max);
+      return '<line class="rd-axis" x1="' + cx + '" y1="' + cy + '" x2="' + f2(x) + '" y2="' + f2(y) + '"/>';
+    }).join('');
+    const med = '<polygon class="rd-med" points="' + polyOf(i => vertex(i, meds[i])) + '"/>';
+    const shape = '<polygon class="rd-shape" points="' + polyOf(i => vertex(i, vals[i])) + '"/>';
+    const verts = [0, 1, 2, 3, 4, 5].map(i => {
+      const [x, y] = vertex(i, vals[i]);
+      return '<polygon class="rd-vert b' + bandOf(vals[i]) + '" points="' + hexAt(x, y, 4.5) + '"/>';
+    }).join('');
+    const labels = [0, 1, 2, 3, 4, 5].map(i => {
+      const c = Math.cos(angle(i)), s = Math.sin(angle(i));
+      const x = cx + (r + 16) * c, y = cy + (r + 16) * s + (s > 0.5 ? 14 : s < -0.5 ? -4 : 4);
+      const anchor = c > 0.3 ? 'start' : c < -0.3 ? 'end' : 'middle';
+      return '<text class="rd-lab" x="' + f2(x) + '" y="' + f2(y) + '" text-anchor="' + anchor + '"><tspan class="rd-n">' +
+        esc(t(SHORT_KEYS[i])) + '</tspan><tspan class="rd-v" x="' + f2(x) + '" dy="13">' + vals[i] + '</tspan></text>';
+    }).join('');
+    return '<svg class="rd" viewBox="0 0 300 268" aria-hidden="true" focusable="false">' + grid + axes + med + shape + verts + labels + '</svg>';
+  }
   function baseStats(d, medians, name) {
     const s = d[8];
     const total = s.reduce((a, b) => a + b, 0);
@@ -132,7 +161,8 @@
         '<output class="bs-val">' + r.v + '</output></div>';
     });
     out += '<div class="bs-total"><span>' + esc(t('bs_total')) + '</span><b>' + total + '</b></div></div>';
-    const body = out + '<p class="fig-note">' + esc(t('bs_note')) + '</p>';
+    const body = '<div class="bs-wrap"><div class="bs-radar">' + radar(s, medians) + '</div>' + out + '</div>' +
+      '<p class="fig-note">' + esc(t('bs_note')) + '</p>';
     const alt = name + ': ' + rows.map(r => t('bs_alt_item', { label: r.label, v: r.v })).join('; ') + '; ' + t('bs_total') + ' ' + total + '.';
     return fig('bases', t('t_base'), body, alt);
   }

@@ -227,7 +227,7 @@ FICHA_KEYS = (
     "median", "m_sheet", "m_simStart", "m_simBest", "m_lateMax", "m_lateFresh", "methods_final", "methods_alt",
     "methods_alt_item", "sim_start", "sim_best", "sim_median", "sim_alt", "sim_lede", "sim_scale", "methods_lede",
     "rar_1", "rar_2", "rar_3", "rar_4", "rar_5", "t_base", "bs_hp", "bs_atk", "bs_def", "bs_spa", "bs_spd", "bs_spe",
-    "bs_total", "bs_note", "bs_alt_item")
+    "bs_total", "bs_note", "bs_alt_item", "bs_s_hp", "bs_s_atk", "bs_s_def", "bs_s_spa", "bs_s_spd", "bs_s_spe")
 
 
 def render_ficha(c: Ctx, index: list[dict], meta: dict) -> str:
@@ -287,7 +287,9 @@ def move_stage(L: Lang, m: dict, mon: dict, home: str) -> str:
     particles = "".join(f'<i class="mv-p p{i}"></i>' for i in (1, 2, 3))
     hero = (f'<span class="mv-hero"><img src="{SPRITES}{mon["dex"]}{EXT}" width="{mon["w"]}" height="{mon["h"]}" '
             f'alt="" loading="lazy"></span>')
-    return (f'<div class="mv-stage fx-{fx}" aria-hidden="true"><i class="mv-arc"></i>{particles}{hero}</div>'
+    # Diana a la derecha: el ataque sale del Pokémon y acierta ahí. Los potenciadores no tienen objetivo.
+    foe = "" if fx == "boost" else '<span class="mv-foe"><i></i></span>'
+    return (f'<div class="mv-stage fx-{fx}" aria-hidden="true"><i class="mv-arc"></i>{particles}{foe}{hero}</div>'
             f'<a class="mv-ex" href="{home}pokemon/?id={mon["dex"]}">{esc(L.t("mv_example", name=name))}</a>')
 
 
