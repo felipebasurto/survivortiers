@@ -306,7 +306,7 @@ def main() -> int:
               and e[2] in move_ids and e[4] in move_ids and e[3] > 0 and e[5] > 0
               and all(m in move_ids for m in e[6]) and isinstance(e[7], int) and 0 <= e[7] <= 15
               and len(e[8]) == 6 and all(isinstance(v, int) and 1 <= v <= 255 for v in e[8])
-              # trío de cobertura: % super efectivo, % no resistido y 2-4 ids de movimientos (build/combos.py)
+              # combo de cobertura: % super efectivo, % no resistido y 2-4 ids de movimientos (build/combos.py)
               and len(e[9]) == 4 and all(isinstance(v, int) and 0 <= v <= 100 for v in e[9][:2])
               and 2 <= len(e[9][2]) <= 4 and all(m in move_ids for m in e[9][2]) and e[9][3] in (1, 2, 3))
         if not ok:
