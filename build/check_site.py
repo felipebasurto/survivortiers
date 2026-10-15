@@ -19,6 +19,7 @@ import argparse
 import json
 import re
 import sys
+import time
 from collections import Counter, deque
 from html.parser import HTMLParser
 from urllib.error import HTTPError, URLError
@@ -134,6 +135,16 @@ def agent_check(base: str, body_by_url: dict[str, str], err, notes: list[str]) -
     notes.append(f"agentes: llms.txt con {len(local_links)} enlaces, sitemap con {expected} entradas")
 
 
+def wait_js(page, js: str, timeout_ms: int) -> None:
+    """Espera a que la función js (sin argumentos) devuelva true. No usa page.wait_for_function: Playwright evalúa
+    sus cadenas con eval, y la CSP de producción (script-src 'self', sin unsafe-eval) lo bloquea. page.evaluate sí."""
+    deadline = time.monotonic() + timeout_ms / 1000
+    while not page.evaluate(js):
+        if time.monotonic() > deadline:
+            raise TimeoutError(f"no se cumple: {js[:60]}")
+        page.wait_for_timeout(100)
+
+
 def browser_check(base: str, index: list[dict], args, err, notes: list[str]) -> None:
     """Dibuja la ficha de cada Pokémon en un navegador de verdad: 4 gráficos con texto alternativo, el sprite cargado,
     el nombre correcto y ningún error de consola. También prueba que un enlace viejo acaba en la ficha."""
@@ -169,10 +180,9 @@ def browser_check(base: str, index: list[dict], args, err, notes: list[str]) -> 
                 problems.clear()
                 page.goto(f"{base}{lang}pokemon/?id={d}")
                 try:
-                    page.wait_for_function("document.querySelectorAll('figure.fig').length === 5", timeout=8000)
-                    page.wait_for_function("(() => { const i = document.querySelector('.ficha-sprite img'); "
-                                           "return i && i.complete; })()", timeout=8000)
-                except Error:
+                    wait_js(page, "() => document.querySelectorAll('figure.fig').length === 5", 8000)
+                    wait_js(page, "() => { const i = document.querySelector('.ficha-sprite img'); return !!i && i.complete; }", 8000)
+                except (Error, TimeoutError):
                     err(f"{lang}pokemon/?id={d}: la ficha no se dibuja")
                     continue
                 info = page.evaluate("""() => ({
@@ -198,8 +208,8 @@ def browser_check(base: str, index: list[dict], args, err, notes: list[str]) -> 
                 err(f"{lang}pokemon/?id=99999 debería decir que no existe")
             page.goto(f"{base}{lang}pokemon/25.html")
             try:
-                page.wait_for_function("document.querySelectorAll('figure.fig').length === 5", timeout=8000)
-            except Error:
+                wait_js(page, "() => document.querySelectorAll('figure.fig').length === 5", 8000)
+            except (Error, TimeoutError):
                 err(f"{lang}pokemon/25.html no acaba en la ficha de Pikachu")
             else:
                 if not page.url.endswith(f"{lang}pokemon/?id=25"):
