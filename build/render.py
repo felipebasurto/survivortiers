@@ -137,7 +137,7 @@ def page(c: Ctx, page_id: str, title: str, description: str, content: str, meta:
         switch = f'<nav class="lang" aria-label="{esc(L.t("lang_label"))}">{links}</nav>'
         alternates = f'<link rel="alternate" hreflang="{other}" href="{c.other}">'
     return BASE.substitute(
-        lang=L.code, assets=c.assets, home=c.home, sprites=esc(SPRITES), asset_v=ASSET_V, page_id=page_id, title=esc(title),
+        lang=L.code, assets=c.assets, home=c.home, sprites=esc(SPRITES), sprites_alt=esc(legal.SPRITE_ALT), asset_v=ASSET_V, page_id=page_id, title=esc(title),
         description=esc(description), alternates=alternates, skip=esc(L.t("skip")),
         nav_aria=esc(L.t("nav_main")), foot_aria=esc(L.t("nav_foot")), switch=switch, nav=nav, content=content,
         footer_nav=footer_nav, disclaimer=esc(L.t("disclaimer", game=legal.GAME_NAME)), sprites_line=sprites_line,

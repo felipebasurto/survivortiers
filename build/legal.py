@@ -17,6 +17,9 @@ GAME_AUTHOR = "JPTER78"
 # y caché. SPRITE_BASE en el entorno lo cambia, por ejemplo para ver el sitio en local con build/serve.py.
 SPRITE_CDN = "https://cdn.jsdelivr.net/gh/felipebasurto/survivortiers@main/sprites/"
 SPRITE_BASE = os.environ.get("SPRITE_BASE", SPRITE_CDN)
+# Respaldo si jsDelivr falla (lo hace app.js): el mismo archivo directamente desde GitHub. Solo con el CDN por defecto.
+SPRITE_ALT = os.environ.get(
+    "SPRITE_ALT", "https://raw.githubusercontent.com/felipebasurto/survivortiers/main/sprites/" if SPRITE_BASE == SPRITE_CDN else "")
 
 MIT_NOTICE = (
     "Colores y glifos de tipo adaptados de js/core/util.js y js/ui/icons.js de PokéSurvivor, "

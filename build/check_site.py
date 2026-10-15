@@ -326,6 +326,20 @@ def main() -> int:
                 img_src = re.search(r"img-src([^;\"]*)", text)
                 if not img_src or host not in img_src.group(1):
                     err(f"{name}: la CSP no permite imágenes de {host}")
+        alts = {m for t in body_by_url.values() for m in re.findall(r'data-sprites-alt="([^"]*)"', t)}
+        if len(alts) != 1:
+            err(f"las páginas no coinciden en data-sprites-alt: {sorted(alts)}")
+        alt = next(iter(alts), "")
+        if alt:
+            if not alt.startswith("https://raw.githubusercontent.com/felipebasurto/survivortiers/") or not alt.endswith("/sprites/"):
+                err(f"data-sprites-alt raro: {alt}")
+            for name, text in (("src/_headers", (ROOT / "src" / "_headers").read_text(encoding="utf8")),
+                               ("vercel.json", (ROOT / "vercel.json").read_text(encoding="utf8"))):
+                img_src = re.search(r"img-src([^;\"]*)", text)
+                if not img_src or "https://raw.githubusercontent.com" not in img_src.group(1):
+                    err(f"{name}: la CSP no permite imágenes de raw.githubusercontent.com (respaldo de sprites)")
+        elif urlparse(sprite_base).netloc != origin:
+            err("hay CDN de sprites pero no respaldo (data-sprites-alt vacío)")
         wrong = [u for u in sprite_refs if not re.fullmatch(re.escape(sprite_base) + r"\d+\.png", u)]
         if wrong:
             err(f"sprites con una URL rara: {wrong[:3]}")
