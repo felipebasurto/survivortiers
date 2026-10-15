@@ -18,6 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import charts  # noqa: E402
 import legal  # noqa: E402
+import regions  # noqa: E402
 import typedata  # noqa: E402
 from i18n import ES, LANGS, Lang  # noqa: E402
 
@@ -124,8 +125,7 @@ def page(c: Ctx, page_id: str, title: str, description: str, content: str, meta:
     lic = meta["spriteLicense"]
     sprites_line = L.t("sprites_line_html", url=esc(lic["sourceUrl"]), source=esc(lic["source"]),
                        lic_url=esc(lic["url"]), lic=esc(lic["name"]), about=f"{c.home}acerca.html")
-    model_line = L.t("model_line", game=esc(legal.GAME_NAME), commit=esc(meta["gameCommit"]),
-                     version=esc(L.t("version_name")), date=esc(meta["generatedAt"][:10]))
+    build_info = f'{legal.GAME_NAME} {meta["gameCommit"]}, ranking {meta["version"]}, generated {meta["generatedAt"][:10]}'
     switch, alternates = "", ""
     if c.other:
         other = "es" if L.en else "en"
@@ -136,10 +136,10 @@ def page(c: Ctx, page_id: str, title: str, description: str, content: str, meta:
         alternates = f'<link rel="alternate" hreflang="{other}" href="{c.other}">'
     return BASE.substitute(
         lang=L.code, assets=c.assets, home=c.home, asset_v=asset_version(), page_id=page_id, title=esc(title),
-        description=esc(description), alternates=alternates, skip=esc(L.t("skip")), unofficial=esc(L.t("unofficial")),
+        description=esc(description), alternates=alternates, skip=esc(L.t("skip")),
         nav_aria=esc(L.t("nav_main")), foot_aria=esc(L.t("nav_foot")), switch=switch, nav=nav, content=content,
         footer_nav=footer_nav, disclaimer=esc(L.t("disclaimer", game=legal.GAME_NAME)), sprites_line=sprites_line,
-        model_line=model_line, no_tracking=esc(L.t("no_tracking")))
+        build_info=esc(build_info.replace("--", "-")))
 
 
 def write(rel: str, text: str) -> None:
@@ -151,28 +151,23 @@ def write(rel: str, text: str) -> None:
 # ---------------------------------------------------------------- páginas
 def render_index(c: Ctx, pokemon: list[dict], meta: dict) -> str:
     L = c.L
-    cuts = {t["tier"]: t for t in meta["tierCuts"]}
     sections = []
     for t in TIERS:
         mons = sorted((p for p in pokemon if p["r"][1] == t), key=lambda p: p["r"][0])
-        cut = cuts[t]
         cards = "".join(mon_card(c, p) for p in mons)
-        head = L.t("tier_head", a=cut["from"], b=cut["to"], n=f'<span class="n">{len(mons)}</span>')
         sections.append(
             f'<section class="tier tier-{t}" id="tier-{t}" aria-label="{esc(L.t("tier", t=t))}">'
-            f'<header class="tier-head"><b>{t}</b>{icon("crown") if t == "S" else ""}<span>{head}</span></header>'
+            f'<header class="tier-head"><b>{t}</b>{icon("crown") if t == "S" else ""}<span class="n">{len(mons)}</span></header>'
             f'<div class="grid">{cards}</div></section>')
-    a, b, c3 = (L.mon(x) for x in meta["top"])
-    lead = L.t("index_lead_html", a=esc(a), b=esc(b), c=esc(c3), n=meta["total"], method=f"{c.home}metodo.html")
+    key = esc(L.t("unsure_key"))
     content = f"""
 <h1>{esc(L.t("index_h1", game=legal.GAME_NAME))}</h1>
-<p class="lead">{lead}</p>
 <div class="controls">
   <div class="field"><label for="q">{esc(L.t("search_label"))}</label>
     <input id="q" type="search" placeholder="{esc(L.t("search_ph"))}" autocomplete="off" spellcheck="false"></div>
+  <span class="tip" tabindex="0" role="img" aria-label="{key}" data-tip="{key}" title="{key}"><i class="u-key"></i></span>
   <p id="count" aria-live="polite"></p>
 </div>
-<p class="key"><span class="u-key" aria-hidden="true"></span> {esc(L.t("unsure_key"))}</p>
 <div id="tierlist">
 {"".join(sections)}
 </div>
@@ -180,27 +175,6 @@ def render_index(c: Ctx, pokemon: list[dict], meta: dict) -> str:
 """
     return page(c, "index", L.t("index_title", site=legal.SITE_NAME, game=legal.GAME_NAME),
                 L.t("index_desc", n=meta["total"], game=legal.GAME_NAME), content, meta)
-
-
-def verdict(L: Lang, r: dict) -> str:
-    """Una frase: tier, puesto y cuánto se repite ese tier entre las 2.000 repeticiones."""
-    share, t = round(r["pTier"] * 100), r["tier"]
-    key = "verdict_firm" if share >= 80 else "verdict_mid" if share >= UNSURE else "verdict_low"
-    return (f'{tier_badge(L, t)} <strong>{esc(L.t("verdict_rank", rank=r["rank"], total=charts.TOTAL))}</strong> '
-            f'{esc(L.t(key, share=share, t=t))}')
-
-
-def notes(L: Lang, r: dict) -> str:
-    f = r["flags"]
-    items = [L.t(key) for flag, key in (("statusUnmodelled", "note_status"), ("melee", "note_melee"),
-                                        ("statsCapped", "note_capped")) if f[flag]]
-    if not items:
-        return ""
-    return f'<h2>{esc(L.t("notes_h"))}</h2><ul class="plain">' + "".join(f"<li>{esc(i)}</li>" for i in items) + "</ul>"
-
-
-def gloss(L: Lang, keys: tuple[str, ...]) -> str:
-    return "".join(f'<dt>{esc(L.t(k))}</dt><dd>{esc(L.t(k + "_d", total=charts.TOTAL))}</dd>' for k in keys)
 
 
 class Moves:
@@ -212,6 +186,19 @@ class Moves:
     def name(self, L: Lang, move_id: str) -> str:
         m = self.by_id[move_id]
         return m["en"]["name"] if L.en else m["name"]
+
+
+def flags(L: Lang, r: dict, unsure: bool) -> str:
+    f = r["flags"]
+    items = [("potion", L.t("flag_status")) if f["statusUnmodelled"] else None,
+             ("sword", L.t("flag_melee")) if f["melee"] else None,
+             ("trophy", L.t("flag_capped")) if f["statsCapped"] else None]
+    out = "".join(f'<span class="flag" role="img" tabindex="0" aria-label="{esc(t)}" data-tip="{esc(t)}" '
+                  f'title="{esc(t)}">{icon(n)}</span>' for n, t in filter(None, items))
+    if unsure:
+        key = esc(L.t("unsure_key"))
+        out += f'<span class="tip" tabindex="0" role="img" aria-label="{key}" data-tip="{key}" title="{key}"><i class="u-key"></i></span>'
+    return out
 
 
 def render_ficha(c: Ctx, p: dict, prev_p: dict | None, next_p: dict | None, meta: dict, mv: Moves) -> str:
@@ -230,8 +217,9 @@ def render_ficha(c: Ctx, p: dict, prev_p: dict | None, next_p: dict | None, meta
     other_name = f'<small>{esc(p["nameEn"])}</small>' if not L.en and p["nameEn"] != p["name"] else ""
     pair = ""
     if r["pair"]:
-        pair = "<p>" + L.t("pair_html", pair=" + ".join(esc(mv.name(L, m["id"])) for m in r["pair"])) + "</p>"
+        pair = f'<p class="pair">{icon("sword")}' + " + ".join(esc(mv.name(L, m["id"])) for m in r["pair"]) + "</p>"
     sim = charts.sim_dots(L, r, meta["simRange"], meta["simMedianSeconds"], lambda i: mv.name(L, i))
+    region = regions.badge(L, c.assets, p["bannerId"], L.t("banner_of", name=L.banner(p["banner"])), {}, small=True)
     content = f"""
 <p class="crumbs"><a href="{c.home}index.html">{esc(L.t("crumb_home"))}</a> › {esc(name)}</p>
 <article>
@@ -240,19 +228,16 @@ def render_ficha(c: Ctx, p: dict, prev_p: dict | None, next_p: dict | None, meta
     alt="{esc(L.t("sprite_alt", name=name))}"></div>
   <div>
     <h1>{esc(name)} {other_name}<small>{esc(L.t("dex_no", dex=p["dex"]))}</small></h1>
-    <div class="facts">{type_pills(L, p["types"])} {stars(L, p["rarity"])} {legendary}
-      <span class="muted">{esc(L.t("gacha_banner", name=L.banner(p["banner"])))}</span></div>
+    <div class="facts">{type_pills(L, p["types"])} {stars(L, p["rarity"])} {legendary} {region}</div>
+    <div class="rankline">{tier_badge(L, r["tier"])}<strong>{r["rank"]}</strong><span>/ {charts.TOTAL}</span>
+      {flags(L, r, r["pTier"] * 100 < UNSURE)}</div>
   </div>
 </div>
-<p class="verdict">{verdict(L, r)}</p>
 {charts.rank_band(L, r, name)}
 {charts.pillars(L, r, name)}
 {charts.methods(L, r, name)}
 {sim}
 {pair}
-{notes(L, r)}
-<p class="muted small">{L.t("ficha_foot_html", href=f"{c.home}metodo.html")}</p>
-<details class="how"><summary>{esc(L.t("ficha_how"))}</summary><dl class="gloss">{gloss(L, ("gl_rank", "gl_pct", "gl_med", "gl_band"))}</dl></details>
 <nav class="pager" aria-label="{esc(L.t("pager_aria"))}">{pager}</nav>
 </article>
 """
@@ -262,32 +247,10 @@ def render_ficha(c: Ctx, p: dict, prev_p: dict | None, next_p: dict | None, meta
 
 
 def move_card(L: Lang, m: dict) -> str:
-    en = m["en"]
-    name = en["name"] if L.en else m["name"]
-    if "buff" in m:
-        b = m["buff"]
-        amount = L.pcts(b["amount"]) if b["pct"] else L.dec(b["amount"])
-        text = L.t("mv_buff_text", stat=L.t("st_" + b["stat"]), amount=amount, dur=b["dur"], cd=L.dec(b["cd"], 2))
-        bars = charts.buff_bars(L, b)
-        extra = f'<p class="mv-note">{esc(L.t("mv_weave", w=L.dec(b["weave"], 2)))}</p>'
-    else:
-        text, bars, extra = "", charts.move_bars(L, m["rel"]), ""
-    evo = ""
-    if m["evolvesTo"]:
-        evo = f'<p class="mv-note">{esc(L.t("mv_evo", evo=en["evolvesTo"] if L.en else m["evolvesTo"], card=en["needsCard"] if L.en else m["needsCard"]))}</p>'
-    kind = f'<span class="mv-kind">{esc(L.t("mk_" + m["kind"]))}</span>'
-    intro = f'<p class="mv-note">{esc(text)}</p>' if text else ""
-    return (f'<li class="mv"><div class="mv-head"><h4>{esc(name)}</h4>{type_pill(L, m["type"])}{kind}{evo}</div>'
-            f'<div class="mv-body">{intro}{bars}{extra}</div></li>')
-
-
-def moves_howto(L: Lang, moves: list[dict]) -> str:
-    example = next(m for m in moves if m["category"] == CATEGORIES[0][1] and m["rank"] == 1)
-    n = sum(1 for m in moves if "rel" in m)
-    terms = gloss(L, ("mv_g_dps15", "mv_g_ttd15", "mv_g_dps5", "mv_g_buff", "mv_g_tier"))
-    return (f'<section class="howto anim"><h2>{esc(L.t("mv_howto_h"))}</h2><p>{esc(L.t("mv_howto_p", n=n))}</p>'
-            f'<div class="howto-ex"><h3>{esc(L.t("mv_howto_ex"))}</h3><ul class="mv-list">{move_card(L, example)}</ul>'
-            f'{charts.move_scale(L)}</div><dl class="gloss">{terms}</dl></section>')
+    name = m["en"]["name"] if L.en else m["name"]
+    bars = charts.buff_bars(L, m["buff"]) if "buff" in m else charts.move_bars(L, m["rel"])
+    return (f'<li class="mv"><div class="mv-head"><h4>{esc(name)}</h4>{type_pill(L, m["type"])}</div>'
+            f'<div class="mv-body">{bars}</div></li>')
 
 
 def render_ataques(c: Ctx, moves: list[dict], meta: dict) -> str:
@@ -300,47 +263,58 @@ def render_ataques(c: Ctx, moves: list[dict], meta: dict) -> str:
             if not ms:
                 continue
             items = "".join(move_card(L, m) for m in ms)
-            inner.append(f'<div class="mv-tier anim"><h3>{tier_badge(L, t)} <span>{esc(L.t("tier", t=t))}</span> '
-                         f'<small>{len(ms)}</small></h3><ul class="mv-list">{items}</ul></div>')
+            inner.append(f'<div class="mv-tier anim"><h3>{tier_badge(L, t)} <small>{len(ms)}</small></h3>'
+                         f'<ul class="mv-list">{items}</ul></div>')
         icon_name = {"melee": "sword", "ranged": "bow", "stat": "sparkle"}[cat_id]
-        blocks.append(f'<section id="{cat_id}"><h2>{icon(icon_name)}{esc(L.t("cat_" + cat_id))}</h2>'
-                      f'<p class="muted">{esc(L.t("cat_" + cat_id + "_text"))}</p>{"".join(inner)}</section>')
-        toc.append(f'<li><a href="#{cat_id}">{esc(L.t("cat_" + cat_id))}</a></li>')
+        blocks.append(f'<section id="{cat_id}"><h2>{icon(icon_name)}{esc(L.t("cat_" + cat_id))}</h2>{"".join(inner)}</section>')
+        toc.append(f'<li><a href="#{cat_id}">{icon(icon_name)}{esc(L.t("cat_" + cat_id))}</a></li>')
     content = f"""
 <h1>{esc(L.t("ataques_h1"))}</h1>
-<p class="lead">{esc(L.t("ataques_lead", n=len(moves)))}</p>
 <ul class="toc">{"".join(toc)}</ul>
-{moves_howto(L, moves)}
+{charts.move_scale(L)}
 {"".join(blocks)}
 """
     return page(c, "ataques", L.t("ataques_title", site=legal.SITE_NAME),
                 L.t("ataques_desc", n=len(moves), game=legal.GAME_NAME), content, meta)
 
 
-def render_gachas(c: Ctx, gachas: list[dict], meta: dict) -> str:
+GACHA_STARS = (5, 4, 4, 3, 3, 3, 2, 2, 1)  # estrellas de cada banner, del mejor al peor
+
+
+def gacha_card(c: Ctx, i: int, g: dict, last: int, by_banner: dict[int, list[dict]], by_dex: dict[int, dict]) -> str:
+    L = c.L
+    name = L.banner(g["name"])
+    best = sorted(by_banner[g["gen"]], key=lambda p: p["r"][0])[:3]
+    pulls = "".join(
+        f'<a class="gc-mon" href="{c.home}pokemon/{p["dex"]}.html" title="{esc(L.mon(p))}">'
+        f'<img class="px" src="{c.assets}sprites/{p["dex"]}.png" width="{p["w"] * k}" height="{p["h"] * k}" '
+        f'alt="{esc(L.mon(p))}" loading="lazy"></a>'
+        for p in best for k in [max(1, min(4, 56 // max(p["w"], p["h"])))])
+    stars_n = GACHA_STARS[i]
+    verdict = ""
+    if i == 0:
+        verdict = f'<b class="gc-tag go">{icon("crown")}{esc(L.t("g_best"))}</b>'
+    elif i == last:
+        verdict = f'<b class="gc-tag stop">{esc(L.t("g_worst"))}</b>'
+    cls = "gc best" if i == 0 else "gc worst" if i == last else "gc"
+    return (f'<li class="{cls}" style="--i:{i}">{regions.badge(L, c.assets, g["gen"], name, by_dex)}'
+            f'<div class="gc-main"><span class="stars big" role="img" aria-label="{esc(L.t("stars_alt", n=stars_n))}">'
+            f'{"★" * stars_n}{"☆" * (5 - stars_n)}</span>{verdict}'
+            f'<span class="gc-one">{esc(L.t("g_one_in", n=round(100 / g["sPlusARate"])))}</span></div>'
+            f'<div class="gc-pulls" role="group" aria-label="{esc(L.t("g_pulls", name=name))}">{pulls}</div></li>')
+
+
+def render_gachas(c: Ctx, gachas: list[dict], pokemon: list[dict], meta: dict) -> str:
     L = c.L
     ordered = sorted(gachas, key=lambda g: -g["sPlusARate"])
-    rows = "".join(
-        f'<tr><th scope="row">{esc(L.banner(g["name"]))}</th><td class="num">{g["poolSize"]}</td>'
-        f'<td class="num">{g["legendaryCount"]}</td><td class="num">{g["sCount"]}</td><td class="num">{g["aCount"]}</td>'
-        f'<td class="num">{L.dec(g["sPlusARate"])}{"" if L.en else " "}%</td>'
-        f'<td class="num">{L.dec(g["pullChance"])}{"" if L.en else " "}%</td></tr>' for g in ordered)
-    pools = ", ".join(f'{L.banner(g["name"])} {g["poolSize"]}' for g in gachas)
-    head = "".join(f'<th{"" if i == 0 else " class=" + chr(34) + "num" + chr(34)}>{esc(L.t(k))}</th>'
-                   for i, k in enumerate(("th_banner", "th_pool", "th_leg", "th_s", "th_a", "th_pool_rate", "th_pull_rate")))
+    by_banner: dict[int, list[dict]] = {}
+    for p in pokemon:
+        by_banner.setdefault(p["bannerId"], []).append(p)
+    by_dex = {p["dex"]: p for p in pokemon}
+    cards = "".join(gacha_card(c, i, g, len(ordered) - 1, by_banner, by_dex) for i, g in enumerate(ordered))
     content = f"""
 <h1>{esc(L.t("gachas_h1"))}</h1>
-<p class="lead">{L.t("gachas_lead_html")}</p>
-{charts.composition(L, ordered)}
-<h2>{esc(L.t("gachas_read_h"))}</h2>
-<dl class="gloss">{gloss(L, ("gl2_pool", "gl2_sa", "gl2_rate", "gl2_pull"))}</dl>
-<div class="tablewrap"><table>
-<thead><tr>{head}</tr></thead>
-<tbody>{rows}</tbody></table></div>
-<h2>{esc(L.t("gachas_two_h"))}</h2>
-<p>{L.t("gachas_two_html")}</p>
-{charts.odds(L)}
-<p class="muted">{esc(L.t("gachas_pools", pools=pools, total=meta["total"]))}</p>
+<ol class="gacha">{cards}</ol>
 """
     return page(c, "gachas", L.t("gachas_title", site=legal.SITE_NAME), L.t("gachas_desc", game=legal.GAME_NAME),
                 content, meta)
@@ -351,7 +325,6 @@ def render_coleccion(c: Ctx, meta: dict) -> str:
     snippet = (ROOT / "console" / ("coleccion.en.js" if L.en else "coleccion.js")).read_text(encoding="utf8")
     content = f"""
 <h1>{esc(L.t("col_h1"))}</h1>
-<p class="lead">{esc(L.t("col_lead"))}</p>
 <ol class="steps">
   <li>{L.t("col_step1_html")}</li>
   <li>{L.t("col_step2_html")}
@@ -361,20 +334,12 @@ def render_coleccion(c: Ctx, meta: dict) -> str:
   <li>{L.t("col_step3_html")}</li>
 </ol>
 <div class="field"><label for="paste">{esc(L.t("col_json"))}</label>
-  <textarea id="paste" spellcheck="false" placeholder='{{"version":1,"name":"…","updated":0,"dex":[…],"shiny":[…]}}'></textarea></div>
+  <textarea id="paste" spellcheck="false" placeholder="{{ … }}"></textarea></div>
 <div class="controls">
   <button class="btn" type="button" id="import">{esc(L.t("col_view"))}</button>
   <div class="field"><label for="file">{esc(L.t("col_file"))}</label><input id="file" type="file" accept="application/json,.json"></div>
 </div>
 <div id="result" aria-live="polite"></div>
-<h2>{esc(L.t("col_limits"))}</h2>
-<ul class="plain">
-  <li>{L.t("col_l1_html")}</li>
-  <li>{L.t("col_l2_html")}</li>
-  <li>{L.t("col_l3_html")}</li>
-  <li>{L.t("col_l4_html", commit=esc(meta["gameCommit"]))}</li>
-  <li>{esc(L.t("col_l5"))}</li>
-</ul>
 """
     return page(c, "coleccion", L.t("col_title", site=legal.SITE_NAME), L.t("col_desc", game=legal.GAME_NAME),
                 content, meta)
@@ -390,58 +355,24 @@ def render_metodo(c: Ctx, index: list[dict], full: list[dict], meta: dict) -> st
     walkers = [{"name": L.mon(by_dex[d]), "dex": d, "w": by_dex[d]["sprite"]["w"], "h": by_dex[d]["sprite"]["h"],
                 "index": idx_by_dex[d], "r": by_dex[d]["r"], "assets": c.assets} for d in meta["presets"]]
     reps = [(L.mon(p), p) for p in (min(index, key=lambda p: abs(p["r"][0] - n)) for n in REPEAT_RANKS)]
-    pieces = "".join(f'<li><strong>{esc(L.t("w_" + x["key"]))}.</strong> {esc(L.t("w_" + x["key"] + "_t"))}</li>'
-                     for x in m["pieces"])
-    limits = "".join(f'<li>{esc(L.t(f"met_lim_{i}"))}</li>' for i in range(1, 6))
-    cuts_text = ", ".join(L.t("met_cut", t=t["tier"], a=t["from"], b=t["to"]) for t in meta["tierCuts"])
-    glossary = gloss(L, ("gl_pct", "gl_med", "gl_geo", "gl_hit", "gl_band", "gl_firm"))
-    arena_name = L.mon(by_dex[ARENA_DEX])
+    limits = "".join(f'<li>{esc(L.t(f"met_lim_{i}"))}</li>' for i in range(1, 5))
     arena_src = f"{c.assets}sprites/{ARENA_DEX}.png"
     content = f"""
 <h1>{esc(L.t("met_h1"))}</h1>
-<p class="lead">{esc(L.t("met_lead", game=legal.GAME_NAME, total=charts.TOTAL))}</p>
 {charts.pipeline(L)}
-
-<h2>{esc(L.t("met_walk_h"))}</h2>
-<p>{esc(L.t("met_walk_p"))}</p>
 {charts.walk(L, walkers, meta["tierCuts"], m["pieces"])}
-
-<h2>{esc(L.t("met_1_h"))}</h2>
-<ul class="plain">{pieces}</ul>
 {charts.weights(L, m["pieces"])}
 {charts.weights_pillars(L, m["pillars"])}
-
-<h3>{esc(L.t("met_sim_h"))}</h3>
-<p>{esc(L.t("met_sim_p", total=charts.TOTAL, s=f'{meta["simMedianSeconds"]:.0f}'))}</p>
-{charts.arena(L, arena_name, arena_src)}
-
-<h2>{esc(L.t("met_2_h"))}</h2>
-<p>{esc(L.t("met_2_p"))}</p>
+{charts.arena(L, arena_src)}
 {charts.geo_demo(L, m["pillars"], presets)}
-
-<h2>{esc(L.t("met_3_h"))}</h2>
-<p>{esc(L.t("met_3_p"))}</p>
 {charts.repeats_demo(L, reps)}
 {charts.ribbon(L, index)}
-{charts.stability(L, meta["stability"], meta["firmShare"])}
-<p>{esc(L.t("met_3b_p", share=meta["firmShare"]))}</p>
-
-<h2>{esc(L.t("met_4_h"))}</h2>
-<p>{esc(L.t("met_4_p", cuts=cuts_text))}</p>
+{charts.stability(L, meta["stability"])}
 {charts.tier_strip(L, meta["tierCuts"])}
-{charts.gate(L, m["gates"], meta["cappedCount"])}
-
-<h2>{esc(L.t("met_5_h"))}</h2>
-<p>{esc(L.t("met_5_p"))}</p>
+{charts.gate(L, m["gates"])}
 {charts.agreement(L, meta["agreement"])}
-
 <h2>{esc(L.t("met_limits_h"))}</h2>
-<ul class="plain">{limits}</ul>
-
-<h2>{esc(L.t("met_gloss_h"))}</h2>
-<dl class="gloss">{glossary}</dl>
-<p class="muted">{L.t("met_foot_html", version=esc(L.t("version_name")), game=esc(legal.GAME_NAME),
-                        commit=esc(meta["gameCommit"]), date=esc(meta["generatedAt"][:10]))}</p>
+<ul class="plain limits">{limits}</ul>
 """
     return page(c, "metodo", L.t("met_title", site=legal.SITE_NAME), L.t("met_desc", site=legal.SITE_NAME),
                 content, meta)
@@ -454,24 +385,14 @@ def render_acerca(c: Ctx, meta: dict) -> str:
     for cr in meta["credits"]:
         name = (f'<a href="{esc(cr["url"])}" rel="noopener nofollow">{esc(cr["name"])}</a>' if cr["url"]
                 else esc(cr["name"]))
-        creds.append(f'<li>{name} <span class="muted">({len(cr["dex"])})</span></li>')
-    legal_html = "".join(f'<h3 id="{s["id"]}">{esc(s["title"])}</h3>{s["html"]}' for s in legal.legal_sections(L))
+        creds.append(f"<li>{name}</li>")
+    legal_html = "".join(f'<h2 id="{s["id"]}">{esc(s["title"])}</h2>{s["html"]}' for s in legal.legal_sections(L))
     ui = next(x for x in json.loads((SITE / "img" / "CREDITS.json").read_text(encoding="utf8")) if x["set"] == "ui")
     icons = L.t("about_icons_html", author=esc(ui["author"]), url=esc(ui["sourceUrl"]), title=esc(ui["title"]),
                 lic=esc(ui["license"]), lic_url=esc(ui["licenseUrl"]))
     content = f"""
 <h1>{esc(L.t("about_h1"))}</h1>
-<div class="note"><p><strong>{esc(L.t("disclaimer", game=legal.GAME_NAME))}</strong></p></div>
-<ul class="toc"><li><a href="{c.home}metodo.html">{esc(L.t("nav_metodo"))}</a></li>
-<li><a href="#legal">{esc(L.t("about_toc_legal"))}</a></li><li><a href="#creditos">{esc(L.t("about_toc_credits"))}</a></li></ul>
-
-<p>{L.t("about_p_html", version=esc(L.t("version_name")), game=esc(legal.GAME_NAME), commit=esc(meta["gameCommit"]),
-        repo=esc(legal.GAME_REPO_URL), url=esc(legal.GAME_URL), date=esc(meta["generatedAt"][:10]),
-        method=f"{c.home}metodo.html")}</p>
-
-<h2 id="legal">{esc(L.t("about_toc_legal"))}</h2>
 {legal_html}
-
 <h2 id="creditos">{esc(L.t("about_credits_h"))}</h2>
 <h3>{esc(L.t("about_sprites_h"))}</h3>
 <p>{L.t("about_sprites_html", url=esc(lic["sourceUrl"]), source=esc(lic["source"]), lic_url=esc(lic["url"]),
@@ -479,7 +400,7 @@ def render_acerca(c: Ctx, meta: dict) -> str:
 <ul class="credits-list">{"".join(creds)}</ul>
 <h3>{esc(L.t("about_icons_h"))}</h3>
 <p>{icons}</p>
-<p>{L.t("about_font_html", game=esc(legal.GAME_NAME), root=c.assets)}</p>
+<p>{L.t("about_font_html", root=c.assets)}</p>
 """
     return page(c, "acerca", L.t("about_title", site=legal.SITE_NAME), L.t("about_desc", site=legal.SITE_NAME),
                 content, meta)
@@ -488,7 +409,7 @@ def render_acerca(c: Ctx, meta: dict) -> str:
 def render_404(meta: dict) -> str:
     L = ES
     c = Ctx(L, "404.html", "/", "/", None)
-    content = f'<h1>{esc(L.t("nf_h1"))}</h1><p class="lead">{L.t("nf_p_html")}</p>'
+    content = f'<h1>{esc(L.t("nf_h1"))}</h1><p>{L.t("nf_p_html")}</p>'
     return page(c, "404", L.t("nf_title", site=legal.SITE_NAME), L.t("nf_title", site=legal.SITE_NAME), content, meta)
 
 
@@ -516,7 +437,7 @@ def main() -> int:
 
         put("index.html", lambda c: render_index(c, index, meta))
         put("ataques.html", lambda c: render_ataques(c, moves, meta))
-        put("gachas.html", lambda c: render_gachas(c, gachas, meta))
+        put("gachas.html", lambda c: render_gachas(c, gachas, index, meta))
         put("coleccion.html", lambda c: render_coleccion(c, meta))
         put("metodo.html", lambda c: render_metodo(c, index, full, meta))
         put("acerca.html", lambda c: render_acerca(c, meta))
