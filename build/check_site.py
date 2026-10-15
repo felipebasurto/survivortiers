@@ -25,7 +25,7 @@ from html.parser import HTMLParser
 from urllib.error import HTTPError, URLError
 from pathlib import Path
 from urllib.parse import parse_qs, urldefrag, urljoin, urlparse
-from urllib.request import Request, urlopen
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 import agents  # noqa: E402
 import legal  # noqa: E402
@@ -72,9 +72,19 @@ class Page(HTMLParser):
         self.text.append(data)
 
 
+class _Redirect308(HTTPRedirectHandler):
+    """urllib no sigue las 308, y Pages las usa para las .html; se siguen como una 301 (GET y HEAD)."""
+
+    def http_error_308(self, req, fp, code, msg, headers):
+        return self.http_error_301(req, fp, 301, msg, headers)
+
+
+_OPENER = build_opener(_Redirect308)
+
+
 def fetch(url: str, method: str = "GET"):
     try:
-        with urlopen(Request(url, headers=UA, method=method), timeout=30) as r:
+        with _OPENER.open(Request(url, headers=UA, method=method), timeout=30) as r:
             return r.status, r.read() if method == "GET" else b""
     except HTTPError as e:
         return e.code, e.read() if method == "GET" else b""
