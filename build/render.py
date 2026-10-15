@@ -39,6 +39,7 @@ NAV = [("index", "index.html", "nav_tiers"), ("metodo", "metodo.html", "nav_meto
        ("ataques", "ataques.html", "nav_ataques"), ("objetos", "objetos.html", "nav_objetos"),
        ("gachas", "gachas.html", "nav_gachas"),
        ("coleccion", "coleccion.html", "nav_coleccion"), ("acerca", "acerca.html", "nav_acerca")]
+SORT_KEYS = ("rank", "name", "dex", "atk", "hp", "spd", "ehp", "rad", "td", "mv", "st", "rar")  # orden de la lista
 REPEAT_RANKS = (2, 40, 150, 350, 650)  # puestos de los Pokémon que salen en la ilustración de repeticiones
 PILLAR_KEYS = ("stats", "moves", "typedef", "size")
 ARENA_DEX = 25
@@ -165,15 +166,19 @@ def render_index(c: Ctx, pokemon: list[dict], meta: dict) -> str:
             f'<section class="tier tier-{t}" id="tier-{t}" aria-label="{esc(L.t("tier", t=t))}">'
             f'<header class="tier-head"><b>{t}</b>{icon("crown") if t == "S" else ""}<span class="n">{len(mons)}</span></header>'
             f'<div class="grid">{cards}</div></section>')
+    options = "".join(f'<option value="{k}">{esc(L.t("sort_" + k))}</option>' for k in SORT_KEYS)
     content = f"""
 <h1>{esc(L.t("index_h1", game=legal.GAME_NAME))}</h1>
 <div class="controls">
   <div class="field"><label for="q">{esc(L.t("search_label"))}</label>
     <input id="q" type="search" placeholder="{esc(L.t("search_ph"))}" autocomplete="off" spellcheck="false"></div>
+  <div class="field"><label for="sort">{esc(L.t("sort_by"))}</label><select id="sort">{options}</select></div>
+  <button id="dir" class="btn small" type="button" data-asc="{esc(L.t("dir_asc"))}" data-desc="{esc(L.t("dir_desc"))}">{esc(L.t("dir_asc"))}</button>
   <p id="count" aria-live="polite"></p>
 </div>
 <div id="tierlist">
 {"".join(sections)}
+<div id="flat" class="grid"></div>
 </div>
 <noscript><p class="muted">{esc(L.t("noscript"))}</p></noscript>
 """

@@ -98,7 +98,7 @@
     return r.json();
   });
 
-  const state = { mons: null, byDex: null };
+  const state = { mons: null, byDex: null, cards: [] };
 
   // ---------------------------------------------------------------- tarjetas
   function card(p, extraClass, extraHtml) {
@@ -116,19 +116,73 @@
     const q = plain(($('#q') || {}).value || '').trim();
     const terms = q.split(/\s+/).filter(Boolean);
     let shown = 0;
+    state.cards.forEach(el => {
+      const p = state.byDex.get(+el.dataset.dex);
+      const ok = terms.every(term => p.q.includes(term));
+      el.classList.toggle('dim', !ok);
+      if (ok) shown++;
+    });
     TIERS.forEach(t => {
       const sec = $('#tier-' + t);
-      let n = 0;
-      $$('.mon', sec).forEach(el => {
-        const p = state.byDex.get(+el.dataset.dex);
-        const ok = terms.every(term => p.q.includes(term));
-        el.classList.toggle('dim', !ok);
-        if (ok) n++;
-      });
-      sec.classList.toggle('hidden', terms.length > 0 && n === 0);
-      shown += n;
+      sec.classList.toggle('hidden', terms.length > 0 && $$('.mon:not(.dim)', sec).length === 0);
     });
     $('#count').textContent = terms.length ? TEXT.count(shown, state.mons.length) : '';
+  }
+
+  // ---------------------------------------------------------------- orden de la lista
+  // Cómo se compara cada criterio, si de inicio va de mayor a menor, y qué se escribe en la tarjeta en su lugar del puesto.
+  const dec = (v, n) => v.toFixed(n).replace('.', EN ? '.' : ',');
+  const pct = v => v + (EN ? '%' : NBSP + '%');
+  const SORTS = {
+    rank: { val: p => p.r[0], desc: false, show: p => p.r[0] },
+    name: { val: p => monName(p), desc: false, text: true, show: p => p.r[0] },
+    dex: { val: p => p.dex, desc: false, show: p => p.r[0] },
+    atk: { val: p => p.v.atk, desc: true, show: p => dec(p.v.atk, 2) },
+    hp: { val: p => p.v.hp, desc: true, show: p => p.v.hp },
+    spd: { val: p => p.v.spd, desc: true, show: p => p.v.spd },
+    ehp: { val: p => p.v.ehp, desc: true, show: p => p.v.ehp },
+    rad: { val: p => p.v.rad, desc: true, show: p => dec(p.v.rad, 1) },
+    td: { val: p => p.v.td, desc: true, show: p => pct(p.v.td) },
+    mv: { val: p => p.v.mv, desc: true, show: p => pct(p.v.mv) },
+    st: { val: p => p.v.st, desc: true, show: p => pct(p.v.st) },
+    rar: { val: p => p.rarity, desc: true, show: p => p.rarity },
+  };
+  let sortKey = 'rank', sortDesc = false;
+
+  function sortedCards() {
+    const spec = SORTS[sortKey], sign = sortDesc ? -1 : 1;
+    return [...state.cards].sort((a, b) => {
+      const pa = state.byDex.get(+a.dataset.dex), pb = state.byDex.get(+b.dataset.dex);
+      const c = spec.text ? spec.val(pa).localeCompare(spec.val(pb), EN ? 'en' : 'es') : spec.val(pa) - spec.val(pb);
+      return c * sign || pa.r[0] - pb.r[0];
+    });
+  }
+
+  function applySort() {
+    const flat = sortKey !== 'rank';
+    $('#tierlist').classList.toggle('flat-mode', flat);
+    if (flat) {
+      // Una sola lista, ordenada por el criterio; cada tarjeta enseña ese valor en lugar del puesto.
+      const grid = $('#flat');
+      sortedCards().forEach(el => {
+        grid.appendChild(el);
+        el.querySelector('.rk').textContent = SORTS[sortKey].show(state.byDex.get(+el.dataset.dex));
+      });
+    } else {
+      // Vuelve a las tiers, en orden de puesto.
+      [...state.cards].sort((a, b) => state.byDex.get(+a.dataset.dex).r[0] - state.byDex.get(+b.dataset.dex).r[0])
+        .forEach(el => {
+          const p = state.byDex.get(+el.dataset.dex);
+          $('#tier-' + p.r[1] + ' .grid').appendChild(el);
+          el.querySelector('.rk').textContent = p.r[0];
+        });
+    }
+    applySearch();
+  }
+
+  function syncDir() {
+    const b = $('#dir');
+    b.textContent = sortDesc ? b.dataset.desc : b.dataset.asc;
   }
 
   function indexMons(mons) {
@@ -140,7 +194,19 @@
   }
 
   function initTierList() {
+    state.cards = $$('#tierlist .mon');
     $('#q').addEventListener('input', applySearch);
+    $('#sort').addEventListener('change', () => {
+      sortKey = $('#sort').value;
+      sortDesc = SORTS[sortKey].desc;
+      syncDir();
+      applySort();
+    });
+    $('#dir').addEventListener('click', () => {
+      sortDesc = !sortDesc;
+      syncDir();
+      applySort();
+    });
   }
 
   // ---------------------------------------------------------------- colección

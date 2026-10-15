@@ -195,6 +195,8 @@ def load_pokemon(move_names: dict, credits: dict) -> list[dict]:
             "dex": dex, "name": px["name"], "nameEn": name_en, "types": px["types"],
             "rarity": px["rarity"], "legendary": px["legendary"],
             "bannerId": px["gen"], "banner": px["banner"], "sprite": sprite, "r": ranking,
+            "base": {"atk": px["atk"], "hp": px["hp"], "spd": px["spd"], "ehp": px["effective_hp"],
+                     "rad": px["body_radius"]},
         })
     return entries
 
@@ -297,8 +299,18 @@ def slim(entries: list[dict]) -> list[dict]:
     return [{"dex": e["dex"], "name": e["name"], "nameEn": e["nameEn"], "types": e["types"],
              "rarity": e["rarity"], "legendary": e["legendary"], "bannerId": e["bannerId"],
              "w": e["sprite"]["w"], "h": e["sprite"]["h"],
-             "r": [e["r"]["rank"], e["r"]["tier"], e["r"]["p10"], e["r"]["p90"], round(100 * e["r"]["pTier"])]}
+             "r": [e["r"]["rank"], e["r"]["tier"], e["r"]["p10"], e["r"]["p90"], round(100 * e["r"]["pTier"])],
+             "v": sort_values(e)}
             for e in entries]
+
+
+def sort_values(e: dict) -> dict:
+    """Valores por los que se ordena la lista: los de la Pokédex (atk, hp, spd, ehp, rad) y los pilares en %
+    (td = defensa de tipos, mv = movimientos, st = estadísticas). Los claves son cortas para que el JSON pese poco."""
+    b, pil = e["base"], e["r"]["pillars"]
+    return {"atk": round(b["atk"], 2), "hp": b["hp"], "spd": b["spd"], "ehp": round(b["ehp"]),
+            "rad": round(b["rad"], 1), "td": round(100 * pil["typedef"]), "mv": round(100 * pil["moves"]),
+            "st": round(100 * pil["stats"])}
 
 
 def species_details(entries: list[dict], sim_range: list[float], median: float) -> dict:

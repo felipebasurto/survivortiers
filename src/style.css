@@ -137,6 +137,11 @@ textarea {
 .mon .rk { font: .75rem var(--pix); color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .mon.dim { display: none; }
 .tier.hidden { display: none; }
+#flat { display: none; }
+#tierlist.flat-mode > section { display: none; }
+#tierlist.flat-mode #flat { display: grid; }
+.field select { border: 0; box-shadow: var(--notch); background: var(--bg); color: var(--ink); padding: 10px 12px; margin: 2px;
+  font: 1.05rem var(--pix); }
 
 /* ---------- ficha ---------- */
 .crumbs { font: .875rem var(--sans); color: var(--ink-2); margin-bottom: 22px; }
