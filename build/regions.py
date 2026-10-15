@@ -7,6 +7,7 @@ from __future__ import annotations
 from html import escape
 
 from i18n import Lang
+import legal
 
 SIZE = 96  # lado del viewBox
 RADIUS = 22
@@ -134,7 +135,7 @@ MOTIFS = {"kanto": _kanto, "johto": _johto, "hoenn": _hoenn, "sinnoh": _sinnoh, 
 def _sprite(sprites: str, mon: dict, box_w: int, box_h: int, side: str) -> str:
     scale = min(box_w / mon["w"], box_h / mon["h"])
     w, h = round(mon["w"] * scale), round(mon["h"] * scale)
-    return (f'<img class="px rg-mon rg-{side}" src="{sprites}{mon["dex"]}.png" width="{w}" height="{h}" alt="">')
+    return (f'<img class="px rg-mon rg-{side}" src="{sprites}{mon["dex"]}{legal.SPRITE_EXT}" width="{w}" height="{h}" alt="">')
 
 
 def badge(L: Lang, sprites: str, gen: int, name: str, index: dict[int, dict], small: bool = False) -> str:

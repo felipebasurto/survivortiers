@@ -124,13 +124,14 @@ def browser_check(base: str, index: list[dict], args, err, notes: list[str]) -> 
                     h1: document.querySelector('h1').firstChild.textContent.trim(),
                     img: document.querySelector('.ficha-sprite img').naturalWidth,
                     src: document.querySelector('.ficha-sprite img').src,
-                    base: document.documentElement.dataset.sprites })""")
+                    base: new URL(document.documentElement.dataset.sprites, location.href).href,
+                    ext: document.documentElement.dataset.spritesExt || '.png' })""")
                 want = by_dex[d]["nameEn" if en else "name"]
                 if info["h1"] != want:
                     err(f"{lang}pokemon/?id={d}: el título es {info['h1']!r} y debería ser {want!r}")
                 if len(info["alts"]) != 4 or min(info["alts"]) < 20:
                     err(f"{lang}pokemon/?id={d}: {len(info['alts'])} gráficos con texto alternativo (se esperaban 4 de 20+ letras)")
-                if info["src"] != f"{info['base']}{d}.png" or info["img"] == 0:
+                if info["src"] != f"{info['base']}{d}{info['ext']}" or info["img"] == 0:
                     err(f"{lang}pokemon/?id={d}: el sprite no carga ({info['src']})")
                 if problems:
                     err(f"{lang}pokemon/?id={d}: errores en el navegador: {problems[:2]}")
@@ -258,7 +259,7 @@ def main() -> int:
         if not lang or lang.group(1) != ("en" if english else "es"):
             err(f"{url}: atributo lang incorrecto")
         if page.sprites:
-            sprite_bases.add(page.sprites)
+            sprite_bases.add(urljoin(url, page.sprites))
         if english:
             visible = re.sub(r'<ul class="credits-list">.*?</ul>', "",
                              body_by_url[url], flags=re.S)
@@ -273,7 +274,7 @@ def main() -> int:
                 if not full.startswith("data:"):
                     err(f"{url}: esquema raro {href[:40]}")
                 continue
-            if page.sprites and full.startswith(page.sprites) and href in page.assets:
+            if page.sprites and full.startswith(urljoin(url, page.sprites)) and href in page.assets:
                 sprite_refs.add(full)
                 continue
             if parts.netloc != origin:
@@ -340,10 +341,10 @@ def main() -> int:
                     err(f"{name}: la CSP no permite imágenes de raw.githubusercontent.com (respaldo de sprites)")
         elif urlparse(sprite_base).netloc != origin:
             err("hay CDN de sprites pero no respaldo (data-sprites-alt vacío)")
-        wrong = [u for u in sprite_refs if not re.fullmatch(re.escape(sprite_base) + r"\d+\.png", u)]
+        wrong = [u for u in sprite_refs if not re.fullmatch(re.escape(sprite_base) + r"\d+\.(png|webp)", u)]
         if wrong:
             err(f"sprites con una URL rara: {wrong[:3]}")
-        gone = {int(u[len(sprite_base):-4]) for u in sprite_refs if u not in wrong} - set(dexes)
+        gone = {int(u[len(sprite_base):].split(".")[0]) for u in sprite_refs if u not in wrong} - set(dexes)
         if gone:
             err(f"sprites de Pokémon que no existen: {sorted(gone)[:5]}")
         if len(sprite_refs) != 966:

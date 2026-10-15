@@ -323,7 +323,7 @@ def walk(L: Lang, mons: list[dict], cuts: list[dict], pieces: list[dict]) -> str
         body = "".join(
             f'<div class="walk-step" data-step="{k}"><h3>{esc(L.t(f"walk_{k + 1}_h"))}</h3>{vis}</div>'
             for k, vis in enumerate(steps))
-        head = (f'<div class="walk-head"><img class="px" src="{m["sprites"]}{m["dex"]}.png" width="{m["w"] * 2}" '
+        head = (f'<div class="walk-head"><img class="px" src="{m["sprites"]}{m["dex"]}{m.get("ext", ".png")}" width="{m["w"] * 2}" '
                 f'height="{m["h"] * 2}" alt=""><b>{esc(name)}</b>'
                 f'<span class="tier-badge {r["tier"]}">{r["tier"]}</span></div>')
         panels.append(f'<div class="walk-mon" data-mon-panel="{i}"{"" if i == 0 else " hidden"}>{head}{body}</div>')

@@ -1,7 +1,7 @@
 """Genera site/ entero (español en la raíz, inglés en /en/) a partir de build/out/, que escribe build/catalog.py, y de
 src/. site/ queda en unos 25 archivos: seis páginas por idioma, la plantilla única de ficha de cada idioma
 (pokemon/index.html, que dibuja src/ficha.js con ?id=), la página 404, el CSS y el JS empaquetados, la letra y tres JSON.
-Los sprites no van en site/: se piden a legal.SPRITE_BASE.
+Los sprites no van en site/: se piden a legal.SPRITE_BASE (WebP, ver legal.py).
 
     python3 build/catalog.py && python3 build/render.py
 """
@@ -30,6 +30,7 @@ OUT = ROOT / "build" / "out"
 SRC = ROOT / "src"
 TEMPLATES = Path(__file__).resolve().parent / "templates"
 SPRITES = legal.SPRITE_BASE
+EXT = legal.SPRITE_EXT
 SCALE_LIST = 2
 TIERS = ["S", "A", "B", "C", "D"]
 UNSURE = 50  # % de repeticiones en su tier por debajo del cual el tier se marca como dudoso
@@ -100,7 +101,11 @@ def icon(name: str) -> str:
     return f'<i class="ico ico-{name}" aria-hidden="true"></i>'
 
 
-def mon_card(c: Ctx, p: dict) -> str:
+LOAD_EAGER = 'fetchpriority="high"'
+LOAD_LAZY = 'loading="lazy" decoding="async"'
+
+
+def mon_card(c: Ctx, p: dict, eager: bool = False) -> str:
     L = c.L
     rank, tier, _, _, ptier = p["r"]
     w, h = p["w"] * SCALE_LIST, p["h"] * SCALE_LIST
@@ -110,8 +115,8 @@ def mon_card(c: Ctx, p: dict) -> str:
     title = L.t("card_title", name=name, dex=p["dex"], rank=rank, tier=tier, hint=hint)
     return (f'<a class="{"mon unsure" if unsure else "mon"}" href="{c.home}pokemon/?id={p["dex"]}" data-dex="{p["dex"]}" '
             f'title="{esc(title)}">'
-            f'<span class="sp"><img class="px" src="{SPRITES}{p["dex"]}.png" width="{w}" height="{h}" alt="" '
-            f'loading="lazy" decoding="async"></span>'
+            f'<span class="sp"><img class="px" src="{SPRITES}{p["dex"]}{EXT}" width="{w}" height="{h}" alt="" '
+            f'{LOAD_EAGER if eager else LOAD_LAZY}></span>'
             f'<span class="nm">{esc(name)}</span><span class="rk">{rank}</span></a>')
 
 
@@ -137,7 +142,7 @@ def page(c: Ctx, page_id: str, title: str, description: str, content: str, meta:
         switch = f'<nav class="lang" aria-label="{esc(L.t("lang_label"))}">{links}</nav>'
         alternates = f'<link rel="alternate" hreflang="{other}" href="{c.other}">'
     return BASE.substitute(
-        lang=L.code, assets=c.assets, home=c.home, sprites=esc(SPRITES), sprites_alt=esc(legal.SPRITE_ALT), asset_v=ASSET_V, page_id=page_id, title=esc(title),
+        lang=L.code, assets=c.assets, home=c.home, sprites=esc(SPRITES), sprites_alt=esc(legal.SPRITE_ALT), sprites_ext=EXT, asset_v=ASSET_V, page_id=page_id, title=esc(title),
         description=esc(description), alternates=alternates, skip=esc(L.t("skip")),
         nav_aria=esc(L.t("nav_main")), foot_aria=esc(L.t("nav_foot")), switch=switch, nav=nav, content=content,
         footer_nav=footer_nav, disclaimer=esc(L.t("disclaimer", game=legal.GAME_NAME)), sprites_line=sprites_line,
@@ -156,7 +161,7 @@ def render_index(c: Ctx, pokemon: list[dict], meta: dict) -> str:
     sections = []
     for t in TIERS:
         mons = sorted((p for p in pokemon if p["r"][1] == t), key=lambda p: p["r"][0])
-        cards = "".join(mon_card(c, p) for p in mons)
+        cards = "".join(mon_card(c, p, eager=(t == TIERS[0] and i < 12)) for i, p in enumerate(mons))
         sections.append(
             f'<section class="tier tier-{t}" id="tier-{t}" aria-label="{esc(L.t("tier", t=t))}">'
             f'<header class="tier-head"><b>{t}</b>{icon("crown") if t == "S" else ""}<span class="n">{len(mons)}</span></header>'
@@ -248,13 +253,13 @@ def gacha_card(c: Ctx, i: int, g: dict, last: int, by_banner: dict[int, list[dic
     best = sorted(by_banner[g["gen"]], key=lambda p: p["r"][0])[:3]
     pulls = "".join(
         f'<a class="gc-mon" href="{c.home}pokemon/?id={p["dex"]}" title="{esc(L.mon(p))}">'
-        f'<img class="px" src="{SPRITES}{p["dex"]}.png" width="{p["w"] * k}" height="{p["h"] * k}" '
-        f'alt="{esc(L.mon(p))}" loading="lazy"></a>'
+        f'<img class="px" src="{SPRITES}{p["dex"]}{EXT}" width="{p["w"] * k}" height="{p["h"] * k}" '
+        f'alt="{esc(L.mon(p))}" loading="lazy" decoding="async"></a>'
         for p in best for k in [max(1, min(4, 56 // max(p["w"], p["h"])))])
     stars_n = GACHA_STARS[i]
     verdict = ""
     if i == 0:
-        verdict = f'<b class="gc-tag go">{icon("crown")}{esc(L.t("g_best"))}</b>'
+        verdict = f'<b class="gc-tag go" role="img" aria-label="{esc(L.t("g_best"))}">{icon("crown")}</b>'
     elif i == last:
         verdict = f'<b class="gc-tag stop">{esc(L.t("g_worst"))}</b>'
     cls = "gc best" if i == 0 else "gc worst" if i == last else "gc"
@@ -314,10 +319,10 @@ def render_metodo(c: Ctx, index: list[dict], full: list[dict], meta: dict) -> st
     presets = [(L.mon(by_dex[d]), [round(by_dex[d]["r"]["pillars"][k] * 100) for k in PILLAR_KEYS])
                for d in meta["presets"]]
     walkers = [{"name": L.mon(by_dex[d]), "dex": d, "w": by_dex[d]["sprite"]["w"], "h": by_dex[d]["sprite"]["h"],
-                "index": idx_by_dex[d], "r": by_dex[d]["r"], "sprites": SPRITES} for d in meta["presets"]]
+                "index": idx_by_dex[d], "r": by_dex[d]["r"], "sprites": SPRITES, "ext": EXT} for d in meta["presets"]]
     reps = [(L.mon(p), p) for p in (min(index, key=lambda p: abs(p["r"][0] - n)) for n in REPEAT_RANKS)]
     limits = "".join(f'<li>{esc(L.t(f"met_lim_{i}"))}</li>' for i in range(1, 5))
-    arena_src = f"{SPRITES}{ARENA_DEX}.png"
+    arena_src = f"{SPRITES}{ARENA_DEX}{EXT}"
     content = f"""
 <h1>{esc(L.t("met_h1"))}</h1>
 {charts.pipeline(L)}

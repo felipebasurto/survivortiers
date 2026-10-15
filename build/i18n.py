@@ -117,7 +117,7 @@ STR: dict[str, tuple[str, str]] = {
                     "Which {game} gacha banner gives the most top Pokémon."),
     "gachas_h1": ("Gacha", "Gacha"),
     "g_one_in": ("1 de cada {n} es top", "1 in {n} is top"),
-    "g_best": ("Tira aquí", "Pull here"),
+    "g_best": ("Mejor banner", "Best banner"),
     "g_worst": ("Mejor no", "Skip"),
     "g_pulls": ("Mejores Pokémon de {name}", "Best Pokémon in {name}"),
 

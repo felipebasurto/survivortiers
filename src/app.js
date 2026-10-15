@@ -8,6 +8,7 @@
   const assets = html.dataset.assets || '';
   const home = html.dataset.home || '';
   const sprites = html.dataset.sprites || '';
+  const spriteExt = html.dataset.spritesExt || '.png';
   const spritesAlt = html.dataset.spritesAlt || '';
   const page = html.dataset.page;
   const EN = html.lang === 'en';
@@ -107,7 +108,7 @@
     const cls = 'mon' + (unsure ? ' unsure' : '') + (extraClass ? ' ' + extraClass : '');
     const title = TEXT.cardTitle(monName(p), p.dex, rank, tier, unsure ? TEXT.unsure(share, tier) : '');
     return '<a class="' + cls + '" href="' + home + 'pokemon/?id=' + p.dex + '" data-dex="' + p.dex + '" title="' + esc(title) + '">' +
-      '<span class="sp"><img class="px" src="' + sprites + p.dex + '.png" width="' + p.w * SCALE + '" height="' + p.h * SCALE +
+      '<span class="sp"><img class="px" src="' + sprites + p.dex + spriteExt + '" width="' + p.w * SCALE + '" height="' + p.h * SCALE +
       '" alt="" loading="lazy" decoding="async"></span><span class="nm">' + esc(monName(p)) + '</span><span class="rk">' + rank + '</span>' +
       (extraHtml || '') + '</a>';
   }

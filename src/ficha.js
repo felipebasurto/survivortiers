@@ -8,6 +8,7 @@
   if (html.dataset.page !== 'ficha') return;
   const home = html.dataset.home || '';
   const sprites = html.dataset.sprites || '';
+  const spriteExt = html.dataset.spritesExt || '.png';
   const T = JSON.parse(document.getElementById('i18n').textContent);
   const EN = T.en;
   const TOTAL = 966;
@@ -140,7 +141,7 @@
     const pager = (prev ? link(prev, true) : '<span></span>') + (next ? link(next, false) : '<span></span>');
     root.innerHTML =
       '<p class="crumbs"><a href="' + home + 'index.html">' + esc(t('crumb_home')) + '</a> › ' + esc(name) + '</p>' +
-      '<div class="ficha-head"><div class="ficha-sprite"><img class="px" src="' + sprites + p.dex + '.png" width="' + p.w * scale +
+      '<div class="ficha-head"><div class="ficha-sprite"><img class="px" src="' + sprites + p.dex + spriteExt + '" width="' + p.w * scale +
       '" height="' + p.h * scale + '" alt="' + esc(t('sprite_alt', { name })) + '"></div><div>' +
       '<h1>' + esc(name) + ' ' + otherName + '<small>' + esc(t('dex_no', { dex: p.dex })) + '</small></h1>' +
       '<div class="facts">' + pills + ' ' + stars + ' ' + legendary + ' ' + tpl('tpl-regions', 'data-gen', p.bannerId) + '</div>' +

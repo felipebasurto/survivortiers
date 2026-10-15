@@ -13,10 +13,12 @@ GAME_REPO_URL = "https://github.com/JPTER78/pokesurvivor"
 GAME_COMMIT = "a9b21f0"
 GAME_AUTHOR = "JPTER78"
 
-# Los sprites no viajan en site/. Salen de este repositorio (sprites/) a través de jsDelivr, que los sirve con CORS abierto
-# y caché. SPRITE_BASE en el entorno lo cambia, por ejemplo para ver el sitio en local con build/serve.py.
+# Los sprites no viajan en site/ (presupuesto de 50 archivos). Salen de este repositorio (sprites/) a través de jsDelivr,
+# que los sirve con CORS abierto y caché, como WebP sin pérdida (sprites/*.webp, ~270 KB los 966 frente a 3,8 MB en PNG;
+# los genera build/webp.py). SPRITE_BASE en el entorno lo cambia, por ejemplo para ver el sitio en local con build/serve.py.
 SPRITE_CDN = "https://cdn.jsdelivr.net/gh/felipebasurto/survivortiers@main/sprites/"
 SPRITE_BASE = os.environ.get("SPRITE_BASE", SPRITE_CDN)
+SPRITE_EXT = os.environ.get("SPRITE_EXT", ".webp")
 # Respaldo si jsDelivr falla (lo hace app.js): el mismo archivo directamente desde GitHub. Solo con el CDN por defecto.
 SPRITE_ALT = os.environ.get(
     "SPRITE_ALT", "https://raw.githubusercontent.com/felipebasurto/survivortiers/main/sprites/" if SPRITE_BASE == SPRITE_CDN else "")
