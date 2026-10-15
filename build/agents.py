@@ -25,6 +25,9 @@ SIM_CAP_S = 900  # tope de la simulación de supervivencia (sim_lede en build/i1
 
 
 def _url(rel: str) -> str:
+    """URL absoluta de una página o archivo. Las páginas van sin .html: Workers y Pages redirigen las .html (307/308)."""
+    if rel.endswith(".html") and rel != "404.html":
+        rel = rel[: -len(".html")]
     return f"{legal.SITE_URL}/{rel}"
 
 
@@ -88,12 +91,12 @@ Base URL: {u}
 ## Pages
 
 - [Tier list (EN)]({u}/en/): all Pokémon by tier, with search and sorting.
-- [Moves (EN)]({u}/en/ataques.html): attack tier list.
-- [Items (EN)]({u}/en/objetos.html): item tier list.
-- [Gacha (EN)]({u}/en/gachas.html): banners and pull odds.
-- [Collection (EN)]({u}/en/coleccion.html): collection helper.
-- [Method (EN)]({u}/en/metodo.html): how the ranking is built, with the numbers.
-- [About (EN)]({u}/en/acerca.html): fan-site notice, sprite credits and licences.
+- [Moves (EN)]({u}/en/ataques): attack tier list.
+- [Items (EN)]({u}/en/objetos): item tier list.
+- [Gacha (EN)]({u}/en/gachas): banners and pull odds.
+- [Collection (EN)]({u}/en/coleccion): collection helper.
+- [Method (EN)]({u}/en/metodo): how the ranking is built, with the numbers.
+- [About (EN)]({u}/en/acerca): fan-site notice, sprite credits and licences.
 - [Sitemap]({u}/sitemap.xml)
 
 ## Optional

@@ -7,6 +7,7 @@ y publica sprites/ en /_sprites/ para ver el sitio sin conexión.
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -23,7 +24,11 @@ class Handler(SimpleHTTPRequestHandler):
         clean = path.split("?", 1)[0].split("#", 1)[0]
         if clean.startswith(PREFIX):
             return str(SPRITES / clean[len(PREFIX):])
-        return super().translate_path(path)
+        fs = super().translate_path(path)
+        # URLs limpias como en Workers y Pages: /en/metodo sirve en/metodo.html
+        if not os.path.exists(fs) and not clean.endswith("/") and os.path.isfile(fs + ".html"):
+            return fs + ".html"
+        return fs
 
     def send_error(self, code, message=None, explain=None):
         page = SITE / "404.html"
