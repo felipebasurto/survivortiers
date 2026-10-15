@@ -206,7 +206,7 @@
       '<div class="facts">' + pills + ' ' + stars + ' ' + legendary + ' ' + tpl('tpl-regions', 'data-gen', p.bannerId) + '</div>' +
       '<div class="rankline"><span class="tier-badge ' + tier + '" title="' + esc(t('tier', { t: tier })) + '">' + tier + '</span>' +
       '<strong>' + rank + '</strong><span>/ ' + TOTAL + '</span>' + flagsHtml(d[7]) + '</div></div></div>' +
-      rankBand(p, name) + pillars(d, name) + methods(p, d, name) + sim(d, range, moveName) + learn(p, d, moves) +
+      rankBand(p, name) + pillars(d, name) + sim(d, range, moveName) + learn(p, d, moves) + methods(p, d, name) +
       '<nav class="pager" aria-label="' + esc(t('pager_aria')) + '">' + pager + '</nav>';
     const label = EN || p.nameEn === p.name ? name : p.name + ' (' + p.nameEn + ')';
     document.title = t('ficha_title', { name, tier });
