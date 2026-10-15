@@ -20,6 +20,8 @@
   const SCALE = 2;
   const NBSP = '\u00a0';
 
+  // 2.000 con punto o coma de miles, también a partir de 1.000 (toLocaleString en es no agrupa cuatro cifras).
+  const grouped = (n, sep) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, sep);
   const TEXT = {
     es: {
       loadFail: n => 'No se pudo cargar ' + n,
@@ -49,7 +51,7 @@
       unknown: n => n + ' no están en el ranking.',
       byTier: 'Por tier',
       pause: 'Pausa', play: 'Seguir',
-      repCount: (n, total) => n.toLocaleString('es-ES') + ' / ' + total.toLocaleString('es-ES'),
+      repCount: (n, total) => grouped(n, '.') + ' / ' + grouped(total, '.'),
       stepOf: (i, n) => 'Paso ' + i + ' de ' + n,
       auto: 'Auto', stop: 'Parar',
       over: 'Fin',
@@ -82,7 +84,7 @@
       unknown: n => n + ' not in the ranking.',
       byTier: 'By tier',
       pause: 'Pause', play: 'Play',
-      repCount: (n, total) => n.toLocaleString('en-US') + ' / ' + total.toLocaleString('en-US'),
+      repCount: (n, total) => grouped(n, ',') + ' / ' + grouped(total, ','),
       stepOf: (i, n) => 'Step ' + i + ' of ' + n,
       auto: 'Auto', stop: 'Stop',
       over: 'Over',
@@ -270,6 +272,8 @@
   // Los puntos del recorrido paso a paso no tienen botón y solo saltan mientras se ven.
   function initReps() {
     const REPEATS = 2000;
+    const PER_TICK = 40; // repeticiones por tic: 2.000 en unos 2,5 s
+    const TICK_MS = 50;
     $$('[data-reps]').forEach(fig => {
       const dots = $$('.rp-dot', fig);
       const btn = $('[data-play]', fig);
@@ -278,7 +282,7 @@
       let timer = null;
       const step = () => {
         if (!fig.offsetParent) return;
-        n = n % REPEATS + 1;
+        n = (n - 1 + PER_TICK) % REPEATS + 1;
         if (count) count.textContent = TEXT.repCount(n, REPEATS);
         dots.forEach(d => {
           const lo = +d.dataset.lo;
@@ -288,7 +292,7 @@
       };
       const set = on => {
         clearInterval(timer);
-        timer = on ? setInterval(step, 700) : null;
+        timer = on ? setInterval(step, TICK_MS) : null;
         if (btn) btn.textContent = on ? TEXT.pause : TEXT.play;
       };
       if (btn) btn.addEventListener('click', () => set(!timer));

@@ -98,14 +98,15 @@ STR: dict[str, tuple[str, str]] = {
     "ataques_title": ("Ataques · {site}", "Moves · {site}"),
     "ataques_desc": ("Tier list de los {n} ataques de {game}.", "Tier list of the {n} moves in {game}."),
     "ataques_h1": ("Ataques", "Moves"),
+    "ataques_lede": ("1× es un movimiento normal (la mediana de todos). Cuanto más alto el valor, mejor. "
+                     "Los potenciadores muestran además el tiempo que están activos.",
+                     "1× is a normal move (the median of all). The higher the value, the better. "
+                     "Boosts also show how much of the time they are active."),
     "cat_melee": ("Cuerpo a cuerpo", "Melee"),
     "cat_ranged": ("Distancia", "Ranged"),
     "cat_stat": ("Potenciadores", "Boosts"),
-    "mv_dps15": ("Daño, minuto 15", "Damage, minute 15"),
-    "mv_ttd15": ("Aguante, minuto 15", "Survival, minute 15"),
-    "mv_dps5": ("Daño, minuto 5", "Damage, minute 5"),
-    "mv_cover": ("Activo", "Uptime"),
-    "mv_fused": ("Fusionado, minuto {n}", "Fused, minute {n}"),
+    "mv_value": ("Valor", "Value"),
+    "mv_cover": ("Tiempo activo", "Time active"),
     "mv_typical": ("normal", "typical"),
     "mv_better": ("mejor", "better"),
     "mv_worse": ("peor", "worse"),
@@ -168,6 +169,47 @@ STR: dict[str, tuple[str, str]] = {
     "met_title": ("Método · {site}", "Method · {site}"),
     "met_desc": ("Cómo se calcula el ranking de {site}.", "How the {site} ranking is calculated."),
     "met_h1": ("Método", "Method"),
+    "met_lede": ("Cada Pokémon recibe un puesto del 1 al 966 y un tier. El puesto mezcla su ficha, cómo juega "
+                 "en partidas simuladas y cómo rinde al final de la partida. Como una sola cifra puede engañar, "
+                 "el cálculo se repite 2.000 veces.",
+                 "Each Pokémon gets a rank from 1 to 966 and a tier. The rank mixes its sheet, how it plays in "
+                 "simulated games and how it performs late in the game. Since one number can mislead, the "
+                 "calculation is repeated 2,000 times."),
+    "met_steps_aria": ("Pasos del cálculo", "Calculation steps"),
+    "met_step_1_h": ("Medir", "Measure"),
+    "met_step_1": ("Para cada Pokémon se miden su ficha (estadísticas, ataques, defensa de tipos y tamaño), su "
+                   "aguante en 200 partidas simuladas con el ataque inicial y con el mejor que puede aprender, y su "
+                   "rendimiento al final de la partida.",
+                   "For each Pokémon we measure its sheet (stats, moves, type defence and size), how long it survives "
+                   "in 200 simulated games with its starting move and with the best move it can learn, and how it "
+                   "performs late in the game."),
+    "met_step_2_h": ("Percentil", "Percentile"),
+    "met_step_2": ("Cada medida se convierte en percentil: 90 quiere decir que es mejor que el 90 % de los Pokémon "
+                   "en esa medida. Así se pueden comparar cosas distintas, como segundos de partida y estadísticas.",
+                   "Each measure becomes a percentile: 90 means better than 90% of Pokémon on that measure. That lets "
+                   "us compare different things, like seconds survived and stats."),
+    "met_step_3_h": ("Combinar", "Combine"),
+    "met_step_3": ("La ficha pesa {sheet}, las partidas {sim} y el final de la partida {late}. Es una media "
+                   "geométrica: una pieza muy floja arrastra la nota. Pruébalo abajo.",
+                   "The sheet weighs {sheet}, games {sim} and late game {late}. It is a geometric mean: one very "
+                   "weak piece drags the score down. Try it below."),
+    "met_step_4_h": ("Repetir 2.000 veces", "Repeat 2,000 times"),
+    "met_step_4": ("Cada repetición cambia los datos un poco, dentro de su margen de error; también el peso entre "
+                   "partidas y final, y una de las 80 suposiciones del modelo de final de partida. Así salen 2.000 "
+                   "ordenaciones.",
+                   "Each repeat shifts the data within its error margin, the weight between games and late game, and "
+                   "one of the 80 assumptions of the late-game model. That gives 2,000 orderings."),
+    "met_step_5_h": ("Puesto", "Rank"),
+    "met_step_5": ("El puesto final es la mediana de esas 2.000 posiciones. El rango habitual, la banda de cada "
+                   "ficha, va del percentil 10 al 90 de esas posiciones.",
+                   "The final rank is the median of those 2,000 positions. The usual range, the band on each sheet, "
+                   "runs from the 10th to the 90th percentile of those positions."),
+    "met_step_6_h": ("Tier", "Tier"),
+    "met_step_6": ("Los puestos se reparten en tiers de tamaño fijo: {sizes}. Para entrar en S hace falta estar "
+                   "entre el {s} mejor en estadísticas; en A, entre el {a}; en B, entre el {b}. Quien no cumple el "
+                   "mínimo espera al siguiente tier en el que sí entre.",
+                   "Ranks are split into tiers of fixed size: {sizes}. To enter S you must be in the top {s} for "
+                   "stats; A, top {a}; B, top {b}. Whoever misses the minimum waits for the next tier they qualify for."),
     "pipe_title": ("Del dato al tier", "From data to tier"),
     "pipe_1": ("Medir", "Measure"),
     "pipe_2": ("Percentil", "Percentile"),
@@ -195,6 +237,12 @@ STR: dict[str, tuple[str, str]] = {
     "agree_title": ("Qué medida se parece más al ranking", "Which measure is closest to the ranking"),
     "agree_alt": ("Parecido con el puesto final: ", "Closeness to the final rank: "),
     "rib_title": ("Cuánto se mueve cada puesto", "How much each rank moves"),
+    "rib_lede": ("Cada trazo es un Pokémon. Su posición horizontal es su puesto final, y el trazo marca dónde cayó "
+                 "en las 2.000 repeticiones (entre el 10 % y el 90 % de los casos). Trazo corto: puesto firme. "
+                 "El rango habitual mide unos {s} puestos en el tier S y {c} en el C.",
+                 "Each stroke is a Pokémon. Its horizontal position is its final rank, and the stroke shows where it "
+                 "landed across the 2,000 repeats (between the 10th and 90th percentile). Short stroke: firm rank. "
+                 "The usual range is about {s} places in tier S and {c} in tier C."),
     "rib_x": ("puesto final", "final rank"),
     "rib_y": ("puesto en las repeticiones", "rank in the repeats"),
     "rib_alt": ("Margen de puestos de cada Pokémon. Ancho típico por tier: ",
@@ -203,10 +251,21 @@ STR: dict[str, tuple[str, str]] = {
     "stab_title": ("Se queda en su tier", "Stays in its tier"),
     "stab_alt": ("Pokémon que se quedan en su tier: ", "Pokémon that stay in their tier: "),
     "demo_title": ("Un punto flojo hunde la nota", "One weak spot sinks the score"),
-    "demo_geo": ("Nuestra media", "Our mean"),
-    "demo_arith": ("Media simple", "Plain mean"),
+    "demo_lede": ("Baja una pieza con el deslizador y mira las dos notas. La media simple deja que el resto compense; "
+                  "la nuestra no: una pieza floja hunde la nota.",
+                  "Lower one piece with its slider and watch both scores. A plain mean lets the others make up for "
+                  "it; ours does not: one weak piece sinks the score."),
+    "demo_geo": ("Nuestra media (geométrica)", "Our mean (geometric)"),
+    "demo_arith": ("Media simple (aritmética)", "Plain mean (arithmetic)"),
+    "demo_how": ("Naranja: nuestra media. Gris: la media simple. Cuanto más se separan, más castiga la nuestra un punto flojo.",
+                 "Orange: our mean. Grey: plain mean. The further apart they are, the harder ours punishes a weak spot."),
+    "demo_weight": ("peso {w}", "weight {w}"),
     "demo_aria": ("Percentil en {name}", "Percentile in {name}"),
     "reps_title": ("2.000 repeticiones", "2,000 repeats"),
+    "reps_lede": ("Cada punto es un Pokémon de ejemplo. La sombra es su rango habitual (del percentil 10 al 90) y la "
+                  "raya roja, su puesto final. En cada repetición cae en un punto distinto de ese rango.",
+                  "Each dot is an example Pokémon. The shade is its usual range (10th to 90th percentile) and the red "
+                  "line its final rank. Each repeat lands it somewhere else within that range."),
     "reps_pause": ("Pausa", "Pause"),
     "reps_play": ("Seguir", "Play"),
     "reps_count": ("{n} / {total}", "{n} / {total}"),
@@ -223,6 +282,10 @@ STR: dict[str, tuple[str, str]] = {
     "walk_5_h": ("Tier", "Tier"),
     "walk_tier_alt": ("Puesto {rank} dentro de la tira de tiers", "Rank {rank} inside the tier strip"),
     "arena_title": ("Así se ve una partida simulada", "What a simulated game looks like"),
+    "arena_lede": ("Ilustración, no datos del ranking. Así juega cada Pokémon las partidas simuladas: esquiva, dispara "
+                   "a los enemigos que se acercan y aguanta lo que puede.",
+                   "Illustration, not ranking data. This is how each Pokémon plays the simulated games: it dodges, "
+                   "shoots the enemies that come close, and survives as long as it can."),
     "arena_time": ("tiempo", "time"),
     "arena_kills": ("derrotados", "defeated"),
     "arena_alt": ("Animación de una partida simulada. Un Pokémon esquiva y dispara a enemigos que se acercan.",

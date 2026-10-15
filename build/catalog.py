@@ -107,9 +107,6 @@ def load_moves() -> list[dict]:
     if not rows:
         raise CatalogError("data/move_tierlist_v4.csv está vacío")
     names_en = json.loads((DATA / "lang_en_moves.json").read_text(encoding="utf8"))
-    attacks = [r for r in rows if r["dps_m15"]]
-    med = {k: statistics.median(float(r[k]) for r in attacks) for k in ("dps_m5", "dps_m15", "ttd_s_m15")}
-
     def en(name: str | None, table: str) -> str | None:
         if not name:
             return None
@@ -124,12 +121,9 @@ def load_moves() -> list[dict]:
                 "evolvesTo": r["evolves_to"] or None, "needsCard": r["needs_card"] or None,
                 "en": {"name": en(r["name"], "moves"), "evolvesTo": en(r["evolves_to"], "moves"),
                        "needsCard": en(r["needs_card"], "cards")}}
-        if r["dps_m15"]:
-            # Cada cifra es la del ataque dividida por la mediana de todos los ataques con daño.
-            move["rel"] = {"dps5": round(float(r["dps_m5"]) / med["dps_m5"], 2),
-                           "dps15": round(float(r["dps_m15"]) / med["dps_m15"], 2),
-                           "ttd15": round(float(r["ttd_s_m15"]) / med["ttd_s_m15"], 2)}
-        else:
+        # El valor de la tier list (score_rel): 1 es un movimiento normal, más es mejor. Es lo que ordena cada tier.
+        move["score"] = round(float(r["score_rel"]), 2)
+        if not r["dps_m15"]:
             move["buff"] = _buff(r)
         moves.append(move)
     return moves

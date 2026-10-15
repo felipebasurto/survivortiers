@@ -8,6 +8,7 @@ Cada función recibe el idioma (i18n.Lang) y devuelve un <figure> o un fragmento
 from __future__ import annotations
 
 import math
+import re
 import statistics
 from collections.abc import Callable
 from html import escape
@@ -21,24 +22,36 @@ TIERS = [t for t, _, _ in TIER_CUTS]
 PILLAR_KEYS = ("stats", "moves", "typedef", "size")
 AGREE_MIN = 0.5  # inicio de la escala del gráfico de coincidencia
 WALK_STEPS = 5
-REL_MAX = 3.0  # fin de la escala de las barras de ataques, en múltiplos de lo normal
+REL_MAX = 2.0  # fin de la escala de las barras de ataques, en múltiplos de lo normal (el valor más alto es 1,97×)
 
 
 def esc(x) -> str:
     return escape(str(x), quote=True)
 
 
+_NUMBER = re.compile(r"\d+(?:[.,]\d+)*")
+
+
+def num_html(x) -> str:
+    """Texto escapado con las cifras en <span class="n">: la letra pixel confunde el 2 con el 8 y el 5 con la S."""
+    return _NUMBER.sub(lambda m: f'<span class="n">{m.group(0)}</span>', esc(x))
+
+
 def _pos(rank: float) -> float:
     return (rank - 1) / (TOTAL - 1) * 100
 
 
-def _figure(kind: str, title: str, body: str, alt: str) -> str:
-    return (f'<figure class="fig anim fig-{kind}"><figcaption><h3>{esc(title)}</h3></figcaption>'
+def _lede(text: str) -> str:
+    return f'<p class="fig-lede">{esc(text)}</p>' if text else ""
+
+
+def _figure(kind: str, title: str, body: str, alt: str, lede: str = "") -> str:
+    return (f'<figure class="fig anim fig-{kind}"><figcaption><h3>{num_html(title)}</h3>{_lede(lede)}</figcaption>'
             f'<div class="fig-body" role="img" aria-label="{esc(alt)}">{body}</div></figure>')
 
 
-def _interactive(kind: str, title: str, body: str, attr: str) -> str:
-    return (f'<figure class="fig anim fig-{kind}" {attr}><figcaption><h3>{esc(title)}</h3></figcaption>'
+def _interactive(kind: str, title: str, body: str, attr: str, lede: str = "") -> str:
+    return (f'<figure class="fig anim fig-{kind}" {attr}><figcaption><h3>{num_html(title)}</h3>{_lede(lede)}</figcaption>'
             f'<div class="fig-body">{body}</div></figure>')
 
 
@@ -157,10 +170,28 @@ def bars(items: list[tuple[str, float, str]], title: str, alt: str,
 # ================================================================ página Método
 def pipeline(L: Lang) -> str:
     steps = [L.t(f"pipe_{i}") for i in range(1, 7)]
-    items = "".join(f'<li style="--i:{i}"><b>{esc(h)}</b></li>' for i, h in enumerate(steps))
+    items = "".join(f'<li style="--i:{i}"><b>{num_html(h)}</b></li>' for i, h in enumerate(steps))
     alt = L.t("pipe_alt") + "; ".join(f"{i + 1}, {h}" for i, h in enumerate(steps)) + "."
     return (f'<figure class="fig anim fig-pipe"><figcaption><h3>{esc(L.t("pipe_title"))}</h3></figcaption>'
             f'<ol class="pipe" aria-label="{esc(alt)}">{items}</ol></figure>')
+
+
+def method_steps(L: Lang, pieces: list[dict], cuts: list[dict], gates: list[dict]) -> str:
+    """Los seis pasos del cálculo con las cifras reales. El dibujo de arriba es el resumen; esto es la explicación."""
+    w = {p["key"]: L.pcts(p["weight"]) for p in pieces}
+    g = {x["tier"]: L.pcts(x["top"]) for x in gates}
+    sizes = " · ".join(f'{c["tier"]} {L.num(c["to"] - c["from"] + 1)}' for c in cuts)
+    texts = [
+        L.t("met_step_1"),
+        L.t("met_step_2"),
+        L.t("met_step_3", sheet=w["sheet"], sim=w["sim"], late=w["late"]),
+        L.t("met_step_4"),
+        L.t("met_step_5"),
+        L.t("met_step_6", sizes=sizes, s=g["S"], a=g["A"], b=g["B"]),
+    ]
+    items = "".join(f'<li><b>{num_html(L.t(f"met_step_{i}_h"))}</b><p>{esc(text)}</p></li>'
+                    for i, text in enumerate(texts, 1))
+    return f'<ol class="met-steps" aria-label="{esc(L.t("met_steps_aria"))}">{items}</ol>'
 
 
 def _weights_bar(L: Lang, pieces: list[dict]) -> str:
@@ -238,7 +269,7 @@ def ribbon(L: Lang, index: list[dict]) -> str:
            f'<path class="rib-gray" d="{"".join(gray)}"/><path class="rib-hot" d="{"".join(hot)}"/>'
            f'{cuts}{xt}{yt}{tl}{axes}</svg>')
     alt = L.t("rib_alt") + ", ".join(L.t("rib_alt_item", t=t, m=med[t]) for t in TIERS) + "."
-    return _figure("ribbon", L.t("rib_title"), svg, alt)
+    return _figure("ribbon", L.t("rib_title"), svg, alt, lede=L.t("rib_lede", s=med["S"], c=med["C"]))
 
 
 def stability(L: Lang, rows: list[dict]) -> str:
@@ -269,7 +300,8 @@ def geo_demo(L: Lang, pillars_: list[dict], presets: list[tuple[str, list[int]]]
     buttons = "".join(f'<button type="button" class="chip-btn" data-v="{",".join(map(str, v))}">{esc(n)}</button>'
                       for n, v in presets)
     sliders = "".join(
-        f'<label class="dm-row"><span class="dm-name">{esc(L.t("pill_" + p["key"]))}</span>'
+        f'<label class="dm-row"><span class="dm-name">{esc(L.t("pill_" + p["key"]))}'
+        f'<small>{esc(L.t("demo_weight", w=L.pcts(p["weight"])))}</small></span>'
         f'<input type="range" min="1" max="100" value="{v}" data-w="{p["weight"]}" '
         f'aria-label="{esc(L.t("demo_aria", name=L.t("pill_" + p["key"])))}"><output>{L.pcts(v)}</output></label>'
         for p, v in zip(pillars_, first))
@@ -283,8 +315,9 @@ def geo_demo(L: Lang, pillars_: list[dict], presets: list[tuple[str, list[int]]]
     body = (f'<div class="dm-presets">{buttons}</div>'
             f'<div class="dm-sliders">{sliders}</div>'
             f'<div class="dm-out" aria-live="polite">{row("geo", L.t("demo_geo"), g, " hot")}'
-            f'{row("arith", L.t("demo_arith"), a, "")}</div>')
-    return _interactive("demo", L.t("demo_title"), body, "data-demo")
+            f'{row("arith", L.t("demo_arith"), a, "")}</div>'
+            f'<p class="dm-how">{esc(L.t("demo_how"))}</p>')
+    return _interactive("demo", L.t("demo_title"), body, "data-demo", lede=L.t("demo_lede"))
 
 
 def _reps_row(name: str, p: dict) -> str:
@@ -301,7 +334,7 @@ def repeats_demo(L: Lang, rows: list[tuple[str, dict]]) -> str:
                 f'<output data-count aria-live="off">{esc(L.t("reps_count", n=1, total=L.num(2000)))}</output></div>')
     axis = f'<div class="mt-axis rp-axis" aria-hidden="true"><span>1</span><span>{TOTAL}</span></div>'
     return _interactive("reps", L.t("reps_title"), controls + "".join(_reps_row(n, p) for n, p in rows) + axis,
-                        "data-reps")
+                        "data-reps", lede=L.t("reps_lede"))
 
 
 def walk(L: Lang, mons: list[dict], cuts: list[dict], pieces: list[dict]) -> str:
@@ -350,7 +383,7 @@ def arena(L: Lang, sprite_src: str) -> str:
            f'<button type="button" class="btn ghost small" data-play>{esc(L.t("reps_pause"))}</button></div>')
     canvas = (f'<canvas class="px" width="320" height="180" data-sprite="{esc(sprite_src)}" role="img" '
               f'aria-label="{esc(L.t("arena_alt"))}"></canvas>')
-    return _interactive("arena", L.t("arena_title"), canvas + hud, "data-arena")
+    return _interactive("arena", L.t("arena_title"), canvas + hud, "data-arena", lede=L.t("arena_lede"))
 
 
 # ================================================================ ataques
@@ -366,25 +399,18 @@ def _rel_row(label: str, rel: float, value: str, good: bool) -> str:
             f'<em class="mb-val">{esc(value)}</em></div>')
 
 
-def move_bars(L: Lang, rel: dict) -> str:
-    """Tres barras de un ataque con daño: daño y aguante al minuto 15 y daño al minuto 5, frente a lo normal."""
-    rows = []
-    for key, label in (("dps15", "mv_dps15"), ("ttd15", "mv_ttd15"), ("dps5", "mv_dps5")):
-        v = rel[key]
-        rows.append(_rel_row(L.t(label), v, f"{L.dec(v)}×", v >= 1))
-    return f'<div class="mb">{"".join(rows)}</div>'
+def move_bars(L: Lang, score: float) -> str:
+    """Una barra por ataque: su valor frente a un movimiento normal (1×). La raya vertical es el 1×."""
+    return f'<div class="mb">{_rel_row(L.t("mv_value"), score, f"{L.dec(score, 2)}×", score >= 1)}</div>'
 
 
-def buff_bars(L: Lang, buff: dict) -> str:
-    """Un potenciador: cuánto cambia el valor de tus ataques al fusionarlo, y el porcentaje de tiempo que está activo."""
-    rows = []
-    for minute, v in zip((5, 10, 15), buff["fused"]):
-        rows.append(_rel_row(L.t("mv_fused", n=minute), v, f"{L.dec(v, 2)}×", v >= 1))
+def buff_bars(L: Lang, score: float, buff: dict) -> str:
+    """Un potenciador: su valor frente a 1× y el porcentaje del tiempo que está activo."""
     cover = buff["cover"]
-    rows.append(f'<div class="mb-row"><span class="mb-name">{esc(L.t("mv_cover"))}</span>'
-                f'<span class="mb-track" aria-hidden="true"><i class="mb-fill" style="width:{cover}%"></i></span>'
-                f'<em class="mb-val">{cover}{"" if L.en else NBSP}%</em></div>')
-    return f'<div class="mb">{"".join(rows)}</div>'
+    cover_row = (f'<div class="mb-row"><span class="mb-name">{esc(L.t("mv_cover"))}</span>'
+                 f'<span class="mb-track" aria-hidden="true"><i class="mb-fill" style="width:{cover}%"></i></span>'
+                 f'<em class="mb-val">{cover}{"" if L.en else NBSP}%</em></div>')
+    return f'<div class="mb">{_rel_row(L.t("mv_value"), score, f"{L.dec(score, 2)}×", score >= 1)}{cover_row}</div>'
 
 
 def move_scale(L: Lang) -> str:

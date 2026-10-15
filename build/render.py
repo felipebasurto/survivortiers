@@ -214,7 +214,7 @@ def render_ficha(c: Ctx, index: list[dict], meta: dict) -> str:
 
 def move_card(L: Lang, m: dict) -> str:
     name = m["en"]["name"] if L.en else m["name"]
-    bars = charts.buff_bars(L, m["buff"]) if "buff" in m else charts.move_bars(L, m["rel"])
+    bars = charts.buff_bars(L, m["score"], m["buff"]) if "buff" in m else charts.move_bars(L, m["score"])
     return (f'<li class="mv"><div class="mv-head"><h4>{esc(name)}</h4>{type_pill(L, m["type"])}</div>'
             f'<div class="mv-body">{bars}</div></li>')
 
@@ -236,6 +236,7 @@ def render_ataques(c: Ctx, moves: list[dict], meta: dict) -> str:
         toc.append(f'<li><a href="#{cat_id}">{icon(icon_name)}{esc(L.t("cat_" + cat_id))}</a></li>')
     content = f"""
 <h1>{esc(L.t("ataques_h1"))}</h1>
+<p class="lede">{esc(L.t("ataques_lede"))}</p>
 <ul class="toc">{"".join(toc)}</ul>
 {charts.move_scale(L)}
 {"".join(blocks)}
@@ -325,7 +326,9 @@ def render_metodo(c: Ctx, index: list[dict], full: list[dict], meta: dict) -> st
     arena_src = f"{SPRITES}{ARENA_DEX}{EXT}"
     content = f"""
 <h1>{esc(L.t("met_h1"))}</h1>
+<p class="lede">{esc(L.t("met_lede"))}</p>
 {charts.pipeline(L)}
+{charts.method_steps(L, m["pieces"], meta["tierCuts"], m["gates"])}
 {charts.walk(L, walkers, meta["tierCuts"], m["pieces"])}
 {charts.weights(L, m["pieces"])}
 {charts.weights_pillars(L, m["pillars"])}

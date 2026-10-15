@@ -395,14 +395,14 @@ def main() -> int:
             err("site/ lleva PNG: los sprites tienen que salir del CDN")
 
     # ataques: barras en cada ataque y nada de jerga sin explicar
-    rows_expected = sum(3 if "rel" in m else 4 for m in moves)
+    rows_expected = sum(2 if "buff" in m else 1 for m in moves)  # un valor por ataque; el potenciador suma tiempo activo
     for lang in LANGS:
         url = f"{base}{lang}ataques.html"
         html = body_by_url.get(url, "")
         rows = html.count('class="mb-row"')
         if rows != rows_expected:
             err(f"{url}: {rows} barras, se esperaban {rows_expected}")
-        if re.search(r"la mediana al minuto|median at minute|× la mediana", html):
+        if re.search(r"al minuto \d|at minute \d", html):
             err(f"{url}: queda jerga sin explicar")
 
     # créditos de sprites solo en Acerca
