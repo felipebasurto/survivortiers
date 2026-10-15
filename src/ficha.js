@@ -77,7 +77,7 @@
   function overview(rank, tier, w0, w1) {
     const pos = n => (n - 1) / (TOTAL - 1) * 100;
     const segs = CUTS.map(c => '<i class="' + (c[0] === tier ? 'on' : '') + '" style="flex:' + (c[2] - c[1] + 1) + '"></i>').join('');
-    return '<div class="rb-over"><p class="rb-over-cap">' + esc(t('band_over', { total: TOTAL })) + '</p>' +
+    return '<div class="rb-over">' +
       '<div class="rb-ov">' + segs +
       '<b class="rb-ov-win" style="left:' + f2(pos(w0)) + '%;width:' + f2(Math.max(pos(w1) - pos(w0), 1.2)) + '%"></b>' +
       '<b class="rb-ov-dot" style="left:' + f2(pos(rank)) + '%"></b></div></div>';
@@ -116,6 +116,27 @@
     return fig('band', t('t_band'), body, t('band_alt', { name, rank, total: TOTAL, tier, lo, hi }));
   }
 
+  // Estadísticas base oficiales (PokéAPI), como en la mayoría de fichas: barra sobre 255, color por tramo, valor a la
+  // derecha y una línea con la mediana de los 966 para ver si el Pokémon está por encima o por debajo.
+  const BASE_KEYS = ['bs_hp', 'bs_atk', 'bs_def', 'bs_spa', 'bs_spd', 'bs_spe'];
+  const bandOf = v => (v < 50 ? 0 : v < 80 ? 1 : v < 100 ? 2 : v < 120 ? 3 : 4);
+  function baseStats(d, medians, name) {
+    const s = d[8];
+    const total = s.reduce((a, b) => a + b, 0);
+    const rows = BASE_KEYS.map((k, i) => ({ label: t(k), v: s[i], med: medians[i] }));
+    let out = '<div class="bs-list">';
+    rows.forEach((r, i) => {
+      out += '<div class="bs-row" style="--i:' + i + '"><span class="bs-name">' + esc(r.label) + '</span>' +
+        '<span class="bs-track"><i class="bs-fill b' + bandOf(r.v) + '" style="width:' + f2(r.v / 255 * 100) + '%"></i>' +
+        '<b class="bs-med" style="left:' + f2(r.med / 255 * 100) + '%"></b></span>' +
+        '<output class="bs-val">' + r.v + '</output></div>';
+    });
+    out += '<div class="bs-total"><span>' + esc(t('bs_total')) + '</span><b>' + total + '</b></div></div>';
+    const body = out + '<p class="fig-note">' + esc(t('bs_note')) + '</p>';
+    const alt = name + ': ' + rows.map(r => t('bs_alt_item', { label: r.label, v: r.v })).join('; ') + '; ' + t('bs_total') + ' ' + total + '.';
+    return fig('bases', t('t_base'), body, alt);
+  }
+
   function pillars(d, name) {
     const rows = PILLARS.map((k, i) => ({ label: t('pill_' + k), v: d[0][i] })).sort((a, b) => b.v - a.v);
     let out = '<div class="lp-ref"><span style="left:50%">' + esc(t('median')) + '</span></div>';
@@ -140,7 +161,8 @@
     const rows = METHODS.map((k, i) => ({ label: t('m_' + k), x: at(d[1][i]), text: String(d[1][i]), v: d[1][i] }));
     const zoomed = w0 !== 1 || w1 !== TOTAL;
     const zoomNote = zoomed ? '<p class="zoom-note">' + esc(t('band_zoom', { lo: w0, hi: w1 })) + '</p>' : '';
-    const body = dotplot({ text: t('methods_final', { rank: final }), x: xf, side: side(xf) }, rows, [String(w0), String(w1)]) + zoomNote;
+    const body = '<p class="fig-lede">' + esc(t('methods_lede')) + '</p>' +
+      dotplot({ text: t('methods_final', { rank: final }), x: xf, side: side(xf) }, rows, [String(w0), String(w1)]) + zoomNote;
     const alt = t('methods_alt', { name, rank: final }) + rows.map(r => t('methods_alt_item', { label: r.label, v: r.v })).join('; ') + '.';
     return fig('methods', t('t_methods'), body, alt);
   }
@@ -152,8 +174,10 @@
     const xOf = s => (s - lo) / (hi - lo) * 100;
     const xm = xOf(median);
     const secs = s => rnd(s) + ' s';
-    const body = dotplot({ text: t('sim_median', { s: rnd(median) }), x: xm, side: side(xm) },
-      items.map(i => ({ label: i.label, x: xOf(i.s), text: secs(i.s) })), [rnd(lo) + ' s', rnd(hi) + ' s']);
+    const body = '<p class="fig-lede">' + esc(t('sim_lede')) + '</p>' +
+      dotplot({ text: t('sim_median', { s: rnd(median) }), x: xm, side: side(xm) },
+        items.map(i => ({ label: i.label, x: xOf(i.s), text: secs(i.s) })), [rnd(lo) + ' s', rnd(hi) + ' s']) +
+      '<p class="fig-note">' + esc(t('sim_scale', { lo: rnd(lo), hi: rnd(hi) })) + '</p>';
     const alt = t('sim_alt') + items.map(i => i.label + ', ' + secs(i.s)).join('; ') + '.';
     return fig('sim', t('t_sim'), body, alt);
   }
@@ -210,14 +234,16 @@
     }).join('');
   }
 
-  function render(p, d, range, moveName, prev, next, moves) {
+  function render(p, d, range, moveName, prev, next, moves, medians) {
     const name = EN ? p.nameEn : p.name;
     const scale = Math.max(1, Math.min(5, Math.floor(FICHA_BOX / Math.max(p.w, p.h))));
     const [rank, tier] = p.r;
     const otherName = !EN && p.nameEn !== p.name ? '<small>' + esc(p.nameEn) + '</small>' : '';
     const pills = '<span class="types">' + p.types.map(ty => tpl('tpl-types', 'data-t', ty)).join('') + '</span>';
-    const stars = '<span class="stars" role="img" aria-label="' + esc(t('stars_alt', { n: p.rarity })) + '">' +
-      '★'.repeat(p.rarity) + '☆'.repeat(5 - p.rarity) + '</span>';
+    // La rareza se ve como la Poké Ball del juego, con su nombre al lado (Común... Legendaria).
+    const rarityName = t('rar_' + p.rarity);
+    const rarity = '<span class="rarity r' + p.rarity + '"><svg class="rball" viewBox="0 0 12 12" aria-hidden="true">' +
+      '<use href="#rball-' + p.rarity + '"/></svg>' + esc(rarityName) + '</span>';
     const legendary = p.legendary ? '<span class="chip">' + esc(t('legendary')) + '</span>' : '';
     const link = (q, left) => {
       const label = esc(EN ? q.nameEn : q.name) + '<span> ' + esc(t('dex_no', { dex: q.dex })) + '</span>';
@@ -230,10 +256,10 @@
       ';--tc2:' + (TYPE_COLOR[p.types[1] || p.types[0]] || '#888') + '"><img class="px" src="' + sprites + p.dex + spriteExt + '" width="' + p.w * scale +
       '" height="' + p.h * scale + '" alt="' + esc(t('sprite_alt', { name })) + '"></div><div>' +
       '<h1>' + esc(name) + ' ' + otherName + '<small>' + esc(t('dex_no', { dex: p.dex })) + '</small></h1>' +
-      '<div class="facts">' + pills + ' ' + stars + ' ' + legendary + ' ' + tpl('tpl-regions', 'data-gen', p.bannerId) + '</div>' +
+      '<div class="facts">' + pills + ' ' + rarity + ' ' + legendary + ' ' + tpl('tpl-regions', 'data-gen', p.bannerId) + '</div>' +
       '<div class="rankline"><span class="tier-badge ' + tier + '" title="' + esc(t('tier', { t: tier })) + '">' + tier + '</span>' +
       '<strong>' + rank + '</strong><span>/ ' + TOTAL + '</span>' + flagsHtml(d[7]) + '</div></div></div>' +
-      rankBand(p, name) + pillars(d, name) + sim(d, range, moveName) + learn(p, d, moves) + methods(p, d, name) +
+      baseStats(d, medians, name) + rankBand(p, name) + pillars(d, name) + sim(d, range, moveName) + learn(p, d, moves) + methods(p, d, name) +
       '<nav class="pager" aria-label="' + esc(t('pager_aria')) + '">' + pager + '</nav>';
     const label = EN || p.nameEn === p.name ? name : p.name + ' (' + p.nameEn + ')';
     document.title = t('ficha_title', { name, tier });
@@ -263,6 +289,6 @@
     if (i < 0 || !d) { missing(); return; }
     const byId = new Map(moves.map(m => [m.id, m]));
     const moveName = mid => { const m = byId.get(mid); return m ? (EN ? m.en.name : m.name) : mid; };
-    render(index[i], d, species.sim, moveName, index[i - 1], index[i + 1], moves);
+    render(index[i], d, species.sim, moveName, index[i - 1], index[i + 1], moves, species.statMedian);
   }).catch(err => { root.textContent = err.message; });
 })();

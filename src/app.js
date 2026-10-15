@@ -28,6 +28,7 @@
       loadFail: n => 'No se pudo cargar ' + n,
       loadFailAll: m => 'No se pudieron cargar los datos: ' + m,
       count: (n, total) => n + ' de ' + total,
+      legY: 'Legendarios', legN: 'No legendarios',
       cardTitle: (name, dex, rank, tier) => name + ' · nº ' + dex + ' · puesto ' + rank + ' · tier ' + tier,
       pct: v => v + NBSP + '%',
       notJson: 'Eso no es JSON. Copia el resultado entero, de la { a la }.',
@@ -72,6 +73,7 @@
       loadFail: n => 'Could not load ' + n,
       loadFailAll: m => 'Could not load the data: ' + m,
       count: (n, total) => n + ' of ' + total,
+      legY: 'Legendary', legN: 'Not legendary',
       cardTitle: (name, dex, rank, tier) => name + ' · no. ' + dex + ' · rank ' + rank + ' · tier ' + tier,
       pct: v => v + '%',
       notJson: 'That is not JSON. Copy the whole result, from { to }.',
@@ -124,7 +126,7 @@
     return r.json();
   });
 
-  const state = { mons: null, byDex: null, cards: [] };
+  const state = { mons: null, byDex: null, cards: [], groups: [] };
 
   // ---------------------------------------------------------------- tarjetas
   function card(p, extraClass, extraHtml) {
@@ -138,9 +140,78 @@
   }
 
   // ---------------------------------------------------------------- tier list
+  // Buscador (nombre, tipo o nº), orden y agrupación: por tier, tipo, rareza, región o legendarios, o sin agrupar.
+  // Las cabeceras de los grupos las dibuja layout(); los textos de tipo y rareza llegan en #labels (render.py).
+  const GROUP_OF = {
+    tier: p => p.r[1],
+    type: p => p.types[0],
+    rar: p => p.rarity,
+    region: p => p.bannerId,
+    leg: p => (p.legendary ? 1 : 0),
+    none: () => 'all',
+  };
+  let groupMode = 'tier';
+  let labels = null;
+
+  // Orden de los grupos: tiers de S a D, tipos como en el juego, rareza de la más rara a la común, región por generación.
+  function orderedKeys(present) {
+    if (groupMode === 'tier') return TIERS.filter(k => present.has(k));
+    if (groupMode === 'type') return Object.keys(labels.type).filter(k => present.has(k));
+    if (groupMode === 'rar') return [5, 4, 3, 2, 1].filter(k => present.has(k));
+    if (groupMode === 'leg') return [1, 0].filter(k => present.has(k));
+    if (groupMode === 'region') return [...present].sort((a, b) => a - b);
+    return ['all'];
+  }
+
+  // Lo que se ve en la cabecera de un grupo (las cabeceras de tier son las de siempre, con la letra grande).
+  function groupHead(k) {
+    if (groupMode === 'tier') return '<b>' + k + '</b>' + (k === 'S' ? '<i class="ico ico-crown" aria-hidden="true"></i>' : '');
+    if (groupMode === 'type') return '<b class="grp-name"><span class="type" style="--tc:' + labels.typeColor[k] +
+      ';--tg:' + labels.typeText[k] + '">' + labels.typeGlyph[k] + '<span>' + esc(labels.type[k]) + '</span></span></b>';
+    if (groupMode === 'rar') return '<b class="grp-name"><svg class="rball" viewBox="0 0 12 12" aria-hidden="true">' +
+      '<use href="#rball-' + k + '"/></svg>' + esc(labels.rar[k]) + '</b>';
+    if (groupMode === 'leg') return '<b class="grp-name">' + esc(k === 1 ? TEXT.legY : TEXT.legN) + '</b>';
+    if (groupMode === 'region') return '<b class="grp-name">' + esc(labels.region[k]) + '</b>';
+    return '';
+  }
+
+  // Reparte las tarjetas en grupos según el modo y el orden actual. Cada tarjeta enseña el valor del orden.
+  function layout() {
+    const root = $('#tierlist');
+    const byKey = new Map();
+    sortedCards().forEach(el => {
+      const k = GROUP_OF[groupMode](state.byDex.get(+el.dataset.dex));
+      if (!byKey.has(k)) byKey.set(k, []);
+      byKey.get(k).push(el);
+    });
+    root.textContent = '';
+    state.groups = orderedKeys(new Set(byKey.keys())).map(k => {
+      const cards = byKey.get(k);
+      const sec = document.createElement('section');
+      sec.className = 'group tier' + (groupMode === 'tier' ? ' tier-' + k : '') + (groupMode === 'none' ? ' plain' : '');
+      if (groupMode !== 'none') {
+        const head = document.createElement('header');
+        head.className = 'tier-head' + (groupMode === 'tier' ? '' : ' grp-head');
+        const color = groupMode === 'type' ? labels.typeColor[k] : groupMode === 'rar' ? labels.rarColor[k] : '';
+        if (color) head.style.setProperty('--tc', color);
+        head.innerHTML = groupHead(k) + '<span class="n">' + cards.length + '</span>';
+        sec.appendChild(head);
+      }
+      const grid = document.createElement('div');
+      grid.className = 'grid';
+      cards.forEach(el => grid.appendChild(el));
+      sec.appendChild(grid);
+      root.appendChild(sec);
+      return { el: sec, cards };
+    });
+    state.cards.forEach(el => { el.querySelector('.rk').textContent = SORTS[sortKey].show(state.byDex.get(+el.dataset.dex)); });
+    applySearch();
+  }
+
+  // Oculta las tarjetas que no coinciden, los grupos que quedan vacíos y enseña el recuento.
   function applySearch() {
-    const q = plain(($('#q') || {}).value || '').trim();
-    const terms = q.split(/\s+/).filter(Boolean);
+    const raw = $('#q').value;
+    const terms = plain(raw).trim().split(/\s+/).filter(Boolean);
     let shown = 0;
     state.cards.forEach(el => {
       const p = state.byDex.get(+el.dataset.dex);
@@ -148,11 +219,10 @@
       el.classList.toggle('dim', !ok);
       if (ok) shown++;
     });
-    TIERS.forEach(t => {
-      const sec = $('#tier-' + t);
-      sec.classList.toggle('hidden', terms.length > 0 && $$('.mon:not(.dim)', sec).length === 0);
-    });
+    state.groups.forEach(g => g.el.classList.toggle('hidden', terms.length > 0 && g.cards.every(el => el.classList.contains('dim'))));
+    $('#clear').hidden = !raw;
     $('#count').textContent = terms.length ? TEXT.count(shown, state.mons.length) : '';
+    $('#nomatch').hidden = !(terms.length && shown === 0);
   }
 
   // ---------------------------------------------------------------- orden de la lista
@@ -184,28 +254,6 @@
     });
   }
 
-  function applySort() {
-    const flat = sortKey !== 'rank';
-    $('#tierlist').classList.toggle('flat-mode', flat);
-    if (flat) {
-      // Una sola lista, ordenada por el criterio; cada tarjeta enseña ese valor en lugar del puesto.
-      const grid = $('#flat');
-      sortedCards().forEach(el => {
-        grid.appendChild(el);
-        el.querySelector('.rk').textContent = SORTS[sortKey].show(state.byDex.get(+el.dataset.dex));
-      });
-    } else {
-      // Vuelve a las tiers, en orden de puesto.
-      [...state.cards].sort((a, b) => state.byDex.get(+a.dataset.dex).r[0] - state.byDex.get(+b.dataset.dex).r[0])
-        .forEach(el => {
-          const p = state.byDex.get(+el.dataset.dex);
-          $('#tier-' + p.r[1] + ' .grid').appendChild(el);
-          el.querySelector('.rk').textContent = p.r[0];
-        });
-    }
-    applySearch();
-  }
-
   function syncDir() {
     const b = $('#dir');
     b.textContent = sortDesc ? b.dataset.desc : b.dataset.asc;
@@ -219,20 +267,53 @@
     });
   }
 
+  // Elige una tarjeta visible al azar, la lleva al centro y la hace latir un momento.
+  function pickRandom() {
+    const open = state.cards.filter(el => !el.classList.contains('dim'));
+    if (!open.length) return;
+    const el = open[Math.floor(Math.random() * open.length)];
+    const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    el.scrollIntoView({ block: 'center', behavior: calm ? 'auto' : 'smooth' });
+    el.classList.remove('pick');
+    void el.offsetWidth;
+    el.classList.add('pick');
+  }
+
   function initTierList() {
+    labels = JSON.parse($('#labels').textContent);
     state.cards = $$('#tierlist .mon');
-    $('#q').addEventListener('input', applySearch);
-    $('#sort').addEventListener('change', () => {
-      sortKey = $('#sort').value;
+    // Las tiers que dibuja el servidor se rehacen aquí: las tarjetas se reparten de nuevo según el modo.
+    $$('#tierlist > section').forEach(s => s.remove());
+    const q = $('#q'), sort = $('#sort');
+    q.addEventListener('input', applySearch);
+    $('#clear').addEventListener('click', () => { q.value = ''; applySearch(); q.focus(); });
+    $('#random').addEventListener('click', pickRandom);
+    sort.addEventListener('change', () => {
+      sortKey = sort.value;
       sortDesc = SORTS[sortKey].desc;
       syncDir();
-      applySort();
+      layout();
     });
     $('#dir').addEventListener('click', () => {
       sortDesc = !sortDesc;
       syncDir();
-      applySort();
+      layout();
     });
+    $$('.seg[data-group]').forEach(b => b.addEventListener('click', () => {
+      groupMode = b.dataset.group;
+      $$('.seg[data-group]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+      layout();
+    }));
+    document.addEventListener('keydown', e => {
+      if (e.key === '/' && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) {
+        e.preventDefault();
+        q.focus();
+      } else if (e.key === 'Escape' && document.activeElement === q && q.value) {
+        q.value = '';
+        applySearch();
+      }
+    });
+    layout();
   }
 
   // ---------------------------------------------------------------- colección
@@ -260,7 +341,7 @@
     const table = '<div class="tablewrap"><table><thead><tr><th>' + TEXT.tierWord + '</th><th class="num">' + TEXT.have + '</th><th>' + TEXT.progress +
       '</th></tr></thead><tbody>' +
       rows.map(r => '<tr><th scope="row"><span class="tier-badge ' + r.t + '">' + r.t + '</span></th><td class="num">' + TEXT.haveOf(r.have, r.n) +
-        '</td><td><span class="bar"><i style="width:' + (100 * r.have / r.n).toFixed(1) + '%"></i></span></td></tr>').join('') + '</tbody></table></div>';
+        '</td><td><span class="bar"><i style="width:' + (100 * r.have / r.n).toFixed(1) + '%;--bf:var(--tier-' + r.t + ')"></i></span></td></tr>').join('') + '</tbody></table></div>';
     const shinySet = new Set(c.shiny);
     const groups = TIERS.map(t => {
       const mine = state.mons.filter(p => p.r[1] === t && owned.has(p.dex)).sort((a, b) => a.r[0] - b.r[0]);
@@ -441,35 +522,56 @@
   }
 
   function initCollection() {
-    // Lo guardado de otra visita se muestra solo; importar de nuevo lo sustituye.
+    const area = $('#import-area'), again = $('#reimport'), drop = $('#drop'), fileIn = $('#file');
+    // Con una colección importada, el paso a paso y el área de pegado se ocultan: sólo queda «Reimportar».
+    const showImport = on => { area.hidden = !on; again.hidden = on; };
     const saved = readSaved();
-    if (saved) { renderCollection(saved.c); showSaved(saved.savedAt, false); }
+    if (saved) { renderCollection(saved.c); showSaved(saved.savedAt, false); showImport(false); }
+    else showImport(true);
     $('#saved').addEventListener('click', e => {
       if (e.target.id !== 'forget') return;
       clearSaved();
       $('#result').innerHTML = '';
       $('#saved').textContent = TEXT.forgot;
+      showImport(true);
     });
+    again.addEventListener('click', () => { showImport(true); area.scrollIntoView({ block: 'start' }); });
     const run = text => {
       try {
         const c = parseCollection(text);
         const stored = writeSaved(c);
         renderCollection(c);
         showSaved(stored ? Date.now() : 0, !stored);
+        showImport(false);
       } catch (e) {
         if (e instanceof ImportError) showError(e.message); else throw e;
       }
+    };
+    const loadFile = f => {
+      if (f.size > 2e6) { showError(TEXT.tooBig); return; }
+      f.text().then(t => { $('#paste').value = t; run(t); });
     };
     $('#import').addEventListener('click', () => {
       const t = $('#paste').value;
       if (!t.trim()) { showError(TEXT.pasteFirst); return; }
       run(t);
     });
-    $('#file').addEventListener('change', e => {
+    fileIn.addEventListener('change', e => {
       const f = e.target.files[0];
-      if (!f) return;
-      if (f.size > 2e6) { showError(TEXT.tooBig); return; }
-      f.text().then(t => { $('#paste').value = t; run(t); });
+      if (f) loadFile(f);
+      fileIn.value = '';   // así se puede volver a elegir el mismo archivo
+    });
+    // Arrastrar el .json a la zona: la resaltamos mientras está encima.
+    ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => {
+      e.preventDefault();
+      drop.classList.add('over');
+    }));
+    drop.addEventListener('dragleave', e => { if (!drop.contains(e.relatedTarget)) drop.classList.remove('over'); });
+    drop.addEventListener('drop', e => {
+      e.preventDefault();
+      drop.classList.remove('over');
+      const f = e.dataTransfer.files[0];
+      if (f) loadFile(f);
     });
     $('#copy-snippet').addEventListener('click', () => {
       const text = $('#snippet').textContent;
@@ -770,6 +872,23 @@
   initReps();
   initWalk();
   initArena();
+  // Ataques: el buscador filtra las tarjetas por nombre o tipo y oculta los grupos y secciones que quedan vacíos.
+  function initMoves() {
+    const q = $('#mv-q');
+    if (!q) return;
+    const cards = $$('.mv-card');
+    const none = $('#mv-none');
+    const visible = el => $$('.mv-card', el).some(c => !c.hidden);
+    q.addEventListener('input', () => {
+      const s = q.value.trim().toLowerCase();
+      cards.forEach(c => { c.hidden = !!s && !c.dataset.q.includes(s); });
+      $$('.mv-tier').forEach(g => { g.hidden = !visible(g); });
+      $$('.mv-section').forEach(sec => { sec.hidden = !visible(sec); });
+      none.hidden = cards.some(c => !c.hidden);
+    });
+  }
+  if (page === 'ataques') initMoves();
+
   if (page === 'index' || page === 'coleccion' || page === 'gachas') {
     getJSON('pokemon-index.json').then(mons => {
       state.mons = mons; indexMons(mons);

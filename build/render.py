@@ -18,13 +18,14 @@ from string import Template
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import balls  # noqa: E402
 import charts  # noqa: E402
 import legal  # noqa: E402
 import objetos  # noqa: E402
 import pack  # noqa: E402
 import regions  # noqa: E402
 import typedata  # noqa: E402
-from i18n import ES, LANGS, Lang  # noqa: E402
+from i18n import ES, LANGS, TYPE_NAMES, Lang  # noqa: E402
 
 SITE = ROOT / "site"
 OUT = ROOT / "build" / "out"
@@ -35,10 +36,11 @@ EXT = legal.SPRITE_EXT
 SCALE_LIST = 2
 TIERS = ["S", "A", "B", "C", "D"]
 CATEGORIES = [("melee", "cuerpo a cuerpo"), ("ranged", "distancia"), ("stat", "estadística")]  # (id, valor del CSV)
-NAV = [("index", "index.html", "nav_tiers"), ("metodo", "metodo.html", "nav_metodo"),
+NAV = [("index", "index.html", "nav_tiers"),
        ("ataques", "ataques.html", "nav_ataques"), ("objetos", "objetos.html", "nav_objetos"),
        ("gachas", "gachas.html", "nav_gachas"),
-       ("coleccion", "coleccion.html", "nav_coleccion"), ("acerca", "acerca.html", "nav_acerca")]
+       ("coleccion", "coleccion.html", "nav_coleccion"), ("acerca", "acerca.html", "nav_acerca"),
+       ("metodo", "metodo.html", "nav_metodo")]
 SORT_KEYS = ("rank", "name", "dex", "atk", "hp", "spd", "ehp", "rad", "td", "mv", "st", "rar")  # orden de la lista
 REPEAT_RANKS = (2, 40, 150, 350, 650)  # puestos de los Pokémon que salen en la ilustración de repeticiones
 PILLAR_KEYS = ("stats", "moves", "typedef", "size")
@@ -157,6 +159,7 @@ def write(rel: str, text: str) -> None:
 
 # ---------------------------------------------------------------- páginas
 def render_index(c: Ctx, pokemon: list[dict], meta: dict) -> str:
+    """Tier list: buscador, orden y agrupación. Sin JavaScript queda la lista por tiers; app.js la vuelve a agrupar."""
     L = c.L
     sections = []
     for t in TIERS:
@@ -167,19 +170,50 @@ def render_index(c: Ctx, pokemon: list[dict], meta: dict) -> str:
             f'<header class="tier-head"><b>{t}</b>{icon("crown") if t == "S" else ""}<span class="n">{len(mons)}</span></header>'
             f'<div class="grid">{cards}</div></section>')
     options = "".join(f'<option value="{k}">{esc(L.t("sort_" + k))}</option>' for k in SORT_KEYS)
+    # Nombres y colores para las cabeceras de los grupos (tipo, rareza), que app.js dibuja.
+    names = TYPE_NAMES["en" if L.en else "es"]
+    labels = {
+        "type": {t: names[t] for t in typedata.TYPE_COLOR},
+        "typeColor": dict(typedata.TYPE_COLOR),
+        "typeText": {t: typedata.text_color(t) for t in typedata.TYPE_COLOR},
+        "typeGlyph": {t: typedata.glyph_svg(t) for t in typedata.TYPE_COLOR},
+        "rar": {str(r): L.t(f"rar_{r}") for r in range(1, 6)},
+        "rarColor": {str(r): col for r, col in balls.RARITY_COLOR.items()},
+        "region": {str(gen): L.banner(name) for gen, name in BANNER_NAMES.items()},
+    }
+    labels_json = json.dumps(labels, ensure_ascii=False).replace("</", "<\\/")
+    groups = "".join(
+        f'<button type="button" class="seg" data-group="{g}" aria-pressed="{"true" if g == "tier" else "false"}">'
+        f'{esc(L.t("group_" + g))}</button>'
+        for g in ("tier", "type", "rar", "region", "leg", "none"))
     content = f"""
+{balls.defs()}
 <h1>{esc(L.t("index_h1", game=legal.GAME_NAME))}</h1>
-<div class="controls">
-  <div class="field"><label for="q">{esc(L.t("search_label"))}</label>
-    <input id="q" type="search" placeholder="{esc(L.t("search_ph"))}" autocomplete="off" spellcheck="false"></div>
-  <div class="field"><label for="sort">{esc(L.t("sort_by"))}</label><select id="sort">{options}</select></div>
-  <button id="dir" class="btn small" type="button" data-asc="{esc(L.t("dir_asc"))}" data-desc="{esc(L.t("dir_desc"))}">{esc(L.t("dir_asc"))}</button>
+<div class="finder">
+  <div class="search">
+    <label class="search-label" for="q">{esc(L.t("search_label"))}</label>
+    <div class="search-field">
+      <svg class="search-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><circle cx="7" cy="7" r="4.6" fill="none" stroke="currentColor" stroke-width="2"/><path d="M10.6 10.6 14.5 14.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+      <input id="q" type="search" placeholder="{esc(L.t("search_ph"))}" autocomplete="off" spellcheck="false" aria-describedby="hint">
+      <button id="clear" class="clear" type="button" hidden aria-label="{esc(L.t("search_clear"))}">×</button>
+    </div>
+    <p id="hint" class="hint">{esc(L.t("search_hint"))}</p>
+  </div>
+  <div class="sortline">
+    <div class="field"><label for="sort">{esc(L.t("sort_by"))}</label><select id="sort">{options}</select></div>
+    <button id="dir" class="btn small" type="button" data-asc="{esc(L.t("dir_asc"))}" data-desc="{esc(L.t("dir_desc"))}">{esc(L.t("dir_asc"))}</button>
+    <button id="random" class="btn small ghost" type="button"><i class="ico ico-dice" aria-hidden="true"></i>{esc(L.t("random_btn"))}</button>
+  </div>
+  <div class="group-by" role="group" aria-label="{esc(L.t("group_by"))}">
+    <span class="group-label">{esc(L.t("group_by"))}</span>{groups}
+  </div>
   <p id="count" aria-live="polite"></p>
+  <p id="nomatch" class="nomatch" hidden>{esc(L.t("no_match"))}</p>
 </div>
 <div id="tierlist">
 {"".join(sections)}
-<div id="flat" class="grid"></div>
 </div>
+<script type="application/json" id="labels">{labels_json}</script>
 <noscript><p class="muted">{esc(L.t("noscript"))}</p></noscript>
 """
     return page(c, "index", L.t("index_title", site=legal.SITE_NAME, game=legal.GAME_NAME),
@@ -189,9 +223,11 @@ def render_index(c: Ctx, pokemon: list[dict], meta: dict) -> str:
 FICHA_KEYS = (
     "crumb_home", "legendary", "stars_alt", "sprite_alt", "ficha_title", "ficha_desc", "flag_status", "flag_melee",
     "flag_capped", "pager_aria", "dex_no", "tier", "f_missing", "t_band", "t_pillars", "t_methods", "t_sim",
-    "band_rank", "band_range", "band_alt", "band_zoom", "band_all", "band_over", "t_learn", "learn_lede", "learn_start", "pill_stats", "pill_moves", "pill_typedef", "pill_size", "pillars_alt_item",
+    "band_rank", "band_range", "band_alt", "band_zoom", "band_all", "t_learn", "learn_lede", "learn_start", "pill_stats", "pill_moves", "pill_typedef", "pill_size", "pillars_alt_item",
     "median", "m_sheet", "m_simStart", "m_simBest", "m_lateMax", "m_lateFresh", "methods_final", "methods_alt",
-    "methods_alt_item", "sim_start", "sim_best", "sim_median", "sim_alt")
+    "methods_alt_item", "sim_start", "sim_best", "sim_median", "sim_alt", "sim_lede", "sim_scale", "methods_lede",
+    "rar_1", "rar_2", "rar_3", "rar_4", "rar_5", "t_base", "bs_hp", "bs_atk", "bs_def", "bs_spa", "bs_spd", "bs_spe",
+    "bs_total", "bs_note", "bs_alt_item")
 
 
 def render_ficha(c: Ctx, index: list[dict], meta: dict) -> str:
@@ -205,6 +241,7 @@ def render_ficha(c: Ctx, index: list[dict], meta: dict) -> str:
         f'<span data-gen="{gen}">{regions.badge(L, SPRITES, gen, L.banner(name), {}, small=True)}</span>'
         for gen, name in BANNER_NAMES.items())
     content = f"""
+{balls.defs()}
 <article id="ficha"><noscript><p>{esc(L.t("noscript_ficha"))}</p></noscript></article>
 <template id="tpl-types">{pills}</template>
 <template id="tpl-regions">{badges}</template>
@@ -214,14 +251,77 @@ def render_ficha(c: Ctx, index: list[dict], meta: dict) -> str:
                 L.t("index_desc", n=meta["total"], game=legal.GAME_NAME), content, meta)
 
 
-def move_card(L: Lang, m: dict) -> str:
+# Cada tipo de movimiento del juego se dibuja con uno de estos patrones (la animación de la tarjeta).
+KIND_FX = {"melee": "swing", "cone": "swing", "trail": "swing", "dash": "dash",
+           "projectile": "shot", "beam": "shot", "chain": "shot", "boomerang": "shot", "turret": "shot",
+           "orbit": "ring", "aura": "ring", "nova": "ring", "mine": "drop", "meteor": "drop", "buff": "boost"}
+LETTERS = "abcdefghijklmnopqrstuvwxyz"  # la rejilla de píxeles de moves.json usa letras para la paleta
+
+
+def demo_mon(index: list[dict], move_type: str) -> dict:
+    """El Pokémon de la animación: el de mejor puesto que tiene ese tipo."""
+    return min((p for p in index if move_type in p["types"]), key=lambda p: p["r"][0])
+
+
+def move_icon_svg(icon: dict) -> str:
+    """El icono del juego (ui/icons.js) como SVG: la misma rejilla de píxeles que usa la ficha."""
+    w, h = icon["size"]
+    rects = []
+    for y, row in enumerate(icon["rows"]):
+        x = 0
+        while x < w:
+            ch, n = row[x], 1
+            while x + n < w and row[x + n] == ch:
+                n += 1
+            if ch != ".":
+                rects.append(f'<rect x="{x}" y="{y}" width="{n}" height="1" fill="{icon["pal"][LETTERS.index(ch)]}"/>')
+            x += n
+    return (f'<svg class="mv-icon" viewBox="0 0 {w} {h}" width="{w * 3}" height="{h * 3}" aria-hidden="true" '
+            f'focusable="false" shape-rendering="crispEdges">{"".join(rects)}</svg>')
+
+
+def move_stage(L: Lang, m: dict, mon: dict, home: str) -> str:
+    """El escenario: el Pokémon de ejemplo y el patrón de ataque de ese tipo de movimiento, en CSS."""
+    fx = KIND_FX[m["kind"]]
+    name = L.mon(mon)
+    particles = "".join(f'<i class="mv-p p{i}"></i>' for i in (1, 2, 3))
+    hero = (f'<span class="mv-hero"><img src="{SPRITES}{mon["dex"]}{EXT}" width="{mon["w"]}" height="{mon["h"]}" '
+            f'alt="" loading="lazy"></span>')
+    return (f'<div class="mv-stage fx-{fx}" aria-hidden="true"><i class="mv-arc"></i>{particles}{hero}</div>'
+            f'<a class="mv-ex" href="{home}pokemon/?id={mon["dex"]}">{esc(L.t("mv_example", name=name))}</a>')
+
+
+def move_facts(L: Lang, m: dict) -> str:
+    """Hechos del ataque en una frase cada uno, sacados de los datos (no de la descripción larga)."""
+    facts = []
+    if m.get("evolvesTo"):
+        evo = m["en"]["evolvesTo"] if L.en else m["evolvesTo"]
+        if m.get("needsCard"):
+            card = m["en"]["needsCard"] if L.en else m["needsCard"]
+            facts.append(L.t("mv_evolves_card", move=evo, card=card))
+        else:
+            facts.append(L.t("mv_evolves", move=evo))
+    if "buff" in m:
+        b = m["buff"]
+        facts.append(L.t("mv_buff", dur=L.dec(b["dur"], 0), cd=L.dec(b["cd"], 2)))
+    if not facts:
+        return ""
+    return '<ul class="mv-facts">' + "".join(f"<li>{esc(f)}</li>" for f in facts) + "</ul>"
+
+
+def move_card(L: Lang, m: dict, mon: dict, home: str) -> str:
     name = m["en"]["name"] if L.en else m["name"]
+    kind = L.t("mv_kind_" + m["kind"])
     bars = charts.buff_bars(L, m["score"], m["buff"]) if "buff" in m else charts.move_bars(L, m["score"])
-    return (f'<li class="mv"><div class="mv-head"><h4>{esc(name)}</h4>{type_pill(L, m["type"])}</div>'
-            f'<div class="mv-body">{bars}</div></li>')
+    types = TYPE_NAMES["en" if L.en else "es"]
+    search = " ".join([m["name"], m["en"]["name"] or "", types[m["type"]], kind]).lower()
+    return (f'<li class="mv-card" data-q="{esc(search)}">'
+            f'<div class="mv-top">{move_icon_svg(m["icon"])}<div class="mv-title"><h4>{esc(name)}</h4>'
+            f'<div class="mv-tags">{type_pill(L, m["type"])}<span class="mv-kind">{esc(kind)}</span></div></div></div>'
+            f'{move_stage(L, m, mon, home)}<div class="mv-meter">{bars}</div>{move_facts(L, m)}</li>')
 
 
-def render_ataques(c: Ctx, moves: list[dict], meta: dict) -> str:
+def render_ataques(c: Ctx, moves: list[dict], meta: dict, index: list[dict]) -> str:
     L = c.L
     blocks, toc = [], []
     for cat_id, cat_csv in CATEGORIES:
@@ -230,15 +330,23 @@ def render_ataques(c: Ctx, moves: list[dict], meta: dict) -> str:
             ms = sorted((m for m in moves if m["category"] == cat_csv and m["tier"] == t), key=lambda m: m["rank"])
             if not ms:
                 continue
-            items = "".join(move_card(L, m) for m in ms)
-            inner.append(f'<div class="mv-tier anim"><h3>{tier_badge(L, t)} <small>{len(ms)}</small></h3>'
-                         f'<ul class="mv-list">{items}</ul></div>')
+            items = "".join(move_card(L, m, demo_mon(index, m["type"]), c.home) for m in ms)
+            inner.append(f'<div class="mv-tier"><h3>{tier_badge(L, t)} <small>{len(ms)}</small></h3>'
+                         f'<ul class="mv-grid">{items}</ul></div>')
         icon_name = {"melee": "sword", "ranged": "bow", "stat": "sparkle"}[cat_id]
-        blocks.append(f'<section id="{cat_id}"><h2>{icon(icon_name)}{esc(L.t("cat_" + cat_id))}</h2>{"".join(inner)}</section>')
+        blocks.append(f'<section id="{cat_id}" class="mv-section"><h2>{icon(icon_name)}{esc(L.t("cat_" + cat_id))}</h2>'
+                      f'{"".join(inner)}</section>')
         toc.append(f'<li><a href="#{cat_id}">{icon(icon_name)}{esc(L.t("cat_" + cat_id))}</a></li>')
+    howto = "".join(f"<li>{esc(L.t(k))}</li>" for k in ("ataques_how1", "ataques_how2", "ataques_how3"))
+    search_icon = ('<svg class="search-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><circle cx="7" cy="7" '
+                   'r="4.6" fill="none" stroke="currentColor" stroke-width="2"/><path d="M10.6 10.6 14.5 14.5" '
+                   'stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>')
     content = f"""
 <h1>{esc(L.t("ataques_h1"))}</h1>
 <p class="lede">{esc(L.t("ataques_lede"))}</p>
+<ol class="mv-howto">{howto}</ol>
+<div class="search-field mv-finder">{search_icon}<input id="mv-q" type="search" autocomplete="off" placeholder="{esc(L.t("mv_search"))}" aria-label="{esc(L.t("mv_search"))}"></div>
+<p id="mv-none" class="mv-none" hidden>{esc(L.t("mv_none"))}</p>
 <ul class="toc">{"".join(toc)}</ul>
 {charts.move_scale(L)}
 {"".join(blocks)}
@@ -310,6 +418,7 @@ def render_coleccion(c: Ctx, gachas: list[dict], meta: dict) -> str:
     content = f"""
 <h1>{esc(L.t("col_h1"))}</h1>
 {banners_script(L, gachas)}
+<div id="import-area">
 <ol class="steps">
   <li>{L.t("col_step1_html")}</li>
   <li>{L.t("col_step2_html")}
@@ -322,8 +431,13 @@ def render_coleccion(c: Ctx, gachas: list[dict], meta: dict) -> str:
   <textarea id="paste" spellcheck="false" placeholder="{{ … }}"></textarea></div>
 <div class="controls">
   <button class="btn" type="button" id="import">{esc(L.t("col_view"))}</button>
-  <div class="field"><label for="file">{esc(L.t("col_file"))}</label><input id="file" type="file" accept="application/json,.json"></div>
+  <label class="drop" id="drop" for="file">
+    <span class="drop-text">{esc(L.t("col_drop"))}</span>
+    <input id="file" type="file" accept="application/json,.json">
+  </label>
 </div>
+</div>
+<div class="reimport-row"><button class="btn ghost" type="button" id="reimport" hidden>{esc(L.t("col_reimport"))}</button></div>
 <div id="saved" class="saved" aria-live="polite"></div>
 <div id="result" aria-live="polite"></div>
 """
@@ -427,7 +541,7 @@ def main() -> int:
             write(f"{L.prefix}{rel}", build(Ctx.of(L, rel)))
 
         put("index.html", lambda c: render_index(c, index, meta))
-        put("ataques.html", lambda c: render_ataques(c, moves, meta))
+        put("ataques.html", lambda c: render_ataques(c, moves, meta, index))
         put("objetos.html", lambda c: render_objetos(c, meta))
         put("gachas.html", lambda c: render_gachas(c, gachas, index, meta))
         put("coleccion.html", lambda c: render_coleccion(c, gachas, meta))

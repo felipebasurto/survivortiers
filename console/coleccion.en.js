@@ -32,16 +32,12 @@
   const out = { version: 1, name: String(s.name || ''), updated: +s.updated || 0, dex: keysOf(s.owned), shiny: keysOf(s.shiny) };
   const text = JSON.stringify(out);
   console.log(`Collection of "${out.name}" (${kind}): ${out.dex.length} Pokémon, ${out.shiny.length} shiny.`);
-  const download = () => {
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
-    a.download = 'pokesurvivor-collection.json';
-    document.body.appendChild(a); a.click(); a.remove();
-    console.log('pokesurvivor-collection.json was downloaded. Upload it on the "My collection" page.');
-  };
-  const copied = navigator.clipboard && navigator.clipboard.writeText
-    ? navigator.clipboard.writeText(text).then(() => console.log('JSON copied to the clipboard. Paste it on the "My collection" page.'), download)
-    : Promise.resolve(download());
-  copied.catch(download);
+  // Straight to the clipboard with the console's copy(). If that function is missing, the JSON is printed to copy by hand.
+  if (typeof copy === 'function') {
+    copy(text);
+    console.log('JSON copied to the clipboard. Paste it on the "My collection" page.');
+  } else {
+    console.log('Copy this JSON and paste it on the "My collection" page:\n' + text);
+  }
   return out;
 })();

@@ -132,7 +132,8 @@ def methods(L: Lang, r: dict, name: str) -> str:
     final = r["rank"]
     vals = [(L.t(f"m_{k}"), r["methods"][k]) for k in METHOD_KEYS]
     alt = L.t("methods_alt", name=name, rank=final) + "; ".join(L.t("methods_alt_item", label=l, v=v) for l, v in vals) + "."
-    return _figure("methods", L.t("t_methods"), _methods_plot(L, r), alt)
+    body = f'<p class="fig-lede">{L.t("methods_lede")}</p>' + _methods_plot(L, r)
+    return _figure("methods", L.t("t_methods"), body, alt)
 
 
 def sim_dots(L: Lang, r: dict, sim_range: list[float], median_s: float, mname: Callable[[str], str]) -> str:
@@ -147,8 +148,10 @@ def sim_dots(L: Lang, r: dict, sim_range: list[float], median_s: float, mname: C
         return (s - lo) / (hi - lo) * 100
 
     xm = x_of(median_s)
-    body = _dotplot((L.t("sim_median", s=f"{median_s:.0f}"), xm, _side(xm)),
-                    [(label, x_of(s), f"{s:.0f} s") for label, s in items], (f"{lo:.0f} s", f"{hi:.0f} s"))
+    body = (f'<p class="fig-lede">{L.t("sim_lede")}</p>'
+            + _dotplot((L.t("sim_median", s=f"{median_s:.0f}"), xm, _side(xm)),
+                       [(label, x_of(s), f"{s:.0f} s") for label, s in items], (f"{lo:.0f} s", f"{hi:.0f} s"))
+            + f'<p class="fig-note">{L.t("sim_scale", lo=f"{lo:.0f}", hi=f"{hi:.0f}")}</p>')
     alt = L.t("sim_alt") + "; ".join(f"{label}, {s:.0f} s" for label, s in items) + "."
     return _figure("sim", L.t("t_sim"), body, alt)
 

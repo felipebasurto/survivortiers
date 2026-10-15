@@ -144,6 +144,9 @@ def _move(move_names: dict, mid: str) -> dict:
 
 def load_pokemon(move_names: dict, credits: dict) -> list[dict]:
     dex_export = {p["dex"]: p for p in json.load(open(DATA / "pokedex_export.json", encoding="utf8"))}
+    base_stats = json.loads((DATA / "base_stats.json").read_text(encoding="utf8"))  # build/fetch_base_stats.py
+    if {str(d) for d in dex_export} != set(base_stats):
+        raise CatalogError("data/base_stats.json no coincide con pokedex_export.json; vuelve a ejecutar fetch_base_stats.py")
     names_en = {int(r["dex"]): r["name_en"] for r in _read_csv(DATA / "species_names_en.csv")}
     rows = {int(r["dex"]): r for r in _read_csv(DATA / RANKING_CSV)}
     if len(rows) != TOTAL:
@@ -197,6 +200,7 @@ def load_pokemon(move_names: dict, credits: dict) -> list[dict]:
             "bannerId": px["gen"], "banner": px["banner"], "sprite": sprite, "r": ranking,
             "base": {"atk": px["atk"], "hp": px["hp"], "spd": px["spd"], "ehp": px["effective_hp"],
                      "rad": px["body_radius"]},
+            "stats": base_stats[str(dex)],
         })
     return entries
 
@@ -316,7 +320,9 @@ def sort_values(e: dict) -> dict:
 def species_details(entries: list[dict], sim_range: list[float], median: float) -> dict:
     """Lo que la ficha necesita además de pokemon-index.json, en listas para que pese poco. Orden de cada entrada:
     [pilares (stats, moves, typedef, size), puestos por medida (METHOD_KEYS), ataque inicial, segundos, mejor ataque,
-    segundos, pareja de ataques, banderas (1 estados, 2 cuerpo a cuerpo, 4 estadísticas)]. Lo lee src/ficha.js."""
+    segundos, pareja de ataques, banderas (1 estados, 2 cuerpo a cuerpo, 4 estadísticas), estadísticas base
+    oficiales [PS, ataque, defensa, ataque especial, defensa especial, velocidad]]. Lo lee src/ficha.js.
+    «statMedian» es la mediana de cada estadística base entre los 966, para la línea de referencia de la ficha."""
     out = {}
     for e in entries:
         r = e["r"]
@@ -324,8 +330,10 @@ def species_details(entries: list[dict], sim_range: list[float], median: float) 
         out[str(e["dex"])] = [
             [r["pillars"][k] for k in ("stats", "moves", "typedef", "size")], [r["methods"][k] for k in METHOD_KEYS],
             r["sim"]["start"]["id"], r["sim"]["start"]["seconds"], r["sim"]["best"]["id"], r["sim"]["best"]["seconds"],
-            [m["id"] for m in r["pair"]], int(f["statusUnmodelled"]) + 2 * int(f["melee"]) + 4 * int(f["statsCapped"])]
-    return {"sim": [*sim_range, median], "d": out}
+            [m["id"] for m in r["pair"]], int(f["statusUnmodelled"]) + 2 * int(f["melee"]) + 4 * int(f["statsCapped"]),
+            e["stats"]]
+    medians = [statistics.median(e["stats"][i] for e in entries) for i in range(6)]
+    return {"sim": [*sim_range, median], "statMedian": medians, "d": out}
 
 
 def write_json(name: str, obj, pretty: bool = False, public: bool = False) -> None:

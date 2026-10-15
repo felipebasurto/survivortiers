@@ -113,7 +113,7 @@ def browser_check(base: str, index: list[dict], args, err, notes: list[str]) -> 
                 problems.clear()
                 page.goto(f"{base}{lang}pokemon/?id={d}")
                 try:
-                    page.wait_for_function("document.querySelectorAll('figure.fig').length === 4", timeout=8000)
+                    page.wait_for_function("document.querySelectorAll('figure.fig').length === 5", timeout=8000)
                     page.wait_for_function("(() => { const i = document.querySelector('.ficha-sprite img'); "
                                            "return i && i.complete; })()", timeout=8000)
                 except Error:
@@ -129,8 +129,8 @@ def browser_check(base: str, index: list[dict], args, err, notes: list[str]) -> 
                 want = by_dex[d]["nameEn" if en else "name"]
                 if info["h1"] != want:
                     err(f"{lang}pokemon/?id={d}: el título es {info['h1']!r} y debería ser {want!r}")
-                if len(info["alts"]) != 4 or min(info["alts"]) < 20:
-                    err(f"{lang}pokemon/?id={d}: {len(info['alts'])} gráficos con texto alternativo (se esperaban 4 de 20+ letras)")
+                if len(info["alts"]) != 5 or min(info["alts"]) < 20:
+                    err(f"{lang}pokemon/?id={d}: {len(info['alts'])} gráficos con texto alternativo (se esperaban 5 de 20+ letras)")
                 if info["src"] != f"{info['base']}{d}{info['ext']}" or info["img"] == 0:
                     err(f"{lang}pokemon/?id={d}: el sprite no carga ({info['src']})")
                 if problems:
@@ -142,7 +142,7 @@ def browser_check(base: str, index: list[dict], args, err, notes: list[str]) -> 
                 err(f"{lang}pokemon/?id=99999 debería decir que no existe")
             page.goto(f"{base}{lang}pokemon/25.html")
             try:
-                page.wait_for_function("document.querySelectorAll('figure.fig').length === 4", timeout=8000)
+                page.wait_for_function("document.querySelectorAll('figure.fig').length === 5", timeout=8000)
             except Error:
                 err(f"{lang}pokemon/25.html no acaba en la ficha de Pikachu")
             else:
@@ -209,10 +209,11 @@ def main() -> int:
     move_ids = {m["id"] for m in moves}
     for d in dexes:
         e = species.get(str(d))
-        ok = (isinstance(e, list) and len(e) == 8 and len(e[0]) == 4 and all(0 <= v <= 1 for v in e[0])
+        ok = (isinstance(e, list) and len(e) == 9 and len(e[0]) == 4 and all(0 <= v <= 1 for v in e[0])
               and len(e[1]) == 5 and all(isinstance(v, int) and 1 <= v <= 966 for v in e[1])
               and e[2] in move_ids and e[4] in move_ids and e[3] > 0 and e[5] > 0
-              and all(m in move_ids for m in e[6]) and isinstance(e[7], int) and 0 <= e[7] <= 7)
+              and all(m in move_ids for m in e[6]) and isinstance(e[7], int) and 0 <= e[7] <= 7
+              and len(e[8]) == 6 and all(isinstance(v, int) and 1 <= v <= 255 for v in e[8]))
         if not ok:
             err(f"data/species.json: datos incompletos o raros para el Pokémon {d}")
 

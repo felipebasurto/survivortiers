@@ -1,6 +1,7 @@
 /* Exporta los iconos del juego tal y como los dibuja (ui/icons.js), a dos ficheros:
  *   data/move_icons.json  movimientos: emblema del tipo + insignia de la familia.
  *   data/item_icons.json  objetos equipables: el dibujo de G.Icons.UI con el id del objeto.
+ *   data/ball_icons.json  las Poké Ball de rareza (G.Icons.RARITY_BALL): de Común a Master.
  * Se ejecuta una vez, cuando cambia el juego:
  *
  *   node build/export_move_icons.js /ruta/a/pokesurvivor/repo/js
@@ -14,6 +15,7 @@ const vm = require('vm');
 const GAME = path.resolve(process.argv[2] || '/Users/felipe/Downloads/pokesurvivor/repo/js');
 const OUT = path.join(__dirname, '..', 'data', 'move_icons.json');
 const OUT_ITEMS = path.join(__dirname, '..', 'data', 'item_icons.json');
+const OUT_BALLS = path.join(__dirname, '..', 'data', 'ball_icons.json');
 
 // ---- canvas mínimo: fillRect con colores #rrggbb, getImageData y las propiedades que usa icons.js.
 class Canvas {
@@ -92,3 +94,12 @@ for (const it of G.Items.LIST) {
 }
 fs.writeFileSync(OUT_ITEMS, JSON.stringify(items) + '\n', 'utf8');
 console.log(`iconos de objeto: ${Object.keys(items).length} → ${path.relative(process.cwd(), OUT_ITEMS)}`);
+
+// Poké Ball de rareza: las cinco que usa la rareza 1 a 5 (ui/icons.js, RARITY_BALL).
+const balls = {};
+for (const id of Object.values(G.Icons.RARITY_BALL)) {
+  if (!G.Icons.UI[id]) throw new Error(`el juego no tiene el dibujo de la ${id}`);
+  balls[id] = grid(id);
+}
+fs.writeFileSync(OUT_BALLS, JSON.stringify(balls) + '\n', 'utf8');
+console.log(`poké balls: ${Object.keys(balls).length} → ${path.relative(process.cwd(), OUT_BALLS)}`);

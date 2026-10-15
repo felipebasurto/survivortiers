@@ -32,16 +32,12 @@
   const salida = { version: 1, name: String(s.name || ''), updated: +s.updated || 0, dex: claves(s.owned), shiny: claves(s.shiny) };
   const texto = JSON.stringify(salida);
   console.log(`Colección de «${salida.name}» (${tipo}): ${salida.dex.length} Pokémon, ${salida.shiny.length} shiny.`);
-  const descargar = () => {
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([texto], { type: 'application/json' }));
-    a.download = 'coleccion-pokesurvivor.json';
-    document.body.appendChild(a); a.click(); a.remove();
-    console.log('Se ha descargado coleccion-pokesurvivor.json. Súbelo en la página «Mi colección».');
-  };
-  const copiado = navigator.clipboard && navigator.clipboard.writeText
-    ? navigator.clipboard.writeText(texto).then(() => console.log('JSON copiado al portapapeles. Pégalo en la página «Mi colección».'), descargar)
-    : Promise.resolve(descargar());
-  copiado.catch(descargar);
+  // Al portapapeles con copy() de la consola. Si esa función no existe, el JSON queda impreso para copiarlo a mano.
+  if (typeof copy === 'function') {
+    copy(texto);
+    console.log('JSON copiado al portapapeles. Pégalo en la página «Mi colección».');
+  } else {
+    console.log('Copia este JSON y pégalo en la página «Mi colección»:\n' + texto);
+  }
   return salida;
 })();
