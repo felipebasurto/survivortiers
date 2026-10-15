@@ -71,6 +71,7 @@ STR: dict[str, tuple[str, str]] = {
     "t_sim": ("Aguante", "Survival"),
     "band_rank": ("puesto {rank}", "rank {rank}"),
     "band_range": ("{lo} a {hi}", "{lo} to {hi}"),
+    "band_zoom": ("Vista ampliada: puestos {lo} a {hi} de {total}", "Zoomed in: ranks {lo} to {hi} of {total}"),
     "band_alt": ("{name}: puesto {rank} de {total}, tier {tier}. Suele quedar entre el {lo} y el {hi}.",
                  "{name}: rank {rank} of {total}, tier {tier}. Usually lands between {lo} and {hi}."),
     "pill_stats": ("Estadísticas", "Stats"),

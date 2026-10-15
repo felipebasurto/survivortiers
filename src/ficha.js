@@ -51,20 +51,43 @@
     return out + '<div class="mt-axis" aria-hidden="true"><span>' + esc(axis[0]) + '</span><span>' + esc(axis[1]) + '</span></div>';
   }
 
+  // Vista ampliada: entre 1 y 966 el margen de un Pokémon ocupa pocos píxeles. La barra enseña solo una ventana
+  // alrededor de su margen, con al menos 20 puestos a cada lado (o lo ancho que sea el margen).
+  const RANK_TICKS = [1, 30, 120, 320, 620, 966];
+  function zoomWindow(lo, hi) {
+    const pad = Math.max(20, hi - lo);
+    return [Math.max(1, lo - pad), Math.min(TOTAL, hi + pad)];
+  }
+
   function rankBand(p, name) {
     const [rank, tier, lo, hi] = p.r;
-    const x = pos(rank);
+    const [w0, w1] = zoomWindow(lo, hi);
+    const at = n => (n - w0) / (w1 - w0) * 100;
+    const x = at(rank);
     const sd = x < 14 ? 'l' : x > 86 ? 'r' : 'c';
     const noteStyle = sd !== 'r' ? 'left:' + f2(x) + '%' : 'right:' + f2(100 - x) + '%';
-    const segs = CUTS.map(c => '<i class="rb-seg' + (c[0] === tier ? ' on' : '') + '" style="flex:' + (c[2] - c[1] + 1) + '"></i>').join('');
-    const letters = CUTS.map(c => '<i style="flex:' + (c[2] - c[1] + 1) + '">' + c[0] + '</i>').join('');
-    const ticks = [1, 30, 120, 320, 620, 966].map(n => '<span style="left:' + f2(pos(n)) + '%">' + n + '</span>').join('');
-    const span = Math.max(pos(hi) - pos(lo), 0.5);
+    const visible = CUTS.map(c => [c, Math.max(c[1], w0), Math.min(c[2], w1)]).filter(v => v[2] >= v[1]);
+    const segs = visible.map(([c, a, b]) => '<i class="rb-seg' + (c[0] === tier ? ' on' : '') + '" style="flex:' + (b - a + 1) + '"></i>').join('');
+    const letters = visible.map(([c, a, b]) => '<i style="flex:' + (b - a + 1) + '">' + c[0] + '</i>').join('');
+    const marks = [...new Set([w0, w1, ...RANK_TICKS.filter(n => n >= w0 && n <= w1)])].sort((a, b) => a - b);
+    const kept = [];
+    marks.forEach(n => {
+      if (kept.length && at(n) - at(kept[kept.length - 1]) < 7) {
+        if (n !== w1) return;
+        kept.pop();
+      }
+      kept.push(n);
+    });
+    const ticks = kept.map(n => '<span style="left:' + f2(at(n)) + '%">' + n + '</span>').join('');
+    const span = Math.max(at(hi) - at(lo), 0.5);
+    const zoomed = w0 !== 1 || w1 !== TOTAL;
+    const zoomNote = zoomed ? '<p class="rb-zoom">' + esc(t('band_zoom', { lo: w0, hi: w1 })) + '</p>' : '';
     const body = '<div class="rb-note rb-' + sd + '" style="' + noteStyle + '"><b>' + esc(t('band_rank', { rank })) + '</b>' +
       '<span>' + esc(t('band_range', { lo, hi })) + '</span></div>' +
-      '<div class="rb-track">' + segs + '<b class="rb-range" style="left:' + f2(pos(lo)) + '%;width:' + f2(span) + '%"></b>' +
+      '<div class="rb-track">' + segs + '<b class="rb-range" style="left:' + f2(at(lo)) + '%;width:' + f2(span) + '%"></b>' +
       '<b class="rb-dot" style="left:' + f2(x) + '%"></b></div>' +
-      '<div class="rb-tiers" aria-hidden="true">' + letters + '</div><div class="rb-ticks" aria-hidden="true">' + ticks + '</div>';
+      '<div class="rb-tiers" aria-hidden="true">' + letters + '</div><div class="rb-ticks" aria-hidden="true">' + ticks + '</div>' +
+      zoomNote;
     return fig('band', t('t_band'), body, t('band_alt', { name, rank, total: TOTAL, tier, lo, hi }));
   }
 
