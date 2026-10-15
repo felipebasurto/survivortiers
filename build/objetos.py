@@ -5,9 +5,16 @@ js/systems/levelup.js), no un resultado medido con partidas simuladas. Cada text
 """
 from __future__ import annotations
 
+import json
 from html import escape
+from pathlib import Path
 
 from i18n import Lang
+
+DATA = Path(__file__).resolve().parent.parent / "data"
+# Dibujos de los objetos tal y como los pinta el juego (scripts: build/export_move_icons.js → data/item_icons.json).
+ICONS = json.loads((DATA / "item_icons.json").read_text(encoding="utf8"))
+ICON_LETTERS = "abcdefghijklmnopqrstuvwxyz"  # rows[y][x] es '.' o la letra de su color en pal
 
 PHASES = [
     ("early", ("Temprano", "Early"), ("0–5 min", "0–5 min")),
@@ -106,6 +113,35 @@ def _t(pair: tuple[str, str], L: Lang) -> str:
     return pair[1] if L.en else pair[0]
 
 
+def _symbols() -> str:
+    """Un <symbol> por objeto, en rectángulos de píxeles del juego. Va una vez por página; los <use> lo referencian."""
+    out = []
+    for item_id, ic in ICONS.items():
+        w, h = ic["size"]
+        rects = []
+        for y, row in enumerate(ic["rows"]):
+            x = 0
+            while x < w:
+                ch = row[x]
+                if ch == ".":
+                    x += 1
+                    continue
+                run = 1
+                while x + run < w and row[x + run] == ch:
+                    run += 1
+                color = ic["pal"][ICON_LETTERS.index(ch)]
+                rects.append(f'<rect x="{x}" y="{y}" width="{run}" height="1" fill="{color}"/>')
+                x += run
+        out.append(f'<symbol id="ico-{item_id}" viewBox="0 0 {w} {h}">{"".join(rects)}</symbol>')
+    return ('<svg class="sprites-defs" width="0" height="0" aria-hidden="true" focusable="false">'
+            + "".join(out) + "</svg>")
+
+
+def _icon(item_id: str) -> str:
+    return (f'<svg class="item-ico" aria-hidden="true" focusable="false" shape-rendering="crispEdges">'
+            f'<use href="#ico-{item_id}"/></svg>')
+
+
 def _badge(t: str) -> str:
     if t == "-":
         return '<span class="muted">—</span>'
@@ -115,10 +151,10 @@ def _badge(t: str) -> str:
 def _phase(L: Lang, idx: int, name: tuple[str, str], span: tuple[str, str]) -> str:
     rows = []
     for tier in TIER_ORDER:
-        names = [_t(it["name"], L) for it in ITEMS if it["tiers"][idx] == tier]
-        if not names:
+        if not any(it["tiers"][idx] == tier for it in ITEMS):
             continue
-        chips = "".join(f'<span class="ph-chip">{escape(n)}</span>' for n in names)
+        chips = "".join(f'<span class="ph-chip">{_icon(it["id"])}{escape(_t(it["name"], L))}</span>'
+                        for it in ITEMS if it["tiers"][idx] == tier)
         rows.append(f'<li>{_badge(tier)}<span class="ph-chips">{chips}</span></li>')
     return (f'<section class="ph"><h2>{escape(_t(name, L))}</h2>'
             f'<p class="muted small">{escape(_t(span, L))}</p><ul class="ph-list">{"".join(rows)}</ul></section>')
@@ -130,7 +166,7 @@ def _table(L: Lang) -> str:
     body = []
     for it in ITEMS:
         cells = "".join(f'<td class="tier-cell">{_badge(t)}</td>' for t in it["tiers"])
-        body.append(f'<tr><th scope="row">{escape(_t(it["name"], L))}</th><td>{escape(_t(it["effect"], L))}</td>'
+        body.append(f'<tr><th scope="row"><span class="item-name">{_icon(it["id"])}{escape(_t(it["name"], L))}</span></th><td>{escape(_t(it["effect"], L))}</td>'
                     f'{cells}<td>{escape(_t(it["reason"], L))}</td></tr>')
     thead = "".join(f'<th>{escape(h)}</th>' for h in head)
     return (f'<div class="tablewrap"><table><thead><tr>{thead}</tr></thead>'
@@ -140,7 +176,8 @@ def _table(L: Lang) -> str:
 def items_content(L: Lang, h1: str, lede: str, phases_h: str, table_h: str) -> str:
     """Contenido de la página Objetos: tres fases con su tier, y la tabla con el efecto y la razón de cada objeto."""
     phases = "".join(_phase(L, i, name, span) for i, (_, name, span) in enumerate(PHASES))
-    return (f'<h1>{escape(h1)}</h1>'
+    return (_symbols()
+            + f'<h1>{escape(h1)}</h1>'
             f'<p class="lede">{escape(lede)}</p>'
             f'<h2>{escape(phases_h)}</h2>'
             f'<div class="ph-grid">{phases}</div>'

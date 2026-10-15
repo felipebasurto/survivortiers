@@ -573,7 +573,10 @@ h2 { margin: 48px 0 16px; }
 .ph-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
 .ph-list li { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: start; }
 .ph-chips { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 2px; }
-.ph-chip { padding: 4px 9px 5px; font: .9rem/1.2 var(--sans); background: var(--rule-soft); box-shadow: var(--notch-soft); }
+.ph-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 9px 5px; font: .9rem/1.2 var(--sans); background: var(--rule-soft); box-shadow: var(--notch-soft); }
+.item-name { display: inline-flex; align-items: center; gap: 8px; }
+.item-ico { display: block; flex: none; width: 1.5em; height: 1.5em; }
+.sprites-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .tier-cell { white-space: nowrap; }
 .tablewrap td:nth-child(2) { min-width: 16ch; }
 

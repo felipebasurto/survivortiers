@@ -1,5 +1,7 @@
-/* Exporta los iconos de movimiento tal y como los dibuja el juego (ui/icons.js: emblema del tipo + insignia de la
- * familia), a data/move_icons.json: { id: { type, kind, svg } }. Se ejecuta una vez, cuando cambia el juego:
+/* Exporta los iconos del juego tal y como los dibuja (ui/icons.js), a dos ficheros:
+ *   data/move_icons.json  movimientos: emblema del tipo + insignia de la familia.
+ *   data/item_icons.json  objetos equipables: el dibujo de G.Icons.UI con el id del objeto.
+ * Se ejecuta una vez, cuando cambia el juego:
  *
  *   node build/export_move_icons.js /ruta/a/pokesurvivor/repo/js
  *
@@ -11,6 +13,7 @@ const vm = require('vm');
 
 const GAME = path.resolve(process.argv[2] || '/Users/felipe/Downloads/pokesurvivor/repo/js');
 const OUT = path.join(__dirname, '..', 'data', 'move_icons.json');
+const OUT_ITEMS = path.join(__dirname, '..', 'data', 'item_icons.json');
 
 // ---- canvas mínimo: fillRect con colores #rrggbb, getImageData y las propiedades que usa icons.js.
 class Canvas {
@@ -48,6 +51,7 @@ const G = { U: { TYPE_COLOR } };
 const ctx = vm.createContext({ G, document: global.document, console });
 vm.runInContext(fs.readFileSync(path.join(GAME, 'data', 'moves.js'), 'utf8'), ctx, { filename: 'moves.js' });
 vm.runInContext(fs.readFileSync(path.join(GAME, 'ui', 'icons.js'), 'utf8'), ctx, { filename: 'icons.js' });
+vm.runInContext(fs.readFileSync(path.join(GAME, 'data', 'items.js'), 'utf8'), ctx, { filename: 'items.js' });
 
 // Cada icono como rejilla: rows[y][x] es '.' (transparente) o la letra de su color en pal (a, b, c…).
 // El navegador lo pinta como SVG, así el JSON pesa unos pocos KB en vez de los ~10 KB de cada SVG codificado.
@@ -79,3 +83,12 @@ for (const m of G.Moves.ALL) {
 }
 fs.writeFileSync(OUT, JSON.stringify(out) + '\n', 'utf8');
 console.log(`iconos de movimiento: ${Object.keys(out).length} → ${path.relative(process.cwd(), OUT)}`);
+
+// Objetos: G.Icons.draw usa el dibujo de UI con el mismo id; si falta, dibujaría la estrella, así que se exige.
+const items = {};
+for (const it of G.Items.LIST) {
+  if (!G.Icons.UI[it.id]) throw new Error(`el juego no tiene icono para el objeto ${it.id}`);
+  items[it.id] = grid(it.id);
+}
+fs.writeFileSync(OUT_ITEMS, JSON.stringify(items) + '\n', 'utf8');
+console.log(`iconos de objeto: ${Object.keys(items).length} → ${path.relative(process.cwd(), OUT_ITEMS)}`);
