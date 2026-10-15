@@ -7,6 +7,7 @@
   const html = document.documentElement;
   const assets = html.dataset.assets || '';
   const home = html.dataset.home || '';
+  const sprites = html.dataset.sprites || '';
   const page = html.dataset.page;
   const EN = html.lang === 'en';
   const TIERS = ['S', 'A', 'B', 'C', 'D'];
@@ -104,8 +105,8 @@
     const unsure = share < UNSURE;
     const cls = 'mon' + (unsure ? ' unsure' : '') + (extraClass ? ' ' + extraClass : '');
     const title = TEXT.cardTitle(monName(p), p.dex, rank, tier, unsure ? TEXT.unsure(share, tier) : '');
-    return '<a class="' + cls + '" href="' + home + 'pokemon/' + p.dex + '.html" data-dex="' + p.dex + '" title="' + esc(title) + '">' +
-      '<span class="sp"><img class="px" src="' + assets + 'sprites/' + p.dex + '.png" width="' + p.w * SCALE + '" height="' + p.h * SCALE +
+    return '<a class="' + cls + '" href="' + home + 'pokemon/?id=' + p.dex + '" data-dex="' + p.dex + '" title="' + esc(title) + '">' +
+      '<span class="sp"><img class="px" src="' + sprites + p.dex + '.png" width="' + p.w * SCALE + '" height="' + p.h * SCALE +
       '" alt="" loading="lazy" decoding="async"></span><span class="nm">' + esc(monName(p)) + '</span><span class="rk">' + rank + '</span>' +
       (extraHtml || '') + '</a>';
   }
@@ -488,6 +489,11 @@
   }
 
   // ---------------------------------------------------------------- arranque
+  // Los enlaces antiguos /pokemon/25.html caen en la página 404, que los reenvía a la ficha única.
+  if (page === '404') {
+    const old = location.pathname.match(/^(\/en)?\/pokemon\/(\d+)(?:\.html)?\/?$/);
+    if (old) { location.replace((old[1] || '') + '/pokemon/?id=' + old[2]); return; }
+  }
   initReveal();
   initDemo();
   initReps();

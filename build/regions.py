@@ -131,13 +131,13 @@ MOTIFS = {"kanto": _kanto, "johto": _johto, "hoenn": _hoenn, "sinnoh": _sinnoh, 
           "alola": _alola, "galar": _galar, "paldea": _paldea}
 
 
-def _sprite(assets: str, mon: dict, box_w: int, box_h: int, side: str) -> str:
+def _sprite(sprites: str, mon: dict, box_w: int, box_h: int, side: str) -> str:
     scale = min(box_w / mon["w"], box_h / mon["h"])
     w, h = round(mon["w"] * scale), round(mon["h"] * scale)
-    return (f'<img class="px rg-mon rg-{side}" src="{assets}sprites/{mon["dex"]}.png" width="{w}" height="{h}" alt="">')
+    return (f'<img class="px rg-mon rg-{side}" src="{sprites}{mon["dex"]}.png" width="{w}" height="{h}" alt="">')
 
 
-def badge(L: Lang, assets: str, gen: int, name: str, index: dict[int, dict], small: bool = False) -> str:
+def badge(L: Lang, sprites: str, gen: int, name: str, index: dict[int, dict], small: bool = False) -> str:
     """Insignia de la región. Con small=True sale sin sprites ni etiqueta, para la ficha."""
     key, dexes = REGIONS[gen]
     defs, art = MOTIFS[key]()
@@ -150,8 +150,8 @@ def badge(L: Lang, assets: str, gen: int, name: str, index: dict[int, dict], sma
         return f'<span class="rg rg-s rg-{key}" role="img" aria-label="{label}" title="{label}">{svg}</span>'
     mons = [index[d] for d in dexes if d in index]
     if len(mons) == 1:
-        sprites = _sprite(assets, mons[0], 56, 56, "solo")
+        imgs = _sprite(sprites, mons[0], 56, 56, "solo")
     else:
-        sprites = _sprite(assets, mons[0], 40, 46, "l") + _sprite(assets, mons[1], 40, 46, "r")
-    return (f'<span class="rg rg-{key}" role="img" aria-label="{label}" title="{label}">{svg}{sprites}'
+        imgs = _sprite(sprites, mons[0], 40, 46, "l") + _sprite(sprites, mons[1], 40, 46, "r")
+    return (f'<span class="rg rg-{key}" role="img" aria-label="{label}" title="{label}">{svg}{imgs}'
             f'<span class="rg-name" aria-hidden="true">{label}</span></span>')
