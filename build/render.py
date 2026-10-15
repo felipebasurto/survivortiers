@@ -276,7 +276,8 @@ def gacha_card(c: Ctx, i: int, g: dict, last: int, by_banner: dict[int, list[dic
     return (f'<li class="{cls}" style="--i:{i}">{regions.badge(L, SPRITES, g["gen"], name, by_dex)}'
             f'<div class="gc-main"><span class="stars big" role="img" aria-label="{esc(L.t("stars_alt", n=stars_n))}">'
             f'{"★" * stars_n}{"☆" * (5 - stars_n)}</span>{verdict}'
-            f'<span class="gc-one">{esc(L.t("g_one_in", n=round(100 / g["sPlusARate"])))}</span></div>'
+            f'<span class="gc-one">{esc(L.t("g_one_in", n=round(100 / g["sPlusARate"])))}</span>'
+            f'<span class="gc-own" data-gen="{g["gen"]}"></span></div>'
             f'<div class="gc-pulls" role="group" aria-label="{esc(L.t("g_pulls", name=name))}">{pulls}</div></li>')
 
 
@@ -290,17 +291,25 @@ def render_gachas(c: Ctx, gachas: list[dict], pokemon: list[dict], meta: dict) -
     cards = "".join(gacha_card(c, i, g, len(ordered) - 1, by_banner, by_dex) for i, g in enumerate(ordered))
     content = f"""
 <h1>{esc(L.t("gachas_h1"))}</h1>
+{banners_script(L, gachas)}
 <ol class="gacha">{cards}</ol>
 """
     return page(c, "gachas", L.t("gachas_title", site=legal.SITE_NAME), L.t("gachas_desc", game=legal.GAME_NAME),
                 content, meta)
 
 
-def render_coleccion(c: Ctx, meta: dict) -> str:
+def banners_script(L: Lang, gachas: list[dict]) -> str:
+    """Nombre de cada banner en este idioma. La colección y el progreso de gacha lo leen de aquí."""
+    data = [{"gen": g["gen"], "name": L.banner(g["name"])} for g in sorted(gachas, key=lambda g: g["gen"])]
+    return f'<script type="application/json" id="banners">{json.dumps(data, ensure_ascii=False)}</script>'
+
+
+def render_coleccion(c: Ctx, gachas: list[dict], meta: dict) -> str:
     L = c.L
     snippet = (ROOT / "console" / ("coleccion.en.js" if L.en else "coleccion.js")).read_text(encoding="utf8")
     content = f"""
 <h1>{esc(L.t("col_h1"))}</h1>
+{banners_script(L, gachas)}
 <ol class="steps">
   <li>{L.t("col_step1_html")}</li>
   <li>{L.t("col_step2_html")}
@@ -315,6 +324,7 @@ def render_coleccion(c: Ctx, meta: dict) -> str:
   <button class="btn" type="button" id="import">{esc(L.t("col_view"))}</button>
   <div class="field"><label for="file">{esc(L.t("col_file"))}</label><input id="file" type="file" accept="application/json,.json"></div>
 </div>
+<div id="saved" class="saved" aria-live="polite"></div>
 <div id="result" aria-live="polite"></div>
 """
     return page(c, "coleccion", L.t("col_title", site=legal.SITE_NAME), L.t("col_desc", game=legal.GAME_NAME),
@@ -420,7 +430,7 @@ def main() -> int:
         put("ataques.html", lambda c: render_ataques(c, moves, meta))
         put("objetos.html", lambda c: render_objetos(c, meta))
         put("gachas.html", lambda c: render_gachas(c, gachas, index, meta))
-        put("coleccion.html", lambda c: render_coleccion(c, meta))
+        put("coleccion.html", lambda c: render_coleccion(c, gachas, meta))
         put("metodo.html", lambda c: render_metodo(c, index, full, meta))
         put("acerca.html", lambda c: render_acerca(c, meta))
         put("pokemon/index.html", lambda c: render_ficha(c, index, meta))

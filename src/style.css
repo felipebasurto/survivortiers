@@ -577,6 +577,15 @@ h2 { margin: 48px 0 16px; }
 .item-name { display: inline-flex; align-items: center; gap: 8px; }
 .item-ico { display: block; flex: none; width: 1.5em; height: 1.5em; }
 .sprites-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
+
+/* Colección guardada en este navegador y progreso de gacha */
+.saved { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin: 0 0 18px; font: .9rem/1.4 var(--sans); color: var(--ink-2); }
+.saved:empty { display: none; }
+.pull-tag { display: inline-block; margin-left: 8px; padding: 2px 7px 3px; font: 700 .68rem var(--pix); text-transform: uppercase;
+  background: var(--accent); color: var(--on-accent); vertical-align: .15em; }
+tr.top th, tr.top td { background: var(--rule-soft); }
+.gc-own { font: .85rem/1.3 var(--sans); color: var(--ink-2); }
+.gc-own:empty { display: none; }
 .tier-cell { white-space: nowrap; }
 .tablewrap td:nth-child(2) { min-width: 16ch; }
 

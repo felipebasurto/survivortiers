@@ -1,7 +1,9 @@
-/* SurvivorTiers · JS sin dependencias: buscador, importación de la colección y las demos de la página Método.
-   No hace peticiones salvo a los JSON del propio sitio. No guarda nada (ni cookies ni localStorage).
-   SurvivorTiers · dependency-free JS: search, collection import and the Method page demos. It only requests this
-   site's own JSON files and stores nothing (no cookies, no localStorage). */
+/* SurvivorTiers · JS sin dependencias: buscador, orden, colección, progreso de gacha y las demos de la página Método.
+   No hace peticiones salvo a los JSON del propio sitio. Solo guarda en localStorage la colección que importas
+   (clave survivortiers.coleccion), y se puede borrar desde la página. No usa cookies.
+   SurvivorTiers · dependency-free JS: search, sorting, collection, gacha progress and the Method page demos. It only
+   requests this site's own JSON files and stores only the collection you import, in localStorage (key
+   survivortiers.coleccion), which you can delete from the page. No cookies. */
 (() => {
   'use strict';
   const html = document.documentElement;
@@ -53,6 +55,18 @@
       stepOf: (i, n) => 'Paso ' + i + ' de ' + n,
       auto: 'Auto', stop: 'Parar',
       over: 'Fin',
+      sep: '.',
+      savedOn: d => 'Guardada en este navegador el ' + d + '.',
+      forget: 'Borrar de este navegador',
+      forgot: 'Borrada de este navegador. Pega el resultado otra vez cuando quieras.',
+      storageOff: 'Este navegador no deja guardar la colección. Solo se verá mientras la página esté abierta.',
+      ownedIn: (a, b) => 'Tienes ' + a + ' de ' + b,
+      planH: 'Qué gacha tirar',
+      planLede: 'Cada tirada da un Pokémon que te falta con la probabilidad de «Nuevo por tirada». Tira en el primero de la lista para acercarte a completar. «Tiradas para completarlo» es una estimación de 150 simulaciones de tiradas normales (×1).',
+      planTop: (name, n) => 'Tira primero en ' + name + ': 1 de cada ' + n + ' tiradas da un Pokémon que te falta.',
+      planDone: 'Ya tienes todos los Pokémon de los banners.',
+      colBanner: 'Banner', colMissing: 'Te faltan', colNew: 'Nuevo por tirada', colPulls: 'Tiradas para completarlo',
+      pullHere: 'Tira aquí', complete: 'Completo',
     },
     en: {
       loadFail: n => 'Could not load ' + n,
@@ -85,6 +99,18 @@
       stepOf: (i, n) => 'Step ' + i + ' of ' + n,
       auto: 'Auto', stop: 'Stop',
       over: 'Over',
+      sep: ',',
+      savedOn: d => 'Saved in this browser on ' + d + '.',
+      forget: 'Delete from this browser',
+      forgot: 'Deleted from this browser. Paste the result again whenever you like.',
+      storageOff: 'This browser does not let the collection be saved. It will only show while the page is open.',
+      ownedIn: (a, b) => 'You have ' + a + ' of ' + b,
+      planH: 'What to pull',
+      planLede: 'Each pull gives a Pokémon you are missing, with the chance in "New per pull". Pull on the first banner to get closer to completing. "Pulls to complete" is an estimate from 150 simulations of single pulls (×1).',
+      planTop: (name, n) => 'Pull first on ' + name + ': 1 in ' + n + ' pulls gives a Pokémon you are missing.',
+      planDone: 'You already have every Pokémon in the banners.',
+      colBanner: 'Banner', colMissing: 'Missing', colNew: 'New per pull', colPulls: 'Pulls to complete',
+      pullHere: 'Pull here', complete: 'Complete',
     },
   }[EN ? 'en' : 'es'];
 
@@ -253,7 +279,161 @@
       '<div class="stat"><b>' + c.shiny.length + '</b><span>' + TEXT.shinyStat + '</span></div>' +
       '<div class="stat"><b class="stat-small">' + esc(when) + '</b><span>' + TEXT.lastSave + '</span></div></div>' +
       (unknown ? '<p class="muted small">' + TEXT.unknown(unknown) + '</p>' : '') +
-      '<h3>' + TEXT.byTier + '</h3>' + table + groups + missing;
+      '<h3>' + TEXT.byTier + '</h3>' + table + groups + missing + planHtml(owned);
+  }
+
+  // ---------------------------------------------------------------- gacha: qué tirar
+  // Mismo modelo que systems/gacha.js del juego: 1★ 45 % · 2★ 30 % · 3★ 17 % · 4★ 6,5 % · 5★ 1,5 %. Cada tirada saca un
+  // Pokémon al azar del pool de su rareza en el banner (o del más cercano si ese pool está vacío). A las 70 tiradas sin
+  // 5★, la siguiente es 5★ (pity). Las garantías de la ×10 no se cuentan.
+  const GACHA_RATES = [[1, 45], [2, 30], [3, 17], [4, 6.5], [5, 1.5]];
+  const GACHA_NEAR = [0, -1, 1, -2, 2, -3, 3, -4, 4];
+  const PITY = 70;
+  const SIM_RUNS = 150;
+
+  // gen -> { gen, all: [dex], byRarity: Map(rareza -> [dex]) }, a partir del índice de Pokémon.
+  function bannerPools(mons) {
+    const pools = new Map();
+    mons.forEach(p => {
+      let b = pools.get(p.bannerId);
+      if (!b) pools.set(p.bannerId, b = { gen: p.bannerId, all: [], byRarity: new Map() });
+      b.all.push(p.dex);
+      if (!b.byRarity.has(p.rarity)) b.byRarity.set(p.rarity, []);
+      b.byRarity.get(p.rarity).push(p.dex);
+    });
+    return pools;
+  }
+
+  // Pool de una rareza en el banner, o el no vacío más cercano (como poolNear() del juego).
+  function nearPool(b, rarity) {
+    for (const d of GACHA_NEAR) {
+      const r = rarity + d;
+      const list = r >= 1 && r <= 5 ? b.byRarity.get(r) : null;
+      if (list && list.length) return { rarity: r, list };
+    }
+    return { rarity, list: b.all };
+  }
+
+  // Probabilidad de que una tirada dé un Pokémon que te falta (sin pity).
+  function newPerPull(b, missing) {
+    return GACHA_RATES.reduce((t, [r, pct]) => {
+      const { list } = nearPool(b, r);
+      return t + pct / 100 * list.filter(d => missing.has(d)).length / list.length;
+    }, 0);
+  }
+
+  // Semilla fija: el número de tiradas no cambia al recargar la página.
+  function rng(seed) {
+    let a = seed >>> 0;
+    return () => {
+      a = (a + 0x6d2b79f5) >>> 0;
+      let t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function rollRarity(x) {  // x en [0, 100)
+    let acc = 0;
+    for (const [r, pct] of GACHA_RATES) { acc += pct; if (x < acc) return r; }
+    return 5;
+  }
+
+  // Tiradas esperadas (media de SIM_RUNS partidas) hasta tener todos los que te faltan del banner.
+  function pullsToComplete(b, missing) {
+    const near = [];
+    for (let r = 1; r <= 5; r++) near[r] = nearPool(b, r);
+    const rand = rng(b.gen * 7919 + 1);
+    let total = 0;
+    for (let run = 0; run < SIM_RUNS; run++) {
+      const left = new Set(missing);
+      let pity = 0, pulls = 0;
+      while (left.size && pulls < 200000) {
+        pulls++;
+        pity++;
+        const want = pity >= PITY ? 5 : rollRarity(rand() * 100);
+        const { rarity, list } = near[want];
+        if (rarity === 5) pity = 0;
+        left.delete(list[Math.floor(rand() * list.length)]);
+      }
+      total += pulls;
+    }
+    return total / SIM_RUNS;
+  }
+
+  function bannerNames() {
+    const el = $('#banners');
+    return el ? JSON.parse(el.textContent) : [];
+  }
+
+  // Tabla por banner: qué te falta, cuánto da una tirada nueva y cuántas tiradas faltan para completarlo.
+  function planHtml(owned) {
+    const pools = bannerPools(state.mons);
+    const rows = bannerNames().map(bn => {
+      const b = pools.get(bn.gen);
+      const missing = new Set(b.all.filter(d => !owned.has(d)));
+      return { name: bn.name, total: b.all.length, b, missing, n: missing.size, p: newPerPull(b, missing) };
+    });
+    const open = rows.filter(r => r.n).sort((a, b) => b.p - a.p);
+    const done = rows.filter(r => !r.n);
+    const top = open.find(r => r.p > 0);
+    const head = top ? TEXT.planTop(top.name, Math.round(1 / top.p)) : TEXT.planDone;
+    const line = r => {
+      if (!r.n) return '<tr><th scope="row">' + esc(r.name) + '</th><td class="num">0</td><td class="num">—</td><td class="num">' +
+        esc(TEXT.complete) + '</td></tr>';
+      const tag = r === top ? ' <span class="pull-tag">' + esc(TEXT.pullHere) + '</span>' : '';
+      return '<tr' + (r === top ? ' class="top"' : '') + '><th scope="row">' + esc(r.name) + tag + '</th><td class="num">' + r.n +
+        '</td><td class="num">' + TEXT.pct(dec(100 * r.p, 1)) + '</td><td class="num">' +
+        grouped(Math.round(pullsToComplete(r.b, r.missing)), TEXT.sep) + '</td></tr>';
+    };
+    const table = '<div class="tablewrap"><table><thead><tr><th>' + TEXT.colBanner + '</th><th class="num">' + TEXT.colMissing +
+      '</th><th class="num">' + TEXT.colNew + '</th><th class="num">' + TEXT.colPulls + '</th></tr></thead><tbody>' +
+      open.map(line).join('') + done.map(line).join('') + '</tbody></table></div>';
+    return '<h3>' + esc(TEXT.planH) + '</h3><p class="muted small">' + esc(TEXT.planLede) + '</p>' +
+      '<p><strong>' + esc(head) + '</strong></p>' + table;
+  }
+
+  // ---------------------------------------------------------------- guardado en este navegador
+  const STORE_KEY = 'survivortiers.coleccion';
+
+  function readSaved() {
+    try {
+      const o = JSON.parse(localStorage.getItem(STORE_KEY));
+      return o && o.data && Array.isArray(o.data.dex) ? { c: o.data, savedAt: +o.savedAt || 0 } : null;
+    } catch (e) { return null; }
+  }
+
+  function writeSaved(c) {
+    try {
+      localStorage.setItem(STORE_KEY, JSON.stringify({ savedAt: Date.now(), data: c }));
+      return true;
+    } catch (e) { return false; }  // sin almacenamiento (modo privado, cuota llena...)
+  }
+
+  function clearSaved() {
+    try { localStorage.removeItem(STORE_KEY); } catch (e) { /* nada que borrar */ }
+  }
+
+  function showSaved(savedAt, failed) {
+    const el = $('#saved');
+    if (failed) { el.textContent = TEXT.storageOff; return; }
+    if (!savedAt) { el.textContent = ''; return; }
+    const when = new Date(savedAt).toLocaleString(TEXT.locale, { dateStyle: 'medium', timeStyle: 'short' });
+    el.innerHTML = '<span>' + esc(TEXT.savedOn(when)) + '</span> <button class="btn ghost small" type="button" id="forget">' +
+      esc(TEXT.forget) + '</button>';
+  }
+
+  // Progreso en cada tarjeta de gacha (página Gacha), si hay una colección guardada.
+  function initGachaProgress() {
+    const saved = readSaved();
+    if (!saved) return;
+    const owned = new Set(saved.c.dex);
+    const pools = bannerPools(state.mons);
+    $$('.gc-own').forEach(el => {
+      const b = pools.get(+el.dataset.gen);
+      el.textContent = TEXT.ownedIn(b.all.filter(d => owned.has(d)).length, b.all.length);
+    });
   }
 
   function showError(msg) {
@@ -261,8 +441,22 @@
   }
 
   function initCollection() {
+    // Lo guardado de otra visita se muestra solo; importar de nuevo lo sustituye.
+    const saved = readSaved();
+    if (saved) { renderCollection(saved.c); showSaved(saved.savedAt, false); }
+    $('#saved').addEventListener('click', e => {
+      if (e.target.id !== 'forget') return;
+      clearSaved();
+      $('#result').innerHTML = '';
+      $('#saved').textContent = TEXT.forgot;
+    });
     const run = text => {
-      try { renderCollection(parseCollection(text)); } catch (e) {
+      try {
+        const c = parseCollection(text);
+        const stored = writeSaved(c);
+        renderCollection(c);
+        showSaved(stored ? Date.now() : 0, !stored);
+      } catch (e) {
         if (e instanceof ImportError) showError(e.message); else throw e;
       }
     };
@@ -576,10 +770,12 @@
   initReps();
   initWalk();
   initArena();
-  if (page === 'index' || page === 'coleccion') {
+  if (page === 'index' || page === 'coleccion' || page === 'gachas') {
     getJSON('pokemon-index.json').then(mons => {
       state.mons = mons; indexMons(mons);
-      if (page === 'index') initTierList(); else initCollection();
+      if (page === 'index') initTierList();
+      else if (page === 'coleccion') initCollection();
+      else initGachaProgress();
     }).catch(err => {
       const el = $('#result') || $('#count');
       if (el) el.textContent = TEXT.loadFailAll(err.message);

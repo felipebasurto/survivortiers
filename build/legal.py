@@ -82,9 +82,12 @@ def legal_sections(L: Lang) -> list[dict]:
             "id": "privacidad",
             "title": pick("Privacidad", "Privacy"),
             "html": pick(
-                "<p>Sin cookies, analítica, anuncios ni donaciones. «Colección» procesa el JSON en tu navegador y no "
-                "lo envía ni lo guarda. El hosting (Cloudflare) puede registrar peticiones HTTP de forma estándar.</p>",
-                "<p>No cookies, analytics, ads or donations. \"Collection\" processes the JSON in your browser and "
-                "neither sends nor stores it. The host (Cloudflare) may log HTTP requests as usual.</p>"),
+                "<p>Sin cookies, analítica, anuncios ni donaciones. «Mi colección» guarda tu colección solo en el "
+                "almacenamiento local de este navegador (localStorage): no se envía a ningún servidor y puedes borrarla "
+                "con el botón de la propia página. El hosting (Cloudflare) puede registrar peticiones HTTP de forma "
+                "estándar.</p>",
+                "<p>No cookies, analytics, ads or donations. \"My collection\" keeps your collection only in this "
+                "browser's local storage (localStorage): it is never sent to a server, and you can delete it with the "
+                "button on the page. The host (Cloudflare) may log HTTP requests as usual.</p>"),
         },
     ]

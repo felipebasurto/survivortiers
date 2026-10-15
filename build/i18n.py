@@ -164,8 +164,10 @@ STR: dict[str, tuple[str, str]] = {
                        "<kbd>allow pasting</kbd>.",
                        "<strong>Paste this in the console</strong> (F12). If asked, type <kbd>allow pasting</kbd> first."),
     "col_copy": ("Copiar", "Copy"),
-    "col_step3_html": ("<strong>Pega el resultado</strong> aquí. No sale de tu navegador.",
-                       "<strong>Paste the result</strong> here. It never leaves your browser."),
+    "col_step3_html": ("<strong>Pega el resultado</strong> aquí. Se guarda en este navegador para la próxima vez "
+                       "y no sale de él.",
+                       "<strong>Paste the result</strong> here. It is kept in this browser for next time and never "
+                       "leaves it."),
     "col_json": ("Resultado", "Result"),
     "col_view": ("Ver", "Show"),
     "col_file": ("O un archivo .json", "Or a .json file"),
