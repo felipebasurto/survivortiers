@@ -76,7 +76,7 @@
   // Mini-barra con los 966: el tramo ampliado queda marcado con un recuadro, y el Pokémon, con un punto.
   function overview(rank, tier, w0, w1) {
     const pos = n => (n - 1) / (TOTAL - 1) * 100;
-    const segs = CUTS.map(c => '<i class="' + (c[0] === tier ? 'on' : '') + '" style="flex:' + (c[2] - c[1] + 1) + '"></i>').join('');
+    const segs = CUTS.map(c => '<i class="t-' + c[0] + (c[0] === tier ? ' on' : '') + '" style="flex:' + (c[2] - c[1] + 1) + '"></i>').join('');
     return '<div class="rb-over">' +
       '<div class="rb-ov">' + segs +
       '<b class="rb-ov-win" style="left:' + f2(pos(w0)) + '%;width:' + f2(Math.max(pos(w1) - pos(w0), 1.2)) + '%"></b>' +
@@ -92,8 +92,8 @@
     const sd = x < 14 ? 'l' : x > 86 ? 'r' : 'c';
     const noteStyle = sd !== 'r' ? 'left:' + f2(x) + '%' : 'right:' + f2(100 - x) + '%';
     const visible = CUTS.map(c => [c, Math.max(c[1], w0), Math.min(c[2], w1)]).filter(v => v[2] >= v[1]);
-    const segs = visible.map(([c, a, b]) => '<i class="rb-seg' + (c[0] === tier ? ' on' : '') + '" style="flex:' + (b - a + 1) + '"></i>').join('');
-    const letters = visible.map(([c, a, b]) => '<i style="flex:' + (b - a + 1) + '">' + c[0] + '</i>').join('');
+    const segs = visible.map(([c, a, b]) => '<i class="rb-seg t-' + c[0] + (c[0] === tier ? ' on' : '') + '" style="flex:' + (b - a + 1) + '"></i>').join('');
+    const letters = visible.map(([c, a, b]) => '<i class="t-' + c[0] + '" style="flex:' + (b - a + 1) + '">' + c[0] + '</i>').join('');
     // Escala: los extremos y los cortes de tier mandan; los números redondos se quitan si se pegan a ellos.
     const fixed = [...new Set([w0, w1, ...RANK_TICKS.filter(n => n > w0 && n < w1)])];
     const cand = [...new Set([...fixed, ...niceTicks(w0, w1)])].sort((a, b) => a - b);

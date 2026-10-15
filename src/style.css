@@ -222,7 +222,19 @@ textarea {
 .rb-r::after { right: 0; }
 .rb-track { position: relative; display: flex; gap: 2px; height: 22px; }
 .rb-seg { flex: 1; background: var(--rule-soft); }
-.rb-seg.on { background: var(--rule); }
+/* tramos de tier con su color de la paleta; el del Pokémon a tope y los demás apagados */
+.rb-seg.t-S, .rb-ov i.t-S { background: var(--tier-S); }
+.rb-seg.t-A, .rb-ov i.t-A { background: var(--tier-A); }
+.rb-seg.t-B, .rb-ov i.t-B { background: var(--tier-B); }
+.rb-seg.t-C, .rb-ov i.t-C { background: var(--tier-C); }
+.rb-seg.t-D, .rb-ov i.t-D { background: var(--tier-D); }
+.rb-seg[class*="t-"], .rb-ov i[class*="t-"] { opacity: .3; }
+.rb-seg.on, .rb-ov i.on { opacity: 1; }
+.rb-tiers i.t-S { color: var(--tier-S); }
+.rb-tiers i.t-A { color: var(--tier-A); }
+.rb-tiers i.t-B { color: var(--tier-B); }
+.rb-tiers i.t-C { color: var(--tier-C); }
+.rb-tiers i.t-D { color: var(--tier-D); }
 .rb-range { position: absolute; top: 8px; height: 6px; background: var(--accent); opacity: .5; }
 .rb-dot { position: absolute; top: 50%; width: 12px; height: 12px; margin: -6px 0 0 -6px; background: var(--accent); box-shadow: 0 0 0 2px var(--bg); }
 .rb-tiers { display: flex; gap: 2px; margin-top: 4px; font: .75rem var(--sans); color: var(--ink-2); }
@@ -247,7 +259,6 @@ textarea {
 .rb-over { margin: 2px 0 26px; }
 .rb-ov { position: relative; display: flex; gap: 2px; height: 12px; }
 .rb-ov i { background: var(--rule-soft); }
-.rb-ov i.on { background: var(--rule); }
 .rb-ov-win { position: absolute; top: -5px; bottom: -5px; min-width: 6px; border: 2px solid var(--accent);
   background: color-mix(in srgb, var(--accent) 16%, transparent); }
 .rb-ov-dot { position: absolute; top: 50%; width: 8px; height: 8px; margin: -4px 0 0 -4px; background: var(--accent); box-shadow: 0 0 0 2px var(--bg); }
@@ -344,11 +355,11 @@ textarea {
 .wb-seg.w0 { background: var(--accent); }
 .wb-seg.w1 { background: var(--tb-B); }
 .wb-seg.w2 { background: var(--tb-C); }
-.t-S { background: var(--tier-S); }
-.t-A { background: var(--tier-A); }
-.t-B { background: var(--tier-B); }
-.t-C { background: var(--tier-C); }
-.t-D { background: var(--tier-D); }
+.ts-seg.t-S { background: var(--tier-S); }
+.ts-seg.t-A { background: var(--tier-A); }
+.ts-seg.t-B { background: var(--tier-B); }
+.ts-seg.t-C { background: var(--tier-C); }
+.ts-seg.t-D { background: var(--tier-D); }
 .ts { display: flex; gap: 2px; height: 3rem; }
 .ts-seg { display: grid; place-items: center; font: 700 1.1rem var(--pix); color: var(--tier-ink); }
 .ts-n { display: flex; gap: 2px; margin-top: 4px; font: .75rem var(--sans); color: var(--ink-2); font-variant-numeric: tabular-nums; }
@@ -359,7 +370,11 @@ textarea {
 .gt-track { position: relative; height: 1.9rem; }
 .gt-track::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: 1px solid var(--rule); }
 .gt-fill { position: absolute; top: 25%; height: 50%; }
-.gt-fill.hot { --bf: var(--accent); }
+.gt-row.t-S { --bf: var(--tier-S); }
+.gt-row.t-A { --bf: var(--tier-A); }
+.gt-row.t-B { --bf: var(--tier-B); }
+.gt-row.t-C { --bf: var(--tier-C); }
+.gt-row.t-D { --bf: var(--tier-D); }
 .gt-val { font: 600 .95rem var(--pix); padding-left: 10px; }
 .gt-axis { display: flex; justify-content: space-between; margin: 0 5.5rem 0 var(--label); border-top: 1px solid var(--rule); padding-top: 3px; font: .6875rem var(--sans); color: var(--ink-2); }
 .fig-ribbon .fig-body { overflow-x: auto; }

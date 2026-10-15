@@ -84,9 +84,9 @@ def _band_body(L: Lang, r: dict) -> str:
     x = _pos(rank)
     side = "l" if x < 14 else "r" if x > 86 else "c"
     note_style = f"left:{x:.2f}%" if side != "r" else f"right:{100 - x:.2f}%"
-    segs = "".join(f'<i class="rb-seg{" on" if t == r["tier"] else ""}" style="flex:{b - a + 1}"></i>'
+    segs = "".join(f'<i class="rb-seg t-{t}{" on" if t == r["tier"] else ""}" style="flex:{b - a + 1}"></i>'
                    for t, a, b in TIER_CUTS)
-    letters = "".join(f'<i style="flex:{b - a + 1}">{t}</i>' for t, a, b in TIER_CUTS)
+    letters = "".join(f'<i class="t-{t}" style="flex:{b - a + 1}">{t}</i>' for t, a, b in TIER_CUTS)
     ticks = "".join(f'<span style="left:{_pos(n):.2f}%">{n}</span>' for n in (1, 30, 120, 320, 620, 966))
     span = max(_pos(hi) - _pos(lo), 0.5)
     return (f'<div class="rb-note rb-{side}" style="{note_style}"><b>{esc(L.t("band_rank", rank=rank))}</b>'
@@ -227,8 +227,8 @@ def tier_strip(L: Lang, cuts: list[dict]) -> str:
 
 def gate(L: Lang, gates: list[dict]) -> str:
     rows = "".join(
-        f'<div class="gt-row" style="--i:{i}"><span class="gt-name">{esc(L.t("gate_name", t=g["tier"]))}</span>'
-        f'<span class="gt-track"><i class="gt-fill{" hot" if i == 0 else ""}" style="left:{100 - g["top"]}%;'
+        f'<div class="gt-row t-{g["tier"]}" style="--i:{i}"><span class="gt-name">{esc(L.t("gate_name", t=g["tier"]))}</span>'
+        f'<span class="gt-track"><i class="gt-fill" style="left:{100 - g["top"]}%;'
         f'width:{g["top"]}%"></i></span><em class="gt-val">{esc(L.t("gate_val", top=g["top"]))}</em></div>'
         for i, g in enumerate(gates))
     alt = L.t("gate_alt") + ", ".join(L.t("gate_alt_item", t=g["tier"], top=g["top"]) for g in gates) + "."
