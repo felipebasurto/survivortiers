@@ -2,7 +2,7 @@
 
 Tier list de fans (no oficial) de [PokéSurvivor](https://pokesurvivor.com). Sitio estático en español (raíz) e inglés (`/en/`). Un generador en Python (solo biblioteca estándar, 3.9+) emite HTML y JSON, y el navegador usa JS sin dependencias.
 
-Web: https://survivortiers.felipe99basurto.workers.dev
+Web: https://survivortiers.pages.dev
 
 ## Estructura
 
