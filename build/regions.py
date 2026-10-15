@@ -139,7 +139,7 @@ def _sprite(sprites: str, mon: dict, box_w: int, box_h: int, side: str) -> str:
 
 
 def badge(L: Lang, sprites: str, gen: int, name: str, index: dict[int, dict], small: bool = False) -> str:
-    """Insignia de la región. Con small=True sale sin sprites ni etiqueta, para la ficha."""
+    """Insignia de la región. Con small=True sale como icono con el nombre de la región escrito al lado, para la ficha."""
     key, dexes = REGIONS[gen]
     defs, art = MOTIFS[key]()
     fill = f'url(#g-{key})' if f'id="g-{key}"' in defs else "none"
@@ -148,7 +148,8 @@ def badge(L: Lang, sprites: str, gen: int, name: str, index: dict[int, dict], sm
            f'<g clip-path="url(#c-{key})"><rect width="{SIZE}" height="{SIZE}" fill="{fill}"/>{art}</g></svg>')
     label = escape(name, quote=True)
     if small:
-        return f'<span class="rg rg-s rg-{key}" role="img" aria-label="{label}" title="{label}">{svg}</span>'
+        return (f'<span class="rg-chip"><span class="rg rg-s rg-{key}" aria-hidden="true">{svg}</span>'
+                f'<span class="rg-chip-name">{label}</span></span>')
     mons = [index[d] for d in dexes if d in index]
     if len(mons) == 1:
         imgs = _sprite(sprites, mons[0], 56, 56, "solo")

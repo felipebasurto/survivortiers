@@ -61,7 +61,6 @@ STR: dict[str, tuple[str, str]] = {
     "flag_capped": ("Sus estadísticas le limitan el tier", "Its stats cap its tier"),
     "pager_aria": ("Pokémon vecinos", "Neighbouring Pokémon"),
     "dex_no": ("nº {dex}", "no. {dex}"),
-    "banner_of": ("Banner {name}", "{name} banner"),
     "noscript_ficha": ("Esta página necesita JavaScript.", "This page needs JavaScript."),
     "f_missing": ("Pokémon no encontrado", "Pokémon not found"),
 

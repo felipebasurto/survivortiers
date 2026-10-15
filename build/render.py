@@ -197,7 +197,7 @@ def render_ficha(c: Ctx, index: list[dict], meta: dict) -> str:
     blob = json.dumps({"en": L.en, "s": strings}, ensure_ascii=False).replace("</", "<\\/")
     pills = "".join(f'<span data-t="{t}">{type_pill(L, t)}</span>' for t in typedata.TYPE_COLOR)
     badges = "".join(
-        f'<span data-gen="{gen}">{regions.badge(L, SPRITES, gen, L.t("banner_of", name=L.banner(name)), {}, small=True)}</span>'
+        f'<span data-gen="{gen}">{regions.badge(L, SPRITES, gen, L.banner(name), {}, small=True)}</span>'
         for gen, name in BANNER_NAMES.items())
     content = f"""
 <article id="ficha"><noscript><p>{esc(L.t("noscript_ficha"))}</p></noscript></article>
