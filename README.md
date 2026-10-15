@@ -13,6 +13,7 @@ Web: https://survivortiers.felipe99basurto.workers.dev
 | `build/render.py` | Genera en `site/` y `site/en/` las 6 páginas y las 966 fichas de cada idioma |
 | `build/i18n.py` | Todos los textos en español e inglés, validados al importar |
 | `build/charts.py` | Gráficos HTML, CSS y SVG |
+| `build/regions.py` | Insignias de región de la página Gacha (SVG propio y sprites de los legendarios de portada) |
 | `build/move_tierlist_v4.py` | Regenera `data/move_tierlist_v4.csv` (necesita el análisis y una copia del juego) |
 | `build/check_site.py` | Comprobaciones de aceptación sobre un sitio servido |
 | `console/coleccion.js`, `coleccion.en.js` | Comando que el jugador pega en la consola del juego |

@@ -198,7 +198,7 @@ def main() -> int:
 
     # ataques: barras en cada ataque y nada de jerga sin explicar
     moves = json.loads(fetch(base + "data/moves.json")[1])
-    rows_expected = sum(3 if "rel" in m else 4 for m in moves) + 3
+    rows_expected = sum(3 if "rel" in m else 4 for m in moves)
     for lang in LANGS:
         url = f"{base}{lang}ataques.html"
         html = body_by_url.get(url, "")
