@@ -107,8 +107,6 @@ textarea {
 .btn:hover { opacity: .85; }
 .btn.ghost { background: transparent; color: var(--ink); border-color: var(--ink-2); }
 #count { color: var(--ink-2); font: .875rem var(--sans); margin: 0 0 8px; }
-.u-key { display: inline-block; width: 7px; height: 7px; background: var(--accent); margin-right: 4px; vertical-align: 1px; }
-
 /* ---------- insignias ---------- */
 .tier-badge { display: inline-grid; place-items: center; width: 1.7em; height: 1.7em; font: 700 .9rem var(--pix); color: var(--bg); vertical-align: .1em; }
 .tier-badge.S { background: var(--accent); }
@@ -137,7 +135,6 @@ textarea {
 .mon .sp img { max-width: 100%; max-height: 58px; object-fit: contain; object-position: center bottom; }
 .mon .nm { font: 500 .75rem/1.2 var(--sans); text-align: center; overflow-wrap: anywhere; }
 .mon .rk { font: .75rem var(--pix); color: var(--ink-2); font-variant-numeric: tabular-nums; }
-.mon.unsure::after { content: ""; position: absolute; top: 8px; right: 14px; width: 7px; height: 7px; background: var(--accent); }
 .mon.dim { display: none; }
 .tier.hidden { display: none; }
 
@@ -453,7 +450,6 @@ code, kbd { background: var(--rule-soft); box-shadow: 0 0 0 1px var(--rule); }
 .dm-row output, .lp-val, .mt-val, .bar-val, .gt-val { font-family: var(--pix); }
 .pipe li::before { font-family: var(--pix); }
 .steps li::before { font-family: var(--pix); }
-.mon.unsure::after { border-radius: 0; }
 .err { border-left-width: 6px; }
 table { font-size: .875rem; }
 th { font-family: var(--pix); text-transform: uppercase; letter-spacing: .03em; font-size: .72rem; }
@@ -525,7 +521,6 @@ h2 { margin: 48px 0 16px; }
   content: attr(data-tip); position: absolute; z-index: 5; left: 0; bottom: calc(100% + 8px); width: max-content; max-width: 15rem;
   padding: 5px 10px; background: var(--ink); color: var(--bg); font: 500 .75rem/1.3 var(--pix); text-transform: none; letter-spacing: 0; }
 .tip { display: inline-grid; place-items: center; width: 44px; height: 44px; align-self: end; cursor: help; }
-.tip .u-key { width: 12px; height: 12px; margin: 0; }
 .controls { align-items: end; gap: 12px 8px; margin: 8px 0 22px; }
 .controls .field { flex: 1 1 14rem; max-width: 28rem; }
 .field input[type="search"] { width: 100%; }

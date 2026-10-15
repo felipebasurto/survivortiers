@@ -43,11 +43,9 @@ STR: dict[str, tuple[str, str]] = {
     "index_h1": ("Tier list de {game}", "{game} tier list"),
     "search_label": ("Buscar", "Search"),
     "search_ph": ("Nombre, tipo o nº", "Name, type or no."),
-    "unsure_key": ("Tier dudoso", "Shaky tier"),
     "noscript": ("El buscador necesita JavaScript.", "Search needs JavaScript."),
-    "card_title": ("{name} · nº {dex} · puesto {rank} · tier {tier}{hint}",
-                   "{name} · no. {dex} · rank {rank} · tier {tier}{hint}"),
-    "card_hint": (" · dudoso", " · shaky"),
+    "card_title": ("{name} · nº {dex} · puesto {rank} · tier {tier}",
+                   "{name} · no. {dex} · rank {rank} · tier {tier}"),
 
     # ------------------------------------------------------------ ficha
     "crumb_home": ("Tier list", "Tier list"),

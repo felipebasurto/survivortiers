@@ -13,7 +13,6 @@
   const EN = T.en;
   const TOTAL = 966;
   const FICHA_BOX = 170;
-  const UNSURE = 50;
   const CUTS = [['S', 1, 30], ['A', 31, 120], ['B', 121, 320], ['C', 321, 620], ['D', 621, 966]];
   const PILLARS = ['stats', 'moves', 'typedef', 'size'];
   const METHODS = ['sheet', 'simStart', 'simBest', 'lateMax', 'lateFresh'];
@@ -111,16 +110,11 @@
     return el ? el.innerHTML : '';
   };
 
-  function flagsHtml(flags, unsure) {
-    let out = FLAGS.filter(f => flags & f[0]).map(f => {
+  function flagsHtml(flags) {
+    return FLAGS.filter(f => flags & f[0]).map(f => {
       const text = esc(t(f[2]));
       return '<span class="flag" role="img" tabindex="0" aria-label="' + text + '" data-tip="' + text + '" title="' + text + '"><i class="ico ico-' + f[1] + '" aria-hidden="true"></i></span>';
     }).join('');
-    if (unsure) {
-      const k = esc(t('unsure_key'));
-      out += '<span class="tip" tabindex="0" role="img" aria-label="' + k + '" data-tip="' + k + '" title="' + k + '"><i class="u-key"></i></span>';
-    }
-    return out;
   }
 
   function render(p, d, range, moveName, prev, next) {
@@ -146,7 +140,7 @@
       '<h1>' + esc(name) + ' ' + otherName + '<small>' + esc(t('dex_no', { dex: p.dex })) + '</small></h1>' +
       '<div class="facts">' + pills + ' ' + stars + ' ' + legendary + ' ' + tpl('tpl-regions', 'data-gen', p.bannerId) + '</div>' +
       '<div class="rankline"><span class="tier-badge ' + tier + '" title="' + esc(t('tier', { t: tier })) + '">' + tier + '</span>' +
-      '<strong>' + rank + '</strong><span>/ ' + TOTAL + '</span>' + flagsHtml(d[7], p.r[4] < UNSURE) + '</div></div></div>' +
+      '<strong>' + rank + '</strong><span>/ ' + TOTAL + '</span>' + flagsHtml(d[7]) + '</div></div></div>' +
       rankBand(p, name) + pillars(d, name) + methods(p, d, name) + sim(d, range, moveName) + pair +
       '<nav class="pager" aria-label="' + esc(t('pager_aria')) + '">' + pager + '</nav>';
     const label = EN || p.nameEn === p.name ? name : p.name + ' (' + p.nameEn + ')';

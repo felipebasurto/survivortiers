@@ -13,7 +13,6 @@
   const page = html.dataset.page;
   const EN = html.lang === 'en';
   const TIERS = ['S', 'A', 'B', 'C', 'D'];
-  const UNSURE = 50; // % de repeticiones en su tier por debajo del cual se marca como dudoso
   const TYPE_ES = { normal: 'normal', fire: 'fuego', water: 'agua', grass: 'planta', electric: 'electrico', ice: 'hielo',
     fighting: 'lucha', poison: 'veneno', ground: 'tierra', flying: 'volador', psychic: 'psiquico', bug: 'bicho', rock: 'roca',
     ghost: 'fantasma', dragon: 'dragon', dark: 'siniestro', steel: 'acero', fairy: 'hada' };
@@ -27,8 +26,7 @@
       loadFail: n => 'No se pudo cargar ' + n,
       loadFailAll: m => 'No se pudieron cargar los datos: ' + m,
       count: (n, total) => n + ' de ' + total,
-      unsure: () => ' · dudoso',
-      cardTitle: (name, dex, rank, tier, hint) => name + ' · nº ' + dex + ' · puesto ' + rank + ' · tier ' + tier + hint,
+      cardTitle: (name, dex, rank, tier) => name + ' · nº ' + dex + ' · puesto ' + rank + ' · tier ' + tier,
       pct: v => v + NBSP + '%',
       notJson: 'Eso no es JSON. Copia el resultado entero, de la { a la }.',
       notCollection: 'Eso no es una colección.',
@@ -60,8 +58,7 @@
       loadFail: n => 'Could not load ' + n,
       loadFailAll: m => 'Could not load the data: ' + m,
       count: (n, total) => n + ' of ' + total,
-      unsure: () => ' · shaky',
-      cardTitle: (name, dex, rank, tier, hint) => name + ' · no. ' + dex + ' · rank ' + rank + ' · tier ' + tier + hint,
+      cardTitle: (name, dex, rank, tier) => name + ' · no. ' + dex + ' · rank ' + rank + ' · tier ' + tier,
       pct: v => v + '%',
       notJson: 'That is not JSON. Copy the whole result, from { to }.',
       notCollection: 'That is not a collection.',
@@ -105,10 +102,9 @@
 
   // ---------------------------------------------------------------- tarjetas
   function card(p, extraClass, extraHtml) {
-    const [rank, tier, , , share] = p.r;
-    const unsure = share < UNSURE;
-    const cls = 'mon' + (unsure ? ' unsure' : '') + (extraClass ? ' ' + extraClass : '');
-    const title = TEXT.cardTitle(monName(p), p.dex, rank, tier, unsure ? TEXT.unsure(share, tier) : '');
+    const [rank, tier] = p.r;
+    const cls = 'mon' + (extraClass ? ' ' + extraClass : '');
+    const title = TEXT.cardTitle(monName(p), p.dex, rank, tier);
     return '<a class="' + cls + '" href="' + home + 'pokemon/?id=' + p.dex + '" data-dex="' + p.dex + '" title="' + esc(title) + '">' +
       '<span class="sp"><img class="px" src="' + sprites + p.dex + spriteExt + '" width="' + p.w * SCALE + '" height="' + p.h * SCALE +
       '" alt="" loading="lazy" decoding="async"></span><span class="nm">' + esc(monName(p)) + '</span><span class="rk">' + rank + '</span>' +

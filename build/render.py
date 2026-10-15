@@ -34,7 +34,6 @@ SPRITES = legal.SPRITE_BASE
 EXT = legal.SPRITE_EXT
 SCALE_LIST = 2
 TIERS = ["S", "A", "B", "C", "D"]
-UNSURE = 50  # % de repeticiones en su tier por debajo del cual el tier se marca como dudoso
 CATEGORIES = [("melee", "cuerpo a cuerpo"), ("ranged", "distancia"), ("stat", "estadística")]  # (id, valor del CSV)
 NAV = [("index", "index.html", "nav_tiers"), ("metodo", "metodo.html", "nav_metodo"),
        ("ataques", "ataques.html", "nav_ataques"), ("objetos", "objetos.html", "nav_objetos"),
@@ -109,13 +108,11 @@ LOAD_LAZY = 'loading="lazy" decoding="async"'
 
 def mon_card(c: Ctx, p: dict, eager: bool = False) -> str:
     L = c.L
-    rank, tier, _, _, ptier = p["r"]
+    rank, tier = p["r"][:2]
     w, h = p["w"] * SCALE_LIST, p["h"] * SCALE_LIST
-    unsure = ptier < UNSURE
     name = L.mon(p)
-    hint = L.t("card_hint", share=ptier, tier=tier) if unsure else ""
-    title = L.t("card_title", name=name, dex=p["dex"], rank=rank, tier=tier, hint=hint)
-    return (f'<a class="{"mon unsure" if unsure else "mon"}" href="{c.home}pokemon/?id={p["dex"]}" data-dex="{p["dex"]}" '
+    title = L.t("card_title", name=name, dex=p["dex"], rank=rank, tier=tier)
+    return (f'<a class="mon" href="{c.home}pokemon/?id={p["dex"]}" data-dex="{p["dex"]}" '
             f'title="{esc(title)}">'
             f'<span class="sp"><img class="px" src="{SPRITES}{p["dex"]}{EXT}" width="{w}" height="{h}" alt="" '
             f'{LOAD_EAGER if eager else LOAD_LAZY}></span>'
@@ -168,13 +165,11 @@ def render_index(c: Ctx, pokemon: list[dict], meta: dict) -> str:
             f'<section class="tier tier-{t}" id="tier-{t}" aria-label="{esc(L.t("tier", t=t))}">'
             f'<header class="tier-head"><b>{t}</b>{icon("crown") if t == "S" else ""}<span class="n">{len(mons)}</span></header>'
             f'<div class="grid">{cards}</div></section>')
-    key = esc(L.t("unsure_key"))
     content = f"""
 <h1>{esc(L.t("index_h1", game=legal.GAME_NAME))}</h1>
 <div class="controls">
   <div class="field"><label for="q">{esc(L.t("search_label"))}</label>
     <input id="q" type="search" placeholder="{esc(L.t("search_ph"))}" autocomplete="off" spellcheck="false"></div>
-  <span class="tip" tabindex="0" role="img" aria-label="{key}" data-tip="{key}" title="{key}"><i class="u-key"></i></span>
   <p id="count" aria-live="polite"></p>
 </div>
 <div id="tierlist">
@@ -188,7 +183,7 @@ def render_index(c: Ctx, pokemon: list[dict], meta: dict) -> str:
 
 FICHA_KEYS = (
     "crumb_home", "legendary", "stars_alt", "sprite_alt", "ficha_title", "ficha_desc", "flag_status", "flag_melee",
-    "flag_capped", "unsure_key", "pager_aria", "dex_no", "tier", "f_missing", "t_band", "t_pillars", "t_methods", "t_sim",
+    "flag_capped", "pager_aria", "dex_no", "tier", "f_missing", "t_band", "t_pillars", "t_methods", "t_sim",
     "band_rank", "band_range", "band_alt", "pill_stats", "pill_moves", "pill_typedef", "pill_size", "pillars_alt_item",
     "median", "m_sheet", "m_simStart", "m_simBest", "m_lateMax", "m_lateFresh", "methods_final", "methods_alt",
     "methods_alt_item", "sim_start", "sim_best", "sim_median", "sim_alt")
