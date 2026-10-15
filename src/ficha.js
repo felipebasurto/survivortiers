@@ -64,9 +64,29 @@
     return [Math.max(1, lo - pad), Math.min(TOTAL, hi + pad)];
   }
 
+  // Números redondos para la escala (1, 10, 20...), con un paso que dé unas 5 marcas en la ventana.
+  function niceTicks(w0, w1) {
+    const raw = (w1 - w0) / 5, pow = Math.pow(10, Math.floor(Math.log10(raw)));
+    const m = raw / pow, step = (m < 1.5 ? 1 : m < 3.5 ? 2 : m < 7.5 ? 5 : 10) * pow;
+    const out = [];
+    for (let n = Math.ceil(w0 / step) * step; n <= w1; n += step) out.push(n);
+    return out;
+  }
+
+  // Mini-barra con los 966: el tramo ampliado queda marcado con un recuadro, y el Pokémon, con un punto.
+  function overview(rank, tier, w0, w1) {
+    const pos = n => (n - 1) / (TOTAL - 1) * 100;
+    const segs = CUTS.map(c => '<i class="' + (c[0] === tier ? 'on' : '') + '" style="flex:' + (c[2] - c[1] + 1) + '"></i>').join('');
+    return '<div class="rb-over"><p class="rb-over-cap">' + esc(t('band_over', { total: TOTAL })) + '</p>' +
+      '<div class="rb-ov">' + segs +
+      '<b class="rb-ov-win" style="left:' + f2(pos(w0)) + '%;width:' + f2(Math.max(pos(w1) - pos(w0), 1.2)) + '%"></b>' +
+      '<b class="rb-ov-dot" style="left:' + f2(pos(rank)) + '%"></b></div></div>';
+  }
+
   function rankBand(p, name) {
     const [rank, tier, lo, hi] = p.r;
     const [w0, w1] = zoomWindow(lo, hi);
+    const zoomed = w0 !== 1 || w1 !== TOTAL;
     const at = n => (n - w0) / (w1 - w0) * 100;
     const x = at(rank);
     const sd = x < 14 ? 'l' : x > 86 ? 'r' : 'c';
@@ -74,25 +94,25 @@
     const visible = CUTS.map(c => [c, Math.max(c[1], w0), Math.min(c[2], w1)]).filter(v => v[2] >= v[1]);
     const segs = visible.map(([c, a, b]) => '<i class="rb-seg' + (c[0] === tier ? ' on' : '') + '" style="flex:' + (b - a + 1) + '"></i>').join('');
     const letters = visible.map(([c, a, b]) => '<i style="flex:' + (b - a + 1) + '">' + c[0] + '</i>').join('');
-    const marks = [...new Set([w0, w1, ...RANK_TICKS.filter(n => n >= w0 && n <= w1)])].sort((a, b) => a - b);
+    // Escala: los extremos y los cortes de tier mandan; los números redondos se quitan si se pegan a ellos.
+    const fixed = [...new Set([w0, w1, ...RANK_TICKS.filter(n => n > w0 && n < w1)])];
+    const cand = [...new Set([...fixed, ...niceTicks(w0, w1)])].sort((a, b) => a - b);
     const kept = [];
-    marks.forEach(n => {
-      if (kept.length && at(n) - at(kept[kept.length - 1]) < 7) {
-        if (n !== w1) return;
-        kept.pop();
-      }
-      kept.push(n);
+    cand.forEach(n => {
+      const last = kept[kept.length - 1];
+      if (kept.length === 0 || at(n) - at(last) >= 9) kept.push(n);
+      else if (fixed.includes(n) && !fixed.includes(last)) kept[kept.length - 1] = n;
     });
     const ticks = kept.map(n => '<span style="left:' + f2(at(n)) + '%">' + n + '</span>').join('');
     const span = Math.max(at(hi) - at(lo), 0.5);
-    const zoomed = w0 !== 1 || w1 !== TOTAL;
-    const zoomNote = zoomed ? '<p class="zoom-note">' + esc(t('band_zoom', { lo: w0, hi: w1 })) + '</p>' : '';
-    const body = '<div class="rb-note rb-' + sd + '" style="' + noteStyle + '"><b>' + esc(t('band_rank', { rank })) + '</b>' +
+    const legend = zoomed ? t('band_zoom', { lo: w0, hi: w1, total: TOTAL }) : t('band_all', { total: TOTAL });
+    const view = '<div class="rb-view"><span class="rb-legend">' + esc(legend) + '</span>' +
+      '<div class="rb-note rb-' + sd + '" style="' + noteStyle + '"><b>' + esc(t('band_rank', { rank })) + '</b>' +
       '<span>' + esc(t('band_range', { lo, hi })) + '</span></div>' +
       '<div class="rb-track">' + segs + '<b class="rb-range" style="left:' + f2(at(lo)) + '%;width:' + f2(span) + '%"></b>' +
       '<b class="rb-dot" style="left:' + f2(x) + '%"></b></div>' +
-      '<div class="rb-tiers" aria-hidden="true">' + letters + '</div><div class="rb-ticks" aria-hidden="true">' + ticks + '</div>' +
-      zoomNote;
+      '<div class="rb-tiers" aria-hidden="true">' + letters + '</div><div class="rb-ticks" aria-hidden="true">' + ticks + '</div></div>';
+    const body = (zoomed ? overview(rank, tier, w0, w1) : '') + view;
     return fig('band', t('t_band'), body, t('band_alt', { name, rank, total: TOTAL, tier, lo, hi }));
   }
 
