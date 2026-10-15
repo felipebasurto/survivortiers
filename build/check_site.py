@@ -26,6 +26,9 @@ from pathlib import Path
 from urllib.parse import parse_qs, urldefrag, urljoin, urlparse
 from urllib.request import Request, urlopen
 
+import agents  # noqa: E402
+import legal  # noqa: E402
+
 ROOT = Path(__file__).resolve().parent.parent
 UA = {"User-Agent": "SurvivorTiers-check/1.0"}
 SPRITE_CDN_PREFIX = "https://cdn.jsdelivr.net/gh/felipebasurto/survivortiers@"
@@ -76,6 +79,59 @@ def fetch(url: str, method: str = "GET"):
         return e.code, e.read() if method == "GET" else b""
     except URLError as e:
         return 0, str(e).encode()
+
+
+def agent_check(base: str, body_by_url: dict[str, str], err, notes: list[str]) -> None:
+    """Archivos para agentes (build/agents.py): robots.txt, llms.txt y llms-full.txt, sitemap, datos descritos, pie y
+    JSON-LD de la portada. Los enlaces absolutos de llms.txt apuntan a legal.SITE_URL; aquí se piden a este servidor."""
+    site_url = legal.SITE_URL
+    root = base.rstrip("/")
+
+    def local(url: str) -> str:
+        return root + url[len(site_url):] if url.startswith(site_url) else url
+
+    code, body = fetch(base + "robots.txt")
+    if code != 200 or b"Sitemap:" not in body:
+        err(f"robots.txt: responde {code} o no enlaza el sitemap")
+    for path in ("llms.txt", "llms-full.txt", "sitemap.xml", "data/ranking.csv", "data/meta.json", "data/gachas.json"):
+        code, body = fetch(base + path)
+        if code != 200 or not body:
+            err(f"{path}: responde {code}")
+    llms = fetch(base + "llms.txt")[1].decode("utf8", "replace")
+    if not llms.startswith("# "):
+        err("llms.txt no empieza por el título")
+    links = re.findall(r"\]\((https?://[^)\s]+)\)", llms)
+    local_links = [local(u) for u in links if u.startswith(site_url)]
+    for url in local_links:
+        code, _ = fetch(url)
+        if code != 200:
+            err(f"llms.txt: enlace roto ({code}) {url}")
+    if len(local_links) < 15:
+        err(f"llms.txt: solo {len(local_links)} enlaces locales")
+
+    # el CSV tiene una cabecera y un Pokémon por fila
+    csv_text = fetch(base + "data/ranking.csv")[1].decode("utf8", "replace")
+    rows = csv_text.splitlines()
+    if not rows or not rows[0].startswith("rank,dex,name,tier"):
+        err("data/ranking.csv: falta la cabecera rank,dex,name,tier…")
+    elif len(rows) != 967 or any(r.startswith("#") for r in rows):
+        err(f"data/ranking.csv: {len(rows) - 1} filas, se esperaban 966 y sin líneas de comentario")
+
+    # sitemap: una entrada por página y por idioma
+    expected = len(agents.PAGES) * len(agents.LANG_PREFIX)
+    sitemap = fetch(base + "sitemap.xml")[1].decode("utf8", "replace")
+    if sitemap.count("<url>") != expected:
+        err(f"sitemap.xml: {sitemap.count('<url>')} entradas, se esperaban {expected}")
+
+    # cada página lleva los enlaces para agentes en el pie, y la portada el JSON-LD Dataset
+    for url, html in body_by_url.items():
+        if url.startswith(base) and html and 'class="agents"' not in html:
+            err(f"{url}: falta el pie con los enlaces para agentes")
+    for lang in ("", "en/"):
+        html = body_by_url.get(f"{base}{lang}index.html", "")
+        if '"@type": "Dataset"' not in html:
+            err(f"{base}{lang}index.html: falta el JSON-LD Dataset")
+    notes.append(f"agentes: llms.txt con {len(local_links)} enlaces, sitemap con {expected} entradas")
 
 
 def browser_check(base: str, index: list[dict], args, err, notes: list[str]) -> None:
@@ -418,6 +474,7 @@ def main() -> int:
             if url.startswith(base + lang) and not url.endswith("acerca.html") and 'class="credits-list"' in text:
                 err(f"{url}: los créditos de artistas solo van en Acerca")
     notes.append(f"páginas rastreadas: {sum(1 for p in seen.values() if p)}; sprites enlazados: {len(sprite_refs)}")
+    agent_check(base, body_by_url, err, notes)
     browser_check(base, index, args, err, notes)
 
     if args.external:

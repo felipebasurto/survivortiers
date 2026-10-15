@@ -18,6 +18,7 @@ from string import Template
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import agents  # noqa: E402
 import balls  # noqa: E402
 import charts  # noqa: E402
 import legal  # noqa: E402
@@ -125,8 +126,11 @@ def mon_card(c: Ctx, p: dict, eager: bool = False) -> str:
 ASSET_V = ""  # huella de style.css y app.js; la fija main() tras empaquetarlos
 
 
-def page(c: Ctx, page_id: str, title: str, description: str, content: str, meta: dict) -> str:
+def page(c: Ctx, page_id: str, title: str, description: str, content: str, meta: dict, extra_head: str = "") -> str:
     L = c.L
+    agents_html = (f'<p class="agents">{esc(L.t("agents_label"))} <a href="{c.assets}llms.txt">llms.txt</a> · '
+              f'<a href="{c.assets}llms-full.txt">llms-full.txt</a> · '
+              f'<a href="{c.assets}data/ranking.csv">ranking.csv</a></p>')
     current = ' aria-current="page"'
     nav = "\n".join(
         f'      <a href="{c.home}{href}"{current if pid == page_id else ""}>{esc(L.t(key))}</a>' for pid, href, key in NAV)
@@ -148,7 +152,7 @@ def page(c: Ctx, page_id: str, title: str, description: str, content: str, meta:
         description=esc(description), alternates=alternates, skip=esc(L.t("skip")),
         nav_aria=esc(L.t("nav_main")), foot_aria=esc(L.t("nav_foot")), switch=switch, nav=nav, content=content,
         footer_nav=footer_nav, disclaimer=esc(L.t("disclaimer", game=legal.GAME_NAME)), sprites_line=sprites_line,
-        build_info=esc(build_info.replace("--", "-")))
+        build_info=esc(build_info.replace("--", "-")), agents=agents_html, extra_head=extra_head)
 
 
 def write(rel: str, text: str) -> None:
@@ -217,7 +221,8 @@ def render_index(c: Ctx, pokemon: list[dict], meta: dict) -> str:
 <noscript><p class="muted">{esc(L.t("noscript"))}</p></noscript>
 """
     return page(c, "index", L.t("index_title", site=legal.SITE_NAME, game=legal.GAME_NAME),
-                L.t("index_desc", n=meta["total"], game=legal.GAME_NAME), content, meta)
+                L.t("index_desc", n=meta["total"], game=legal.GAME_NAME), content, meta,
+                extra_head=agents.dataset_jsonld(L, meta))
 
 
 FICHA_KEYS = (
@@ -587,6 +592,7 @@ def main() -> int:
         put("acerca.html", lambda c: render_acerca(c, meta))
         put("pokemon/index.html", lambda c: render_ficha(c, index, meta))
     write("404.html", render_404(meta))
+    agents.write_all(SITE, meta, gachas)
     files = [f for f in SITE.rglob("*") if f.is_file()]
     size = sum(f.stat().st_size for f in files)
     print(f"render: {len(files)} archivos, {size / 1e6:.2f} MB → {SITE}")

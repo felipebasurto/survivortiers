@@ -13,6 +13,9 @@ GAME_REPO_URL = "https://github.com/JPTER78/pokesurvivor"
 GAME_COMMIT = "a9b21f0"
 GAME_AUTHOR = "JPTER78"
 
+# URL pública del sitio, para los enlaces absolutos de llms.txt, llms-full.txt y sitemap.xml (build/agents.py).
+SITE_URL = os.environ.get("SITE_URL", "https://survivortiers.felipe99basurto.workers.dev").rstrip("/")
+
 # Los sprites no viajan en site/ (presupuesto de 50 archivos). Salen de este repositorio (sprites/) a través de jsDelivr,
 # que los sirve con CORS abierto y caché, como WebP sin pérdida (sprites/*.webp, ~270 KB los 966 frente a 3,8 MB en PNG;
 # los genera build/webp.py). SPRITE_BASE en el entorno lo cambia, por ejemplo para ver el sitio en local con build/serve.py.

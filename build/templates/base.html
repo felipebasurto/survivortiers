@@ -12,6 +12,7 @@
 $alternates
 <link rel="preconnect" href="https://cdn.jsdelivr.net">
 <link rel="stylesheet" href="${assets}style.css?v=$asset_v">
+$extra_head
 </head>
 <body>
 <a class="skip" href="#main">$skip</a>
@@ -34,6 +35,7 @@ $footer_nav
     </nav>
     <p class="disclaimer">$disclaimer</p>
     <p>$sprites_line</p>
+    $agents
   </div>
 </footer>
 <script src="${assets}app.js?v=$asset_v" defer></script>

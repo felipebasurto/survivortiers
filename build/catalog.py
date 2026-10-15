@@ -50,6 +50,9 @@ METHOD = {
     "pillars": [{"key": "stats", "weight": 45}, {"key": "moves", "weight": 25},
                 {"key": "typedef", "weight": 15}, {"key": "size", "weight": 15}],
     "gates": [{"tier": "S", "top": 40}, {"tier": "A", "top": 60}, {"tier": "B", "top": 80}],
+    # Requisitos extra de entrada (make_definitive.py: TYPES_GATE y NO_MELEE_TIERS).
+    "typesMin": {"S": 3},          # ataques de al menos tres tipos distintos
+    "noMeleeTiers": ["S"],         # quien empieza con un ataque cuerpo a cuerpo no entra en estos tiers
     "repeats": 2000,
 }
 METHOD_KEYS = ("sheet", "simStart", "simBest", "lateMax", "lateFresh")

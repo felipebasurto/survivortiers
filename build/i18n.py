@@ -40,6 +40,8 @@ STR: dict[str, tuple[str, str]] = {
     "index_title": ("{site} · Tier list de {game}", "{site} · {game} tier list"),
     "index_desc": ("Tier list no oficial de los {n} Pokémon de {game}.",
                    "Unofficial tier list of the {n} Pokémon in {game}."),
+    "dataset_name": ("Ranking no oficial de los Pokémon de {game}", "Unofficial ranking of the Pokémon in {game}"),
+    "agents_label": ("Para agentes de IA y datos:", "For AI agents and data:"),
     "index_h1": ("Tier list de {game}", "{game} tier list"),
     "search_label": ("Buscar", "Search"),
     "search_ph": ("Pikachu, fuego, #25…", "Pikachu, fire, #25…"),

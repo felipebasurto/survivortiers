@@ -15,6 +15,7 @@ Web: https://survivortiers.felipe99basurto.workers.dev
 | `build/render.py` | Genera `site/` entero: 6 páginas por idioma, la plantilla `pokemon/index.html` de cada idioma, `404.html`, `style.css`, `app.js`, la letra, `data/` y `_headers`. Unos 25 archivos y menos de 2 MB |
 | `build/pack.py` | Empaqueta `src/` en `site/`: iconos dentro del CSS, CSS y JS minificados, JSON copiados |
 | `build/i18n.py` | Todos los textos en español e inglés, validados al importar |
+| `build/agents.py` | Archivos para agentes de IA y buscadores: `llms.txt`, `llms-full.txt` (diccionario de datos y método), `robots.txt`, `sitemap.xml`, `data/ranking.csv`, `data/meta.json`, `data/gachas.json` y el JSON-LD `Dataset` de la portada |
 | `build/charts.py` | Gráficos HTML, CSS y SVG (la ficha usa las mismas fórmulas en `src/ficha.js`) |
 | `build/regions.py` | Insignias de región de la página Gacha (SVG propio y sprites de los legendarios de portada) |
 | `build/serve.py` | Servidor local con el mismo comportamiento que el hosting: 404.html con estado 404 y `/_sprites/` |
@@ -40,6 +41,17 @@ python3 build/check_site.py http://127.0.0.1:8765/ --external   # además, enlac
 
 - Cada idioma tiene una sola plantilla de ficha, `/pokemon/?id=25` y `/en/pokemon/?id=25`. `src/ficha.js` la dibuja con `data/pokemon-index.json`, `data/species.json` y `data/moves.json`. Los enlaces viejos `/pokemon/25.html` caen en `404.html` (el hosting la sirve para lo que no existe), y `app.js` los reenvía a la ficha.
 - Los sprites salen de `https://cdn.jsdelivr.net/gh/felipebasurto/survivortiers@main/sprites/<n>.png`. Si cambias el repositorio, el usuario o la rama, ajusta `SPRITE_CDN` en `build/legal.py` y el `img-src` de `src/_headers` y `vercel.json` (`check_site.py` comprueba que coincidan). jsDelivr guarda `@main` unas horas: un sprite nuevo tarda en verse.
+
+## Para agentes de IA
+
+El sitio es estático y no tiene API: los datos son JSON y CSV en `/data/`, sin clave de acceso. La documentación para agentes sale del build:
+
+- `/llms.txt`: índice del sitio y de los datos, con enlaces absolutos.
+- `/llms-full.txt`: qué significa cada campo, las unidades, el método completo y ejemplos (`curl`, `jq`).
+- `/data/ranking.csv` es el ranking tal cual lo genera `make_definitive.py` (sin la línea de comentario), y `/data/meta.json` tiene los pesos, los tiers y los requisitos de entrada.
+- Las fichas (`/pokemon/?id=N`) se dibujan con JavaScript; para un agente son más útiles los JSON.
+
+`build/check_site.py` comprueba que estos archivos existan, que los enlaces de `llms.txt` respondan, que el sitemap tenga una entrada por página y que cada página enlace los archivos. La URL base de los enlaces absolutos está en `build/legal.py` (`SITE_URL`, o la variable de entorno `SITE_URL`).
 
 ## Actualizar el ranking
 
