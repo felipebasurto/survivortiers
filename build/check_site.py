@@ -3,10 +3,15 @@
     python3 build/check_site.py http://localhost:8765/
     python3 build/check_site.py https://mi-proyecto.vercel.app/ --external
 
-Comprueba, en español y en inglés: 966 fichas con sprite, enlaces internos y anclas sin romper, aviso legal en cada página,
-conteos por tier, % de gacha, gráficos con texto alternativo, barras en cada ataque, que el inglés no mezcla español,
-que los créditos de sprites solo salen en Acerca y que no se carga nada de otros dominios. Con --external, también
-los enlaces externos.
+Comprueba, en español y en inglés: enlaces internos y anclas sin romper, aviso legal en cada página, conteos por
+tier, % de gacha, barras en cada ataque, que el inglés no mezcla español, que los créditos de sprites solo salen en
+Acerca y cubren los 966 Pokémon, que no se carga nada de otros dominios salvo los sprites del repositorio (jsDelivr o
+el sitio mismo), que cada Pokémon tiene sus datos y su sprite, que los enlaces viejos /pokemon/<n>.html caen en la
+404, que site/ cabe en el presupuesto de archivos y que, si hay Playwright, la ficha de cada Pokémon se dibuja con sus
+cuatro gráficos y su sprite. Con --external, también los enlaces externos.
+
+Los datos de build (meta.json, gachas.json) se leen de build/out/, donde los deja build/catalog.py. El servidor debe
+devolver 404.html con estado 404 para lo que no existe, como el hosting: usa build/serve.py.
 """
 from __future__ import annotations
 
@@ -17,10 +22,14 @@ import sys
 from collections import Counter, deque
 from html.parser import HTMLParser
 from urllib.error import HTTPError, URLError
-from urllib.parse import urldefrag, urljoin, urlparse
+from pathlib import Path
+from urllib.parse import parse_qs, urldefrag, urljoin, urlparse
 from urllib.request import Request, urlopen
 
+ROOT = Path(__file__).resolve().parent.parent
 UA = {"User-Agent": "SurvivorTiers-check/1.0"}
+SPRITE_CDN_PREFIX = "https://cdn.jsdelivr.net/gh/felipebasurto/survivortiers@"
+MAX_FILES, MAX_BYTES = 50, 5_000_000  # presupuesto de site/ para el despliegue
 EXPECTED_COUNTS = {"S": 30, "A": 90, "B": 200, "C": 300, "D": 346}
 SPANISH_WORDS = re.compile(r"\b(el|los|las|del|con|para|puesto|aguante|daño|ficha|partidas?|repeticiones|cuántos)\b", re.I)
 LANGS = ("", "en/")
@@ -36,9 +45,12 @@ class Page(HTMLParser):
         self.ids: set[str] = set()
         self.imgs: list[dict] = []
         self.text: list[str] = []
+        self.sprites = ""
 
     def handle_starttag(self, tag: str, attrs: list) -> None:
         a = dict(attrs)
+        if tag == "html" and a.get("data-sprites"):
+            self.sprites = a["data-sprites"]
         if a.get("id"):
             self.ids.add(a["id"])
         if tag == "a" and a.get("href"):
@@ -61,15 +73,91 @@ def fetch(url: str, method: str = "GET"):
         with urlopen(Request(url, headers=UA, method=method), timeout=30) as r:
             return r.status, r.read() if method == "GET" else b""
     except HTTPError as e:
-        return e.code, b""
+        return e.code, e.read() if method == "GET" else b""
     except URLError as e:
         return 0, str(e).encode()
+
+
+def browser_check(base: str, index: list[dict], args, err, notes: list[str]) -> None:
+    """Dibuja la ficha de cada Pokémon en un navegador de verdad: 4 gráficos con texto alternativo, el sprite cargado,
+    el nombre correcto y ningún error de consola. También prueba que un enlace viejo acaba en la ficha."""
+    try:
+        from playwright.sync_api import Error, sync_playwright
+    except ImportError:
+        notes.append("fichas en el navegador: omitido (pip install playwright)")
+        return
+    import random
+    from shutil import which
+
+    by_dex = {p["dex"]: p for p in index}
+    dexes = sorted(by_dex)
+    rng = random.Random(7)
+    sample = dexes if args.all_species else sorted(set(rng.sample(dexes, min(args.species, len(dexes)))) | {dexes[0], dexes[-1]})
+    drawn = 0
+    with sync_playwright() as pw:
+        try:
+            browser = pw.chromium.launch()
+        except Error:
+            exe = which("google-chrome") or which("chromium") or which("chromium-browser")
+            if not exe:
+                notes.append("fichas en el navegador: omitido (no hay Chromium)")
+                return
+            browser = pw.chromium.launch(executable_path=exe, args=["--no-sandbox"])
+        page = browser.new_page(viewport={"width": 390, "height": 800})
+        problems: list[str] = []
+        page.on("console", lambda m: problems.append(m.text) if m.type == "error" else None)
+        page.on("pageerror", lambda e: problems.append(str(e)))
+        for lang in LANGS:
+            en = lang == "en/"
+            for d in sample:
+                problems.clear()
+                page.goto(f"{base}{lang}pokemon/?id={d}")
+                try:
+                    page.wait_for_function("document.querySelectorAll('figure.fig').length === 4", timeout=8000)
+                    page.wait_for_function("(() => { const i = document.querySelector('.ficha-sprite img'); "
+                                           "return i && i.complete; })()", timeout=8000)
+                except Error:
+                    err(f"{lang}pokemon/?id={d}: la ficha no se dibuja")
+                    continue
+                info = page.evaluate("""() => ({
+                    alts: [...document.querySelectorAll('.fig-body[role=img]')].map(e => (e.getAttribute('aria-label') || '').length),
+                    h1: document.querySelector('h1').firstChild.textContent.trim(),
+                    img: document.querySelector('.ficha-sprite img').naturalWidth,
+                    src: document.querySelector('.ficha-sprite img').src,
+                    base: document.documentElement.dataset.sprites })""")
+                want = by_dex[d]["nameEn" if en else "name"]
+                if info["h1"] != want:
+                    err(f"{lang}pokemon/?id={d}: el título es {info['h1']!r} y debería ser {want!r}")
+                if len(info["alts"]) != 4 or min(info["alts"]) < 20:
+                    err(f"{lang}pokemon/?id={d}: {len(info['alts'])} gráficos con texto alternativo (se esperaban 4 de 20+ letras)")
+                if info["src"] != f"{info['base']}{d}.png" or info["img"] == 0:
+                    err(f"{lang}pokemon/?id={d}: el sprite no carga ({info['src']})")
+                if problems:
+                    err(f"{lang}pokemon/?id={d}: errores en el navegador: {problems[:2]}")
+                drawn += 1
+            page.goto(f"{base}{lang}pokemon/?id=99999")
+            page.wait_for_selector("#ficha h1", timeout=8000)
+            if page.locator("figure.fig").count():
+                err(f"{lang}pokemon/?id=99999 debería decir que no existe")
+            page.goto(f"{base}{lang}pokemon/25.html")
+            try:
+                page.wait_for_function("document.querySelectorAll('figure.fig').length === 4", timeout=8000)
+            except Error:
+                err(f"{lang}pokemon/25.html no acaba en la ficha de Pikachu")
+            else:
+                if not page.url.endswith(f"{lang}pokemon/?id=25"):
+                    err(f"{lang}pokemon/25.html acaba en {page.url}")
+        browser.close()
+    notes.append(f"fichas dibujadas en el navegador: {drawn} de {2 * len(dexes)}")
 
 
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("base")
     ap.add_argument("--external", action="store_true", help="comprueba también los enlaces externos (red)")
+    ap.add_argument("--build-dir", type=Path, default=ROOT / "build" / "out", help="datos de build/catalog.py")
+    ap.add_argument("--species", type=int, default=60, help="fichas por idioma que se dibujan en el navegador")
+    ap.add_argument("--all-species", action="store_true", help="dibuja las 966 fichas de cada idioma (lento)")
     args = ap.parse_args()
     base = args.base if args.base.endswith("/") else args.base + "/"
     origin = urlparse(base).netloc
@@ -84,8 +172,12 @@ def main() -> int:
         print(f"ERROR: no se puede leer {base}data/pokemon-index.json ({status})")
         return 1
     index = json.loads(body)
-    meta = json.loads(fetch(base + "data/meta.json")[1])
-    gachas = json.loads(fetch(base + "data/gachas.json")[1])
+    try:
+        meta = json.loads((args.build_dir / "meta.json").read_text(encoding="utf8"))
+        gachas = json.loads((args.build_dir / "gachas.json").read_text(encoding="utf8"))
+    except OSError as e:
+        print(f"ERROR: faltan los datos de build ({e}). Ejecuta antes python3 build/catalog.py")
+        return 1
     dexes = sorted(p["dex"] for p in index)
     if len(dexes) != 966:
         err(f"el índice tiene {len(dexes)} Pokémon, no 966")
@@ -102,15 +194,43 @@ def main() -> int:
     if sum(g["poolSize"] for g in gachas) != 966:
         err("los pools de gacha no suman 966")
 
+    # sprites: no viajan en site/. Salen de data-sprites, que debe ser el sitio mismo o el CDN del repositorio.
+    sprites_dir = ROOT / "sprites"
+    missing_files = [d for d in dexes if not (sprites_dir / f"{d}.png").exists()]
+    if missing_files:
+        err(f"faltan en sprites/: {missing_files[:10]}")
+    try:
+        species = json.loads(fetch(base + "data/species.json")[1])["d"]
+        moves = json.loads(fetch(base + "data/moves.json")[1])
+    except (ValueError, KeyError):
+        err("data/species.json o data/moves.json no se pueden leer")
+        species, moves = {}, []
+    move_ids = {m["id"] for m in moves}
+    for d in dexes:
+        e = species.get(str(d))
+        ok = (isinstance(e, list) and len(e) == 8 and len(e[0]) == 4 and all(0 <= v <= 1 for v in e[0])
+              and len(e[1]) == 5 and all(isinstance(v, int) and 1 <= v <= 966 for v in e[1])
+              and e[2] in move_ids and e[4] in move_ids and e[3] > 0 and e[5] > 0
+              and all(m in move_ids for m in e[6]) and isinstance(e[7], int) and 0 <= e[7] <= 7)
+        if not ok:
+            err(f"data/species.json: datos incompletos o raros para el Pokémon {d}")
+
     # rastreo
     start = [f"{base}{lang}{p}" for lang in LANGS
-             for p in ("index.html", "metodo.html", "ataques.html", "gachas.html", "coleccion.html", "acerca.html")]
-    start += [f"{base}{lang}pokemon/{d}.html" for lang in LANGS for d in dexes]
+             for p in ("index.html", "metodo.html", "ataques.html", "gachas.html", "coleccion.html", "acerca.html",
+                       "pokemon/")]
+    start.append(base + "404.html")
     seen: dict[str, Page | None] = {}
     queue = deque(start)
     external: dict[str, str] = {}
-    fichas_ok = 0
     body_by_url: dict[str, str] = {}
+    sprite_bases: set[str] = set()
+    sprite_refs: set[str] = set()
+    ficha_ids: dict[str, set[int]] = {lang: set() for lang in LANGS}
+
+    def is_page(u: str) -> bool:
+        return u.endswith(".html") or u.endswith("/")
+
     while queue:
         url = queue.popleft()
         if url in seen:
@@ -120,7 +240,7 @@ def main() -> int:
             err(f"{url} → {status}")
             seen[url] = None
             continue
-        if not url.endswith(".html"):
+        if not is_page(url):
             seen[url] = None
             continue
         page = Page()
@@ -137,6 +257,8 @@ def main() -> int:
         lang = re.search(r'<html lang="(\w+)"', body_by_url[url])
         if not lang or lang.group(1) != ("en" if english else "es"):
             err(f"{url}: atributo lang incorrecto")
+        if page.sprites:
+            sprite_bases.add(page.sprites)
         if english:
             visible = re.sub(r'<ul class="credits-list">.*?</ul>', "",
                              body_by_url[url], flags=re.S)
@@ -151,13 +273,24 @@ def main() -> int:
                 if not full.startswith("data:"):
                     err(f"{url}: esquema raro {href[:40]}")
                 continue
+            if page.sprites and full.startswith(page.sprites) and href in page.assets:
+                sprite_refs.add(full)
+                continue
             if parts.netloc != origin:
                 if href in page.assets:
                     err(f"{url}: carga un recurso externo {full}")
                 external.setdefault(full, url)
                 continue
+            lang_of = LANGS[1] if parts.path.startswith("/en/") else LANGS[0]
+            if parts.path.endswith("/pokemon/") and parts.query:
+                ids = parse_qs(parts.query).get("id", [])
+                if len(ids) == 1 and ids[0].isdigit():
+                    ficha_ids[lang_of].add(int(ids[0]))
+                else:
+                    err(f"{url}: enlace de ficha raro {href}")
+                full = full.split("?", 1)[0]
             target = urldefrag(full)[0]
-            if target not in seen and target not in queue and href in page.links and target.endswith(".html"):
+            if target not in seen and target not in queue and href in page.links and is_page(target):
                 queue.append(target)
             elif target not in seen and href in page.assets:
                 queue.append(target)
@@ -172,32 +305,95 @@ def main() -> int:
         for href in page.links:
             full = urljoin(url, href)
             target, frag = urldefrag(full)
+            target = target.split("?", 1)[0]
             if urlparse(full).netloc == origin and frag and target in seen and seen[target] is not None:
                 if frag not in seen[target].ids:
                     err(f"{url}: ancla rota {href}")
 
-    # fichas
-    fichas_ok = 0
+    # sprites, enlaces a fichas y plantilla de ficha
+    if len(sprite_bases) != 1:
+        err(f"las páginas no coinciden en data-sprites: {sorted(sprite_bases)}")
+    else:
+        sprite_base = next(iter(sprite_bases))
+        if not (sprite_base.startswith(SPRITE_CDN_PREFIX) or urlparse(sprite_base).netloc == origin):
+            err(f"data-sprites apunta a un origen no permitido: {sprite_base}")
+        if not sprite_base.endswith("/sprites/") and "/_sprites/" not in sprite_base:
+            err(f"data-sprites no termina en /sprites/: {sprite_base}")
+        if urlparse(sprite_base).netloc != origin:
+            host = f"{urlparse(sprite_base).scheme}://{urlparse(sprite_base).netloc}"
+            for name, text in (("src/_headers", (ROOT / "src" / "_headers").read_text(encoding="utf8")),
+                               ("vercel.json", (ROOT / "vercel.json").read_text(encoding="utf8"))):
+                img_src = re.search(r"img-src([^;\"]*)", text)
+                if not img_src or host not in img_src.group(1):
+                    err(f"{name}: la CSP no permite imágenes de {host}")
+        alts = {m for t in body_by_url.values() for m in re.findall(r'data-sprites-alt="([^"]*)"', t)}
+        if len(alts) != 1:
+            err(f"las páginas no coinciden en data-sprites-alt: {sorted(alts)}")
+        alt = next(iter(alts), "")
+        if alt:
+            if not alt.startswith("https://raw.githubusercontent.com/felipebasurto/survivortiers/") or not alt.endswith("/sprites/"):
+                err(f"data-sprites-alt raro: {alt}")
+            for name, text in (("src/_headers", (ROOT / "src" / "_headers").read_text(encoding="utf8")),
+                               ("vercel.json", (ROOT / "vercel.json").read_text(encoding="utf8"))):
+                img_src = re.search(r"img-src([^;\"]*)", text)
+                if not img_src or "https://raw.githubusercontent.com" not in img_src.group(1):
+                    err(f"{name}: la CSP no permite imágenes de raw.githubusercontent.com (respaldo de sprites)")
+        elif urlparse(sprite_base).netloc != origin:
+            err("hay CDN de sprites pero no respaldo (data-sprites-alt vacío)")
+        wrong = [u for u in sprite_refs if not re.fullmatch(re.escape(sprite_base) + r"\d+\.png", u)]
+        if wrong:
+            err(f"sprites con una URL rara: {wrong[:3]}")
+        gone = {int(u[len(sprite_base):-4]) for u in sprite_refs if u not in wrong} - set(dexes)
+        if gone:
+            err(f"sprites de Pokémon que no existen: {sorted(gone)[:5]}")
+        if len(sprite_refs) != 966:
+            err(f"las páginas enlazan {len(sprite_refs)} sprites distintos, se esperaban 966")
     for lang in LANGS:
-        for d in dexes:
-            url = f"{base}{lang}pokemon/{d}.html"
-            page = seen.get(url)
-            if page is None:
-                continue
-            sprite = [i for i in page.imgs if i.get("src", "").endswith(f"sprites/{d}.png")]
-            figs = len(re.findall(r'<figure class="fig ', body_by_url[url]))
-            alts = len(re.findall(r'class="fig-body" role="img" aria-label="[^"]{20,}"', body_by_url[url]))
-            if figs != 4 or alts != 4:
-                err(f"ficha {url}: {figs} gráficos y {alts} con texto alternativo (se esperaban 4)")
-            if not sprite:
-                err(f"ficha {url}: sin imagen de sprite")
-            elif " ".join(page.text).count("SpriteCollab") > 1:
-                err(f"ficha {url}: repite los créditos de sprites")
-            else:
-                fichas_ok += 1
+        if ficha_ids[lang] != set(dexes):
+            err(f"{lang or 'es'}: la tier list no enlaza a las 966 fichas "
+                f"(faltan {sorted(set(dexes) - ficha_ids[lang])[:5]}, sobran {sorted(ficha_ids[lang] - set(dexes))[:5]})")
+        tpl = body_by_url.get(f"{base}{lang}pokemon/", "")
+        if not (tpl.count('id="ficha"') == 1 and 'id="i18n"' in tpl and 'id="tpl-types"' in tpl and 'id="tpl-regions"' in tpl):
+            err(f"{lang}pokemon/: falta algo de la plantilla de ficha")
+        if len(re.findall(r'<span data-t="', tpl)) != 18 or len(re.findall(r'<span data-gen="', tpl)) != 9:
+            err(f"{lang}pokemon/: tipos o regiones incompletos en la plantilla")
+
+    # enlaces viejos: /pokemon/<n>.html cae en la 404, que los reenvía a la ficha
+    for lang in LANGS:
+        status, body = fetch(f"{base}{lang}pokemon/25.html")
+        if status != 404 or b'data-page="404"' not in body:
+            err(f"{lang}pokemon/25.html debería caer en 404.html con estado 404 (da {status}); sirve site/ con build/serve.py")
+    app_js = fetch(base + "app.js")[1].decode("utf8", "replace")
+    if "location.replace" not in app_js or "pokemon" not in app_js:
+        err("app.js no reenvía los enlaces viejos de fichas")
+
+    # créditos: cada Pokémon tiene artista y todos los artistas salen en Acerca
+    credited = {d for cr in meta["credits"] for d in cr["dex"]}
+    if credited != set(dexes):
+        err(f"créditos de sprites: faltan {sorted(set(dexes) - credited)[:5]}, sobran {sorted(credited - set(dexes))[:5]}")
+    if any(not cr["name"].strip() for cr in meta["credits"]):
+        err("hay un artista sin nombre en los créditos")
+    for lang in LANGS:
+        about = body_by_url.get(f"{base}{lang}acerca.html", "")
+        listed = re.search(r'<ul class="credits-list">(.*?)</ul>', about, flags=re.S)
+        n = listed.group(1).count("<li>") if listed else 0
+        if n != len(meta["credits"]):
+            err(f"{lang}acerca.html: salen {n} artistas y hay {len(meta['credits'])} en los créditos")
+        if "CC BY-NC" not in about or "SpriteCollab" not in about:
+            err(f"{lang}acerca.html: falta la licencia o la fuente de los sprites")
+
+    # presupuesto de site/
+    site_dir = ROOT / "site"
+    if site_dir.exists():
+        files = [f for f in site_dir.rglob("*") if f.is_file()]
+        total = sum(f.stat().st_size for f in files)
+        notes.append(f"site/: {len(files)} archivos, {total / 1e6:.2f} MB")
+        if len(files) > MAX_FILES or total > MAX_BYTES:
+            err(f"site/ se pasa del presupuesto ({len(files)} archivos, {total / 1e6:.1f} MB; máximo {MAX_FILES} y {MAX_BYTES / 1e6:.0f} MB)")
+        if any(f.suffix == ".png" for f in files):
+            err("site/ lleva PNG: los sprites tienen que salir del CDN")
 
     # ataques: barras en cada ataque y nada de jerga sin explicar
-    moves = json.loads(fetch(base + "data/moves.json")[1])
     rows_expected = sum(3 if "rel" in m else 4 for m in moves)
     for lang in LANGS:
         url = f"{base}{lang}ataques.html"
@@ -213,8 +409,11 @@ def main() -> int:
         about = body_by_url.get(f"{base}{lang}acerca.html", "")
         if about.count('class="credits-list"') != 1 or about.count("<li><a") < 5:
             err(f"{lang}acerca.html: faltan los créditos de los artistas")
-    imgs = sum(1 for u in seen if u.endswith(".png"))
-    notes.append(f"páginas rastreadas: {sum(1 for p in seen.values() if p)}; PNG cargados: {imgs}; fichas con sprite: {fichas_ok}/1932")
+        for url, text in body_by_url.items():
+            if url.startswith(base + lang) and not url.endswith("acerca.html") and 'class="credits-list"' in text:
+                err(f"{url}: los créditos de artistas solo van en Acerca")
+    notes.append(f"páginas rastreadas: {sum(1 for p in seen.values() if p)}; sprites enlazados: {len(sprite_refs)}")
+    browser_check(base, index, args, err, notes)
 
     if args.external:
         bad_ext = []

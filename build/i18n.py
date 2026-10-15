@@ -63,6 +63,8 @@ STR: dict[str, tuple[str, str]] = {
     "pager_aria": ("Pokémon vecinos", "Neighbouring Pokémon"),
     "dex_no": ("nº {dex}", "no. {dex}"),
     "banner_of": ("Banner {name}", "{name} banner"),
+    "noscript_ficha": ("Esta página necesita JavaScript.", "This page needs JavaScript."),
+    "f_missing": ("Pokémon no encontrado", "Pokémon not found"),
 
     # ------------------------------------------------------------ gráficos de la ficha
     "t_band": ("Puesto", "Rank"),
@@ -276,6 +278,10 @@ class Lang:
 
     def t(self, key: str, **kw) -> str:
         return STR[key][self.idx].format(**kw)
+
+    def t_raw(self, key: str) -> str:
+        """El texto con sus marcadores sin rellenar, para las plantillas que se completan en el navegador."""
+        return STR[key][self.idx]
 
     def num(self, n: int | float) -> str:
         s = f"{n:,.0f}"

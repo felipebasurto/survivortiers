@@ -7,6 +7,8 @@
   const html = document.documentElement;
   const assets = html.dataset.assets || '';
   const home = html.dataset.home || '';
+  const sprites = html.dataset.sprites || '';
+  const spritesAlt = html.dataset.spritesAlt || '';
   const page = html.dataset.page;
   const EN = html.lang === 'en';
   const TIERS = ['S', 'A', 'B', 'C', 'D'];
@@ -104,8 +106,8 @@
     const unsure = share < UNSURE;
     const cls = 'mon' + (unsure ? ' unsure' : '') + (extraClass ? ' ' + extraClass : '');
     const title = TEXT.cardTitle(monName(p), p.dex, rank, tier, unsure ? TEXT.unsure(share, tier) : '');
-    return '<a class="' + cls + '" href="' + home + 'pokemon/' + p.dex + '.html" data-dex="' + p.dex + '" title="' + esc(title) + '">' +
-      '<span class="sp"><img class="px" src="' + assets + 'sprites/' + p.dex + '.png" width="' + p.w * SCALE + '" height="' + p.h * SCALE +
+    return '<a class="' + cls + '" href="' + home + 'pokemon/?id=' + p.dex + '" data-dex="' + p.dex + '" title="' + esc(title) + '">' +
+      '<span class="sp"><img class="px" src="' + sprites + p.dex + '.png" width="' + p.w * SCALE + '" height="' + p.h * SCALE +
       '" alt="" loading="lazy" decoding="async"></span><span class="nm">' + esc(monName(p)) + '</span><span class="rk">' + rank + '</span>' +
       (extraHtml || '') + '</a>';
   }
@@ -353,6 +355,7 @@
     const kEl = $('[data-k]', fig);
     const btn = $('[data-play]', fig);
     const sprite = new Image();
+    sprite.addEventListener('error', () => { if (spritesAlt && sprite.src.startsWith(sprites)) sprite.src = spritesAlt + sprite.src.slice(sprites.length); });
     sprite.src = cv.dataset.sprite;
     const WALLS = [[58, 40, 8, 52], [206, 112, 52, 8], [146, 24, 44, 8]];
     const WATER = [[232, 28, 64, 38], [40, 130, 48, 30]];
@@ -488,6 +491,19 @@
   }
 
   // ---------------------------------------------------------------- arranque
+  // Si el CDN de sprites falla, cada imagen prueba una vez el mismo archivo en la copia de respaldo.
+  if (spritesAlt && sprites) {
+    const retry = img => {
+      if (!img.dataset.alt && img.src.startsWith(sprites)) { img.dataset.alt = '1'; img.src = spritesAlt + img.src.slice(sprites.length); }
+    };
+    document.addEventListener('error', e => { if (e.target.tagName === 'IMG') retry(e.target); }, true);
+    $$('img').forEach(i => { if (i.complete && !i.naturalWidth) retry(i); });
+  }
+  // Los enlaces antiguos /pokemon/25.html caen en la página 404, que los reenvía a la ficha única.
+  if (page === '404') {
+    const old = location.pathname.match(/^(\/en)?\/pokemon\/(\d+)(?:\.html)?\/?$/);
+    if (old) { location.replace((old[1] || '') + '/pokemon/?id=' + old[2]); return; }
+  }
   initReveal();
   initDemo();
   initReps();

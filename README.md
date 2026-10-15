@@ -9,26 +9,37 @@ Web: https://survivortiers.felipe99basurto.workers.dev
 | Ruta | Qué hay |
 | --- | --- |
 | `data/` | Entradas: ranking definitivo (`ranking_definitive.csv`), `pokedex_export.json`, nombres y textos de ataques en inglés (`species_names_en.csv`, `lang_en_moves.json`), `CREDITS.md` y licencia del juego (copiados del commit `a9b21f0`), y `move_tierlist_v4.csv` |
-| `build/catalog.py` | Valida y genera `site/data/*.json`. **Falla** si falta artista o licencia de algún sprite, si los conteos por tier no son 30/90/200/300/346 o si los pools de gacha no suman 966 |
-| `build/render.py` | Genera en `site/` y `site/en/` las 6 páginas y las 966 fichas de cada idioma |
+| `sprites/` | Los 966 sprites (SpriteCollab, CC BY-NC 4.0). **No van en `site/`**: las páginas los piden a jsDelivr, que sirve este repositorio (`legal.SPRITE_CDN`) |
+| `src/` | Estáticos escritos a mano: `style.css`, `app.js` (tier list, colección, demos), `ficha.js` (dibuja la ficha), `fonts/`, `img/` (iconos de interfaz y créditos) y `_headers` |
+| `build/catalog.py` | Valida y genera `build/out/` (datos intermedios y `public/`, los JSON del navegador). **Falla** si falta artista o licencia de algún sprite, si los conteos por tier no son 30/90/200/300/346 o si los pools de gacha no suman 966 |
+| `build/render.py` | Genera `site/` entero: 6 páginas por idioma, la plantilla `pokemon/index.html` de cada idioma, `404.html`, `style.css`, `app.js`, la letra, `data/` y `_headers`. Unos 25 archivos y menos de 2 MB |
+| `build/pack.py` | Empaqueta `src/` en `site/`: iconos dentro del CSS, CSS y JS minificados, JSON copiados |
 | `build/i18n.py` | Todos los textos en español e inglés, validados al importar |
-| `build/charts.py` | Gráficos HTML, CSS y SVG |
+| `build/charts.py` | Gráficos HTML, CSS y SVG (la ficha usa las mismas fórmulas en `src/ficha.js`) |
 | `build/regions.py` | Insignias de región de la página Gacha (SVG propio y sprites de los legendarios de portada) |
+| `build/serve.py` | Servidor local con el mismo comportamiento que el hosting: 404.html con estado 404 y `/_sprites/` |
 | `build/move_tierlist_v4.py` | Regenera `data/move_tierlist_v4.csv` (necesita el análisis y una copia del juego) |
 | `build/check_site.py` | Comprobaciones de aceptación sobre un sitio servido |
 | `console/coleccion.js`, `coleccion.en.js` | Comando que el jugador pega en la consola del juego |
-| `site/` | Estáticos a mano (`style.css`, `app.js`, `sprites/`) y salida generada |
 
 ## Uso
 
 ```sh
+export SPRITE_BASE=http://127.0.0.1:8765/_sprites/    # solo en local: sprites desde sprites/ en vez de jsDelivr
 python3 build/catalog.py && python3 build/render.py   # genera site/
-python3 -m http.server 8765 --directory site          # ver en local
-python3 build/check_site.py http://127.0.0.1:8765/    # 966 fichas, atribución, enlaces, conteos
+python3 build/serve.py                                # ver en local, http://127.0.0.1:8765/
+python3 build/check_site.py http://127.0.0.1:8765/    # enlaces, atribución, datos de las 966 fichas, presupuesto de site/
 python3 build/check_site.py http://127.0.0.1:8765/ --external   # además, enlaces externos (red)
 ```
 
-`site/*.html`, `site/pokemon/`, `site/data/` y `site/en/` son salida generada y no se versionan. Para publicar, genera el sitio y ejecuta `npx wrangler deploy` (Cloudflare Workers, ver `wrangler.jsonc`). `vercel.json` queda por si se despliega allí.
+`check_site.py` dibuja una muestra de fichas en un navegador si tienes Playwright (`pip install playwright`); con `--all-species` dibuja las 966 de cada idioma.
+
+`site/` y `build/out/` son salida generada y no se versionan. Para publicar, genera el sitio **sin** `SPRITE_BASE` y ejecuta `npx wrangler deploy` (Cloudflare Workers, ver `wrangler.jsonc`). `vercel.json` queda por si se despliega allí.
+
+### Fichas y sprites
+
+- Cada idioma tiene una sola plantilla de ficha, `/pokemon/?id=25` y `/en/pokemon/?id=25`. `src/ficha.js` la dibuja con `data/pokemon-index.json`, `data/species.json` y `data/moves.json`. Los enlaces viejos `/pokemon/25.html` caen en `404.html` (el hosting la sirve para lo que no existe), y `app.js` los reenvía a la ficha.
+- Los sprites salen de `https://cdn.jsdelivr.net/gh/felipebasurto/survivortiers@main/sprites/<n>.png`. Si cambias el repositorio, el usuario o la rama, ajusta `SPRITE_CDN` en `build/legal.py` y el `img-src` de `src/_headers` y `vercel.json` (`check_site.py` comprueba que coincidan). jsDelivr guarda `@main` unas horas: un sprite nuevo tarda en verse.
 
 ## Actualizar el ranking
 

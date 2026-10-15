@@ -1,4 +1,4 @@
-"""Genera site/data/*.json a partir de data/ (ranking definitivo, pokedex_export.json, créditos, movimientos).
+"""Genera build/out/ (datos intermedios y public/ con los JSON que usa el navegador) a partir de data/ (ranking definitivo, pokedex_export.json, créditos, movimientos).
 
     python3 build/catalog.py
 
@@ -11,6 +11,7 @@ import csv
 import json
 import os
 import re
+import shutil
 import statistics
 import struct
 import sys
@@ -24,8 +25,9 @@ import credits as credits_mod  # noqa: E402
 import legal  # noqa: E402
 
 DATA = ROOT / "data"
-SITE = ROOT / "site"
-OUT = SITE / "data"
+SPRITES = ROOT / "sprites"
+OUT = ROOT / "build" / "out"
+PUBLIC = OUT / "public"  # lo que render.py copia a site/data/
 
 RANKING_CSV = "ranking_definitive.csv"
 VERSION = "definitivo"
@@ -158,14 +160,14 @@ def load_pokemon(move_names: dict, credits: dict) -> list[dict]:
         if row["name"] != name_en:
             raise CatalogError(f"nombre inglés distinto en el ranking y en species_names para {dex}: "
                                f"{row['name']!r} / {name_en!r}")
-        sprite_path = SITE / "sprites" / f"{dex}.png"
+        sprite_path = SPRITES / f"{dex}.png"
         if not sprite_path.exists():
             raise CatalogError(f"falta el sprite {dex}.png")
         cred = credits_mod.sprite_credit(credits, dex)
         if cred is None:
             raise CatalogError(f"el sprite {dex}.png no tiene artista ni licencia en CREDITS.md")
         w, h = png_size(sprite_path)
-        sprite = {"src": f"sprites/{dex}.png", "w": w, "h": h, "artist": ", ".join(a["name"] for a in cred["artists"]),
+        sprite = {"src": f"{dex}.png", "w": w, "h": h, "artist": ", ".join(a["name"] for a in cred["artists"]),
                   "artists": cred["artists"], "license": cred["license"], "licenseUrl": cred["licenseUrl"],
                   "sourceUrl": cred["sourceUrl"]}
         rank = int(row["rank"])
@@ -298,10 +300,26 @@ def slim(entries: list[dict]) -> list[dict]:
             for e in entries]
 
 
-def write_json(name: str, obj, pretty: bool = False) -> None:
-    OUT.mkdir(parents=True, exist_ok=True)
+def species_details(entries: list[dict], sim_range: list[float], median: float) -> dict:
+    """Lo que la ficha necesita además de pokemon-index.json, en listas para que pese poco. Orden de cada entrada:
+    [pilares (stats, moves, typedef, size), puestos por medida (METHOD_KEYS), ataque inicial, segundos, mejor ataque,
+    segundos, pareja de ataques, banderas (1 estados, 2 cuerpo a cuerpo, 4 estadísticas)]. Lo lee src/ficha.js."""
+    out = {}
+    for e in entries:
+        r = e["r"]
+        f = r["flags"]
+        out[str(e["dex"])] = [
+            [r["pillars"][k] for k in ("stats", "moves", "typedef", "size")], [r["methods"][k] for k in METHOD_KEYS],
+            r["sim"]["start"]["id"], r["sim"]["start"]["seconds"], r["sim"]["best"]["id"], r["sim"]["best"]["seconds"],
+            [m["id"] for m in r["pair"]], int(f["statusUnmodelled"]) + 2 * int(f["melee"]) + 4 * int(f["statsCapped"])]
+    return {"sim": [*sim_range, median], "d": out}
+
+
+def write_json(name: str, obj, pretty: bool = False, public: bool = False) -> None:
+    folder = PUBLIC if public else OUT
+    folder.mkdir(parents=True, exist_ok=True)
     text = json.dumps(obj, ensure_ascii=False, indent=1 if pretty else None, separators=None if pretty else (",", ":"))
-    (OUT / name).write_text(text + "\n", encoding="utf8")
+    (folder / name).write_text(text + "\n", encoding="utf8")
 
 
 def main() -> int:
@@ -316,9 +334,12 @@ def main() -> int:
     except (CatalogError, credits_mod.CreditsError, ValueError, KeyError, OSError) as exc:
         print(f"ERROR de catálogo: {exc}", file=sys.stderr)
         return 1
+    shutil.rmtree(OUT, ignore_errors=True)
     write_json("pokemon.json", entries)
-    write_json("pokemon-index.json", slim(entries))
     write_json("moves.json", moves)
+    write_json("pokemon-index.json", slim(entries), public=True)
+    write_json("species.json", species_details(entries, meta["simRange"], meta["simMedianSeconds"]), public=True)
+    write_json("moves.json", moves, public=True)
     write_json("gachas.json", gachas, pretty=True)
     write_json("meta.json", meta, pretty=True)
     print(f"catálogo: {len(entries)} Pokémon, {len(moves)} movimientos, {len(gachas)} banners → {OUT}")

@@ -1,6 +1,8 @@
 """Constantes del sitio y textos legales en español e inglés. Un solo sitio donde cambiarlos."""
 from __future__ import annotations
 
+import os
+
 from i18n import Lang
 
 SITE_NAME = "SurvivorTiers"
@@ -10,6 +12,14 @@ GAME_URL = "https://pokesurvivor.com"   # CNAME del repositorio del juego en a9b
 GAME_REPO_URL = "https://github.com/JPTER78/pokesurvivor"
 GAME_COMMIT = "a9b21f0"
 GAME_AUTHOR = "JPTER78"
+
+# Los sprites no viajan en site/. Salen de este repositorio (sprites/) a través de jsDelivr, que los sirve con CORS abierto
+# y caché. SPRITE_BASE en el entorno lo cambia, por ejemplo para ver el sitio en local con build/serve.py.
+SPRITE_CDN = "https://cdn.jsdelivr.net/gh/felipebasurto/survivortiers@main/sprites/"
+SPRITE_BASE = os.environ.get("SPRITE_BASE", SPRITE_CDN)
+# Respaldo si jsDelivr falla (lo hace app.js): el mismo archivo directamente desde GitHub. Solo con el CDN por defecto.
+SPRITE_ALT = os.environ.get(
+    "SPRITE_ALT", "https://raw.githubusercontent.com/felipebasurto/survivortiers/main/sprites/" if SPRITE_BASE == SPRITE_CDN else "")
 
 MIT_NOTICE = (
     "Colores y glifos de tipo adaptados de js/core/util.js y js/ui/icons.js de PokéSurvivor, "

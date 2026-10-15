@@ -1,7 +1,7 @@
 """Gráficos en HTML, CSS y SVG, según los principios de Edward Tufte: sin leyendas ni rejillas, etiquetas directas,
 gris por defecto y un solo color de acento, título que afirma lo que se ve y un texto alternativo en cada gráfico.
-Los estilos están en site/style.css. Las animaciones son CSS, salvo las demos de la página Método, que mueve
-site/app.js.
+Los estilos están en src/style.css. Las animaciones son CSS, salvo las demos de la página Método, que mueve
+src/app.js. La ficha de cada Pokémon la dibuja src/ficha.js con las mismas fórmulas que pillars(), methods(), rank_band() y sim_dots().
 
 Cada función recibe el idioma (i18n.Lang) y devuelve un <figure> o un fragmento listo para pegar en la página.
 """
@@ -306,7 +306,7 @@ def repeats_demo(L: Lang, rows: list[tuple[str, dict]]) -> str:
 
 def walk(L: Lang, mons: list[dict], cuts: list[dict], pieces: list[dict]) -> str:
     """Cinco pasos con los datos reales de cada Pokémon de ejemplo. Lo maneja app.js.
-    mons = {name, dex, w, h, index (entrada de pokemon-index), r (ranking completo), assets (prefijo a la raíz)}."""
+    mons = {name, dex, w, h, index (entrada de pokemon-index), r (ranking completo), sprites (URL base de los sprites)}."""
     chips = "".join(f'<button type="button" class="chip-btn" data-mon="{i}" aria-pressed="{"true" if i == 0 else "false"}">'
                     f'{esc(m["name"])}</button>' for i, m in enumerate(mons))
     panels = []
@@ -323,7 +323,7 @@ def walk(L: Lang, mons: list[dict], cuts: list[dict], pieces: list[dict]) -> str
         body = "".join(
             f'<div class="walk-step" data-step="{k}"><h3>{esc(L.t(f"walk_{k + 1}_h"))}</h3>{vis}</div>'
             for k, vis in enumerate(steps))
-        head = (f'<div class="walk-head"><img class="px" src="{m["assets"]}sprites/{m["dex"]}.png" width="{m["w"] * 2}" '
+        head = (f'<div class="walk-head"><img class="px" src="{m["sprites"]}{m["dex"]}.png" width="{m["w"] * 2}" '
                 f'height="{m["h"] * 2}" alt=""><b>{esc(name)}</b>'
                 f'<span class="tier-badge {r["tier"]}">{r["tier"]}</span></div>')
         panels.append(f'<div class="walk-mon" data-mon-panel="{i}"{"" if i == 0 else " hidden"}>{head}{body}</div>')
