@@ -25,6 +25,7 @@ import legal  # noqa: E402
 import objetos  # noqa: E402
 import pack  # noqa: E402
 import regions  # noqa: E402
+import share_image  # noqa: E402
 import typedata  # noqa: E402
 from i18n import ES, LANGS, TYPE_NAMES, Lang  # noqa: E402
 
@@ -126,11 +127,45 @@ def mon_card(c: Ctx, p: dict, eager: bool = False) -> str:
 ASSET_V = ""  # huella de style.css y app.js; la fija main() tras empaquetarlos
 
 
+def social_head(c: Ctx, title: str, description: str) -> str:
+    """Etiquetas para compartir: canónica, Open Graph (Reddit, Discord, WhatsApp...) y Twitter/X (tarjeta grande con la
+    imagen de build/share_image.py). La URL es la de la página en el idioma de la página, sin .html."""
+    L = c.L
+    path = c.rel.removesuffix("index.html").removesuffix(".html")
+    url = f"{legal.SITE_URL}/{'en/' if L.en else ''}{path}"
+    image = f"{legal.SITE_URL}/og.png"
+    alt = L.t("og_alt")
+    tags = [
+        f'<link rel="canonical" href="{esc(url)}">',
+        '<meta property="og:type" content="website">',
+        f'<meta property="og:site_name" content="{esc(legal.SITE_NAME)}">',
+        f'<meta property="og:title" content="{esc(title)}">',
+        f'<meta property="og:description" content="{esc(description)}">',
+        f'<meta property="og:url" content="{esc(url)}">',
+        f'<meta property="og:image" content="{esc(image)}">',
+        '<meta property="og:image:width" content="1200">',
+        '<meta property="og:image:height" content="630">',
+        f'<meta property="og:image:alt" content="{esc(alt)}">',
+        f'<meta property="og:locale" content="{"en_US" if L.en else "es_ES"}">',
+        '<meta name="twitter:card" content="summary_large_image">',
+        f'<meta name="twitter:site" content="{esc(legal.X_HANDLE)}">',
+        f'<meta name="twitter:creator" content="{esc(legal.X_HANDLE)}">',
+        f'<meta name="twitter:title" content="{esc(title)}">',
+        f'<meta name="twitter:description" content="{esc(description)}">',
+        f'<meta name="twitter:image" content="{esc(image)}">',
+        f'<meta name="twitter:image:alt" content="{esc(alt)}">',
+    ]
+    return "\n".join(tags)
+
+
 def page(c: Ctx, page_id: str, title: str, description: str, content: str, meta: dict, extra_head: str = "") -> str:
     L = c.L
     agents_html = (f'<p class="agents">{esc(L.t("agents_label"))} <a href="{c.assets}llms.txt">llms.txt</a> · '
               f'<a href="{c.assets}llms-full.txt">llms-full.txt</a> · '
               f'<a href="{c.assets}data/ranking.csv">ranking.csv</a></p>')
+    follow = (f'<a class="follow" href="{legal.X_URL}" target="_blank" rel="noopener" '
+              f'aria-label="{esc(L.t("follow_label", handle=legal.X_HANDLE))}">{esc(legal.X_HANDLE)}</a>')
+    social = "" if page_id == "404" else social_head(c, title, description)
     current = ' aria-current="page"'
     nav = "\n".join(
         f'      <a href="{c.home}{href}"{current if pid == page_id else ""}>{esc(L.t(key))}</a>' for pid, href, key in NAV)
@@ -152,7 +187,8 @@ def page(c: Ctx, page_id: str, title: str, description: str, content: str, meta:
         description=esc(description), alternates=alternates, skip=esc(L.t("skip")),
         nav_aria=esc(L.t("nav_main")), foot_aria=esc(L.t("nav_foot")), switch=switch, nav=nav, content=content,
         footer_nav=footer_nav, disclaimer=esc(L.t("disclaimer", game=legal.GAME_NAME)), sprites_line=sprites_line,
-        build_info=esc(build_info.replace("--", "-")), agents=agents_html, extra_head=extra_head)
+        build_info=esc(build_info.replace("--", "-")), agents=agents_html, extra_head=extra_head,
+        social=social, follow=follow)
 
 
 def write(rel: str, text: str) -> None:
@@ -592,6 +628,7 @@ def main() -> int:
         put("acerca.html", lambda c: render_acerca(c, meta))
         put("pokemon/index.html", lambda c: render_ficha(c, index, meta))
     write("404.html", render_404(meta))
+    share_image.save(SITE / "og.png")
     agents.write_all(SITE, meta, gachas)
     files = [f for f in SITE.rglob("*") if f.is_file()]
     size = sum(f.stat().st_size for f in files)

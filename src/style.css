@@ -654,10 +654,13 @@ h2 { display: flex; align-items: center; gap: 10px; padding-bottom: 6px; border-
 .nav a { padding: 4px 8px; border-bottom: 0; }
 .nav a:hover { background: var(--rule-soft); }
 .nav a[aria-current="page"] { background: var(--accent); color: var(--on-accent); }
+.tools { display: flex; align-items: center; gap: 4px; }
 .lang { display: flex; gap: 4px; margin-left: 10px; font: 600 .75rem var(--pix); }
 .lang a { color: var(--ink); text-decoration: none; padding: 3px 8px; box-shadow: var(--notch-soft); background: var(--bg); }
 .lang a[aria-current="page"] { background: var(--ink); color: var(--bg); box-shadow: var(--notch); }
 .lang a:not([aria-current]):hover { background: var(--rule-soft); }
+.follow { margin-left: 4px; font: 600 .75rem var(--pix); color: var(--on-accent); background: var(--accent); text-decoration: none; padding: 3px 8px; box-shadow: var(--notch); }
+.follow:hover { background: var(--ink); color: var(--bg); }
 .foot { border-top: 4px solid var(--ink); }
 .foot .disclaimer { color: var(--ink); }
 .btn { font: 600 .8rem var(--pix); text-transform: uppercase; letter-spacing: .04em; border: 0; box-shadow: var(--notch), inset 0 -4px 0 rgba(0, 0, 0, .25);
@@ -913,8 +916,10 @@ html { overflow-x: hidden; }
   .top::after { display: none; }
   .top .wrap { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 0 8px; padding-block: 4px 0; }
   .brand { font-size: 1.3rem; display: flex; align-items: center; min-height: 44px; }
-  .lang { grid-column: 2; grid-row: 1; margin: 0; gap: 6px; }
-  .lang a { display: grid; place-items: center; min-width: 44px; min-height: 44px; padding: 0 8px; }
+  .tools { grid-column: 2; grid-row: 1; justify-self: end; }
+  .lang { margin: 0; gap: 6px; }
+  .lang a, .follow { display: grid; place-items: center; min-width: 44px; min-height: 44px; padding: 0 8px; }
+  .follow { margin-left: 0; }
   .nav { grid-column: 1 / -1; flex-wrap: nowrap; overflow-x: auto; margin: 0 -14px; padding: 2px 14px 6px; gap: 4px;
     scrollbar-width: none; -webkit-overflow-scrolling: touch; scroll-snap-type: x proximity; }
   .nav::-webkit-scrollbar { display: none; }

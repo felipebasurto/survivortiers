@@ -14,6 +14,9 @@ NBSP = "\u00a0"
 STR: dict[str, tuple[str, str]] = {
     # ------------------------------------------------------------ base
     "skip": ("Saltar al contenido", "Skip to content"),
+    "og_alt": ("Tier list no oficial de PokéSurvivor: cartas de las fichas S con sprites de pixel art.",
+               "Unofficial PokéSurvivor tier list: S-tier cards with pixel-art sprites."),
+    "follow_label": ("Sigue a {handle} en X", "Follow {handle} on X"),
     "nav_main": ("Principal", "Main"),
     "nav_foot": ("Pie", "Footer"),
     "nav_tiers": ("Tiers", "Tiers"),

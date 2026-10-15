@@ -138,6 +138,16 @@ def agent_check(base: str, body_by_url: dict[str, str], err, notes: list[str]) -
     for url, html in body_by_url.items():
         if url.startswith(base) and html and 'class="agents"' not in html:
             err(f"{url}: falta el pie con los enlaces para agentes")
+    # cada página (salvo la 404) lleva la canónica, Open Graph y la tarjeta de Twitter/X con la imagen compartida
+    shared = (f'<meta property="og:image" content="{legal.SITE_URL}/og.png">', '<meta name="twitter:card" content="summary_large_image">',
+              f'<meta name="twitter:site" content="{legal.X_HANDLE}">')
+    for url, html in body_by_url.items():
+        if url.startswith(base) and html and not url.endswith("404.html"):
+            if '<link rel="canonical" href="' not in html or any(t not in html for t in shared):
+                err(f"{url}: faltan las etiquetas para compartir (canónica, Open Graph o Twitter/X)")
+    st, png = fetch(base + "og.png")
+    if st != 200 or png[:8] != b"\x89PNG\r\n\x1a\n" or int.from_bytes(png[16:20], "big") != 1200 or int.from_bytes(png[20:24], "big") != 630:
+        err("og.png no es un PNG de 1200 × 630")
     for lang in ("", "en/"):
         html = body_by_url.get(f"{base}{lang}", "")
         if '"@type": "Dataset"' not in html:
@@ -471,8 +481,8 @@ def main() -> int:
         notes.append(f"site/: {len(files)} archivos, {total / 1e6:.2f} MB")
         if len(files) > MAX_FILES or total > MAX_BYTES:
             err(f"site/ se pasa del presupuesto ({len(files)} archivos, {total / 1e6:.1f} MB; máximo {MAX_FILES} y {MAX_BYTES / 1e6:.0f} MB)")
-        if any(f.suffix == ".png" for f in files):
-            err("site/ lleva PNG: los sprites tienen que salir del CDN")
+        if any(f.suffix == ".png" and f.name != "og.png" for f in files):
+            err("site/ lleva PNG: los sprites tienen que salir del CDN (og.png es la excepción: la imagen para compartir)")
 
     # ataques: barras en cada ataque y nada de jerga sin explicar
     rows_expected = sum(2 if "buff" in m else 1 for m in moves)  # un valor por ataque; el potenciador suma tiempo activo

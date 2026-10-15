@@ -8,6 +8,8 @@ from i18n import Lang
 SITE_NAME = "SurvivorTiers"
 
 GAME_NAME = "PokéSurvivor"
+X_HANDLE = "@fildotai"
+X_URL = "https://x.com/fildotai"
 GAME_URL = "https://pokesurvivor.com"   # CNAME del repositorio del juego en a9b21f0
 GAME_REPO_URL = "https://github.com/JPTER78/pokesurvivor"
 GAME_COMMIT = "a9b21f0"
