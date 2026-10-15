@@ -175,6 +175,16 @@ textarea {
 .rb-ticks { position: relative; height: 1.2rem; font: .6875rem var(--sans); color: var(--ink-2); }
 .rb-ticks span { position: absolute; top: 0; transform: translateX(-50%); font-variant-numeric: tabular-nums; }
 .zoom-note { margin: 14px 0 0; font: .75rem var(--sans); color: var(--ink-2); }
+
+/* ---------- ataques que puede aprender (ficha) ---------- */
+.learn-lede { margin: 4px 0 16px; font: .875rem/1.5 var(--sans); color: var(--ink-2); max-width: 66ch; }
+.lt-row { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: start; margin-bottom: 12px; }
+.lt-moves { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.lt-move { display: inline-flex; align-items: center; gap: 8px; padding: 3px 10px 3px 4px; background: var(--rule-soft);
+  box-shadow: var(--notch-soft); font: .875rem/1.2 var(--sans); }
+.lt-move.start { box-shadow: 0 0 0 2px var(--accent); }
+.lt-move em { font: .7rem var(--pix); color: var(--accent); text-transform: uppercase; }
+.lt-ico { width: 32px; height: 32px; flex: none; image-rendering: pixelated; }
 .rb-ticks span:first-child { transform: none; }
 .rb-ticks span:last-child { transform: translateX(-100%); }
 /* 2. puntos por pieza */

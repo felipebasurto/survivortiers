@@ -132,6 +132,46 @@
     return fig('sim', t('t_sim'), body, alt);
   }
 
+  // Ataques que puede aprender: el mismo grupo que el juego (normal y los de sus tipos), agrupado por tier general.
+  const LEARN_TIERS = ['S', 'A', 'B', 'C', 'D'];
+  const LETTERS = 'abcdefghijklmnopqrstuvwxyz';
+  const iconCache = new Map();
+  // El icono del juego (ui/icons.js) como SVG: moves.json trae la rejilla de píxeles de cada uno.
+  function iconUrl(m) {
+    if (iconCache.has(m.id)) return iconCache.get(m.id);
+    const [W, H] = m.icon.size;
+    let rects = '';
+    m.icon.rows.forEach((row, y) => {
+      let x = 0;
+      while (x < W) {
+        const ch = row[x];
+        let n = 1;
+        while (x + n < W && row[x + n] === ch) n++;
+        if (ch !== '.') rects += '<rect x="' + x + '" y="' + y + '" width="' + n + '" height="1" fill="' + m.icon.pal[LETTERS.indexOf(ch)] + '"/>';
+        x += n;
+      }
+    });
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H +
+      '" shape-rendering="crispEdges">' + rects + '</svg>';
+    const u = 'data:image/svg+xml,' + encodeURIComponent(svg);
+    iconCache.set(m.id, u);
+    return u;
+  }
+
+  function learn(p, d, moves) {
+    const pool = moves.filter(m => m.type === 'normal' || p.types.includes(m.type));
+    const rows = LEARN_TIERS.map(tier => {
+      const ms = pool.filter(m => m.tier === tier).sort((a, b) => b.score - a.score);
+      if (!ms.length) return '';
+      const chips = ms.map(m => '<li class="lt-move' + (m.id === d[2] ? ' start' : '') + '"><img class="lt-ico" src="' + iconUrl(m) +
+        '" alt="" width="32" height="32">' + esc(EN ? m.en.name : m.name) +
+        (m.id === d[2] ? ' <em>' + esc(t('learn_start')) + '</em>' : '') + '</li>').join('');
+      return '<div class="lt-row"><span class="tier-badge ' + tier + '">' + tier + '</span><ul class="lt-moves">' + chips + '</ul></div>';
+    }).join('');
+    return '<section class="fig anim fig-learn"><figcaption><h3>' + esc(t('t_learn')) + '</h3></figcaption>' +
+      '<p class="learn-lede">' + esc(t('learn_lede', { n: pool.length })) + '</p>' + rows + '</section>';
+  }
+
   const tpl = (id, attr, val) => {
     const el = document.querySelector('#' + id).content.querySelector('[' + attr + '="' + val + '"]');
     return el ? el.innerHTML : '';
@@ -144,7 +184,7 @@
     }).join('');
   }
 
-  function render(p, d, range, moveName, prev, next) {
+  function render(p, d, range, moveName, prev, next, moves) {
     const name = EN ? p.nameEn : p.name;
     const scale = Math.max(1, Math.min(5, Math.floor(FICHA_BOX / Math.max(p.w, p.h))));
     const [rank, tier] = p.r;
@@ -153,8 +193,6 @@
     const stars = '<span class="stars" role="img" aria-label="' + esc(t('stars_alt', { n: p.rarity })) + '">' +
       '★'.repeat(p.rarity) + '☆'.repeat(5 - p.rarity) + '</span>';
     const legendary = p.legendary ? '<span class="chip">' + esc(t('legendary')) + '</span>' : '';
-    const pair = d[6].length
-      ? '<p class="pair"><i class="ico ico-sword" aria-hidden="true"></i>' + d[6].map(id => esc(moveName(id))).join(' + ') + '</p>' : '';
     const link = (q, left) => {
       const label = esc(EN ? q.nameEn : q.name) + '<span> ' + esc(t('dex_no', { dex: q.dex })) + '</span>';
       return '<a href="?id=' + q.dex + '">' + (left ? '← ' + label : label + ' →') + '</a>';
@@ -168,7 +206,7 @@
       '<div class="facts">' + pills + ' ' + stars + ' ' + legendary + ' ' + tpl('tpl-regions', 'data-gen', p.bannerId) + '</div>' +
       '<div class="rankline"><span class="tier-badge ' + tier + '" title="' + esc(t('tier', { t: tier })) + '">' + tier + '</span>' +
       '<strong>' + rank + '</strong><span>/ ' + TOTAL + '</span>' + flagsHtml(d[7]) + '</div></div></div>' +
-      rankBand(p, name) + pillars(d, name) + methods(p, d, name) + sim(d, range, moveName) + pair +
+      rankBand(p, name) + pillars(d, name) + methods(p, d, name) + sim(d, range, moveName) + learn(p, d, moves) +
       '<nav class="pager" aria-label="' + esc(t('pager_aria')) + '">' + pager + '</nav>';
     const label = EN || p.nameEn === p.name ? name : p.name + ' (' + p.nameEn + ')';
     document.title = t('ficha_title', { name, tier });
@@ -198,6 +236,6 @@
     if (i < 0 || !d) { missing(); return; }
     const byId = new Map(moves.map(m => [m.id, m]));
     const moveName = mid => { const m = byId.get(mid); return m ? (EN ? m.en.name : m.name) : mid; };
-    render(index[i], d, species.sim, moveName, index[i - 1], index[i + 1]);
+    render(index[i], d, species.sim, moveName, index[i - 1], index[i + 1], moves);
   }).catch(err => { root.textContent = err.message; });
 })();

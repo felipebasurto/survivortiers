@@ -71,6 +71,12 @@ STR: dict[str, tuple[str, str]] = {
     "t_sim": ("Aguante", "Survival"),
     "band_rank": ("puesto {rank}", "rank {rank}"),
     "band_range": ("{lo} a {hi}", "{lo} to {hi}"),
+    "t_learn": ("Ataques que puede aprender", "Moves it can learn"),
+    "learn_lede": ("{n} ataques: los de tipo normal y los de sus tipos, por tier general (la misma que en Ataques). "
+                   "No los simula con este Pokémon.",
+                   "{n} moves: normal-type ones and those of its types, by overall tier (the same as on Moves). "
+                   "They are not simulated with this Pokémon."),
+    "learn_start": ("inicial", "start"),
     "band_zoom": ("Vista ampliada: puestos {lo} a {hi} de {total}", "Zoomed in: ranks {lo} to {hi} of {total}"),
     "band_alt": ("{name}: puesto {rank} de {total}, tier {tier}. Suele quedar entre el {lo} y el {hi}.",
                  "{name}: rank {rank} of {total}, tier {tier}. Usually lands between {lo} and {hi}."),

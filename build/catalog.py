@@ -107,6 +107,7 @@ def load_moves() -> list[dict]:
     if not rows:
         raise CatalogError("data/move_tierlist_v4.csv está vacío")
     names_en = json.loads((DATA / "lang_en_moves.json").read_text(encoding="utf8"))
+    icons = json.loads((DATA / "move_icons.json").read_text(encoding="utf8"))  # node build/export_move_icons.js
     def en(name: str | None, table: str) -> str | None:
         if not name:
             return None
@@ -125,6 +126,12 @@ def load_moves() -> list[dict]:
         move["score"] = round(float(r["score_rel"]), 2)
         if not r["dps_m15"]:
             move["buff"] = _buff(r)
+        icon = icons.get(r["move_id"])
+        if icon is None:
+            raise CatalogError(f"sin icono del juego para {r['move_id']!r} (node build/export_move_icons.js)")
+        if (icon["type"], icon["kind"]) != (r["type"], r["kind"]):
+            raise CatalogError(f"{r['move_id']}: el juego dice {icon['type']}/{icon['kind']}, la tier list {r['type']}/{r['kind']}")
+        move["icon"] = {"size": icon["size"], "pal": icon["pal"], "rows": icon["rows"]}
         moves.append(move)
     return moves
 
