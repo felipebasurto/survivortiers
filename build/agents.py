@@ -87,7 +87,7 @@ Base URL: {u}
 
 ## Pages
 
-- [Tier list (EN)]({u}/en/index.html): all Pokémon by tier, with search and sorting.
+- [Tier list (EN)]({u}/en/): all Pokémon by tier, with search and sorting.
 - [Moves (EN)]({u}/en/ataques.html): attack tier list.
 - [Items (EN)]({u}/en/objetos.html): item tier list.
 - [Gacha (EN)]({u}/en/gachas.html): banners and pull odds.
@@ -98,7 +98,7 @@ Base URL: {u}
 
 ## Optional
 
-- [Tier list (ES)]({u}/index.html): the same site in Spanish.
+- [Tier list (ES)]({u}/): the same site in Spanish.
 - [Source repository](https://github.com/felipebasurto/survivortiers): the generator that builds these files.
 """
 

@@ -129,9 +129,9 @@ def agent_check(base: str, body_by_url: dict[str, str], err, notes: list[str]) -
         if url.startswith(base) and html and 'class="agents"' not in html:
             err(f"{url}: falta el pie con los enlaces para agentes")
     for lang in ("", "en/"):
-        html = body_by_url.get(f"{base}{lang}index.html", "")
+        html = body_by_url.get(f"{base}{lang}", "")
         if '"@type": "Dataset"' not in html:
-            err(f"{base}{lang}index.html: falta el JSON-LD Dataset")
+            err(f"{base}{lang}: falta el JSON-LD Dataset")
     notes.append(f"agentes: llms.txt con {len(local_links)} enlaces, sitemap con {expected} entradas")
 
 
@@ -288,7 +288,7 @@ def main() -> int:
 
     # rastreo
     start = [f"{base}{lang}{p}" for lang in LANGS
-             for p in ("index.html", "metodo.html", "ataques.html", "gachas.html", "coleccion.html", "acerca.html",
+             for p in ("", "metodo.html", "ataques.html", "gachas.html", "coleccion.html", "acerca.html",
                        "pokemon/")]
     start.append(base + "404.html")
     seen: dict[str, Page | None] = {}
