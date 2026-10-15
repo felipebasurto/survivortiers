@@ -28,7 +28,6 @@
     return d < 0.5 ? f : d > 0.5 ? f + 1 : (f % 2 ? f + 1 : f);
   };
   const pct = v => rnd(v * 100) + (EN ? '%' : '\u00a0%');
-  const pos = rank => (rank - 1) / (TOTAL - 1) * 100;
   const f2 = x => x.toFixed(2);
 
   const fig = (kind, title, body, alt) =>
@@ -81,7 +80,7 @@
     const ticks = kept.map(n => '<span style="left:' + f2(at(n)) + '%">' + n + '</span>').join('');
     const span = Math.max(at(hi) - at(lo), 0.5);
     const zoomed = w0 !== 1 || w1 !== TOTAL;
-    const zoomNote = zoomed ? '<p class="rb-zoom">' + esc(t('band_zoom', { lo: w0, hi: w1 })) + '</p>' : '';
+    const zoomNote = zoomed ? '<p class="zoom-note">' + esc(t('band_zoom', { lo: w0, hi: w1 })) + '</p>' : '';
     const body = '<div class="rb-note rb-' + sd + '" style="' + noteStyle + '"><b>' + esc(t('band_rank', { rank })) + '</b>' +
       '<span>' + esc(t('band_range', { lo, hi })) + '</span></div>' +
       '<div class="rb-track">' + segs + '<b class="rb-range" style="left:' + f2(at(lo)) + '%;width:' + f2(span) + '%"></b>' +
@@ -108,9 +107,14 @@
 
   function methods(p, d, name) {
     const final = p.r[0];
-    const xf = pos(final);
-    const rows = METHODS.map((k, i) => ({ label: t('m_' + k), x: pos(d[1][i]), text: String(d[1][i]), v: d[1][i] }));
-    const body = dotplot({ text: t('methods_final', { rank: final }), x: xf, side: side(xf) }, rows, ['1', String(TOTAL)]);
+    const vals = [final, ...d[1]];
+    const [w0, w1] = zoomWindow(Math.min(...vals), Math.max(...vals));
+    const at = n => (n - w0) / (w1 - w0) * 100;
+    const xf = at(final);
+    const rows = METHODS.map((k, i) => ({ label: t('m_' + k), x: at(d[1][i]), text: String(d[1][i]), v: d[1][i] }));
+    const zoomed = w0 !== 1 || w1 !== TOTAL;
+    const zoomNote = zoomed ? '<p class="zoom-note">' + esc(t('band_zoom', { lo: w0, hi: w1 })) + '</p>' : '';
+    const body = dotplot({ text: t('methods_final', { rank: final }), x: xf, side: side(xf) }, rows, [String(w0), String(w1)]) + zoomNote;
     const alt = t('methods_alt', { name, rank: final }) + rows.map(r => t('methods_alt_item', { label: r.label, v: r.v })).join('; ') + '.';
     return fig('methods', t('t_methods'), body, alt);
   }
