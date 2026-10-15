@@ -332,7 +332,7 @@ def sort_values(e: dict) -> dict:
 def species_details(entries: list[dict], sim_range: list[float], median: float, combo: dict) -> dict:
     """Lo que la ficha necesita además de pokemon-index.json, en listas para que pese poco. Orden de cada entrada:
     [pilares (stats, moves, typedef, size), puestos por medida (METHOD_KEYS), ataque inicial, segundos, mejor ataque,
-    segundos, pareja de ataques, banderas (1 estados, 2 cuerpo a cuerpo, 4 estadísticas), estadísticas base
+    segundos, pareja de ataques, banderas (1 estado sin simular, 2 cuerpo a cuerpo, 4 estadísticas), estadísticas base
     oficiales [PS, ataque, defensa, ataque especial, defensa especial, velocidad], trío de cobertura [% super efectivo,
     % no resistido, ids de los ataques y el potenciador, tipos de ataque distintos (1-3)] (build/combos.py)].
     Lo lee src/ficha.js.

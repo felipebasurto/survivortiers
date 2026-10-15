@@ -78,10 +78,10 @@ STR: dict[str, tuple[str, str]] = {
     "ficha_title": ("{name} · tier {tier} · {site}", "{name} · tier {tier} · {site}"),
     "ficha_desc": ("{label}: tier {tier}, puesto {rank} de {total} en {game}.",
                    "{label}: tier {tier}, rank {rank} of {total} in {game}."),
-    "flag_status": ("Su ataque aplica quemadura, veneno, ralentización o confusión. La simulación no las modela, "
-                    "así que su aguante puede estar infravalorado.",
-                    "Its move applies burn, poison, slow or confusion. The simulation does not model these, "
-                    "so its survival may be underrated."),
+    "flag_status": ("Uno de sus ataques aplica quemadura, veneno o ralentización de una forma que la simulación "
+                    "no reproduce (p. ej. auras o conos), así que su aguante puede estar infravalorado.",
+                    "One of its attacks applies burn, poison or slow in a way the simulation does not reproduce "
+                    "(e.g. auras or cones), so its survival may be underrated."),
     "flag_melee": ("Empieza con un ataque cuerpo a cuerpo, que es objetivamente peor para empezar.",
                    "It starts with a melee move, which is objectively worse to start with."),
     "flag_capped": ("Sus estadísticas son bajas para el tier que le darían sus otras medidas, "
@@ -445,7 +445,8 @@ STR: dict[str, tuple[str, str]] = {
                   "Animation of a simulated game. A Pokémon dodges and fires at approaching enemies."),
     "met_limits_h": ("Límites", "Limits"),
     "met_lim_1": ("Sin jefes ni grietas.", "No bosses or rifts."),
-    "met_lim_2": ("Sin quemadura, veneno, ralentización ni confusión.", "No burn, poison, slow or confusion."),
+    "met_lim_2": ("Quemadura, veneno y ralentización se simulan; algunos ataques con estado (auras, conos) no.",
+                  "Burn, poison and slow are simulated; some status attacks (auras, cones) are not."),
     "met_lim_3": ("El bot juega peor el cuerpo a cuerpo.", "The bot plays melee worse."),
     "met_lim_4": ("Estimación propia, sin contrastar con partidas reales.",
                   "Our own estimate, not checked against real games."),
