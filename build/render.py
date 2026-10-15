@@ -20,6 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import charts  # noqa: E402
 import legal  # noqa: E402
+import objetos  # noqa: E402
 import pack  # noqa: E402
 import regions  # noqa: E402
 import typedata  # noqa: E402
@@ -36,7 +37,8 @@ TIERS = ["S", "A", "B", "C", "D"]
 UNSURE = 50  # % de repeticiones en su tier por debajo del cual el tier se marca como dudoso
 CATEGORIES = [("melee", "cuerpo a cuerpo"), ("ranged", "distancia"), ("stat", "estadística")]  # (id, valor del CSV)
 NAV = [("index", "index.html", "nav_tiers"), ("metodo", "metodo.html", "nav_metodo"),
-       ("ataques", "ataques.html", "nav_ataques"), ("gachas", "gachas.html", "nav_gachas"),
+       ("ataques", "ataques.html", "nav_ataques"), ("objetos", "objetos.html", "nav_objetos"),
+       ("gachas", "gachas.html", "nav_gachas"),
        ("coleccion", "coleccion.html", "nav_coleccion"), ("acerca", "acerca.html", "nav_acerca")]
 REPEAT_RANKS = (2, 40, 150, 350, 650)  # puestos de los Pokémon que salen en la ilustración de repeticiones
 PILLAR_KEYS = ("stats", "moves", "typedef", "size")
@@ -245,6 +247,13 @@ def render_ataques(c: Ctx, moves: list[dict], meta: dict) -> str:
                 L.t("ataques_desc", n=len(moves), game=legal.GAME_NAME), content, meta)
 
 
+def render_objetos(c: Ctx, meta: dict) -> str:
+    L = c.L
+    content = objetos.items_content(L, L.t("obj_h1"), L.t("obj_lede"), L.t("obj_phases_h"), L.t("obj_table_h"))
+    return page(c, "objetos", L.t("obj_title", site=legal.SITE_NAME),
+                L.t("obj_desc", game=legal.GAME_NAME), content, meta)
+
+
 GACHA_STARS = (5, 4, 4, 3, 3, 3, 2, 2, 1)  # estrellas de cada banner, del mejor al peor
 
 
@@ -409,6 +418,7 @@ def main() -> int:
 
         put("index.html", lambda c: render_index(c, index, meta))
         put("ataques.html", lambda c: render_ataques(c, moves, meta))
+        put("objetos.html", lambda c: render_objetos(c, meta))
         put("gachas.html", lambda c: render_gachas(c, gachas, index, meta))
         put("coleccion.html", lambda c: render_coleccion(c, meta))
         put("metodo.html", lambda c: render_metodo(c, index, full, meta))

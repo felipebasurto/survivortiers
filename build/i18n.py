@@ -19,6 +19,7 @@ STR: dict[str, tuple[str, str]] = {
     "nav_tiers": ("Tiers", "Tiers"),
     "nav_metodo": ("Método", "Method"),
     "nav_ataques": ("Ataques", "Moves"),
+    "nav_objetos": ("Objetos", "Items"),
     "nav_gachas": ("Gacha", "Gacha"),
     "nav_coleccion": ("Colección", "Collection"),
     "nav_acerca": ("Info", "About"),
@@ -111,6 +112,18 @@ STR: dict[str, tuple[str, str]] = {
     "mv_better": ("mejor", "better"),
     "mv_worse": ("peor", "worse"),
     "odds_title": ("Probabilidad por rareza", "Odds by rarity"),
+
+    # ------------------------------------------------------------ objetos
+    "obj_title": ("Objetos · {site}", "Items · {site}"),
+    "obj_desc": ("Tier list de los objetos de {game} por fase de la partida.",
+                 "Tier list of the {game} items by phase of the run."),
+    "obj_h1": ("Objetos", "Items"),
+    "obj_lede": ("Solo se lleva uno por partida: los cofres los sueltan y puedes cambiar el que tienes. Esta tier "
+                 "list sale del código del juego, no de partidas simuladas.",
+                 "You carry one per run: chests drop them and you can swap the one you have. This tier list comes from "
+                 "the game's code, not from simulated games."),
+    "obj_phases_h": ("Tier por fase", "Tier by phase"),
+    "obj_table_h": ("Qué hace cada objeto", "What each item does"),
 
     # ------------------------------------------------------------ gacha
     "gachas_title": ("Gacha · {site}", "Gacha · {site}"),
