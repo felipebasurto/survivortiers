@@ -1,0 +1,14 @@
+[package]
+name = "pokesim"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+libm = "0.2"
+rayon = "1"
+serde_json = { version = "1", features = ["float_roundtrip"] }
+
+[profile.release]
+codegen-units = 1
+lto = "fat"
+panic = "abort"
