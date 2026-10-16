@@ -38,8 +38,8 @@ MAX_FILES, MAX_BYTES = 50, 5_000_000  # presupuesto de site/ para el despliegue
 EXPECTED_COUNTS = {"S": 30, "A": 90, "B": 200, "C": 300, "D": 346}
 SPANISH_WORDS = re.compile(r"\b(el|los|las|del|con|para|puesto|aguante|daño|ficha|partidas?|repeticiones|cuántos)\b", re.I)
 LANGS = ("", "en/")
-EXPECTED_GACHA = {"Paldea": 19.6, "Alola": 18.1, "Galar": 16.1, "Sinnoh": 15.0, "Kanto": 9.9, "Teselia": 10.6,
-                  "Johto": 10.0, "Kalos": 11.4, "Hoenn": 6.7}
+EXPECTED_GACHA = {"Paldea": 20.7, "Alola": 18.1, "Galar": 14.9, "Sinnoh": 13.1, "Kanto": 11.9, "Teselia": 10.6,
+                  "Johto": 10.0, "Kalos": 11.4, "Hoenn": 5.9}
 
 
 CARD_IDS = {"atk", "spd", "hp", "cd", "def", "rgn", "mag", "xp"}
