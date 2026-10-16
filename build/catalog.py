@@ -24,6 +24,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import combos  # noqa: E402
 import credits as credits_mod  # noqa: E402
 import legal  # noqa: E402
+import objetos  # noqa: E402
 
 DATA = ROOT / "data"
 SPRITES = ROOT / "sprites"
@@ -329,14 +330,25 @@ def sort_values(e: dict) -> dict:
             "st": round(100 * pil["stats"])}
 
 
+def build_items() -> list[dict]:
+    """Objetos recomendados en la build (build/objetos.py), con el icono del juego en el mismo formato que los movimientos."""
+    out = []
+    for it in objetos.recommended():
+        icon = objetos.ICONS[it["id"]]
+        out.append({"id": it["id"], "name": it["name"][0], "en": {"name": it["name"][1]},
+                    "icon": {"size": icon["size"], "pal": icon["pal"], "rows": icon["rows"]}})
+    return out
+
+
 def species_details(entries: list[dict], sim_range: list[float], median: float, combo: dict) -> dict:
     """Lo que la ficha necesita además de pokemon-index.json, en listas para que pese poco. Orden de cada entrada:
     [pilares (stats, moves, typedef, size), puestos por medida (METHOD_KEYS), ataque inicial, segundos, mejor ataque,
     segundos, pareja de ataques, banderas (1 estado sin simular, 2 cuerpo a cuerpo, 4 estadísticas), estadísticas base
     oficiales [PS, ataque, defensa, ataque especial, defensa especial, velocidad], combo de cobertura [% super efectivo,
-    % no resistido, ids de los ataques y el potenciador, tipos de ataque distintos (1-3)] (build/combos.py)].
+    % no resistido, ids de los ataques y el potenciador, tipos de ataque distintos (1-3), ids de los ataques opcionales]
+    (build/combos.py)].
     Lo lee src/ficha.js.
-    «statMedian» es la mediana de cada estadística base entre los 966, para la línea de referencia de la ficha."""
+    «items» son los objetos de la build, iguales para todos. «statMedian» es la mediana de cada estadística base entre los 966, para la línea de referencia de la ficha."""
     out = {}
     for e in entries:
         r = e["r"]
@@ -346,9 +358,9 @@ def species_details(entries: list[dict], sim_range: list[float], median: float, 
             r["sim"]["start"]["id"], r["sim"]["start"]["seconds"], r["sim"]["best"]["id"], r["sim"]["best"]["seconds"],
             [m["id"] for m in r["pair"]], int(f["statusUnmodelled"]) + 2 * int(f["melee"]) + 4 * int(f["statsCapped"]) + 8 * int(f["typesCapped"]),
             e["stats"], [combo[e["dex"]]["super"], combo[e["dex"]]["neutral"], combo[e["dex"]]["moves"],
-                         combo[e["dex"]]["types"]]]
+                         combo[e["dex"]]["types"], combo[e["dex"]]["alts"]]]
     medians = [statistics.median(e["stats"][i] for e in entries) for i in range(6)]
-    return {"sim": [*sim_range, median], "statMedian": medians, "d": out}
+    return {"sim": [*sim_range, median], "statMedian": medians, "items": build_items(), "d": out}
 
 
 def write_json(name: str, obj, pretty: bool = False, public: bool = False) -> None:

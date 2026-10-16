@@ -105,6 +105,20 @@ ITEMS = [
     },
 ]
 
+TIER_POINTS = {"S": 3, "A": 2, "B": 1, "C": 0, "-": 0}
+# Cinta Elección te ata a un solo movimiento, y la build recomendada lleva tres ataques y un potenciador.
+NOT_FOR_BUILDS = {"choiceband"}
+
+
+def recommended(count: int = 3) -> list[dict]:
+    """Los objetos mejor puestos de la tier list de arriba sumando las tres fases (S 3, A 2, B 1, C 0), sin los que
+    chocan con una build de varios ataques. A igualdad, manda el orden de ITEMS. Es la misma lista para todos los
+    Pokémon: la tier list de objetos no distingue por especie."""
+    pool = [it for it in ITEMS if it["id"] not in NOT_FOR_BUILDS]
+    pool.sort(key=lambda it: -sum(TIER_POINTS[t] for t in it["tiers"]))
+    return pool[:count]
+
+
 EXCLUDED_NOTE = ("Moneda Amuleto no entra en la tier list: solo da más Pokémonedas al acabar la partida.",
                  "Amulet Coin is not in the tier list: it only gives more Pokécoins when a run ends.")
 
