@@ -103,3 +103,15 @@ for (const id of Object.values(G.Icons.RARITY_BALL)) {
 }
 fs.writeFileSync(OUT_BALLS, JSON.stringify(balls) + '\n', 'utf8');
 console.log(`poké balls: ${Object.keys(balls).length} → ${path.relative(process.cwd(), OUT_BALLS)}`);
+
+// Cartas de estadística (systems/levelup.js, LevelUp.STATS): id de la carta → dibujo de G.Icons.UI de su `icon`.
+const OUT_CARDS = path.join(__dirname, '..', 'data', 'card_icons.json');
+const lvSrc = fs.readFileSync(path.join(GAME, 'systems', 'levelup.js'), 'utf8');
+const cards = {};
+for (const m of lvSrc.matchAll(/\{ id: '(\w+)',\s*icon: '(\w+)', title: '([^']+)'/g)) {
+  if (!G.Icons.UI[m[2]]) throw new Error(`el juego no tiene icono ${m[2]} para la carta ${m[1]}`);
+  cards[m[1]] = { title: m[3], ...grid(m[2]) };
+}
+if (Object.keys(cards).length < 8) throw new Error('faltan cartas de LevelUp.STATS');
+fs.writeFileSync(OUT_CARDS, JSON.stringify(cards) + '\n', 'utf8');
+console.log(`iconos de carta: ${Object.keys(cards).length} → ${path.relative(process.cwd(), OUT_CARDS)}`);

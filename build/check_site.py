@@ -38,9 +38,11 @@ MAX_FILES, MAX_BYTES = 50, 5_000_000  # presupuesto de site/ para el despliegue
 EXPECTED_COUNTS = {"S": 30, "A": 90, "B": 200, "C": 300, "D": 346}
 SPANISH_WORDS = re.compile(r"\b(el|los|las|del|con|para|puesto|aguante|daño|ficha|partidas?|repeticiones|cuántos)\b", re.I)
 LANGS = ("", "en/")
-EXPECTED_GACHA = {"Paldea": 19.6, "Alola": 16.9, "Galar": 14.9, "Sinnoh": 15.0, "Kanto": 11.9, "Teselia": 10.6,
-                  "Johto": 11.0, "Kalos": 10.0, "Hoenn": 5.9}
+EXPECTED_GACHA = {"Paldea": 19.6, "Alola": 18.1, "Galar": 16.1, "Sinnoh": 14.0, "Kanto": 10.6, "Teselia": 10.6,
+                  "Johto": 10.0, "Kalos": 12.9, "Hoenn": 5.9}
 
+
+CARD_IDS = {"atk", "spd", "hp", "cd", "def", "rgn", "mag", "xp"}
 
 class Page(HTMLParser):
     def __init__(self) -> None:
@@ -313,16 +315,20 @@ def main() -> int:
     move_ids = {m["id"] for m in moves}
     for d in dexes:
         e = species.get(str(d))
-        ok = (isinstance(e, list) and len(e) == 10 and len(e[0]) == 4 and all(0 <= v <= 1 for v in e[0])
+        ok = (isinstance(e, list) and len(e) == 11 and len(e[0]) == 4 and all(0 <= v <= 1 for v in e[0])
               and len(e[1]) == 5 and all(isinstance(v, int) and 1 <= v <= 966 for v in e[1])
               and e[2] in move_ids and e[4] in move_ids and e[3] > 0 and e[5] > 0
               and all(m in move_ids for m in e[6]) and isinstance(e[7], int) and 0 <= e[7] <= 15
               and len(e[8]) == 6 and all(isinstance(v, int) and 1 <= v <= 255 for v in e[8])
-              # build: % super efectivo, % no resistido, 2-4 ids de movimientos, tipos y 0-3 opcionales (build/combos.py)
-              and len(e[9]) == 5 and all(isinstance(v, int) and 0 <= v <= 100 for v in e[9][:2])
+              # build: % super efectivo, % no resistido, 2-4 ids de movimientos, tipos, 0-3 opcionales y nº de
+              # potenciadores (build/combos.py)
+              and len(e[9]) == 6 and e[9][5] in (0, 1, 2) and all(isinstance(v, int) and 0 <= v <= 100 for v in e[9][:2])
               and 2 <= len(e[9][2]) <= 4 and all(m in move_ids for m in e[9][2]) and e[9][3] in (1, 2, 3)
               and len(e[9][4]) <= 3 and all(m in move_ids for m in e[9][4])
-              and not set(e[9][4]) & set(e[9][2]) and e[9][2][0] == e[4])
+              and not set(e[9][4]) & set(e[9][2]) and e[9][2][0] == e[4]
+              # cartas a priorizar (build/passives.py): 1-4 ids de carta y cuántas evolucionan un ataque
+              and len(e[10]) == 2 and 1 <= len(e[10][0]) <= 4 and all(c in CARD_IDS for c in e[10][0])
+              and 0 <= e[10][1] <= len(e[10][0]))
         if not ok:
             err(f"data/species.json: datos incompletos o raros para el Pokémon {d}")
 

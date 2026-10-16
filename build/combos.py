@@ -1,4 +1,4 @@
-"""Combo de cobertura por Pokémon: hasta tres ataques y un potenciador, que en el juego se lanzan juntos en un vínculo.
+"""Combo de cobertura por Pokémon: dos ataques y dos potenciadores, que en el juego se lanzan juntos en un vínculo.
 
 Qué mide, sobre los 966 Pokémon por igual:
   super    % de rivales a los que los ataques pegan super efectivo (×1,6 o más, con la tabla de tipos del juego)
@@ -14,7 +14,7 @@ Qué elige, de los ataques que ofrece el juego a ese Pokémon (POOL.normal + POO
      Cuando ya no queda cobertura por ganar, rellena con el de más daño que no sea normal (los normales solo entran
      si abren al menos un 2 % de rivales, salvo que el Pokémon no tenga otra cosa que ofrecer).
   3. Opcionales: se sigue con la misma regla tres ataques más (ALT_SLOTS), para los huecos que se abren más tarde.
-  4. Potenciador: el de mejor score_rel.
+  4. Potenciadores: Danza Dragón (o Danza Espada) y Fortaleza, el grupo fijo que mejor aguanta en la simulación.
 
 Datos: data/move_pool.json, data/move_mechanics.json, data/type_matrix.json (los exporta
 build/export_move_mechanics.js desde el juego) y data/move_tierlist_v4.csv.
@@ -46,8 +46,11 @@ def _mult(matrix: dict, atk: str, defender: list[str]) -> float:
     return matrix[atk][",".join(sorted(defender))]
 
 
-ATTACK_SLOTS = 3
+ATTACK_SLOTS = 2
 ALT_SLOTS = 3
+# Grupo fijo (simulator/, --group 2+2): dos ataques y dos potenciadores, uno de ataque y Fortaleza. En la simulación
+# aguanta más que tres ataques y uno (mediana 109 s frente a 95 s; 96 % de los Pokémon).
+BUFFS = ("dragon-dance", "swords-dance"), "harden"
 # Un ataque normal solo suma neutral, así que solo cuenta como «mejora la cobertura» si abre al menos este % de rivales.
 NORMAL_MIN_GAIN = 0.02
 
@@ -118,15 +121,20 @@ def compute_all(types_by_dex: dict[int, list[str]], best_move_by_dex: dict[int, 
         attacks = sorted(i for i in ids if mech[i]["kind"] != "buff")
         buffs = sorted(i for i in ids if mech[i]["kind"] == "buff")
         best = best_move_by_dex[dex]
+        if best not in attacks and best in rows:
+            # el ataque inicial propio de la especie (p. ej. Confusión de Psyduck) no está en POOL, pero lo lleva desde el inicio
+            attacks.append(best)
         if best not in attacks:
             raise ValueError(f"el mejor ataque de la simulación ({best}) no está entre los que aprende {dex}")
         ranked = pick_attacks(attacks, best, rows, mech, matrix, everyone, cache, ATTACK_SLOTS + ALT_SLOTS)
         trio, alts = ranked[:ATTACK_SLOTS], ranked[ATTACK_SLOTS:]
-        group = trio + ([max(buffs, key=boost)] if buffs else [])
+        atk_buff = next((b for b in BUFFS[0] if b in buffs), None)
+        boosts = [b for b in (atk_buff, BUFFS[1]) if b in buffs] or ([max(buffs, key=boost)] if buffs else [])
+        group = trio + boosts
         super_hits, neutral_hits = _coverage(matrix, [rows[i]["type"] for i in trio], everyone, cache)
         n = len(everyone)
         # types: tipos de ataque distintos (3 como máximo). Con menos de tres, el combo cubre menos rivales.
-        out[dex] = {"moves": group, "alts": alts, "types": len({rows[i]["type"] for i in trio}),
+        out[dex] = {"moves": group, "nBoost": len(boosts), "alts": alts, "types": len({rows[i]["type"] for i in trio}),
                     "super": round(100 * super_hits / n), "neutral": round(100 * neutral_hits / n)}
     return out
 

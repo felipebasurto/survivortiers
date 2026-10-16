@@ -28,6 +28,17 @@ node sim-rs/parity.js
 
 Options: `--seeds N` (200), `--seconds S` (900), `--bot repulse|line`, `--lvl1`, `--terrain` (real map, not JS-parity), `--status` (slow, burn and poison, not JS-parity).
 
+### Fixed main group (Rust only)
+
+`--group 2+2` or `--group 3+1` makes the bot play one fixed bonded group, as players do mid/late game: the starting
+attack plus 1 or 2 more attacks cast together on their own cooldowns (picked from `--partners <solo starter_sweep.csv>`,
+best solo median first, no orbits), and Swords Dance + Harden (2+2) or Swords Dance (3+1) held from t=0. Extra options:
+`--dd` (Dragon Dance instead of Swords Dance), `--agi` (Agility instead of Harden), `--item <id>` (choiceband, lifeorb,
+quickclaw, choicescarf, assaultvest, leftovers, luckyegg; items.js), `--fill a,b` (stat cards first, indices of
+`data::STATS`). `pokesim tasks <file>` runs lines `dex,move[+companion...],item,fill[,buffs]` (buffs: `sd;hd;dd;agi`).
+Default runs (no `--group`) are unchanged and still pass `parity.js`; the JS engine does not have this mode.
+Results used for the site are in `results/fixed_group/`.
+
 Any change to `sim/match.js` or `sim/rules.js` has to be mirrored in `sim-rs/src/engine.rs` and re-checked with `parity.js`.
 
 ## Credits

@@ -208,6 +208,8 @@ pub struct Data {
     pub tmult: Vec<Vec<f64>>,
     pub swords_dance: usize,
     pub harden: usize,
+    pub dragon_dance: usize,
+    pub agility: usize,
 }
 
 fn num(v: &Value, k: &str) -> f64 {
@@ -358,6 +360,8 @@ impl Data {
 
         let swords_dance = move_ix["swords-dance"];
         let harden = move_ix["harden"];
-        Data { moves, move_ix, dex, tiers, tmult, swords_dance, harden }
+        let dragon_dance = move_ix["dragon-dance"];
+        let agility = move_ix["agility"];
+        Data { moves, move_ix, dex, tiers, tmult, swords_dance, harden, dragon_dance, agility }
     }
 }

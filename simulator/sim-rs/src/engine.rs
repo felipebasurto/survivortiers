@@ -68,6 +68,45 @@ pub struct Opts {
     /// model slow, burn and poison with the game's values (see the consts above). Off by default:
     /// the default run is the JS-parity run, which ignores them.
     pub status: bool,
+    /// fixed main group (players' late-game setup): extra bonded attacks, buffs held from t=0, item
+    pub ext: Ext,
+}
+
+#[derive(Clone, Default)]
+pub struct Ext {
+    /// extra bonded attacks cast alongside the primary (each with its own cooldown)
+    pub companions: Vec<usize>,
+    /// bitmask of buffs held in the group from t=0: 1 = atk buff (Swords/Dragon Dance), 2 = Harden (or Agility);
+    /// 0 = old mode (SD/Harden only via cards)
+    pub buffs: u8,
+    /// use Dragon Dance instead of Swords Dance as the atk buff
+    pub dd: bool,
+    /// use Agility (speed) instead of Harden as the second buff
+    pub agi: bool,
+    /// held item (items.js): atk, spd, cd multipliers, flat reduction, regen frac/s, xp mult, life orb
+    pub item: Item,
+    /// card priority override for FILL stats (indices into Stat); empty = default
+    pub fill: Vec<u8>,
+}
+
+#[derive(Clone, Copy)]
+pub struct Item { pub atk: f64, pub spd: f64, pub cd: f64, pub red: f64, pub regen: f64, pub xp: f64, pub lifeorb: bool }
+impl Default for Item { fn default() -> Self { Item { atk: 1.0, spd: 1.0, cd: 1.0, red: 0.0, regen: 0.0, xp: 1.0, lifeorb: false } } }
+impl Item {
+    pub fn by_id(id: &str) -> Item {
+        let d = Item::default();
+        match id {
+            "none" => d,
+            "choiceband" => Item { atk: 1.4, ..d },
+            "lifeorb" => Item { atk: 1.3, lifeorb: true, ..d },
+            "quickclaw" => Item { cd: 0.8, ..d },
+            "choicescarf" => Item { spd: 1.35, ..d },
+            "assaultvest" => Item { red: 0.2, ..d },
+            "leftovers" => Item { regen: 0.015, ..d },
+            "luckyegg" => Item { xp: 1.3, ..d },
+            _ => panic!("item {id} not modelled"),
+        }
+    }
 }
 
 /// One trace sample: time, player x/y/hp, enemies, and both sides' shots.
@@ -315,6 +354,7 @@ enum Card {
     Evo,
     Sd,
     Hd,
+    Up2(u8),
     Stat(Stat),
 }
 
@@ -936,6 +976,10 @@ struct Match<'a, M: MathFns> {
     state: State,
     has_sd: bool,
     has_hd: bool,
+    atk_buff: usize,
+    def_buff: usize,
+    comps: Vec<(usize, usize, f64)>,
+    any_melee: bool,
     status_ignored: bool,
     pl: Player,
     enemies: Vec<Enemy>,
@@ -1023,23 +1067,29 @@ impl<'a, M: MathFns> Match<'a, M> {
         let mut atk_buff = 0.0;
         let mut def_buff = 0.0;
         if s.sd > 0 && s.sd_t > 0.0 {
-            atk_buff = s.sd_stacks * self.buff_level(self.data.swords_dance, s.sd).amount;
+            atk_buff = s.sd_stacks * self.buff_level(self.atk_buff, s.sd).amount;
         }
         if s.hd > 0 && s.hd_t > 0.0 {
-            def_buff = s.hd_stacks * self.buff_level(self.data.harden, s.hd).amount;
+            def_buff = s.hd_stacks * self.buff_level(self.def_buff, s.hd).amount;
         }
+        let mut spd_buff = 1.0;
+        if self.opts.ext.agi {
+            spd_buff = 1.0 + def_buff;
+            def_buff = 0.0;
+        }
+        let it = self.opts.ext.item;
         let mut spd = self.mon.spd * self.tables.spd[s.cards[Stat::Run as usize] as usize];
         if snow && !self.mon.types.contains(&T_ICE) {
             spd *= 0.9;
         }
         let st = &mut self.st;
         st.max_hp = self.mon.hp + 20.0 * s.cards[Stat::Hp as usize] as f64;
-        st.atk = self.mon.atk * self.tables.atk[s.cards[Stat::Pow as usize] as usize] * (1.0 + atk_buff);
-        st.spd = spd;
-        st.red = jmin(0.8, jmin(0.7, 0.06 * s.cards[Stat::Cor as usize] as f64) + def_buff);
-        st.cd_mul = self.tables.cd[s.cards[Stat::Cd as usize] as usize];
-        st.regen = 0.9 * s.cards[Stat::Rgn as usize] as f64;
-        st.melee = if mv.kind == Kind::Melee { 0.75 } else { 1.0 };
+        st.atk = self.mon.atk * self.tables.atk[s.cards[Stat::Pow as usize] as usize] * (1.0 + atk_buff) * it.atk;
+        st.spd = spd * it.spd * spd_buff;
+        st.red = jmin(0.8, jmin(0.7, 0.06 * s.cards[Stat::Cor as usize] as f64) + it.red + def_buff);
+        st.cd_mul = self.tables.cd[s.cards[Stat::Cd as usize] as usize] * it.cd;
+        st.regen = 0.9 * s.cards[Stat::Rgn as usize] as f64 + it.regen * st.max_hp;
+        st.melee = if mv.kind == Kind::Melee || self.any_melee { 0.75 } else { 1.0 };
         st.mv = mv;
     }
 
@@ -1082,6 +1132,11 @@ impl<'a, M: MathFns> Match<'a, M> {
                 _ => out.push(Card::Evo),
             }
         }
+        for (i, c) in self.comps.iter().enumerate() {
+            if c.1 < self.data.moves[c.0].max_lvl {
+                out.push(Card::Up2(i as u8));
+            }
+        }
         if self.has_sd && s.sd < 5 {
             out.push(Card::Sd);
         }
@@ -1121,6 +1176,24 @@ impl<'a, M: MathFns> Match<'a, M> {
                 return Card::Evo;
             }
         }
+        for i in 0..self.comps.len() {
+            if has(Card::Up2(i as u8)) {
+                return Card::Up2(i as u8);
+            }
+        }
+        if !self.opts.ext.fill.is_empty() {
+            for c in [Card::Sd, Card::Hd] {
+                if has(c) {
+                    return c;
+                }
+            }
+            for &k in &self.opts.ext.fill {
+                let c = Card::Stat(STATS[k as usize]);
+                if has(c) {
+                    return c;
+                }
+            }
+        }
         for c in FILL {
             if has(c) {
                 return c;
@@ -1136,6 +1209,7 @@ impl<'a, M: MathFns> Match<'a, M> {
             Card::Evo => s.evolved = true,
             Card::Sd => s.sd = (s.sd + 1).min(5),
             Card::Hd => s.hd = (s.hd + 1).min(5),
+            Card::Up2(i) => self.comps[i as usize].1 += 1,
             Card::Stat(st) => {
                 if s.cards[st as usize] < CAPS[st as usize] {
                     s.cards[st as usize] += 1;
@@ -1173,7 +1247,7 @@ impl<'a, M: MathFns> Match<'a, M> {
     }
 
     fn grant_xp(&mut self, amount: f64) {
-        self.xp += amount;
+        self.xp += amount * self.opts.ext.item.xp;
         while self.xp >= self.need {
             self.xp -= self.need;
             self.level += 1;
@@ -1200,8 +1274,35 @@ impl<'a, M: MathFns> Match<'a, M> {
 
     // ------------------------------------------------ attacking
 
+    fn life_orb(&mut self) {
+        if self.opts.ext.item.lifeorb {
+            self.pl.hp = jmax(1.0, self.pl.hp - jmax(1.0, self.st.max_hp * 0.01));
+        }
+    }
+
     fn cast(&mut self) {
         let mv = self.st.mv;
+        if mv.kind != Kind::Orbit {
+            self.life_orb();
+        }
+        self.cast_mv(mv);
+    }
+
+    fn cast_comps(&mut self) {
+        for i in 0..self.comps.len() {
+            self.comps[i].2 -= self.dt;
+            if self.comps[i].2 <= 0.0 {
+                let (id, lvl, _) = self.comps[i];
+                let m = &self.data.moves[id];
+                let mv = &m.levels[lvl.min(m.max_lvl) - 1];
+                self.comps[i].2 = mv.cd * self.st.cd_mul;
+                self.life_orb();
+                self.cast_mv(mv);
+            }
+        }
+    }
+
+    fn cast_mv(&mut self, mv: &'a MoveLvl) {
         if unmodelled(mv, self.opts.status) {
             self.status_ignored = true;
         }
@@ -1725,9 +1826,9 @@ impl<'a, M: MathFns> Match<'a, M> {
     fn tick_buffs(&mut self) {
         for which in 0..2 {
             let (id, lvl) = if which == 0 {
-                (self.data.swords_dance, self.state.sd)
+                (self.atk_buff, self.state.sd)
             } else {
-                (self.data.harden, self.state.hd)
+                (self.def_buff, self.state.hd)
             };
             if lvl == 0 {
                 continue;
@@ -1756,6 +1857,9 @@ impl<'a, M: MathFns> Match<'a, M> {
                 *time = inst.dur;
                 *cd = inst.cd * cd_mul;
                 self.stat_dirty = true;
+                if self.opts.ext.item.lifeorb {
+                    self.pl.hp = jmax(1.0, self.pl.hp - jmax(1.0, self.st.max_hp * 0.01));
+                }
             }
         }
     }
@@ -2216,9 +2320,13 @@ pub fn run_match<M: MathFns>(
         knock_fade,
         world,
         card_roll,
-        state: State { move_lvl: 1, ..State::default() },
-        has_sd: mon.pool.contains(&data.swords_dance),
-        has_hd: mon.pool.contains(&data.harden),
+        state: State { move_lvl: 1, sd: (opts.ext.buffs & 1) as usize, hd: ((opts.ext.buffs >> 1) & 1) as usize, ..State::default() },
+        has_sd: if opts.ext.buffs > 0 { opts.ext.buffs & 1 != 0 } else { mon.pool.contains(&data.swords_dance) },
+        has_hd: if opts.ext.buffs > 0 { opts.ext.buffs & 2 != 0 } else { mon.pool.contains(&data.harden) },
+        def_buff: if opts.ext.agi { data.agility } else { data.harden },
+        atk_buff: if opts.ext.dd { data.dragon_dance } else { data.swords_dance },
+        comps: opts.ext.companions.iter().map(|&c| (c, 1usize, 0.0)).collect(),
+        any_melee: opts.ext.companions.iter().any(|&c| data.moves[c].kind == Kind::Melee),
         status_ignored: move_has_status(start_move, opts.status),
         pl: Player { x: 0.0, y: 0.0, r: mon.r, hp: mon.hp, inv: 0.0, dirx: 1.0, diry: 0.0, react: 0.0, aim: 0.0 },
         enemies: Vec::with_capacity(72),
@@ -2330,6 +2438,9 @@ pub fn run_match<M: MathFns>(
         if m.atk_cd <= 0.0 {
             m.cast();
             m.atk_cd = m.st.mv.cd * m.st.cd_mul;
+        }
+        if !m.comps.is_empty() {
+            m.cast_comps();
         }
         m.step_shots();
         m.reap();

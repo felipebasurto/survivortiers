@@ -302,6 +302,7 @@ textarea {
 .bd-tile.sm .bd-ico { width: 40px; height: 40px; }
 .bd-tile.sm .bd-ico img { width: 32px; height: 32px; }
 .bd-tile.sm .bd-nm { font-size: .7rem; min-height: 2.3em; }
+.bd-tile.card.evo { box-shadow: 0 0 0 2px #ffd23f; }
 .bd-meters { display: grid; gap: 8px; margin-top: 20px; }
 .bd-meter { display: grid; grid-template-columns: minmax(0, 11rem) 1fr 3.4rem; align-items: center; gap: 12px; font: .78rem var(--pix); color: #a89fbd; }
 .bd-track { display: block; height: 8px; background: rgba(255, 255, 255, .1); overflow: hidden; }
