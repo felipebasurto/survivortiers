@@ -185,10 +185,12 @@ STR: dict[str, tuple[str, str]] = {
     "sim_median": ("mediana de todos: {s} s", "median of all: {s} s"),
     "sim_alt": ("Segundos simulados que aguanta un bot con un grupo fijo (mediana de 200 partidas): ",
                 "Simulated seconds a bot survives with one fixed group (median of 200 games): "),
-    "sim_lede": ("Un bot juega con un grupo fijo vinculado (el ataque, otro más, Danza Espada y Fortaleza), sin mejoras, jefes ni grietas, hasta 900 s. "
-                 "No es la defensa ni la vida del juego: es cuánto dura en la simulación.",
-                 "A bot plays one fixed bonded group (the move, one more attack, Swords Dance and Harden), with no upgrades, bosses or rifts, up to 900 s. "
-                 "It is not the game's defense or HP: it is how long it lasts in the simulation."),
+    "sim_lede": ("Un bot juega con un grupo fijo (el ataque inicial, otro más, Danza Espada y Fortaleza). "
+                 "Los vínculos llegan al ganar la grieta, no al empezar; hay jefes y orbes de curación, y se lanzan todos los tipos de ataque. "
+                 "Hasta 900 s, sin mejoras permanentes. Es una estimación: el bot no esquiva como una persona.",
+                 "A bot plays one fixed group (the starting move, one more attack, Swords Dance and Harden). "
+                 "Bonds arrive when a rift is won, not at the start; bosses and heal orbs are in, and every attack kind fires. "
+                 "Up to 900 s, with no permanent upgrades. It is an estimate: the bot does not dodge the way a person does."),
     "sim_scale": ("Escala: de {lo} s a {hi} s, lo que aguantan todos los Pokémon.",
                   "Scale: {lo} s to {hi} s, what all Pokémon last."),
     "sim_gain": ("Con el mejor ataque aguanta {d} s más que con el inicial.",
