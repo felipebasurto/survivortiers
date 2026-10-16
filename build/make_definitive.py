@@ -209,6 +209,7 @@ def main() -> None:
     if set(starts) != {int(r["dex"]) for r in base} or set(winners) != {int(r["dex"]) for r in base}:
         raise SystemExit("sim files do not cover the same 966 species as the ranking")
     sweep_moves = {(int(r["dex"]), r["start"]): r for r in sweep_rows}
+    ignored = {int(r["dex"]) for r in sweep_rows if r.get("status_ignored") == "1"}
     start_s, slo, shi, best_s, blo, bhi, same, best_move, best_text = sim_arrays(
         base, starts, winners, sweep_moves, args.use_stored_best
     )
@@ -260,6 +261,8 @@ def main() -> None:
             "phase_gap": str(int(late_point[i]) - int(early_point[i])),
             "stats_capped": "1" if flag_stats[dex] else "0",
             "types_capped": "1" if flag_types[dex] else "0",
+            # Any swept move the sim still refused to apply. With --status and extra kinds this is 0.
+            "status_unmodelled": "1" if dex in ignored else "0",
         })
         out_rows.append(out)
 
