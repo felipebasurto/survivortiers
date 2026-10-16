@@ -8,12 +8,22 @@ pub const TYPES: [&str; 18] = [
     "normal", "fire", "water", "electric", "grass", "ice", "fighting", "poison", "ground",
     "flying", "psychic", "bug", "rock", "ghost", "dragon", "dark", "steel", "fairy",
 ];
+pub const T_NORMAL: u8 = 0;
 pub const T_FIRE: u8 = 1;
 pub const T_WATER: u8 = 2;
+pub const T_ELECTRIC: u8 = 3;
+pub const T_GRASS: u8 = 4;
 pub const T_ICE: u8 = 5;
+pub const T_FIGHTING: u8 = 6;
+pub const T_POISON: u8 = 7;
 pub const T_GROUND: u8 = 8;
+pub const T_PSYCHIC: u8 = 10;
+pub const T_BUG: u8 = 11;
 pub const T_ROCK: u8 = 12;
+pub const T_GHOST: u8 = 13;
+pub const T_DRAGON: u8 = 14;
 pub const T_STEEL: u8 = 16;
+pub const T_FAIRY: u8 = 17;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Kind {
@@ -204,6 +214,10 @@ pub struct Mon {
     pub r: f64,
     pub start: usize,
     pub pool: Vec<usize>,
+    /// legendary or mythical (rift.js only spawns these in arenas)
+    pub leg: bool,
+    /// base stat total (enemies.js boss bands)
+    pub bst: f64,
 }
 
 pub struct Data {
@@ -339,6 +353,8 @@ impl Data {
                 r: num(p, "r"),
                 start: move_ix[p["start"].as_str().unwrap()],
                 pool: p["pool"].as_array().unwrap().iter().map(|x| move_ix[x.as_str().unwrap()]).collect(),
+                leg: p["leg"].as_bool().unwrap_or(false),
+                bst: num(p, "bst"),
             })
             .collect();
 

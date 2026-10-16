@@ -37,26 +37,37 @@ Swords Dance + Harden (2+2) or Swords Dance (3+1). Extra options: `--dd` (Dragon
 luckyegg; items.js), `--fill a,b` (stat cards first, indices of `data::STATS`). `pokesim tasks <file>` runs lines
 `dex,move[+companion...],item,fill[,buffs]` (buffs: `sd;hd;dd;agi`).
 
-Group mode also models, from the game source (`v3/js`):
+Group mode also models, from the game source (`js/` in JPTER78/pokesurvivor):
 
-- **Bond timing.** Members are not bonded at t=0. Only the starting attack fires until a rift legendary is beaten. Rifts
-  roll every 30 s from t=75 with chance 0.2·(1+misses), not while a boss is alive, open 380–560 px away and close after
-  45 s (systems/rift.js:20–60). The arena pauses the map; the legendary has 3200+9t HP and the arena lasts 120 s. Each
-  win bonds one more member (entities/player.js:233–270; the first win pairs the start move with the first partner,
-  max 4). Order: attacks, then the attack buff, then Harden/Agility. Buff cards for members not bonded yet are not offered.
-- **Bosses** (entities/enemies.js:45–49, BOSS_SLOTS): at 180/360/540/720/900 s, HP ×1.35 and damage ×1.2 from
-  rollRun, then ×(1+t/600). Spawns drop to ×0.25 and surges stop while one is alive (systems/spawner.js:113–137).
-- **Heal orbs.** A boss always drops one and any other kill does so 1.2 % of the time (systems/pickup.js:81,93). Each
-  heals 30 % of max HP (game.js:463–464). The bot is assumed to pick every one up. Springs (interact.js:59) and the
-  Baya Zidra card (levelup.js:29–30) are not modelled.
+- **Bond timing.** Members are not bonded at t=0. Only the starting attack fires until a rift legendary is beaten
+  (`pl.bonds++` in systems/rift.js:199, after the legendary dies). Rifts roll every 30 s from t=75 until t=1680
+  (Judgment.AT − 120, judgment.js:32) with chance 0.2·(1+misses). A check while a boss is alive does not count
+  (rift.js:47). The rift opens 380–560 px away, y·0.85, on a free tile, and lasts 45 s (rift.js:55–66). The bot walks
+  there in (distance − 30) / current speed — an estimate, it does not path. Entering stashes map enemies and clears
+  shots (rift.js begin, 112–120). The legendary uses spawnLegend's stats (rift.js:138–155): HP round(3200+9t), and the
+  arena lasts 120 s. Dying in the arena does not end the run; a loss revives at 30 % (player.js:387–389, rift.js:229).
+  Each win bonds one more member. The real game lets the player choose the fusion (player.js bondOptions); the sim
+  assumes attacks, then the attack buff, then Harden/Agility, at most 3 bonds (BOND_MAX is 4 including the start move).
+  Buff cards for members not bonded yet are not offered.
+- **Bosses** (data/enemies.js:44–50, rollRun 156–169, bossScale 184): at 180/360/540/720/900 s, a non-legendary in that
+  BST band, HP and damage ×1.35 and ×1.2 then ×(1+t/600). Behavior is ranged only when behaviorOf would say so, else
+  charger if base speed > 90, else chase. Spawns drop to ×0.25 and surges stop while one is alive (systems/spawner.js:114–137).
+  The boss still spawns at the cap (EnemyMgr.add does not check it).
+- **Heal orbs.** A boss or legendary always drops one (entities/pickup.js:81) and any other kill does so 1.2 % of the
+  time (entities/pickup.js:93). Each heals 30 % of max HP (game.js:496–497). The bot is assumed to pick every one up.
+  Springs and the Baya Zidra card (levelup.js, the instant 45 % heal) are not modelled.
 - **All move kinds** (`--xkinds`, on by default in group mode): cone, meteor, chain, aura (drain heal capped at 6),
-  dash, mine, trail and turret, following systems/combat.js. Without the flag these moves stay inert, as in the JS engine.
+  dash, mine, trail and turret, following systems/combat.js. Life Orb costs HP only on a cast that actually fires, and
+  never for orbit or trail (player.js:203). Without the flag these moves stay inert, as in the JS engine.
 
 `--legacy-group` restores the old behaviour (bonded from t=0, no rifts, bosses, heal orbs or extra kinds). Default runs
 (no `--group`) are unchanged and still pass `parity.js`; the JS engine does not have group mode.
 
-Known bias (estimate): the bot does not dodge like a player, so sustain (Synthesis `rgn`, Vigor `hp`) still comes out
-best first card for most species. build/passives.py keeps at most one of them in the Build card's card list.
+Known bias (estimates): the bot does not dodge, so sustain (Synthesis `rgn`, Vigor `hp`, Leftovers) still looks strong;
+build/passives.py keeps at most one of `rgn`/`hp` in the Build card. The rift walk is time-at-current-speed, not pathing.
+Boss and legendary hit radius ×2 stands in for sprite bossScale when the idle anchor is the default (enemy.js:15–22, sprites.js:127–130); huge sprites would be closer to ×1. Boss personalities other
+than ranged/charger/chase are collapsed. The arena is fought in open space at the map position (no Distortion World
+columns or arena weather). Judgment / Arceus (minute 30) is outside the 900 s sim.
 Results used for the site are in `results/fixed_group/`.
 
 Any change to `sim/match.js` or `sim/rules.js` has to be mirrored in `sim-rs/src/engine.rs` and re-checked with `parity.js`.

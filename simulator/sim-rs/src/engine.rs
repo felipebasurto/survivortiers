@@ -507,6 +507,8 @@ struct Enemy {
     poison_t: f64,
     poison_tick: f64,
     boss: bool,
+    /// rift legendary (rift.js spawnLegend). Also constructed with boss=true in the game.
+    legend: bool,
 }
 
 /// What one hit applies to an enemy: the move's slow, burn and poison values (applySlow,
@@ -984,6 +986,128 @@ struct Field<'a> {
 
 const BOSS_SLOTS: [(f64, f64, f64, f64); 5] =
     [(180.0, 1400.0, 34.0, 220.0), (360.0, 3200.0, 42.0, 420.0), (540.0, 5600.0, 48.0, 680.0), (720.0, 9000.0, 56.0, 1000.0), (900.0, 16000.0, 68.0, 1800.0)];
+/// enemies.js BOSS_SLOTS bst bands, inclusive. Fallback when a band is empty: bst >= 580 (rollRun).
+const BOSS_BST: [(f64, f64); 5] = [(490.0, 545.0), (520.0, 580.0), (540.0, 600.0), (580.0, 700.0), (600.0, 700.0)];
+/// enemies.js personality sets. Only the branches that return before 'ranged' matter for bosses.
+const HEAL_DEX: [u32; 14] = [35, 36, 113, 173, 183, 184, 242, 301, 440, 531, 594, 700, 764, 858];
+const SHIELD_DEX: [u32; 14] = [95, 122, 208, 213, 227, 306, 375, 410, 411, 436, 437, 439, 476, 703];
+const BOMB_DEX: [u32; 12] = [74, 75, 76, 100, 101, 102, 109, 110, 337, 338, 343, 344];
+const SUMMON_DEX: [u32; 32] = [
+    15, 18, 24, 28, 31, 34, 42, 51, 53, 57, 59, 62, 68, 73, 78, 82, 85, 91, 117, 130, 168, 169, 199, 230, 262, 334, 405, 416, 462, 466, 553, 637,
+];
+/// judgment.js AT = 30*60; rifts stop 120 s earlier (rift.js update).
+const RIFT_UNTIL: f64 = 1680.0;
+/// Arena player-to-legend gap: (3 + 3.5) tiles * 32 px (rift.js begin / spawnLegend, tiles.js T=16, sprites PX=2).
+const LEGEND_GAP: f64 = 208.0;
+/// enemy.js bossScale is 1–2 from the idle sprite height (default anchor → 2). The sim has no frame heights, so bosses
+/// and rift legendaries use ×2 on the species radius (sprites.js bodyRadius). Estimate; huge sprites would be closer to ×1.
+
+#[derive(Clone, Copy)]
+struct BossPick {
+    ix: usize,
+    beh: Beh,
+    hp: f64,
+    spd: f64,
+    dmg: f64,
+    xp: f64,
+    shot: f64,
+}
+
+fn dex_in(dex: u32, set: &[u32]) -> bool {
+    set.binary_search(&dex).is_ok()
+}
+
+fn has_ty(mon: &Mon, types: &[u8]) -> bool {
+    mon.types.iter().any(|t| types.contains(t))
+}
+
+/// enemies.js behaviorOf, only the question bosses ask: did it return 'ranged'?
+fn boss_is_ranged(mon: &Mon) -> bool {
+    let h = crate::terrain::js_hash(mon.dex as i32, 7, 11);
+    if dex_in(mon.dex, &HEAL_DEX) || dex_in(mon.dex, &SHIELD_DEX) || dex_in(mon.dex, &BOMB_DEX) || dex_in(mon.dex, &SUMMON_DEX) {
+        return false;
+    }
+    if has_ty(mon, &[T_BUG]) && (0.6..0.78).contains(&h) {
+        return false;
+    }
+    if has_ty(mon, &[T_ELECTRIC, T_PSYCHIC, T_DRAGON, T_ICE]) && h < 0.18 {
+        return false;
+    }
+    if has_ty(mon, &[T_FIRE, T_GROUND, T_POISON]) && h < 0.18 {
+        return false;
+    }
+    if has_ty(mon, &[T_WATER, T_GRASS, T_BUG, T_FAIRY]) && (0.18..0.32).contains(&h) {
+        return false;
+    }
+    if has_ty(mon, &[T_FIGHTING, T_GROUND, T_NORMAL, T_ROCK]) && (0.42..0.56).contains(&h) {
+        return false;
+    }
+    if has_ty(mon, &[T_PSYCHIC, T_ELECTRIC, T_GHOST, T_FAIRY]) && h < 0.4 {
+        return true;
+    }
+    has_ty(mon, &[T_FIRE, T_WATER, T_POISON, T_ICE]) && h < 0.22
+}
+
+fn base_spd(mon: &Mon) -> f64 {
+    (mon.spd - 78.0) / 0.42
+}
+
+#[allow(clippy::too_many_arguments)]
+fn special_enemy(
+    id: u32, dex: u16, x: f64, y: f64, r: f64, combo: u16, ty0: u8, xp: f64, beh: Beh, spd: f64, dmg: f64, hp: f64, shot_cd: f64, shot: f64, ai: Rng, def: Def, fly: bool, water: bool, fire: bool, boss: bool, legend: bool,
+) -> Enemy {
+    Enemy {
+        id,
+        dex,
+        x,
+        y,
+        r,
+        combo,
+        ty0,
+        xp,
+        beh,
+        spd,
+        dmg,
+        hp,
+        max: hp,
+        touch: 0.0,
+        kx: 0.0,
+        ky: 0.0,
+        phase: Phase::Walk,
+        pt: 0.0,
+        shot_cd,
+        skill: 0.0,
+        heal_cd: 0.0,
+        shield_cd: 0.0,
+        jump: None,
+        fuse: -1.0,
+        shield: 0.0,
+        shield_t: 0.0,
+        shot,
+        cx: 1.0,
+        cy: 0.0,
+        ai,
+        def,
+        fly,
+        water,
+        fire,
+        los: (f64::NEG_INFINITY, false),
+        side_t: 0.0,
+        side: 1.0,
+        stuck_t: 0.0,
+        lava_t: 0.0,
+        slow: 0.0,
+        slow_t: 0.0,
+        burn: 0.0,
+        burn_t: 0.0,
+        burn_tick: 0.0,
+        poison: 0.0,
+        poison_t: 0.0,
+        poison_tick: 0.0,
+        boss,
+        legend,
+    }
+}
 
 struct Match<'a, M: MathFns> {
     math: &'a M,
@@ -1010,7 +1134,20 @@ struct Match<'a, M: MathFns> {
     bond_order: Vec<u8>,
     rift_check: f64,
     rift_misses: f64,
-    rift_travel: f64,
+    /// seconds left on an open rift; -1 when none (rift.js TTL 45)
+    rift_ttl: f64,
+    /// seconds of walking left before the bot enters; -1 if the rift is out of reach
+    rift_walk: f64,
+    /// 0 map, 1 fight, 2 won (endT 5), 3 lost (endT 1.2)
+    arena_phase: u8,
+    arena_t: f64,
+    arena_end: f64,
+    arena_down: f64,
+    arena_back: (f64, f64),
+    arena_dex: u32,
+    stash: Vec<Enemy>,
+    beaten: Vec<u32>,
+    boss_picks: Vec<BossPick>,
     boss_idx: usize,
     patch_at: (f64, f64, f64),
     status_ignored: bool,
@@ -1299,10 +1436,13 @@ impl<'a, M: MathFns> Match<'a, M> {
             if self.enemies[i].hp > 0.0 {
                 continue;
             }
-            let gained = or(self.enemies[i].xp, 1.0) * 5.6;
-            // pickup.js drops: a boss always leaves a heal orb, any other enemy 1.2 % of the time; game.js:463 heals
-            // 30 % of max HP (the bot is assumed to pick it up).
-            if self.opts.ext.bosses && (self.enemies[i].boss || self.fx.next() < 0.012) {
+            // Wilds store pre-XP_K xp (spawner.js multiplies 5.6). Bosses and legendaries do not (spawnBoss / spawnLegend).
+            let raw = or(self.enemies[i].xp, 1.0);
+            let gained = if self.enemies[i].boss || self.enemies[i].legend { raw } else { raw * 5.6 };
+            // entities/pickup.js dropXp: a boss or legendary always leaves a heal orb (line 81), any other kill 1.2 %
+            // of the time (line 93). game.js onCollect (496–497) heals 30 % of max HP. The bot is assumed to pick it up.
+            let boss_drop = (self.opts.ext.bosses && self.enemies[i].boss) || (self.opts.ext.rift && self.enemies[i].legend);
+            if boss_drop || (self.opts.ext.bosses && self.fx.next() < 0.012) {
                 self.pl.hp = jmin(self.st.max_hp, self.pl.hp + self.st.max_hp * 0.3);
             }
             self.enemies.remove(i);
@@ -1321,10 +1461,17 @@ impl<'a, M: MathFns> Match<'a, M> {
 
     fn cast(&mut self) -> bool {
         let mv = self.st.mv;
-        if mv.kind != Kind::Orbit {
+        // player.js cast(): life orb skips orbit and trail, and only runs when combat.js actually calls pl.cast.
+        // A needsTarget miss never calls cast. Default (parity) kinds keep the previous order: life orb before the cast.
+        let extra = self.opts.ext.xkinds && mv.kind == Kind::Inert && mv.xk != 0;
+        if mv.kind != Kind::Orbit && !extra {
             self.life_orb();
         }
-        self.cast_mv(mv)
+        let ok = self.cast_mv(mv);
+        if extra && ok && mv.xk != 7 {
+            self.life_orb();
+        }
+        ok
     }
 
     fn bonded(&self, slot: u8) -> bool {
@@ -1342,9 +1489,14 @@ impl<'a, M: MathFns> Match<'a, M> {
                 let m = &self.data.moves[id];
                 let mv = &m.levels[lvl.min(m.max_lvl) - 1];
                 self.comps[i].2 = mv.cd * self.st.cd_mul;
-                self.life_orb();
+                let extra = self.opts.ext.xkinds && mv.kind == Kind::Inert && mv.xk != 0;
+                if !extra {
+                    self.life_orb();
+                }
                 if !self.cast_mv(mv) {
                     self.comps[i].2 = 0.05;
+                } else if extra && mv.xk != 7 {
+                    self.life_orb();
                 }
             }
         }
@@ -1494,7 +1646,8 @@ impl<'a, M: MathFns> Match<'a, M> {
         match mv.xk {
             // cone(): short fan of fast shots
             1 => {
-                if !self.any_within(px, py, mv.speed * mv.life + 30.0) {
+                // combat.js needsTarget: centre distance < speed*life+30 (projectile.js nearest), not radius + e.r
+                if !self.enemies.iter().any(|e| e.hp > 0.0 && len(e.x - px, e.y - py) < mv.speed * mv.life + 30.0) {
                     return false;
                 }
                 let n = count.max(2.0);
@@ -1510,11 +1663,12 @@ impl<'a, M: MathFns> Match<'a, M> {
             }
             // meteors(): fall 0.5 s later on random enemies within reach 340
             2 => {
-                let mut near: Vec<usize> =
-                    (0..self.enemies.len()).filter(|&i| { let e = &self.enemies[i]; e.hp > 0.0 && len(e.x - px, e.y - py) <= 340.0 + e.r }).collect();
-                if near.is_empty() {
+                // needsTarget is centre < 340; placement uses queryCircle(reach 340), which is centre <= 340 + e.r
+                if !self.enemies.iter().any(|e| e.hp > 0.0 && len(e.x - px, e.y - py) < 340.0) {
                     return false;
                 }
+                let mut near: Vec<usize> =
+                    (0..self.enemies.len()).filter(|&i| { let e = &self.enemies[i]; e.hp > 0.0 && len(e.x - px, e.y - py) <= 340.0 + e.r }).collect();
                 for i in (1..near.len()).rev() {
                     let j = (self.fx.next() * (i + 1) as f64) as usize;
                     near.swap(i, j);
@@ -1529,8 +1683,10 @@ impl<'a, M: MathFns> Match<'a, M> {
             }
             // chain(): jumps to the nearest unhit enemy within radius, 15 % less each jump; hex x mv.hex on a status
             3 => {
+                // chain() first hop: projectile.js nearest within reach 280 (centre). Later hops: centre < radius
+                // (the radius^2 filter), not queryCircle's radius + e.r.
                 let mut cur = match nearest(&self.enemies, px, py) {
-                    Some(i) if len(self.enemies[i].x - px, self.enemies[i].y - py) <= 280.0 + self.enemies[i].r => Some(i),
+                    Some(i) if len(self.enemies[i].x - px, self.enemies[i].y - py) < 280.0 => Some(i),
                     _ => return false,
                 };
                 let mut done: Vec<usize> = Vec::new();
@@ -1546,7 +1702,7 @@ impl<'a, M: MathFns> Match<'a, M> {
                     let mut best = None;
                     let mut bd = mv.radius * mv.radius;
                     for (j, o) in self.enemies.iter().enumerate() {
-                        if o.hp <= 0.0 || done.contains(&j) || len(o.x - cx, o.y - cy) > mv.radius + o.r {
+                        if o.hp <= 0.0 || done.contains(&j) {
                             continue;
                         }
                         let d = (o.x - cx) * (o.x - cx) + (o.y - cy) * (o.y - cy);
@@ -1575,7 +1731,7 @@ impl<'a, M: MathFns> Match<'a, M> {
             }
             // dash(): lunge along the aim (stopped by walls), 0.3 s invulnerable, hits along the path
             5 => {
-                if !self.any_within(px, py, mv.radius + 60.0) {
+                if !self.enemies.iter().any(|e| e.hp > 0.0 && len(e.x - px, e.y - py) < mv.radius + 60.0) {
                     return false;
                 }
                 let (ca, sa) = (aim.cos(), aim.sin());
@@ -1584,7 +1740,7 @@ impl<'a, M: MathFns> Match<'a, M> {
                 let pr = self.pl.r;
                 while d <= mv.radius {
                     if let Some(t) = &mut self.terrain {
-                        if !t.world.is_free(px + ca * d, py + sa * d, pr * 0.8) {
+                        if !t.world.is_free_ex(px + ca * d, py + sa * d, pr * 0.8, true) {
                             break;
                         }
                     }
@@ -1709,24 +1865,30 @@ impl<'a, M: MathFns> Match<'a, M> {
 
     // ------------------------------------------------ rifts and bosses (fixed-group mode)
 
-    /// rift.js update(): from t > 75 s a check every 30 s opens a rift with chance 0.2 x (1 + misses); a check with a
-    /// boss alive does not count. The rift opens 380-560 px away and lasts 45 s; the bot walks there at its speed and
-    /// wins the arena (map paused meanwhile: EnemyMgr.stash, so the arena takes no map time). Each win is one bond.
+    /// rift.js update(): from t > 75 and t < Judgment.AT-120 a check every 30 s opens a rift with chance
+    /// 0.2·(1+misses). A check with a boss alive resets the timer and does not count (rift.js:47). The rift lasts 45 s.
+    /// Entering (dist < 30 of rift.y-10) starts the arena; the bond is granted only when the legendary dies (rift.js:199).
     fn tick_rift(&mut self, boss_alive: bool) {
-        if !self.opts.ext.rift || self.bonds >= self.bond_order.len() {
+        if !self.opts.ext.rift || self.arena_phase != 0 {
             return;
         }
         let dt = self.dt;
-        if self.rift_travel >= 0.0 {
-            self.rift_travel -= dt;
-            if self.rift_travel < 0.0 {
-                self.bonds += 1;
-                self.rift_check = 30.0;
-                self.stat_dirty = true;
+        if self.rift_ttl >= 0.0 {
+            self.rift_ttl -= dt;
+            if self.rift_walk >= 0.0 {
+                self.rift_walk -= dt;
+                if self.rift_walk < 0.0 && self.rift_ttl > 0.0 {
+                    self.enter_arena();
+                    return;
+                }
+            }
+            if self.rift_ttl <= 0.0 {
+                self.rift_ttl = -1.0;
+                self.rift_walk = -1.0;
             }
             return;
         }
-        if self.t <= 75.0 {
+        if self.bonds >= self.bond_order.len() || self.t <= 75.0 || self.t >= RIFT_UNTIL {
             return;
         }
         self.rift_check -= dt;
@@ -1739,48 +1901,257 @@ impl<'a, M: MathFns> Match<'a, M> {
         }
         if self.fx.next() < 0.2 * (1.0 + self.rift_misses) {
             self.rift_misses = 0.0;
-            let d = 380.0 + self.fx.next() * 180.0;
-            let walk = d / self.st.spd;
-            if walk <= 45.0 {
-                self.rift_travel = walk;
-            }
+            self.open_rift();
         } else {
             self.rift_misses += 1.0;
         }
     }
 
-    /// spawner.js spawnBoss() with enemies.js BOSS_SLOTS / rollRun / bossScale: hp x1.35, dmg x1.2, both x(1 + t/600),
-    /// shots of 0.55 x slot damage every 1.1 s, range 260. The boss AI (slam, dash, leap, rain, beam, nova, volley) is
-    /// approximated by the sim's ranged / charger / chase behaviours.
+    /// rift.js open(): up to 24 placements, d in [380, 560], y scaled by 0.85, skipped when the tile isn't free.
+    /// Walk time is (distance to the entrance − 30) / current speed. The bot does not path; this is an estimate.
+    /// A rift farther than 45 s still occupies its TTL (checks stay frozen) but is not entered.
+    fn open_rift(&mut self) {
+        let (px, py) = (self.pl.x, self.pl.y);
+        for _ in 0..24 {
+            let a = self.fx.next() * 6.2832;
+            let d = 380.0 + self.fx.next() * 180.0;
+            let x = px + self.math.cos(a) * d;
+            let y = py + self.math.sin(a) * d * 0.85;
+            if let Some(t) = &mut self.terrain {
+                if !t.world.is_free(x, y, 22.0) {
+                    continue;
+                }
+            }
+            let dx = x - px;
+            let dy = (y - 10.0) - py;
+            let walk = (dx.hypot(dy) - 30.0).max(0.0) / self.st.spd.max(1.0);
+            if walk <= 45.0 {
+                self.rift_ttl = 45.0;
+                if walk <= 0.0 {
+                    self.enter_arena();
+                } else {
+                    self.rift_walk = walk;
+                }
+            } else {
+                self.rift_ttl = 45.0;
+                self.rift_walk = -1.0;
+            }
+            return;
+        }
+    }
+
+    /// rift.js begin(): stash map enemies, clear shots and fields, spawn the legendary ~208 px north.
+    /// Arena columns and weather are not modelled; the fight is in open space (legend ignores map walls).
+    fn enter_arena(&mut self) {
+        self.arena_back = (self.pl.x, self.pl.y);
+        self.arena_phase = 1;
+        self.arena_t = 0.0;
+        self.arena_end = 0.0;
+        self.arena_down = 0.0;
+        self.rift_ttl = -1.0;
+        self.rift_walk = -1.0;
+        self.stash = std::mem::take(&mut self.enemies);
+        self.shots.clear();
+        self.booms.clear();
+        self.orbs.clear();
+        self.fields.clear();
+        self.e_shots.clear();
+        self.hazards.clear();
+        self.spawn_legend();
+    }
+
+    fn spawn_legend(&mut self) {
+        let legs: Vec<usize> = self.data.dex.iter().enumerate().filter(|(_, m)| m.leg).map(|(i, _)| i).collect();
+        if legs.is_empty() {
+            return;
+        }
+        let weights: Vec<f64> = legs.iter().map(|&i| if self.beaten.contains(&self.data.dex[i].dex) { 1.0 } else { 4.0 }).collect();
+        let total: f64 = weights.iter().sum();
+        let mut r = self.fx.next() * total;
+        let mut mi = 0;
+        while mi + 1 < legs.len() {
+            r -= weights[mi];
+            if r <= 0.0 {
+                break;
+            }
+            mi += 1;
+        }
+        let t = self.t;
+        let (px, py) = (self.pl.x, self.pl.y);
+        let shot_cd = 0.3 + self.fx.next() * 0.6;
+        let ai = Rng::new((self.fx.next() * 4294967296.0) as u32);
+        let mon = &self.data.dex[legs[mi]];
+        let dex = mon.dex;
+        let combo = mon.combo;
+        let rad = mon.r * 2.0;
+        let spd_stat = mon.spd;
+        let ty0 = mon.types.first().copied().unwrap_or(T_NORMAL);
+        let water = mon.types.contains(&T_WATER);
+        let fire = mon.types.contains(&T_FIRE);
+        let ranged = has_ty(mon, &[T_PSYCHIC, T_ELECTRIC, T_GHOST, T_FAIRY, T_FIRE, T_WATER, T_ICE, T_DRAGON]);
+        let hp = js_round(3200.0 + t * 9.0);
+        let spd = js_round((48.0 + (spd_stat - 78.0) * 0.6).clamp(48.0, 105.0));
+        let dmg = js_round(36.0 + t / 20.0);
+        let shot = js_round(18.0 + t / 40.0);
+        let xp = js_round(500.0 + t * 1.2);
+        let beh = if ranged { Beh::Ranged } else { Beh::Charger };
+        let def = Def { beh, hp, spd, dmg, xp, shot_dmg: shot, shot_cd: 0.9, range: 300.0, zones: f64::NAN, fan_n: f64::NAN };
+        self.arena_dex = dex;
+        // Hit radius is species r ×2 (bossScale for a default idle anchor; enemy.js:15–22, sprites.js:127–130).
+        // The game sets flying=false so arena rocks block shots; here the fight is in open space, so the legend ignores map walls.
+        let e = special_enemy(self.seq, dex as u16, px, py - LEGEND_GAP, rad, combo, ty0, xp, beh, spd, dmg, hp, shot_cd, shot, ai, def, true, water, fire, true, true);
+        self.seq += 1;
+        self.enemies.push(e);
+    }
+
+    /// rift.js arenaTick / won / lost / finish. Map time keeps running. A death here does not end the run.
+    fn tick_arena(&mut self) {
+        let dt = self.dt;
+        if self.arena_phase == 1 {
+            self.arena_t += dt;
+            let legend_alive = self.enemies.iter().any(|e| e.legend && e.hp > 0.0);
+            if !legend_alive {
+                let dex = self.arena_dex;
+                if dex != 0 && !self.beaten.contains(&dex) {
+                    self.beaten.push(dex);
+                }
+                self.bonds += 1;
+                self.stat_dirty = true;
+                self.arena_phase = 2;
+                self.arena_end = 5.0;
+                return;
+            }
+            if self.pl.hp <= 0.0 {
+                self.arena_down += dt;
+            } else {
+                self.arena_down = 0.0;
+            }
+            if self.arena_down > 1.4 || self.arena_t > 120.0 {
+                self.arena_phase = 3;
+                self.arena_end = 1.2;
+            }
+            return;
+        }
+        self.arena_end -= dt;
+        if self.arena_end <= 0.0 {
+            self.finish_arena();
+        }
+    }
+
+    fn finish_arena(&mut self) {
+        self.stats();
+        self.enemies.clear();
+        self.shots.clear();
+        self.booms.clear();
+        self.orbs.clear();
+        self.fields.clear();
+        self.e_shots.clear();
+        self.hazards.clear();
+        self.enemies = std::mem::take(&mut self.stash);
+        self.pl.x = self.arena_back.0;
+        self.pl.y = self.arena_back.1;
+        if self.pl.hp <= 0.0 {
+            self.pl.hp = (self.st.max_hp * 0.3).max(1.0);
+            self.pl.inv = 2.0;
+        }
+        self.arena_phase = 0;
+    }
+
+    /// enemies.js rollRun bakes the five bosses at the start of the run: a non-legendary in the BST band
+    /// (fallback bst >= 580), unique per run. behavior is 'ranged' or charger/chase from base speed.
+    fn roll_bosses(&mut self) {
+        let mut used: Vec<u32> = Vec::new();
+        for i in 0..BOSS_SLOTS.len() {
+            let (lo, hi) = BOSS_BST[i];
+            let (_, hp, dmg, xp) = BOSS_SLOTS[i];
+            let mut pool: Vec<usize> = self
+                .data
+                .dex
+                .iter()
+                .enumerate()
+                .filter(|(_, m)| !m.leg && !used.contains(&m.dex) && m.bst >= lo && m.bst <= hi)
+                .map(|(ix, _)| ix)
+                .collect();
+            if pool.is_empty() {
+                pool = self
+                    .data
+                    .dex
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, m)| !m.leg && !used.contains(&m.dex) && m.bst >= 580.0)
+                    .map(|(ix, _)| ix)
+                    .collect();
+            }
+            if pool.is_empty() {
+                continue;
+            }
+            let k = ((self.fx.next() * pool.len() as f64).floor() as usize).min(pool.len() - 1);
+            let ix = pool[k];
+            let mon = &self.data.dex[ix];
+            used.push(mon.dex);
+            let bs = base_spd(mon);
+            let beh = if boss_is_ranged(mon) { Beh::Ranged } else if bs > 90.0 { Beh::Charger } else { Beh::Chase };
+            self.boss_picks.push(BossPick {
+                ix,
+                beh,
+                hp: js_round(hp * 1.35),
+                spd: js_round((40.0 + bs * 0.5).clamp(40.0, 100.0)),
+                dmg: js_round(dmg * 1.2),
+                xp,
+                shot: js_round(dmg * 0.55),
+            });
+        }
+    }
+
+    /// spawner.js spawnBoss + enemy.js constructor with bossScale. Ignores the spawn cap (EnemyMgr.add).
+    /// Personalities other than ranged/charger/chase are collapsed. Hit radius ×2 estimates bossScale for a default sprite.
     fn spawn_boss(&mut self) -> bool {
-        let before = self.enemies.len();
-        if before >= CAP {
-            self.enemies.remove(0);
-        }
-        let before = self.enemies.len();
-        self.roll_spawn(None);
-        if self.enemies.len() == before {
+        let Some(pick) = self.boss_picks.get(self.boss_idx).copied() else {
             return false;
+        };
+        // The game's EnemyMgr.add ignores the cap. The sim's collision tables hold 64, so a non-boss
+        // is dropped to make room (the boss still enters the fight).
+        if self.enemies.len() >= CAP {
+            let Some(i) = self.enemies.iter().position(|e| !e.boss) else {
+                return false;
+            };
+            self.enemies.remove(i);
         }
-        let (_, hp, dmg, xp) = BOSS_SLOTS[self.boss_idx];
         let sc = 1.0 + self.t / 600.0;
-        let roll = self.fx.next();
-        let e = self.enemies.last_mut().unwrap();
-        e.boss = true;
-        e.beh = if roll < 0.35 { Beh::Ranged } else if roll < 0.6 { Beh::Charger } else { Beh::Chase };
-        e.def.beh = e.beh;
-        e.hp = hp * 1.35 * sc;
-        e.max = e.hp;
-        e.dmg = dmg * 1.2 * sc;
-        e.def.dmg = e.dmg;
-        e.shot = dmg * 0.55 * sc;
-        e.def.shot_dmg = e.shot;
-        e.def.shot_cd = 1.1;
-        e.def.range = 260.0;
-        e.spd = 70.0;
-        e.xp = xp / 5.6;
-        e.r *= 1.6;
-        e.fly = true;
+        let aim = self.fx.next() * PI * 2.0;
+        let dd = OUTER + 10.0 + self.fx.next() * 60.0;
+        let (px, py) = (self.pl.x, self.pl.y);
+        let x = px + self.math.cos(aim) * dd;
+        let y = py + self.math.sin(aim) * dd * 0.9;
+        let hp = js_round(pick.hp * sc);
+        let dmg = pick.dmg * sc;
+        let shot = pick.shot * sc;
+        let shot_cd = 0.3 + self.fx.next() * (1.1 - 0.3);
+        let ai = Rng::new((self.fx.next() * 4294967296.0) as u32);
+        let mon = &self.data.dex[pick.ix];
+        let def = Def {
+            beh: pick.beh,
+            hp: pick.hp,
+            spd: pick.spd,
+            dmg: pick.dmg,
+            xp: pick.xp,
+            shot_dmg: pick.shot,
+            shot_cd: 1.1,
+            range: 260.0,
+            zones: f64::NAN,
+            fan_n: f64::NAN,
+        };
+        let water = mon.types.contains(&T_WATER);
+        let fire = mon.types.contains(&T_FIRE);
+        let ty0 = mon.types.first().copied().unwrap_or(T_NORMAL);
+        let dex = mon.dex as u16;
+        let rad = mon.r * 2.0;
+        let combo = mon.combo;
+        let e = special_enemy(
+            self.seq, dex, x, y, rad, combo, ty0, pick.xp, pick.beh, pick.spd, dmg, hp, shot_cd, shot, ai, def, true, water, fire, true, false,
+        );
+        self.seq += 1;
+        self.enemies.push(e);
         true
     }
 
@@ -1832,6 +2203,8 @@ impl<'a, M: MathFns> Match<'a, M> {
                 shots.remove(i);
                 continue;
             }
+            // Arena columns are not modelled; shots are not blocked by the map while the rift fight is on.
+            if self.arena_phase == 0 {
             if let Some(t) = terrain {
                 if let Some(b) = t.world.projectile_block(shot.x, shot.y, shot.r) {
                     if let Block::Prop { chunk, ix, destructible: true } = b {
@@ -1840,6 +2213,7 @@ impl<'a, M: MathFns> Match<'a, M> {
                     shots.remove(i);
                     continue;
                 }
+            }
             }
             let mut mask = soa.box_mask(lanes, enemies.len(), shot.x, shot.y, shot.r);
             while mask != 0 {
@@ -2141,6 +2515,7 @@ impl<'a, M: MathFns> Match<'a, M> {
             poison_t: 0.0,
             poison_tick: 0.0,
             boss: false,
+            legend: false,
         };
         self.seq += 1;
         e.shot = or(e.def.shot_dmg, 10.0) * (e.dmg / or(e.def.dmg, 1.0));
@@ -2718,7 +3093,17 @@ pub fn run_match<M: MathFns>(
         },
         rift_check: 30.0,
         rift_misses: 0.0,
-        rift_travel: -1.0,
+        rift_ttl: -1.0,
+        rift_walk: -1.0,
+        arena_phase: 0,
+        arena_t: 0.0,
+        arena_end: 0.0,
+        arena_down: 0.0,
+        arena_back: (0.0, 0.0),
+        arena_dex: 0,
+        stash: Vec::new(),
+        beaten: Vec::new(),
+        boss_picks: Vec::new(),
         boss_idx: 0,
         patch_at: (f64::NAN, f64::NAN, 9.0),
         status_ignored: move_has_status(start_move, opts.status),
@@ -2766,39 +3151,41 @@ pub fn run_match<M: MathFns>(
         lava_t: 0.0,
     };
     m.need = xp_for(math, 1);
+    if opts.ext.bosses {
+        m.roll_bosses();
+    }
 
-    while m.t < max_time && m.pl.hp > 0.0 {
+    while m.t < max_time && (m.pl.hp > 0.0 || m.arena_phase != 0) {
         let step = jmin(dt, max_time - m.t);
         m.t += step;
         m.tick_weather();
         m.stats();
-        if m.st.regen != 0.0 {
+        if m.pl.hp > 0.0 && m.st.regen != 0.0 {
             m.pl.hp = jmin(m.st.max_hp, m.pl.hp + m.st.regen * step);
         }
         if m.pl.inv > 0.0 {
             m.pl.inv -= step;
         }
         let mut boss_alive = false;
-        if opts.ext.bosses {
-            if m.boss_idx < BOSS_SLOTS.len() && m.t >= BOSS_SLOTS[m.boss_idx].0 && m.spawn_boss() {
-                m.boss_idx += 1;
+        if m.arena_phase == 0 {
+            if opts.ext.bosses {
+                if m.boss_idx < BOSS_SLOTS.len() && m.t >= BOSS_SLOTS[m.boss_idx].0 && m.spawn_boss() {
+                    m.boss_idx += 1;
+                }
+                boss_alive = m.enemies.iter().any(|e| e.boss && !e.legend && e.hp > 0.0);
             }
-            boss_alive = m.enemies.iter().any(|e| e.boss && e.hp > 0.0);
-            m.tick_rift(boss_alive);
-        } else if opts.ext.rift {
-            m.tick_rift(false);
+            m.acc += spawn_rate(math, m.t) * step * if boss_alive { 0.25 } else { 1.0 };
+            let mut n = m.acc.floor();
+            m.acc -= n;
+            while n > 0.0 {
+                n -= 1.0;
+                m.roll_spawn(None);
+            }
+            if !boss_alive {
+                m.surge -= step;
+            }
         }
-        m.acc += spawn_rate(math, m.t) * step * if boss_alive { 0.25 } else { 1.0 };
-        let mut n = m.acc.floor();
-        m.acc -= n;
-        while n > 0.0 {
-            n -= 1.0;
-            m.roll_spawn(None);
-        }
-        if !boss_alive {
-            m.surge -= step;
-        }
-        if m.surge <= 0.0 {
+        if m.arena_phase == 0 && m.surge <= 0.0 {
             m.surge = 38.0 + m.world.next() * 18.0;
             let base = m.world.next() * PI * 2.0;
             let want = js_round((14.0 + (m.t / 22.0).floor()) * 0.4) as i64;
@@ -2811,50 +3198,64 @@ pub fn run_match<M: MathFns>(
         if let Some(t) = &mut m.terrain {
             t.world.liquid = if m.biome == 2 { Liquid::Lava } else { Liquid::Water };
         }
-        m.decide();
-        let mut pspd = m.st.spd;
-        if let Some(t) = &mut m.terrain {
-            if t.world.is_liquid(m.pl.x, m.pl.y) {
-                match t.world.liquid {
-                    Liquid::Water => {
-                        if !mon.types.contains(&T_WATER) {
-                            pspd *= 0.6;
-                        }
-                    }
-                    Liquid::Lava => {
-                        if !mon.types.contains(&T_FIRE) {
-                            m.lava_t -= step;
-                            if m.lava_t <= 0.0 {
-                                m.lava_t = 0.5;
-                                m.pl.hp -= jmax(5.0, m.st.max_hp * 0.03);
+        // End phase of an arena (won/lost) waits out endT with the map paused. A dead player only
+        // reaches this loop while the arena is still going (rift.js: death there does not end the run).
+        if m.pl.hp > 0.0 && m.arena_phase < 2 {
+            m.decide();
+            let mut pspd = m.st.spd;
+            if m.arena_phase == 0 {
+                if let Some(t) = &mut m.terrain {
+                    if t.world.is_liquid(m.pl.x, m.pl.y) {
+                        match t.world.liquid {
+                            Liquid::Water => {
+                                if !mon.types.contains(&T_WATER) {
+                                    pspd *= 0.6;
+                                }
+                            }
+                            Liquid::Lava => {
+                                if !mon.types.contains(&T_FIRE) {
+                                    m.lava_t -= step;
+                                    if m.lava_t <= 0.0 {
+                                        m.lava_t = 0.5;
+                                        m.pl.hp -= jmax(5.0, m.st.max_hp * 0.03);
+                                    }
+                                }
                             }
                         }
                     }
                 }
             }
+            m.pl.x += m.pl.dirx * pspd * step;
+            m.pl.y += m.pl.diry * pspd * step;
+            if m.arena_phase == 0 {
+                if let Some(t) = &mut m.terrain {
+                    t.world.collide(&mut m.pl.x, &mut m.pl.y, m.pl.r);
+                }
+            }
+            m.tick_buffs();
+            m.stats();
+            m.atk_cd -= step;
+            if m.atk_cd <= 0.0 {
+                m.atk_cd = if m.cast() { m.st.mv.cd * m.st.cd_mul } else { 0.05 };
+            }
+            if !m.comps.is_empty() {
+                m.cast_comps();
+            }
+            if !m.fields.is_empty() {
+                m.step_fields();
+            }
+            m.step_shots();
+            m.reap();
+            m.stats();
+            m.step_enemies();
+            m.reap();
         }
-        m.pl.x += m.pl.dirx * pspd * step;
-        m.pl.y += m.pl.diry * pspd * step;
-        if let Some(t) = &mut m.terrain {
-            t.world.collide(&mut m.pl.x, &mut m.pl.y, m.pl.r);
+        if m.arena_phase != 0 {
+            m.tick_arena();
+        } else if opts.ext.rift {
+            let alive = opts.ext.bosses && m.enemies.iter().any(|e| e.boss && !e.legend && e.hp > 0.0);
+            m.tick_rift(alive);
         }
-        m.tick_buffs();
-        m.stats();
-        m.atk_cd -= step;
-        if m.atk_cd <= 0.0 {
-            m.atk_cd = if m.cast() { m.st.mv.cd * m.st.cd_mul } else { 0.05 };
-        }
-        if !m.comps.is_empty() {
-            m.cast_comps();
-        }
-        if !m.fields.is_empty() {
-            m.step_fields();
-        }
-        m.step_shots();
-        m.reap();
-        m.stats();
-        m.step_enemies();
-        m.reap();
         if opts.trace && (m.t / 0.25).floor() != ((m.t - step) / 0.25).floor() {
             let f = Frame {
                 t: m.t,

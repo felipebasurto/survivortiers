@@ -6,8 +6,8 @@
 2. Después, las de estadística por lo que aguantó el bot de grupo fijo (simulator/, --group 2+2) cuando esa carta iba
    primera (data/passive_sim.json, 40 partidas por orden; estimación).
 3. Como mucho una carta de aguante (Síntesis `rgn` o Vigor `hp`) entre las de estadística: el bot no esquiva como una
-   persona, así que la curación y la vida máxima salen sobrevaloradas en la sim aunque ya modela jefes y bayas de
-   curación (js/systems/pickup.js:81,93; js/game.js:463). La segunda baja al final.
+   persona, así que la curación y la vida máxima salen sobrevaloradas en la sim aunque ya modela jefes y orbes de
+   curación (js/entities/pickup.js:81,93; js/game.js:496). La segunda baja al final.
 """
 from __future__ import annotations
 
