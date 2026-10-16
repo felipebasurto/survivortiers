@@ -9,12 +9,14 @@ de tipo contra el rival × clima, y los ataques normales nunca son super efectiv
 
 Qué elige, de los ataques que ofrece el juego a ese Pokémon (POOL.normal + POOL de sus tipos):
   1. Hueco 1: el mejor ataque de la simulación (`best_move` de data/ranking_definitive.csv), siempre.
-  2. Huecos 2 y 3: el ataque que más cobertura añade (rivales nuevos en super efectivo y en no resistido). Si varios
-     empatan, el de más daño total, que cuenta todos los proyectiles de los ataques de varios disparos o de área.
-     Cuando ya no queda cobertura por ganar, rellena con el de más daño que no sea normal (los normales solo entran
-     si abren al menos un 2 % de rivales, salvo que el Pokémon no tenga otra cosa que ofrecer).
-  3. Opcionales: se sigue con la misma regla tres ataques más (ALT_SLOTS), para los huecos que se abren más tarde.
-  4. Potenciadores: Danza Dragón (o Danza Espada) y Fortaleza, el grupo fijo que mejor aguanta en la simulación.
+  2. Hueco 2: si hay un compañero de sinergia (Hex con quemadura, veneno o ralentización, en cualquier sentido,
+     o dos ataques dash), ese. Si hay varios, el de más daño. Si no hay, el de más cobertura.
+  3. El resto de huecos: el ataque que más cobertura añade (rivales nuevos en super efectivo y en no resistido). Si
+     varios empatan, el de más daño total, que cuenta todos los proyectiles de los ataques de varios disparos o de
+     área. Cuando ya no queda cobertura por ganar, rellena con el de más daño que no sea normal (los normales solo
+     entran si abren al menos un 2 % de rivales, salvo que el Pokémon no tenga otra cosa que ofrecer).
+  4. Opcionales: se sigue con la cobertura tres ataques más (ALT_SLOTS), para los huecos que se abren más tarde.
+  5. Potenciadores: Danza Dragón (o Danza Espada) y Fortaleza, el grupo fijo que mejor aguanta en la simulación.
 
 Datos: data/move_pool.json, data/move_mechanics.json, data/type_matrix.json (los exporta
 build/export_move_mechanics.js desde el juego) y data/move_tierlist_v4.csv.
@@ -76,11 +78,37 @@ def _coverage(matrix: dict, types: list[str], enemies: list[list[str]], cache: d
     return cache[key]
 
 
+def _synergy_flags() -> dict[str, tuple[bool, bool, bool]]:
+    """move id -> (hex > 1, applies burn/poison/slow, dash). Level 1 of v3, same fields the sim pairs on."""
+    raw = json.loads((DATA.parent / "simulator" / "v3" / "v3_data.json").read_text(encoding="utf8"))
+    out = {}
+    for mid, move in raw["moves"].items():
+        level = move["levels"][0]
+        status = any(float(level.get(k) or 0) > 0 for k in ("burn", "poison", "slow"))
+        out[mid] = (float(level.get("hex") or 0) > 1, status, move["kind"] == "dash")
+    return out
+
+
+def _pairs(a: str, b: str, flags: dict[str, tuple[bool, bool, bool]]) -> bool:
+    if a not in flags or b not in flags:
+        return False
+    ha, sa, da = flags[a]
+    hb, sb, db = flags[b]
+    return (ha and sb) or (hb and sa) or (da and db)
+
+
 def pick_attacks(candidates: list[str], best_move: str, rows: dict, mech: dict, matrix: dict,
-                 enemies: list[list[str]], cache: dict, slots: int = ATTACK_SLOTS) -> list[str]:
+                 enemies: list[list[str]], cache: dict, slots: int = ATTACK_SLOTS,
+                 flags: dict | None = None) -> list[str]:
     damage = {i: total_damage(rows[i], mech[i]) for i in candidates}
     chosen = [best_move]
     while len(chosen) < slots:
+        # The displayed second attack is the synergy partner when the pool has one. Later slots stay coverage.
+        if len(chosen) == 1 and flags:
+            syn = [i for i in candidates if i not in chosen and _pairs(best_move, i, flags)]
+            if syn:
+                chosen.append(max(syn, key=lambda i: damage[i]))
+                continue
         have = [rows[i]["type"] for i in chosen]
         base = _coverage(matrix, have, enemies, cache)
         scored = []
@@ -110,6 +138,7 @@ def compute_all(types_by_dex: dict[int, list[str]], best_move_by_dex: dict[int, 
     """Devuelve {dex: {"moves": [ids de los ataques + potenciador], "alts": [ids opcionales], "types", "super": %,
     "neutral": %}}."""
     pool, mech, matrix, rows = _load()
+    flags = _synergy_flags()
     boost = lambda mid: float(rows[mid]["score_rel"] or 0)
     everyone = list(types_by_dex.values())
     out: dict[int, dict] = {}
@@ -126,7 +155,7 @@ def compute_all(types_by_dex: dict[int, list[str]], best_move_by_dex: dict[int, 
             attacks.append(best)
         if best not in attacks:
             raise ValueError(f"el mejor ataque de la simulación ({best}) no está entre los que aprende {dex}")
-        ranked = pick_attacks(attacks, best, rows, mech, matrix, everyone, cache, ATTACK_SLOTS + ALT_SLOTS)
+        ranked = pick_attacks(attacks, best, rows, mech, matrix, everyone, cache, ATTACK_SLOTS + ALT_SLOTS, flags)
         trio, alts = ranked[:ATTACK_SLOTS], ranked[ATTACK_SLOTS:]
         atk_buff = next((b for b in BUFFS[0] if b in buffs), None)
         boosts = [b for b in (atk_buff, BUFFS[1]) if b in buffs] or ([max(buffs, key=boost)] if buffs else [])

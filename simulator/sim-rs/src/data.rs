@@ -103,6 +103,10 @@ pub struct MoveLvl {
     pub drain: f64,
     pub rate: f64,
     pub range: f64,
+    /// impulse on a non-boss (enemy.js hurt knock). NaN when the move has none.
+    pub knock: f64,
+    /// buff stat: 0 none, 1 atk, 2 spd, 3 def, 4 regen (moves.js aqua-ring).
+    pub buff: u8,
 }
 
 #[derive(Clone, Debug)]
@@ -194,6 +198,10 @@ pub struct Cand {
     pub fly: bool,
     pub water: bool,
     pub fire: bool,
+    /// weather.js sand safe types (rock, ground, steel): chip skips them
+    pub sand_safe: bool,
+    /// weather.js snow safe type (ice)
+    pub snow_safe: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -279,6 +287,14 @@ fn move_lvl(v: &Value) -> MoveLvl {
         drain: num(v, "drain"),
         rate: num(v, "rate"),
         range: num(v, "range"),
+        knock: num(v, "knock"),
+        buff: match v.get("stat").and_then(Value::as_str) {
+            Some("atk") => 1,
+            Some("spd") => 2,
+            Some("def") => 3,
+            Some("regen") => 4,
+            _ => 0,
+        },
     }
 }
 
@@ -370,6 +386,8 @@ impl Data {
                     .iter()
                     .map(|c| {
                         let d = &c["def"];
+                        let types = c["types"].as_array().unwrap();
+                        let has = |n: &str| types.iter().any(|t| t == n);
                         Cand {
                             def: Def {
                                 beh: Beh::parse(d["behavior"].as_str().unwrap()),
@@ -388,8 +406,10 @@ impl Data {
                             ty0: type_ix(c["types"][0].as_str().unwrap()),
                             r: num(c, "r"),
                             fly: c["fly"].as_bool().unwrap_or(false),
-                            water: c["types"].as_array().unwrap().iter().any(|t| t == "water"),
-                            fire: c["types"].as_array().unwrap().iter().any(|t| t == "fire"),
+                            water: has("water"),
+                            fire: has("fire"),
+                            sand_safe: has("rock") || has("ground") || has("steel"),
+                            snow_safe: has("ice"),
                         }
                     })
                     .collect(),

@@ -62,9 +62,9 @@ ITEMS = [
         "id": "lifeorb", "name": ("Vidasfera", "Life Orb"), "tiers": ("B", "C", "C"),
         "effect": ("+30 % de daño, pero cada ataque te quita un poco de vida.",
                    "+30% damage, but each attack costs you some HP."),
-        "reason": ("Cada ataque te cuesta el 1 % de tu vida máxima (no te mata, y las órbitas no cuentan). Con varios "
+        "reason": ("Cada ataque te cuesta el 1 % de tu vida máxima (no te mata, y las órbitas y el rastro no cuentan). Con varios "
                    "movimientos, esas pérdidas se acumulan.",
-                   "Each attack costs 1% of your max HP (it cannot kill you, and orbits do not count). With several "
+                   "Each attack costs 1% of your max HP (it cannot kill you, and orbits and trails do not count). With several "
                    "moves, those losses add up."),
     },
     {
@@ -80,9 +80,11 @@ ITEMS = [
         "effect": ("Los que te golpean cuerpo a cuerpo reciben daño.",
                    "Enemies that hit you in melee take damage."),
         "reason": ("Cuando un enemigo te toca, le devuelve 15 + 4 × tu nivel de daño. A nivel 30 son 135 de golpe; "
-                   "a nivel 100, 415. Solo cuenta contra los que te tocan.",
+                   "a nivel 100, 415. Solo cuenta contra los que te tocan. En la simulación de grupo fijo la mediana "
+                   "solo sube un 3 % (estimación): las partidas acaban antes de que ese daño escale.",
                    "When an enemy touches you, it takes 15 + 4 × your level in damage. At level 30 that is 135 per hit; "
-                   "at level 100, 415. Only counts against enemies that touch you."),
+                   "at level 100, 415. Only counts against enemies that touch you. In the fixed-group simulation the "
+                   "median only rises by 3% (estimate): runs end before that damage scales."),
     },
     {
         "id": "leftovers", "name": ("Restos", "Leftovers"), "tiers": ("C", "B", "B"),
@@ -94,20 +96,23 @@ ITEMS = [
                    "so that figure is a ceiling: in a real run it matters less. It scales with max HP."),
     },
     {
-        "id": "shellbell", "name": ("Cascabel Concha", "Shell Bell"), "tiers": ("C", "C", "C"),
+        "id": "shellbell", "name": ("Cascabel Concha", "Shell Bell"), "tiers": ("A", "B", "C"),
         "effect": ("Recuperas vida con el daño que haces.", "Heal from the damage you deal."),
-        "reason": ("Cura el 4 % del daño que haces, pero guarda como máximo 4 de vida pendiente a la vez. Con vida "
-                   "máxima alta, casi no cura.",
-                   "Heals 4% of the damage you deal, but holds at most 4 pending HP at a time. With high max HP, it "
-                   "barely heals."),
+        "reason": ("Cura el 4 % del daño que haces, con un tope de 4 de vida por segundo. En la simulación de grupo "
+                   "fijo (150 Pokémon, 100 partidas) sube la mediana un 36 % (estimación): al principio 4 de vida "
+                   "por segundo es mucho. Con vida máxima alta, el tope apenas cura.",
+                   "Heals 4% of the damage you deal, capped at 4 HP per second. In the fixed-group simulation "
+                   "(150 Pokémon, 100 runs) it raises the median by 36% (estimate): early on, 4 HP per second is a "
+                   "lot. With high max HP, the cap barely heals."),
     },
     {
         "id": "focussash", "name": ("Banda Focus", "Focus Sash"), "tiers": ("C", "B", "A"),
         "effect": ("Un golpe que te dejaría KO te deja con 1 de vida (cada 60 s).",
                    "A hit that would KO you leaves you at 1 HP (once every 60 s)."),
-        "reason": ("Lista desde el primer segundo. En la partida tardía, con enemigos que pegan fuerte, cada golpe "
-                   "salvado decide más partidas.",
-                   "Ready from the first second. Late game, with hard-hitting enemies, each saved hit decides more runs."),
+        "reason": ("Lista desde el primer segundo. En la simulación de grupo fijo sube la mediana un 6 % (estimación). "
+                   "En la partida tardía, con enemigos que pegan fuerte, cada golpe salvado decide más partidas.",
+                   "Ready from the first second. In the fixed-group simulation it raises the median by 6% (estimate). "
+                   "Late game, with hard-hitting enemies, each saved hit decides more runs."),
     },
 ]
 

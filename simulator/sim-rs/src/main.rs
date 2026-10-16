@@ -30,7 +30,7 @@ mod rng;
 mod stats;
 mod terrain;
 
-use data::{Data, Mon};
+use data::{Data, Kind, Mon};
 use engine::{run_match, take_trace, Bot, Ext, Item, Opts, RunResult, Tables, DT};
 use std::sync::OnceLock;
 
@@ -61,11 +61,15 @@ struct Cfg {
     fill: Vec<u8>,
     buffs: Option<u8>,
     comps: Option<Vec<String>>,
+    /// second slot: swap when the active cooldown is above 35% of its base (player.js:148)
+    swap: bool,
+    /// crit perk levels (upgrades.js). Chance is levels * 0.03. Published ranks pass 0.
+    crit: f64,
     rest: Vec<String>,
 }
 
 fn parse(args: &[String]) -> Cfg {
-    let mut c = Cfg { seeds: 200, seconds: 900.0, bot: Bot::Repulse, cards: true, terrain: false, status: false, out: None, group: 0, dd: false, agi: false, xkinds: false, legacy: false, item: "none".into(), fill: vec![], buffs: None, comps: None, rest: vec![] };
+    let mut c = Cfg { seeds: 200, seconds: 900.0, bot: Bot::Repulse, cards: true, terrain: false, status: false, out: None, group: 0, dd: false, agi: false, xkinds: false, legacy: false, item: "none".into(), fill: vec![], buffs: None, comps: None, swap: false, crit: 0.0, rest: vec![] };
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
@@ -99,6 +103,11 @@ fn parse(args: &[String]) -> Cfg {
             "--dd" => c.dd = true,
             "--agi" => c.agi = true,
             "--xkinds" => c.xkinds = true,
+            "--swap" => c.swap = true,
+            "--crit" => {
+                i += 1;
+                c.crit = args[i].parse::<f64>().expect("--crit") * 0.03;
+            }
             "--legacy-group" => c.legacy = true,
             "--buffs" => {
                 i += 1;
@@ -144,32 +153,81 @@ fn read_partners(path: &str) -> HashMap<u32, Vec<String>> {
     m
 }
 
-/// The fixed main group for this primary: the next best (old-mode) attacks of the pool, then buffs.
+/// Hex (moves.js chain, hex > 1) wants a partner that burns, poisons or slows, either way.
+/// Two dashes also pair (combat.js dash invuln). Solo order is kept inside each group.
+fn pairs_with(data: &Data, a: usize, b: usize) -> bool {
+    let la = &data.moves[a].levels[0];
+    let lb = &data.moves[b].levels[0];
+    let statusy = |burn: f64, poison: f64, slow: f64| {
+        (burn.is_finite() && burn > 0.0) || (poison.is_finite() && poison > 0.0) || (slow.is_finite() && slow > 0.0)
+    };
+    let hex = |h: f64| h.is_finite() && h > 1.0;
+    (hex(la.hex) && statusy(lb.burn, lb.poison, lb.slow))
+        || (hex(lb.hex) && statusy(la.burn, la.poison, la.slow))
+        || (la.xk == 5 && lb.xk == 5)
+}
+
+/// Attacks the group can actually cast. Orbit stays out (a shared orb list). Buffs are the other slots.
+/// Extra kinds count, so Hex and Flamethrower are eligible even when the old solo sweep skipped them.
+fn partner_pool(data: &Data, mon: &Mon, start: usize) -> Vec<usize> {
+    let solo: Vec<usize> = PARTNERS
+        .get()
+        .and_then(|p| p.get(&mon.dex))
+        .map(|list| list.iter().filter_map(|id| data.move_ix.get(id.as_str()).copied()).collect())
+        .unwrap_or_default();
+    let mut ids: Vec<usize> = mon
+        .pool
+        .iter()
+        .copied()
+        .filter(|&ix| {
+            if ix == start {
+                return false;
+            }
+            let m = &data.moves[ix];
+            if m.kind == Kind::Orbit {
+                return false;
+            }
+            m.kind.simulated() || m.levels[0].xk != 0
+        })
+        .collect();
+    ids.sort_by(|&a, &b| {
+        let syn = |ix| if pairs_with(data, start, ix) { 0u8 } else { 1 };
+        let rank = |ix| solo.iter().position(|&p| p == ix).unwrap_or(10_000);
+        syn(a).cmp(&syn(b)).then(rank(a).cmp(&rank(b))).then(data.moves[a].id.cmp(&data.moves[b].id))
+    });
+    ids
+}
+
+/// The fixed main group for this primary: a synergistic partner first, then the next best solo attacks.
 fn ext_for(data: &Data, mon: &Mon, start: usize, cfg: &Cfg) -> Ext {
-    let mut companions = Vec::new();
-    if let Some(list) = &cfg.comps {
-        companions = list.iter().map(|id| data.move_ix[id.as_str()]).collect();
+    let pool = partner_pool(data, mon, start);
+    let companions = if let Some(list) = &cfg.comps {
+        list.iter().map(|id| data.move_ix[id.as_str()]).collect()
     } else if cfg.group >= 2 {
         let want = (cfg.group - 1) as usize;
-        if let Some(list) = PARTNERS.get().and_then(|p| p.get(&mon.dex)) {
-            for id in list {
-                let ix = data.move_ix[id.as_str()];
-                if ix != start && companions.len() < want {
-                    companions.push(ix);
-                }
-            }
-        }
-    }
+        pool.iter().copied().take(want).collect()
+    } else {
+        Vec::new()
+    };
+    let item = Item::by_id(&cfg.item);
+    // Slot 1 is the next leftover attack at level 1. Choice Band (player.js:141) cannot swap.
+    let alt = if cfg.swap && !item.lock {
+        pool.iter().copied().find(|&ix| !companions.contains(&ix))
+    } else {
+        None
+    };
     Ext {
         companions,
         buffs: cfg.buffs.unwrap_or(match cfg.group { 2 => 3, 3 => 1, _ => 0 }),
         dd: cfg.dd,
         agi: cfg.agi,
-        item: Item::by_id(&cfg.item),
+        item,
         fill: cfg.fill.clone(),
         xkinds: cfg.xkinds || (cfg.group > 0 && !cfg.legacy),
         rift: cfg.group > 0 && !cfg.legacy,
         bosses: cfg.group > 0 && !cfg.legacy,
+        alt,
+        crit: cfg.crit,
     }
 }
 
@@ -394,7 +452,7 @@ fn tasks_cmd(data: &Data, cfg: &Cfg) {
 }
 
 fn cfg_clone(c: &Cfg) -> Box<Cfg> {
-    Box::new(Cfg { seeds: c.seeds, seconds: c.seconds, bot: c.bot, cards: c.cards, terrain: c.terrain, status: c.status, out: None, group: c.group, dd: c.dd, agi: c.agi, xkinds: c.xkinds, legacy: c.legacy, item: c.item.clone(), fill: c.fill.clone(), buffs: c.buffs, comps: c.comps.clone(), rest: vec![] })
+    Box::new(Cfg { seeds: c.seeds, seconds: c.seconds, bot: c.bot, cards: c.cards, terrain: c.terrain, status: c.status, out: None, group: c.group, dd: c.dd, agi: c.agi, xkinds: c.xkinds, legacy: c.legacy, item: c.item.clone(), fill: c.fill.clone(), buffs: c.buffs, comps: c.comps.clone(), swap: c.swap, crit: c.crit, rest: vec![] })
 }
 
 fn rank(data: &Data, cfg: &Cfg) {
@@ -408,6 +466,7 @@ fn rank(data: &Data, cfg: &Cfg) {
             .then(a.mon.dex.cmp(&b.mon.dex))
     });
     let note = if cfg.status { ", ralentización, quemadura y veneno modelados" } else { "" };
+    let note = if cfg.swap { format!("{note}, cambio de hueco al 35% de la recarga") } else { note.to_string() };
     let mut text = format!(
         "# step={} seeds=1-{} seconds={} bot={} sin mejoras permanentes, {}, controlador compartido{}\n\
          dex,name,n,median_s,mean_s,boot_lo,boot_hi,p10_s,p90_s,median_kills,median_lvl,n_cap,mean_hp_frac,status_ignored\n",

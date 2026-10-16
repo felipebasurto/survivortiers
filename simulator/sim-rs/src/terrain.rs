@@ -266,6 +266,17 @@ impl World {
         self.prop_ref(tx, ty).map(|(c, ix)| self.chunks[c as usize].base.props[ix as usize])
     }
 
+    /// An altar on this tile (world.js placeProps: r=9, hp inf, hs<0.0004). Kind is
+    /// floor(hash(tx, ty, seed+910)*4) (world.js:154): 0 Furia, 1 Rayo, 2 Imán, 3 Prisa.
+    pub fn altar_at(&mut self, tx: i32, ty: i32) -> Option<(f64, f64, f64, u8)> {
+        let prop = self.solid_prop(tx, ty)?;
+        if prop.r != 9.0 || !prop.hp.is_infinite() {
+            return None;
+        }
+        let kind = (hash(tx, ty, self.seed.wrapping_add(910)) * 4.0).floor() as u8;
+        Some((prop.x, prop.y, prop.r, kind))
+    }
+
     pub fn is_liquid(&mut self, x: f64, y: f64) -> bool {
         self.terrain_at(tile_of(x), tile_of(y)) == LIQUID
     }

@@ -4,7 +4,8 @@
 use crate::data::*;
 use crate::math::MathFns;
 use crate::rng::Rng;
-use crate::terrain::{steer, Block, Liquid, Path, World, PATH_EVERY};
+use crate::terrain::{steer, tile_of, Block, Liquid, Path, World, PATH_EVERY};
+use std::cell::RefCell;
 use std::f64::consts::PI;
 
 pub const DT: f64 = 1.0 / 20.0;
@@ -93,23 +94,62 @@ pub struct Ext {
     pub rift: bool,
     /// the five bosses of enemies.js BOSS_SLOTS (spawner.js), with waves at 25 % and no surges while one is alive
     pub bosses: bool,
+    /// second slot for the swap bot (player.js setActive). None keeps the fixed group.
+    pub alt: Option<usize>,
+    /// crit chance from the permanent perk (upgrades.js crit, 0.03 per level). 0 in published ranks.
+    pub crit: f64,
 }
 
 #[derive(Clone, Copy)]
-pub struct Item { pub atk: f64, pub spd: f64, pub cd: f64, pub red: f64, pub regen: f64, pub xp: f64, pub lifeorb: bool }
-impl Default for Item { fn default() -> Self { Item { atk: 1.0, spd: 1.0, cd: 1.0, red: 0.0, regen: 0.0, xp: 1.0, lifeorb: false } } }
+pub struct Item {
+    pub atk: f64,
+    pub spd: f64,
+    pub cd: f64,
+    pub red: f64,
+    pub regen: f64,
+    pub xp: f64,
+    pub lifeorb: bool,
+    /// choiceband: setActive returns without switching (player.js:141)
+    pub lock: bool,
+    /// focussash (player.js:248)
+    pub sash: bool,
+    /// shellbell (player.js:295)
+    pub bell: bool,
+    /// rockyhelmet (combat.js:668)
+    pub helmet: bool,
+}
+impl Default for Item {
+    fn default() -> Self {
+        Item {
+            atk: 1.0,
+            spd: 1.0,
+            cd: 1.0,
+            red: 0.0,
+            regen: 0.0,
+            xp: 1.0,
+            lifeorb: false,
+            lock: false,
+            sash: false,
+            bell: false,
+            helmet: false,
+        }
+    }
+}
 impl Item {
     pub fn by_id(id: &str) -> Item {
         let d = Item::default();
         match id {
             "none" => d,
-            "choiceband" => Item { atk: 1.4, ..d },
+            "choiceband" => Item { atk: 1.4, lock: true, ..d },
             "lifeorb" => Item { atk: 1.3, lifeorb: true, ..d },
             "quickclaw" => Item { cd: 0.8, ..d },
             "choicescarf" => Item { spd: 1.35, ..d },
             "assaultvest" => Item { red: 0.2, ..d },
             "leftovers" => Item { regen: 0.015, ..d },
             "luckyegg" => Item { xp: 1.3, ..d },
+            "shellbell" => Item { bell: true, ..d },
+            "rockyhelmet" => Item { helmet: true, ..d },
+            "focussash" => Item { sash: true, ..d },
             _ => panic!("item {id} not modelled"),
         }
     }
@@ -361,6 +401,7 @@ enum Card {
     Sd,
     Hd,
     Up2(u8),
+    Evo2(u8),
     Stat(Stat),
 }
 
@@ -493,6 +534,8 @@ struct Enemy {
     fly: bool,
     water: bool,
     fire: bool,
+    sand_safe: bool,
+    snow_safe: bool,
     los: (f64, bool),
     side_t: f64,
     side: f64,
@@ -535,6 +578,7 @@ struct Shot {
     ty: u8,
     homing: f64,
     st: Status,
+    knock: f64,
 }
 
 struct Boom {
@@ -552,11 +596,14 @@ struct Boom {
     atk: f64,
     ty: u8,
     st: Status,
+    knock: f64,
 }
 
 struct Orb {
     angle: f64,
     inside: Vec<u32>,
+    /// enemy id, last hit time (combat.js orbit rehit). Unused on the parity path.
+    log: Vec<(u32, f64)>,
 }
 
 struct EShot {
@@ -672,6 +719,79 @@ fn hurt_dot(e: &mut Enemy, amount: f64) {
         }
     }
     e.hp -= left;
+}
+
+/// Enemy.hurt (enemy.js:100) once the ranking path is on: round, min 1, shield first, knock only if the
+/// shield did not absorb the whole hit and the enemy is not a boss. Returns the pre-round amount for Shell Bell.
+fn raw_hurt(e: &mut Enemy, amount: f64, knock: f64, dx: f64, dy: f64) {
+    let d = jmax(1.0, js_round(amount));
+    if e.shield > 0.0 {
+        let a = jmin(e.shield, d);
+        e.shield -= a;
+        if a >= d {
+            return;
+        }
+        e.hp -= jmax(1.0, js_round(d - a));
+    } else {
+        e.hp -= d;
+    }
+    if knock > 0.0 && !e.boss {
+        let n = len(dx, dy);
+        if n > 1e-6 {
+            e.kx += dx / n * knock;
+            e.ky += dy / n * knock;
+        }
+    }
+}
+
+/// Direct hit. The parity path calls `strike` and returns 0. The ranking path (status or extra kinds) rounds,
+/// knocks and may crit (combat.js hit / projectile, upgrades.js crit). Crit uses its own rng so the fx stream stays put.
+fn hit_one(
+    faithful: bool,
+    e: &mut Enemy,
+    dmg: f64,
+    atk: f64,
+    ty: u8,
+    tm: &[Vec<f64>],
+    w: &Option<Weather>,
+    st: Status,
+    knock: f64,
+    dx: f64,
+    dy: f64,
+    crit_chance: f64,
+    crit_rng: &mut Rng,
+) -> f64 {
+    if !faithful {
+        strike(e, dmg, atk, ty, tm, w, st);
+        return 0.0;
+    }
+    if e.hp <= 0.0 {
+        return 0.0;
+    }
+    if st.slow > 0.0 {
+        e.slow = e.slow.max(st.slow);
+        e.slow_t = e.slow_t.max(SLOW_SECS);
+    }
+    if st.burn > 0.0 {
+        e.burn = jmin(BURN_MAX, e.burn + st.burn);
+        e.burn_t = BURN_SECS;
+    }
+    if st.poison > 0.0 {
+        e.poison = jmin(POISON_MAX, e.poison + st.poison);
+        e.poison_t = POISON_SECS;
+    }
+    let mut amount = dmg * atk * type_mult(tm, ty, e.combo) * weather_factor(w, ty);
+    if crit_chance > 0.0 && crit_rng.next() < crit_chance {
+        amount *= 1.5;
+    }
+    raw_hurt(e, amount, knock, dx, dy);
+    amount
+}
+
+fn note_bell(bell: &mut f64, on: bool, dealt: f64) {
+    if dealt > 0.0 && on {
+        *bell = jmin(4.0, *bell + dealt * 0.04);
+    }
 }
 
 fn heal_fraction<M: MathFns>(math: &M, atk: f64, base_atk: f64) -> f64 {
@@ -1091,6 +1211,8 @@ fn special_enemy(
         fly,
         water,
         fire,
+        sand_safe: false,
+        snow_safe: false,
         los: (f64::NEG_INFINITY, false),
         side_t: 0.0,
         side: 1.0,
@@ -1175,13 +1297,28 @@ struct Match<'a, M: MathFns> {
     seq: u32,
     st: Derived<'a>,
     stat_dirty: bool,
-    stat_snow: bool,
+    stat_snow: f64,
     angles: Vec<f64>,
     sep: Sep,
     shot_soa: ShotSoa,
     near_buf: Vec<(f64, usize)>,
     terrain: Option<Box<Terr>>,
     lava_t: f64,
+    /// 0 fixed group, 1 the swap slot (player.js setActive). Stays 0 unless `Ext::alt` is set.
+    slot: u8,
+    alt_cd: f64,
+    comp_evo: Vec<bool>,
+    regen_n: f64,
+    regen_amt: f64,
+    regen_t: f64,
+    /// altar power 0 Furia, 1 Rayo, 2 Imán, 3 Prisa (interact.js POWERS). 255 = none.
+    power: u8,
+    power_t: f64,
+    altar_used: Vec<(i32, i32)>,
+    bell: f64,
+    /// player.js sashT starts at -999 ms, so the first lethal hit can proc
+    sash_t: f64,
+    crit_rng: RefCell<Rng>,
 }
 
 fn xp_for<M: MathFns>(math: &M, level: u32) -> f64 {
@@ -1194,13 +1331,13 @@ fn spawn_rate<M: MathFns>(math: &M, t: f64) -> f64 {
 }
 
 /// Whether a move level carries a status the sim does not apply (the status_ignored flag). With
-/// `Opts::status` every status is applied, but a move kind the sim never fires is not.
-fn unmodelled(l: &MoveLvl, status_on: bool) -> bool {
-    l.status && (!status_on || !l.kind.simulated())
+/// `Opts::status` every status is applied. Extra kinds count as applied when `xkinds` fires them.
+fn unmodelled(l: &MoveLvl, status_on: bool, xkinds: bool) -> bool {
+    l.status && (!status_on || !(l.kind.simulated() || (xkinds && l.xk != 0)))
 }
 
-fn move_has_status(m: &Move, status_on: bool) -> bool {
-    m.levels.iter().any(|l| unmodelled(l, status_on)) || m.evo.as_ref().is_some_and(|e| unmodelled(e, status_on))
+fn move_has_status(m: &Move, status_on: bool, xkinds: bool) -> bool {
+    m.levels.iter().any(|l| unmodelled(l, status_on, xkinds)) || m.evo.as_ref().is_some_and(|e| unmodelled(e, status_on, xkinds))
 }
 
 impl<'a, M: MathFns> Match<'a, M> {
@@ -1220,13 +1357,30 @@ impl<'a, M: MathFns> Match<'a, M> {
         &m.levels[index]
     }
 
-    fn snow_now(&self) -> bool {
-        matches!(self.weather, Some(w) if w.kind == Wx::Snow && weather_ramp(w.elapsed, w.dur) > 0.0)
+    /// Ranking path: status or extra kinds. Parity runs have both off, so the new combat math stays off.
+    fn faith(&self) -> bool {
+        self.opts.status || self.opts.ext.xkinds
     }
 
-    /// stats() in match.js: recompute only when dirty or snow toggled.
+    /// weather.js speedFor. Parity keeps the flat ×0.9 whenever the ramp is above 0 (match.js).
+    fn snow_mul(&self) -> f64 {
+        let Some(w) = self.weather else { return 1.0 };
+        if w.kind != Wx::Snow {
+            return 1.0;
+        }
+        let ramp = weather_ramp(w.elapsed, w.dur);
+        if self.faith() {
+            if ramp > 0.0 { 1.0 - 0.1 * ramp } else { 1.0 }
+        } else if ramp > 0.0 {
+            0.9
+        } else {
+            1.0
+        }
+    }
+
+    /// stats() in match.js: recompute only when dirty or the snow factor changed.
     fn stats(&mut self) {
-        let snow = self.snow_now();
+        let snow = self.snow_mul();
         if !self.stat_dirty && snow == self.stat_snow {
             return;
         }
@@ -1248,19 +1402,42 @@ impl<'a, M: MathFns> Match<'a, M> {
             def_buff = 0.0;
         }
         let it = self.opts.ext.item;
+        let faithful = self.faith();
         let mut spd = self.mon.spd * self.tables.spd[s.cards[Stat::Run as usize] as usize];
-        if snow && !self.mon.types.contains(&T_ICE) {
-            spd *= 0.9;
+        if snow < 1.0 && !self.mon.types.contains(&T_ICE) {
+            spd *= snow;
         }
         let st = &mut self.st;
         st.max_hp = self.mon.hp + 20.0 * s.cards[Stat::Hp as usize] as f64;
         st.atk = self.mon.atk * self.tables.atk[s.cards[Stat::Pow as usize] as usize] * (1.0 + atk_buff) * it.atk;
         st.spd = spd * it.spd * spd_buff;
-        st.red = jmin(0.8, jmin(0.7, 0.06 * s.cards[Stat::Cor as usize] as f64) + it.red + def_buff);
+        // player.js reduction: 12 cards × 0.06 = 0.72, then the 0.8 cap. Parity keeps the inner 0.7.
+        let cor = 0.06 * s.cards[Stat::Cor as usize] as f64;
+        let cor = if faithful { cor } else { jmin(0.7, cor) };
+        st.red = jmin(0.8, cor + it.red + def_buff);
         st.cd_mul = self.tables.cd[s.cards[Stat::Cd as usize] as usize] * it.cd;
         st.regen = 0.9 * s.cards[Stat::Rgn as usize] as f64 + it.regen * st.max_hp;
+        if self.regen_n > 0.0 && self.regen_t > 0.0 {
+            st.regen += self.regen_n * self.regen_amt;
+        }
         st.melee = if mv.kind == Kind::Melee || self.any_melee { 0.75 } else { 1.0 };
         st.mv = mv;
+        // interact.js POWERS, 25 s. Imán only changes magnet, which the sim does not use.
+        if self.power_t > 0.0 {
+            match self.power {
+                0 => st.atk *= 2.0,
+                1 => st.spd *= 1.45,
+                3 => st.cd_mul *= 0.6,
+                _ => {}
+            }
+        }
+        if self.slot == 1 {
+            if let Some(id) = self.opts.ext.alt {
+                let alt = &self.data.moves[id].levels[0];
+                st.melee = if alt.kind == Kind::Melee { 0.75 } else { 1.0 };
+                st.mv = alt;
+            }
+        }
     }
 
     /// What a hit of this move applies (nothing unless `Opts::status`).
@@ -1283,6 +1460,111 @@ impl<'a, M: MathFns> Match<'a, M> {
         let dmg = amount * mult * self.wx(atk_ty) * (1.0 - self.st.red) * self.st.melee;
         self.pl.hp -= dmg;
         self.pl.inv = INV;
+        self.sash();
+    }
+
+    /// player.js:248. Off unless the item is Focus Sash, so the parity hurt() is unchanged.
+    fn sash(&mut self) {
+        if self.opts.ext.item.sash && self.pl.hp <= 0.0 && self.t - self.sash_t > 60.0 {
+            self.sash_t = self.t;
+            self.pl.hp = 1.0;
+            self.pl.inv = 1.2;
+        }
+    }
+
+    /// combat.js:668. Contact only. 15+4*level, no type, no crit, no bell, knock 80. The 150 push stays separate.
+    fn helmet_on(&mut self, i: usize) {
+        if !self.opts.ext.item.helmet {
+            return;
+        }
+        let (px, py) = (self.pl.x, self.pl.y);
+        let dmg = 15.0 + 4.0 * self.level as f64;
+        let e = &mut self.enemies[i];
+        let (dx, dy) = (e.x - px, e.y - py);
+        raw_hurt(e, dmg, 80.0, dx, dy);
+    }
+
+    /// Swap when the active timer is still above 35% of base cd (player.js:148). cdMul at or below
+    /// 0.35 already waits less than the clamp, so swapping does not help. Choice Band never reaches this.
+    fn maybe_swap(&mut self) {
+        if self.opts.ext.alt.is_none() || self.opts.ext.item.lock || self.st.cd_mul <= 0.35 {
+            return;
+        }
+        let (timer, base) = if self.slot == 0 {
+            (self.atk_cd, self.current_move().cd)
+        } else {
+            let id = self.opts.ext.alt.unwrap();
+            (self.alt_cd, self.data.moves[id].levels[0].cd)
+        };
+        if timer > base * 0.35 {
+            self.enter_slot(1 - self.slot);
+        }
+    }
+
+    fn enter_slot(&mut self, slot: u8) {
+        self.slot = slot;
+        self.orbs.clear();
+        self.stat_dirty = true;
+        if slot == 0 {
+            let base = self.current_move().cd;
+            self.atk_cd = jmin(self.atk_cd, base * 0.35);
+            for i in 0..self.comps.len() {
+                let cd = self.comp_lvl(i).cd;
+                self.comps[i].2 = jmin(self.comps[i].2, cd * 0.35);
+            }
+        } else if let Some(id) = self.opts.ext.alt {
+            let cd = self.data.moves[id].levels[0].cd;
+            self.alt_cd = jmin(self.alt_cd, cd * 0.35);
+        }
+    }
+
+    /// player.js:352. Clears invulnerability, then hurt() (defense, melee DR, min 1) and 0.45 s of invuln.
+    fn player_lava(&mut self) {
+        if self.faith() {
+            self.pl.inv = 0.0;
+            let raw = jmax(5.0, self.st.max_hp * 0.03);
+            let d = jmax(1.0, raw * (1.0 - self.st.red) * self.st.melee);
+            self.pl.hp -= d;
+            self.pl.inv = 0.45;
+            self.sash();
+        } else {
+            self.pl.hp -= jmax(5.0, self.st.max_hp * 0.03);
+        }
+    }
+
+    /// Altars (interact.js POWERS, world.js:154). Contact within max(30, r+body+14), one use, 25 s.
+    /// The bot does not path to them. Imán has no combat effect. Approximation.
+    fn tick_altars(&mut self) {
+        if !self.faith() || self.arena_phase != 0 || self.terrain.is_none() {
+            return;
+        }
+        let (px, py, pr) = (self.pl.x, self.pl.y, self.pl.r);
+        let (tx, ty) = (tile_of(px), tile_of(py));
+        let used = self.altar_used.clone();
+        let mut found: Option<(i32, i32, u8)> = None;
+        if let Some(t) = &mut self.terrain {
+            'scan: for dy in -3..=3 {
+                for dx in -3..=3 {
+                    let x = tx + dx;
+                    let y = ty + dy;
+                    if used.contains(&(x, y)) {
+                        continue;
+                    }
+                    if let Some((ax, ay, r, kind)) = t.world.altar_at(x, y) {
+                        if len(px - ax, py - ay) <= jmax(30.0, r + pr + 14.0) {
+                            found = Some((x, y, kind));
+                            break 'scan;
+                        }
+                    }
+                }
+            }
+        }
+        if let Some((x, y, kind)) = found {
+            self.altar_used.push((x, y));
+            self.power = kind;
+            self.power_t = 25.0;
+            self.stat_dirty = true;
+        }
     }
 
     // ------------------------------------------------ cards
@@ -1303,8 +1585,18 @@ impl<'a, M: MathFns> Match<'a, M> {
             }
         }
         for (i, c) in self.comps.iter().enumerate() {
-            if c.1 < self.data.moves[c.0].max_lvl && self.bonded(i as u8) {
+            if !self.bonded(i as u8) || self.comp_evo[i] {
+                continue;
+            }
+            let m = &self.data.moves[c.0];
+            if c.1 < m.max_lvl {
                 out.push(Card::Up2(i as u8));
+            } else if m.evo.is_some() {
+                // moves.js evolve: at max level, after the needs card was taken once
+                match m.needs {
+                    Some(n) if self.state.cards[n as usize] < 1 => {}
+                    _ => out.push(Card::Evo2(i as u8)),
+                }
             }
         }
         // With rift bonds the bot only levels group members it has already bonded (an unbonded buff never fires).
@@ -1352,6 +1644,11 @@ impl<'a, M: MathFns> Match<'a, M> {
                 return Card::Up2(i as u8);
             }
         }
+        for i in 0..self.comps.len() {
+            if has(Card::Evo2(i as u8)) {
+                return Card::Evo2(i as u8);
+            }
+        }
         if !self.opts.ext.fill.is_empty() {
             for c in [Card::Sd, Card::Hd] {
                 if has(c) {
@@ -1374,19 +1671,35 @@ impl<'a, M: MathFns> Match<'a, M> {
     }
 
     fn apply_card(&mut self, c: Card) {
-        let s = &mut self.state;
         match c {
-            Card::Up => s.move_lvl += 1,
-            Card::Evo => s.evolved = true,
-            Card::Sd => s.sd = (s.sd + 1).min(5),
-            Card::Hd => s.hd = (s.hd + 1).min(5),
+            Card::Up => self.state.move_lvl += 1,
+            Card::Evo => self.state.evolved = true,
+            Card::Sd => self.state.sd = (self.state.sd + 1).min(5),
+            Card::Hd => self.state.hd = (self.state.hd + 1).min(5),
             Card::Up2(i) => self.comps[i as usize].1 += 1,
+            Card::Evo2(i) => {
+                self.comp_evo[i as usize] = true;
+                if self.comp_lvl(i as usize).kind == Kind::Melee {
+                    self.any_melee = true;
+                }
+            }
             Card::Stat(st) => {
-                if s.cards[st as usize] < CAPS[st as usize] {
-                    s.cards[st as usize] += 1;
+                if self.state.cards[st as usize] < CAPS[st as usize] {
+                    self.state.cards[st as usize] += 1;
                 }
             }
         }
+    }
+
+    fn comp_lvl(&self, i: usize) -> &'a MoveLvl {
+        let (id, lvl, _) = self.comps[i];
+        let m = &self.data.moves[id];
+        if self.comp_evo[i] {
+            if let Some(e) = &m.evo {
+                return e;
+            }
+        }
+        &m.levels[lvl.min(m.max_lvl) - 1]
     }
 
     fn level_up(&mut self) {
@@ -1479,23 +1792,27 @@ impl<'a, M: MathFns> Match<'a, M> {
     }
 
     fn cast_comps(&mut self) {
+        // Inactive slot timers freeze (combat.js only ticks the active group).
+        if self.slot != 0 {
+            return;
+        }
         for i in 0..self.comps.len() {
             if !self.bonded(i as u8) {
                 continue;
             }
             self.comps[i].2 -= self.dt;
             if self.comps[i].2 <= 0.0 {
-                let (id, lvl, _) = self.comps[i];
-                let m = &self.data.moves[id];
-                let mv = &m.levels[lvl.min(m.max_lvl) - 1];
-                self.comps[i].2 = mv.cd * self.st.cd_mul;
-                let extra = self.opts.ext.xkinds && mv.kind == Kind::Inert && mv.xk != 0;
-                if !extra {
+                let mv = self.comp_lvl(i);
+                let (cd, kind, xk) = (mv.cd, mv.kind, mv.xk);
+                self.comps[i].2 = cd * self.st.cd_mul;
+                // player.js:203 life orb skips orbit and trail, companions included.
+                let extra = self.opts.ext.xkinds && kind == Kind::Inert && xk != 0;
+                if kind != Kind::Orbit && !extra {
                     self.life_orb();
                 }
                 if !self.cast_mv(mv) {
                     self.comps[i].2 = 0.05;
-                } else if extra && mv.xk != 7 {
+                } else if extra && xk != 7 {
                     self.life_orb();
                 }
             }
@@ -1503,7 +1820,7 @@ impl<'a, M: MathFns> Match<'a, M> {
     }
 
     fn cast_mv(&mut self, mv: &'a MoveLvl) -> bool {
-        if unmodelled(mv, self.opts.status) {
+        if unmodelled(mv, self.opts.status, self.opts.ext.xkinds) {
             self.status_ignored = true;
         }
         let st = self.status_of(mv);
@@ -1518,25 +1835,43 @@ impl<'a, M: MathFns> Match<'a, M> {
         match mv.kind {
             Kind::Melee => {
                 let (px, py) = (self.pl.x, self.pl.y);
-                for e in self.enemies.iter_mut() {
-                    if in_melee(math, px, py, aim, mv.arc, mv.radius, e.x, e.y, e.r) {
-                        strike(e, mv.dmg, atk, mv.ty, tm, &self.weather, st);
+                let knock = or(mv.knock, 0.0);
+                let mut dealt = 0.0;
+                {
+                    let faithful = self.faith();
+                    let chance = if faithful { self.opts.ext.crit } else { 0.0 };
+                    let mut rng = self.crit_rng.borrow_mut();
+                    let weather = &self.weather;
+                    for e in self.enemies.iter_mut() {
+                        if in_melee(math, px, py, aim, mv.arc, mv.radius, e.x, e.y, e.r) {
+                            let (dx, dy) = (e.x - px, e.y - py);
+                            dealt += hit_one(faithful, e, mv.dmg, atk, mv.ty, tm, weather, st, if faithful { knock } else { 0.0 }, dx, dy, chance, &mut rng);
+                        }
                     }
                 }
+                note_bell(&mut self.bell, self.opts.ext.item.bell, dealt);
             }
             Kind::Beam => {
                 let (px, py) = (self.pl.x, self.pl.y);
-                for e in self.enemies.iter_mut() {
-                    if in_beam(math, px, py, aim, mv.radius, mv.width, e.x, e.y, e.r) {
-                        strike(e, mv.dmg, atk, mv.ty, tm, &self.weather, st);
+                let mut dealt = 0.0;
+                {
+                    let faithful = self.faith();
+                    let chance = if faithful { self.opts.ext.crit } else { 0.0 };
+                    let mut rng = self.crit_rng.borrow_mut();
+                    let weather = &self.weather;
+                    for e in self.enemies.iter_mut() {
+                        if in_beam(math, px, py, aim, mv.radius, mv.width, e.x, e.y, e.r) {
+                            dealt += hit_one(faithful, e, mv.dmg, atk, mv.ty, tm, weather, st, 0.0, aim.cos(), aim.sin(), chance, &mut rng);
+                        }
                     }
                 }
+                note_bell(&mut self.bell, self.opts.ext.item.bell, dealt);
             }
             Kind::Orbit => {
                 let count = or(mv.count, 1.0);
                 while (self.orbs.len() as f64) < count {
                     let a = (self.orbs.len() as f64 / count) * PI * 2.0;
-                    self.orbs.push(Orb { angle: a, inside: Vec::new() });
+                    self.orbs.push(Orb { angle: a, inside: Vec::new(), log: Vec::new() });
                 }
                 if self.orbs.len() as f64 > count {
                     self.orbs.truncate(count as usize);
@@ -1579,6 +1914,7 @@ impl<'a, M: MathFns> Match<'a, M> {
                         dmg: mv.dmg,
                         atk,
                         ty: mv.ty,
+                        knock: or(mv.knock, 0.0),
                     });
                 }
                 self.angles = angles;
@@ -1586,6 +1922,13 @@ impl<'a, M: MathFns> Match<'a, M> {
             Kind::Inert => {
                 if self.opts.ext.xkinds && mv.xk != 0 {
                     return self.cast_x(mv, aim, st);
+                }
+                // moves.js aqua-ring: stat regen, 1.6/s, 4 stacks, 8 s. Only if this move is actually cast.
+                if self.faith() && mv.buff == 4 {
+                    self.regen_amt = mv.amount;
+                    self.regen_n = jmin(or(mv.stacks, 1.0), self.regen_n + 1.0);
+                    self.regen_t = or(mv.dur, 8.0);
+                    self.stat_dirty = true;
                 }
             }
         }
@@ -1617,6 +1960,7 @@ impl<'a, M: MathFns> Match<'a, M> {
             ty: mv.ty,
             homing: or(mv.homing, 0.0),
             st,
+            knock: or(mv.knock, 0.0),
         });
         if self.shots.len() > 80 {
             self.shots.remove(0);
@@ -1632,11 +1976,22 @@ impl<'a, M: MathFns> Match<'a, M> {
     /// Hits every live enemy in the circle (combat.js blast / queryCircle: centre distance <= r + e.r).
     fn blast(&mut self, x: f64, y: f64, r: f64, dmg: f64, atk: f64, mv: &MoveLvl) {
         let st = self.status_of(mv);
-        for e in self.enemies.iter_mut() {
-            if e.hp > 0.0 && len(e.x - x, e.y - y) <= r + e.r {
-                strike(e, dmg, atk, mv.ty, &self.data.tmult, &self.weather, st);
+        let faithful = self.faith();
+        let chance = if faithful { self.opts.ext.crit } else { 0.0 };
+        let knock = if faithful { or(mv.knock, 0.0) } else { 0.0 };
+        let mut dealt = 0.0;
+        {
+            let mut rng = self.crit_rng.borrow_mut();
+            let weather = &self.weather;
+            let tm = &self.data.tmult;
+            for e in self.enemies.iter_mut() {
+                if e.hp > 0.0 && len(e.x - x, e.y - y) <= r + e.r {
+                    let (dx, dy) = (e.x - x, e.y - y);
+                    dealt += hit_one(faithful, e, dmg, atk, mv.ty, tm, weather, st, knock, dx, dy, chance, &mut rng);
+                }
             }
         }
+        note_bell(&mut self.bell, self.opts.ext.item.bell, dealt);
     }
 
     fn cast_x(&mut self, mv: &'a MoveLvl, aim: f64, st: Status) -> bool {
@@ -1691,12 +2046,25 @@ impl<'a, M: MathFns> Match<'a, M> {
                 };
                 let mut done: Vec<usize> = Vec::new();
                 let mut k = 1.0;
+                let faithful = self.faith();
+                let chance = if faithful { self.opts.ext.crit } else { 0.0 };
+                let knock = if faithful { or(mv.knock, 0.0) } else { 0.0 };
+                let mut dealt = 0.0;
                 for _ in 0..count as usize {
                     let Some(i) = cur else { break };
                     done.push(i);
-                    let e = &mut self.enemies[i];
-                    let hex = if mv.hex.is_finite() && (e.burn > 0.0 || e.poison > 0.0 || e.slow_t > 0.0) { mv.hex } else { 1.0 };
-                    strike(e, mv.dmg * k * hex, atk, mv.ty, &self.data.tmult, &self.weather, st);
+                    let hex = {
+                        let e = &self.enemies[i];
+                        if mv.hex.is_finite() && (e.burn > 0.0 || e.poison > 0.0 || e.slow_t > 0.0) { mv.hex } else { 1.0 }
+                    };
+                    {
+                        let mut rng = self.crit_rng.borrow_mut();
+                        let weather = &self.weather;
+                        let tm = &self.data.tmult;
+                        let e = &mut self.enemies[i];
+                        let (dx, dy) = (e.x - px, e.y - py);
+                        dealt += hit_one(faithful, e, mv.dmg * k * hex, atk, mv.ty, tm, weather, st, knock, dx, dy, chance, &mut rng);
+                    }
                     k *= 0.85;
                     let (cx, cy) = (self.enemies[i].x, self.enemies[i].y);
                     let mut best = None;
@@ -1713,18 +2081,30 @@ impl<'a, M: MathFns> Match<'a, M> {
                     }
                     cur = best;
                 }
+                note_bell(&mut self.bell, self.opts.ext.item.bell, dealt);
             }
             // aura(): everything in the circle; drain heals at most 6 per cast
             4 => {
                 let mut healed = 0.0;
-                for e in self.enemies.iter_mut() {
-                    if e.hp > 0.0 && len(e.x - px, e.y - py) <= mv.radius + e.r {
-                        strike(e, mv.dmg, atk, mv.ty, &self.data.tmult, &self.weather, st);
-                        if mv.drain.is_finite() {
-                            healed += mv.drain;
+                let faithful = self.faith();
+                let chance = if faithful { self.opts.ext.crit } else { 0.0 };
+                let knock = if faithful { or(mv.knock, 0.0) } else { 0.0 };
+                let mut dealt = 0.0;
+                {
+                    let mut rng = self.crit_rng.borrow_mut();
+                    let weather = &self.weather;
+                    let tm = &self.data.tmult;
+                    for e in self.enemies.iter_mut() {
+                        if e.hp > 0.0 && len(e.x - px, e.y - py) <= mv.radius + e.r {
+                            let (dx, dy) = (e.x - px, e.y - py);
+                            dealt += hit_one(faithful, e, mv.dmg, atk, mv.ty, tm, weather, st, knock, dx, dy, chance, &mut rng);
+                            if mv.drain.is_finite() {
+                                healed += mv.drain;
+                            }
                         }
                     }
                 }
+                note_bell(&mut self.bell, self.opts.ext.item.bell, dealt);
                 if healed > 0.0 {
                     self.pl.hp = jmin(self.st.max_hp, self.pl.hp + jmin(healed, 6.0));
                 }
@@ -1750,20 +2130,32 @@ impl<'a, M: MathFns> Match<'a, M> {
                 let (ex, ey) = (px + ca * l, py + sa * l);
                 self.pl.x = ex;
                 self.pl.y = ey;
+                // combat.js dash: invuln = max(invuln, 0.3). Lava clears it (player.js liquid).
                 self.pl.inv = jmax(self.pl.inv, 0.3);
                 let w = or(mv.width, 34.0);
-                for e in self.enemies.iter_mut() {
-                    if e.hp <= 0.0 {
-                        continue;
-                    }
-                    let (vx, vy) = (ex - px, ey - py);
-                    let ll = vx * vx + vy * vy;
-                    let tt = if ll > 0.0 { (((e.x - px) * vx + (e.y - py) * vy) / ll).clamp(0.0, 1.0) } else { 0.0 };
-                    let (qx, qy) = (px + vx * tt - e.x, py + vy * tt - e.y);
-                    if qx * qx + qy * qy <= (w / 2.0 + e.r) * (w / 2.0 + e.r) {
-                        strike(e, mv.dmg, atk, mv.ty, &self.data.tmult, &self.weather, st);
+                let faithful = self.faith();
+                let chance = if faithful { self.opts.ext.crit } else { 0.0 };
+                let knock = if faithful { or(mv.knock, 0.0) } else { 0.0 };
+                let mut dealt = 0.0;
+                {
+                    let mut rng = self.crit_rng.borrow_mut();
+                    let weather = &self.weather;
+                    let tm = &self.data.tmult;
+                    for e in self.enemies.iter_mut() {
+                        if e.hp <= 0.0 {
+                            continue;
+                        }
+                        let (vx, vy) = (ex - px, ey - py);
+                        let ll = vx * vx + vy * vy;
+                        let tt = if ll > 0.0 { (((e.x - px) * vx + (e.y - py) * vy) / ll).clamp(0.0, 1.0) } else { 0.0 };
+                        let (qx, qy) = (px + vx * tt - e.x, py + vy * tt - e.y);
+                        if qx * qx + qy * qy <= (w / 2.0 + e.r) * (w / 2.0 + e.r) {
+                            let (dx, dy) = (e.x - px, e.y - py);
+                            dealt += hit_one(faithful, e, mv.dmg, atk, mv.ty, tm, weather, st, knock, dx, dy, chance, &mut rng);
+                        }
                     }
                 }
+                note_bell(&mut self.bell, self.opts.ext.item.bell, dealt);
             }
             // mines(): armed after 0.35 s, burst when stepped on (half damage when they expire); 4 + 2n at most
             6 => {
@@ -1999,7 +2391,9 @@ impl<'a, M: MathFns> Match<'a, M> {
         self.arena_dex = dex;
         // Hit radius is species r ×2 (bossScale for a default idle anchor; enemy.js:15–22, sprites.js:127–130).
         // The game sets flying=false so arena rocks block shots; here the fight is in open space, so the legend ignores map walls.
-        let e = special_enemy(self.seq, dex as u16, px, py - LEGEND_GAP, rad, combo, ty0, xp, beh, spd, dmg, hp, shot_cd, shot, ai, def, true, water, fire, true, true);
+        let mut e = special_enemy(self.seq, dex as u16, px, py - LEGEND_GAP, rad, combo, ty0, xp, beh, spd, dmg, hp, shot_cd, shot, ai, def, true, water, fire, true, true);
+        e.sand_safe = mon.types.iter().any(|&t| t == T_ROCK || t == T_GROUND || t == T_STEEL);
+        e.snow_safe = mon.types.contains(&T_ICE);
         self.seq += 1;
         self.enemies.push(e);
     }
@@ -2147,22 +2541,29 @@ impl<'a, M: MathFns> Match<'a, M> {
         let dex = mon.dex as u16;
         let rad = mon.r * 2.0;
         let combo = mon.combo;
-        let e = special_enemy(
+        let mut e = special_enemy(
             self.seq, dex, x, y, rad, combo, ty0, pick.xp, pick.beh, pick.spd, dmg, hp, shot_cd, shot, ai, def, true, water, fire, true, false,
         );
+        e.sand_safe = mon.types.iter().any(|&t| t == T_ROCK || t == T_GROUND || t == T_STEEL);
+        e.snow_safe = mon.types.contains(&T_ICE);
         self.seq += 1;
         self.enemies.push(e);
         true
     }
 
     fn step_shots(&mut self) {
+        let faithful = self.faith();
+        let chance = if faithful { self.opts.ext.crit } else { 0.0 };
+        let bell_on = self.opts.ext.item.bell;
         let math = self.math;
         let dt = self.dt;
         let tm = &self.data.tmult;
         let weather = &self.weather;
+        let crit_rng = &self.crit_rng;
         let enemies = &mut self.enemies;
         let shots = &mut self.shots;
         let terrain = &mut self.terrain;
+        let mut dealt = 0.0;
         // strike() only touches hp/shield, so positions stay fixed for the whole shot pass.
         let soa = &mut self.shot_soa;
         let lanes = soa.load(enemies);
@@ -2232,7 +2633,11 @@ impl<'a, M: MathFns> Match<'a, M> {
                 if len(dx, dy) < rad {
                     shot.hit.push(e.id);
                     shot.left -= 1.0;
-                    strike(e, shot.dmg, shot.atk, shot.ty, tm, weather, shot.st);
+                    let (sd, sa, sty, sst, sk, svx, svy) = (shot.dmg, shot.atk, shot.ty, shot.st, if faithful { shot.knock } else { 0.0 }, shot.vx, shot.vy);
+                    {
+                        let mut rng = crit_rng.borrow_mut();
+                        dealt += hit_one(faithful, e, sd, sa, sty, tm, weather, sst, sk, svx, svy, chance, &mut rng);
+                    }
                     if shot.left <= 0.0 {
                         break;
                     }
@@ -2266,14 +2671,25 @@ impl<'a, M: MathFns> Match<'a, M> {
                 }
                 if len(e.x - x, e.y - y) < b.r + e.r {
                     b.hit.push(e.id);
-                    strike(e, b.dmg, b.atk, b.ty, tm, weather, b.st);
+                    let (bd, ba, bt, bst, bk) = (b.dmg, b.atk, b.ty, b.st, if faithful { b.knock } else { 0.0 });
+                    let (dx, dy) = (e.x - x, e.y - y);
+                    {
+                        let mut rng = crit_rng.borrow_mut();
+                        dealt += hit_one(faithful, e, bd, ba, bt, tm, weather, bst, bk, dx, dy, chance, &mut rng);
+                    }
                 }
             }
         }
+        note_bell(&mut self.bell, bell_on, dealt);
         self.step_orbs();
     }
 
     fn step_orbs(&mut self) {
+        // setActive clears orbs; a swapped-away orbit must not keep hitting.
+        if self.slot == 1 {
+            self.orbs.clear();
+            return;
+        }
         let mv = self.st.mv;
         if mv.kind != Kind::Orbit {
             self.orbs.clear();
@@ -2284,30 +2700,55 @@ impl<'a, M: MathFns> Match<'a, M> {
         let count = or(mv.count, 1.0);
         while (self.orbs.len() as f64) < count {
             let a = (self.orbs.len() as f64 / count) * PI * 2.0;
-            self.orbs.push(Orb { angle: a, inside: Vec::new() });
+            self.orbs.push(Orb { angle: a, inside: Vec::new(), log: Vec::new() });
         }
-        let tm = &self.data.tmult;
-        let weather = &self.weather;
+        let faithful = self.faith();
+        let chance = if faithful { self.opts.ext.crit } else { 0.0 };
+        let knock = if faithful { or(mv.knock, 0.0) } else { 0.0 };
+        // combat.js:486 rehit is max(0.12, m.cd), with no cdMul. Parity hits once per overlap.
+        let rehit = jmax(0.12, mv.cd);
+        let now = self.t;
+        let bell_on = self.opts.ext.item.bell;
         let (plx, ply, atk, dt) = (self.pl.x, self.pl.y, self.st.atk, self.dt);
-        for orb in self.orbs.iter_mut() {
-            orb.angle += or(mv.speed, 1.0) * dt;
-            let x = plx + math.cos(orb.angle) * mv.radius;
-            let y = ply + math.sin(orb.angle) * mv.radius;
-            for e in self.enemies.iter_mut() {
-                if e.hp <= 0.0 {
-                    continue;
-                }
-                let overlap = len(e.x - x, e.y - y) < or(mv.size, 8.0) + e.r;
-                if overlap {
-                    if !has(&orb.inside, e.id) {
-                        orb.inside.push(e.id);
-                        strike(e, mv.dmg, atk, mv.ty, tm, weather, st);
+        let mut dealt = 0.0;
+        {
+            let mut rng = self.crit_rng.borrow_mut();
+            let weather = &self.weather;
+            let tm = &self.data.tmult;
+            for orb in self.orbs.iter_mut() {
+                orb.angle += or(mv.speed, 1.0) * dt;
+                let x = plx + math.cos(orb.angle) * mv.radius;
+                let y = ply + math.sin(orb.angle) * mv.radius;
+                for e in self.enemies.iter_mut() {
+                    if e.hp <= 0.0 {
+                        continue;
                     }
-                } else if let Some(k) = orb.inside.iter().position(|&id| id == e.id) {
-                    orb.inside.swap_remove(k);
+                    let overlap = len(e.x - x, e.y - y) < or(mv.size, 8.0) + e.r;
+                    if !faithful {
+                        if overlap {
+                            if !has(&orb.inside, e.id) {
+                                orb.inside.push(e.id);
+                                dealt += hit_one(false, e, mv.dmg, atk, mv.ty, tm, weather, st, 0.0, 0.0, 0.0, 0.0, &mut rng);
+                            }
+                        } else if let Some(k) = orb.inside.iter().position(|&id| id == e.id) {
+                            orb.inside.swap_remove(k);
+                        }
+                    } else if overlap {
+                        let last = orb.log.iter().find(|(id, _)| *id == e.id).map(|(_, t)| *t).unwrap_or(-99.0);
+                        if now - last >= rehit {
+                            if let Some(p) = orb.log.iter_mut().find(|(id, _)| *id == e.id) {
+                                p.1 = now;
+                            } else {
+                                orb.log.push((e.id, now));
+                            }
+                            let (dx, dy) = (e.x - x, e.y - y);
+                            dealt += hit_one(true, e, mv.dmg, atk, mv.ty, tm, weather, st, knock, dx, dy, chance, &mut rng);
+                        }
+                    }
                 }
             }
         }
+        note_bell(&mut self.bell, bell_on, dealt);
     }
 
     // ------------------------------------------------ bot
@@ -2501,6 +2942,8 @@ impl<'a, M: MathFns> Match<'a, M> {
             fly: cand.fly,
             water: cand.water,
             fire: cand.fire,
+            sand_safe: cand.sand_safe,
+            snow_safe: cand.snow_safe,
             los: (f64::NEG_INFINITY, false),
             side_t: 0.0,
             side: 1.0,
@@ -2561,7 +3004,29 @@ impl<'a, M: MathFns> Match<'a, M> {
                     } else {
                         self.mon.types.contains(&T_ICE)
                     };
-                    if !immune && weather_ramp(w.elapsed, w.dur) > 0.0 {
+                    let ramp = weather_ramp(w.elapsed, w.dur);
+                    if self.faith() {
+                        // weather.js:111-124. level() is the ramp. Never KOs the player. Enemies lose HP directly.
+                        if ramp > 0.5 {
+                            if !immune {
+                                self.stats();
+                                let d = jmax(1.0, self.st.max_hp * 0.012);
+                                if self.pl.hp > d + 1.0 {
+                                    self.pl.hp -= d;
+                                }
+                            }
+                            let sand = w.kind == Wx::Sand;
+                            for e in self.enemies.iter_mut() {
+                                if e.hp <= 0.0 || e.boss {
+                                    continue;
+                                }
+                                if if sand { e.sand_safe } else { e.snow_safe } {
+                                    continue;
+                                }
+                                e.hp -= e.max * 0.02 + 1.0;
+                            }
+                        }
+                    } else if !immune && ramp > 0.0 {
                         self.stats();
                         self.pl.hp -= 0.012 * self.st.max_hp;
                     }
@@ -2586,6 +3051,7 @@ impl<'a, M: MathFns> Match<'a, M> {
             let inst = self.buff_level(id, lvl);
             let cd_mul = self.st.cd_mul;
             let dt = self.dt;
+            let frozen = self.slot != 0;
             let s = &mut self.state;
             let (time, stacks, cd) = if which == 0 {
                 (&mut s.sd_t, &mut s.sd_stacks, &mut s.sd_cd)
@@ -2600,6 +3066,10 @@ impl<'a, M: MathFns> Match<'a, M> {
             }
             if *time <= 0.0 {
                 *stacks = 0.0;
+            }
+            // Recast cooldown freezes on the inactive slot. The buff's own duration still ticks.
+            if frozen {
+                continue;
             }
             *cd -= dt;
             if *cd <= 0.0 {
@@ -2617,6 +3087,8 @@ impl<'a, M: MathFns> Match<'a, M> {
     // ------------------------------------------------ enemies
 
     fn step_enemies(&mut self) {
+        let faithful = self.faith();
+        let snow_mul = if faithful { self.snow_mul() } else { 1.0 };
         let math = self.math;
         let dt = self.dt;
         let knock_fade = self.knock_fade;
@@ -2710,8 +3182,11 @@ impl<'a, M: MathFns> Match<'a, M> {
                 continue;
             }
             let (ox, oy) = (e.x, e.y);
-            // const spd = this.spd * (1 - this.slow) * ... in repo/js/entities/enemy.js (dash uses it too)
+            // const spd = this.spd * (1 - this.slow) * terrain * weather.speedFor (enemy.js:279)
             let mut spd = e.spd * (1.0 - e.slow);
+            if snow_mul < 1.0 && !e.snow_safe {
+                spd *= snow_mul;
+            }
             let mut steer_dir: Option<(f64, f64)> = None;
             if let Some(t) = &mut self.terrain {
                 let Terr { world, path } = &mut **t;
@@ -2727,7 +3202,14 @@ impl<'a, M: MathFns> Match<'a, M> {
                                 e.lava_t -= dt;
                                 if e.lava_t <= 0.0 {
                                     e.lava_t = 0.5;
-                                    e.hp -= 6.0 + e.max * 0.04;
+                                    // enemy.js:274 hurt() rounds and hits the shield. Legends are skipped (enemy.js:270).
+                                    if faithful {
+                                        if !e.legend {
+                                            raw_hurt(e, 6.0 + e.max * 0.04, 0.0, 0.0, 0.0);
+                                        }
+                                    } else {
+                                        e.hp -= 6.0 + e.max * 0.04;
+                                    }
                                     if e.hp <= 0.0 {
                                         continue;
                                     }
@@ -2776,6 +3258,7 @@ impl<'a, M: MathFns> Match<'a, M> {
                     e.kx += nx * 150.0;
                     e.ky += ny * 150.0;
                     self.hurt(dmg, ty);
+                    self.helmet_on(i);
                 }
                 continue;
             }
@@ -2976,6 +3459,7 @@ impl<'a, M: MathFns> Match<'a, M> {
                 e.kx += nx * 150.0;
                 e.ky += ny * 150.0;
                 self.hurt(dmg, ty);
+                self.helmet_on(i);
             }
         }
         if let Some(t) = &mut self.terrain {
@@ -3106,7 +3590,7 @@ pub fn run_match<M: MathFns>(
         boss_picks: Vec::new(),
         boss_idx: 0,
         patch_at: (f64::NAN, f64::NAN, 9.0),
-        status_ignored: move_has_status(start_move, opts.status),
+        status_ignored: move_has_status(start_move, opts.status, opts.ext.xkinds),
         pl: Player { x: 0.0, y: 0.0, r: mon.r, hp: mon.hp, inv: 0.0, dirx: 1.0, diry: 0.0, react: 0.0, aim: 0.0 },
         enemies: Vec::with_capacity(72),
         shots: Vec::with_capacity(96),
@@ -3140,7 +3624,7 @@ pub fn run_match<M: MathFns>(
             melee: 1.0,
         },
         stat_dirty: true,
-        stat_snow: false,
+        stat_snow: 1.0,
         angles: Vec::with_capacity(8),
         sep: Sep::default(),
         shot_soa: ShotSoa::default(),
@@ -3149,6 +3633,18 @@ pub fn run_match<M: MathFns>(
             Box::new(Terr { world: World::new((opts.seed as i32).wrapping_mul(7919).wrapping_add(1)), path: Path::new() })
         }),
         lava_t: 0.0,
+        slot: 0,
+        alt_cd: 0.0,
+        comp_evo: vec![false; opts.ext.companions.len()],
+        regen_n: 0.0,
+        regen_amt: 0.0,
+        regen_t: 0.0,
+        power: 255,
+        power_t: 0.0,
+        altar_used: Vec::new(),
+        bell: 0.0,
+        sash_t: -1.0e9,
+        crit_rng: RefCell::new(Rng::new(opts.seed.wrapping_add(0xC217))),
     };
     m.need = xp_for(math, 1);
     if opts.ext.bosses {
@@ -3160,6 +3656,27 @@ pub fn run_match<M: MathFns>(
         m.t += step;
         m.tick_weather();
         m.stats();
+        if m.regen_t > 0.0 {
+            m.regen_t -= step;
+            if m.regen_t <= 0.0 {
+                m.regen_n = 0.0;
+                m.stat_dirty = true;
+                m.stats();
+            }
+        }
+        if m.power_t > 0.0 {
+            m.power_t -= step;
+            if m.power_t <= 0.0 {
+                m.stat_dirty = true;
+                m.stats();
+            }
+        }
+        // player.js:327 Shell Bell, cap 4 per second.
+        if m.bell > 0.0 && m.pl.hp > 0.0 {
+            let h = jmin(m.bell, 4.0 * step);
+            m.bell -= h;
+            m.pl.hp = jmin(m.st.max_hp, m.pl.hp + h);
+        }
         if m.pl.hp > 0.0 && m.st.regen != 0.0 {
             m.pl.hp = jmin(m.st.max_hp, m.pl.hp + m.st.regen * step);
         }
@@ -3217,7 +3734,7 @@ pub fn run_match<M: MathFns>(
                                     m.lava_t -= step;
                                     if m.lava_t <= 0.0 {
                                         m.lava_t = 0.5;
-                                        m.pl.hp -= jmax(5.0, m.st.max_hp * 0.03);
+                                        m.player_lava();
                                     }
                                 }
                             }
@@ -3231,15 +3748,25 @@ pub fn run_match<M: MathFns>(
                 if let Some(t) = &mut m.terrain {
                     t.world.collide(&mut m.pl.x, &mut m.pl.y, m.pl.r);
                 }
+                m.tick_altars();
             }
             m.tick_buffs();
             m.stats();
-            m.atk_cd -= step;
-            if m.atk_cd <= 0.0 {
-                m.atk_cd = if m.cast() { m.st.mv.cd * m.st.cd_mul } else { 0.05 };
-            }
-            if !m.comps.is_empty() {
-                m.cast_comps();
+            m.maybe_swap();
+            m.stats();
+            if m.slot == 0 {
+                m.atk_cd -= step;
+                if m.atk_cd <= 0.0 {
+                    m.atk_cd = if m.cast() { m.st.mv.cd * m.st.cd_mul } else { 0.05 };
+                }
+                if !m.comps.is_empty() {
+                    m.cast_comps();
+                }
+            } else {
+                m.alt_cd -= step;
+                if m.alt_cd <= 0.0 {
+                    m.alt_cd = if m.cast() { m.st.mv.cd * m.st.cd_mul } else { 0.05 };
+                }
             }
             if !m.fields.is_empty() {
                 m.step_fields();
