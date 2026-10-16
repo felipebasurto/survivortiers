@@ -1,0 +1,292 @@
+"""Rebuild data/ranking_definitive.csv from a fixed-group 2+2 sim.
+
+Sheet percentiles, v4 ranks and the other non-sim columns stay as they are in the previous
+ranking. The sim piece is replaced:
+
+  rank_sim_start / rank_sim_best   order of median seconds (ties: lower dex)
+  rank_early                       geometric mean of those rank-percentiles, weights 10 and 45
+  rank_late                        geometric mean of v4 max and v4 fresh, weights 2/3 and 1/3
+  final score                      geometric mean of sheet, early and late, weights 45, 30 and 25
+
+Percentile of a rank r (1 = best of 966) is (966 - r + 0.5) / 966.
+
+Two thousand repeats (seed 20261014) move each median inside its bootstrap interval, cycle 80
+blends of the late-game model around the 2/3 weight, and move the sim/late weights around 30/25
+with the sheet fixed at 45. The published order is the median of those ungated ranks. Tiers are
+then filled with the gates (stats 0.6 / 0.4 / 0.2, three attack types for S, no melee start in S).
+p10, p90, p_tier and p_S describe the ungated repeats. Sim numbers are estimates.
+
+Feeding the previous sim columns back through this procedure reproduces that ranking only to a
+mean absolute error of about 5 ranks. The historical file was not recovered more tightly from the
+documented weights; this script publishes that same estimate for the new runs.
+"""
+from __future__ import annotations
+
+import argparse
+import csv
+import json
+import sys
+from pathlib import Path
+
+import numpy as np
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import combos  # noqa: E402
+
+ROOT = Path(__file__).resolve().parent.parent
+N = 966
+REPEATS = 2000
+SEED = 20261014
+LATE_SPAN = 0.15
+SIM_AMP = 22.0
+HEADER = (
+    "rank,dex,name,tier,rank_p10,rank_p90,p_tier,p_S,start_move,start_kind,start_median_s,"
+    "best_move,best_median_s,rank_sim_start,rank_sim_best,rank_v4_max,rank_v4_fresh,rank_early,"
+    "rank_late,phase_gap,rank_sheet,pct_stats,pct_moves,pct_typedef,pct_size,move_pair,"
+    "shot_dmg_taken,radius,map_reach,stats_capped,attack_types,types_capped,status_unmodelled,melee_start"
+)
+COMMENT = (
+    "# ensemble definitivo (estimacion): ficha 0.45 (stats/ataques/tipos/tamano) x sim con terreno y estado, "
+    "grupo fijo 2 ataques + Danza Espada y Fortaleza, vinculos al ganar la grieta, jefes, orbes de curacion "
+    "y todos los tipos de ataque (simulator/results/fixed_group/g2p2/rank_200.csv; mejor 45/inicial 10) x v4, "
+    "media geometrica de percentiles, tope de tier por stats {'S': 0.6, 'A': 0.4, 'B': 0.2} y por tipos de ataque "
+    "{'S': 3}, sin ataque inicial cuerpo a cuerpo en ('S',), 2000 sorteos, seed 20261014. Cifras de la sim: estimacion."
+)
+CUTS = (("S", 30), ("A", 90), ("B", 200), ("C", 300), ("D", 346))
+BANDS = {"S": (1, 30), "A": (31, 120), "B": (121, 320), "C": (321, 620), "D": (621, 966)}
+STAT_MIN = {"S": 0.6, "A": 0.4, "B": 0.2}
+TIER_OF = {rank: tier for tier, (lo, hi) in BANDS.items() for rank in range(lo, hi + 1)}
+
+
+def load_csv(path: Path) -> list[dict]:
+    with path.open(encoding="utf8", newline="") as f:
+        return list(csv.DictReader(line for line in f if not line.startswith("#")))
+
+
+def pct(rank: np.ndarray) -> np.ndarray:
+    return (N - rank + 0.5) / N
+
+
+def ranks_of(score: np.ndarray) -> np.ndarray:
+    """Higher score is better. Dex-sorted columns make a stable sort break ties by dex."""
+    order = np.argsort(-score, axis=-1, kind="stable")
+    out = np.empty(order.shape, dtype=np.float64)
+    if order.ndim == 1:
+        out[order] = np.arange(1, N + 1)
+        return out
+    rows = np.arange(order.shape[0])[:, None]
+    out[rows, order] = np.arange(1, N + 1)
+    return out
+
+
+def early_ranks(start_s: np.ndarray, best_s: np.ndarray) -> np.ndarray:
+    rs = ranks_of(start_s)
+    rb = ranks_of(best_s)
+    return ranks_of(np.exp((10 * np.log(pct(rs)) + 45 * np.log(pct(rb))) / 55))
+
+
+def late_ranks_for(v4m: np.ndarray, v4f: np.ndarray, weight: float) -> np.ndarray:
+    score = np.exp(weight * np.log(pct(v4m)) + (1 - weight) * np.log(pct(v4f)))
+    return ranks_of(score)
+
+
+def winner_by_dex(sweep: list[dict]) -> dict[int, dict]:
+    best: dict[int, dict] = {}
+    for row in sweep:
+        dex = int(row["dex"])
+        key = (-float(row["median_s"]), -float(row["mean_s"]), row["start"])
+        cur = best.get(dex)
+        if cur is None or key < cur[0]:
+            best[dex] = (key, row)
+    return {dex: pair[1] for dex, pair in best.items()}
+
+
+def qualifies(row: dict, tier: str) -> bool:
+    if tier in ("C", "D"):
+        return True
+    if float(row["pct_stats"]) < STAT_MIN[tier]:
+        return False
+    if tier == "S" and (int(row["attack_types"]) < 3 or row["melee_start"] == "1"):
+        return False
+    return True
+
+
+def fill_tiers(order: list[dict]) -> list[dict]:
+    remaining = list(order)
+    placed: list[dict] = []
+    for tier, count in CUTS:
+        taken: list[dict] = []
+        rest: list[dict] = []
+        for row in remaining:
+            if len(taken) < count and qualifies(row, tier):
+                taken.append(row)
+            else:
+                rest.append(row)
+        if len(taken) < count:
+            raise SystemExit(f"only {len(taken)} Pokémon qualify for {tier}, need {count}")
+        placed.extend(taken)
+        remaining = rest
+    if len(placed) != N:
+        raise SystemExit(f"placed {len(placed)}, expected {N}")
+    return placed
+
+
+def fmt_prob(x: float) -> str:
+    return f"{x:.3f}".rstrip("0").rstrip(".") or "0"
+
+
+def sim_arrays(base: list[dict], starts: dict[int, dict], winners: dict[int, dict], sweep_moves: dict, use_stored_best: bool):
+    start_s = np.array([float(starts[int(r["dex"])]["median_s"]) for r in base])
+    slo = np.array([float(starts[int(r["dex"])]["boot_lo"]) for r in base])
+    shi = np.array([float(starts[int(r["dex"])]["boot_hi"]) for r in base])
+    best_s = np.empty(N)
+    blo = np.empty(N)
+    bhi = np.empty(N)
+    same = np.zeros(N, dtype=bool)
+    best_move: list[str] = []
+    best_text: list[str] = []
+    for i, row in enumerate(base):
+        dex = int(row["dex"])
+        if use_stored_best:
+            move = row["best_move"]
+            best_s[i] = float(row["best_median_s"])
+            best_move.append(move)
+            best_text.append(row["best_median_s"])
+            rec = sweep_moves.get((dex, move))
+            if rec is None:
+                blo[i], bhi[i] = slo[i], shi[i]
+            else:
+                blo[i], bhi[i] = float(rec["boot_lo"]), float(rec["boot_hi"])
+        else:
+            win = winners[dex]
+            best_s[i] = float(win["median_s"])
+            blo[i], bhi[i] = float(win["boot_lo"]), float(win["boot_hi"])
+            best_move.append(win["start"])
+            best_text.append(win["median_s"])
+        same[i] = best_move[-1] == row["start_move"]
+        if same[i]:
+            blo[i], bhi[i] = slo[i], shi[i]
+    return start_s, slo, shi, best_s, blo, bhi, same, best_move, best_text
+
+
+def draw(start_s, slo, shi, best_s, blo, bhi, same, sheet, v4m, v4f):
+    early_point = early_ranks(start_s, best_s)
+    late_point = late_ranks_for(v4m, v4f, 2 / 3)
+    point = np.exp((45 * np.log(pct(sheet)) + 30 * np.log(pct(early_point)) + 25 * np.log(pct(late_point))) / 100)
+    rng = np.random.default_rng(SEED)
+    late_w = (2 / 3) + LATE_SPAN * np.linspace(-1, 1, 80)
+    late_bank = np.stack([late_ranks_for(v4m, v4f, float(w)) for w in late_w])
+    sim_w = 30 + SIM_AMP * np.linspace(-1, 1, 25)
+    st = slo + rng.random((REPEATS, N)) * np.maximum(shi - slo, 0)
+    bt = blo + rng.random((REPEATS, N)) * np.maximum(bhi - blo, 0)
+    bt[:, same] = st[:, same]
+    re = early_ranks(st, bt)
+    idx = np.arange(REPEATS)
+    sw = sim_w[(idx // 80) % 25]
+    lr = late_bank[idx % 80]
+    score = np.exp((45 * np.log(pct(sheet)) + sw[:, None] * np.log(pct(re)) + (55 - sw)[:, None] * np.log(pct(lr))) / 100)
+    fr = ranks_of(score)
+    return early_point, late_point, point, fr
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Rebuild the definitive ranking from group-mode sim results.")
+    parser.add_argument("--base", type=Path, default=ROOT / "data" / "ranking_definitive.csv")
+    parser.add_argument("--rank-200", type=Path, default=ROOT / "simulator" / "results" / "fixed_group" / "g2p2" / "rank_200.csv")
+    parser.add_argument("--sweep", type=Path, default=ROOT / "simulator" / "results" / "fixed_group" / "g2p2" / "starter_sweep.csv")
+    parser.add_argument("--out", type=Path, default=ROOT / "data" / "ranking_definitive.csv")
+    parser.add_argument("--use-stored-best", action="store_true")
+    parser.add_argument("--check", action="store_true")
+    args = parser.parse_args()
+
+    base = load_csv(args.base)
+    if len(base) != N:
+        raise SystemExit(f"{args.base} has {len(base)} rows")
+    base.sort(key=lambda r: int(r["dex"]))
+    starts = {int(r["dex"]): r for r in load_csv(args.rank_200)}
+    sweep_rows = load_csv(args.sweep)
+    winners = winner_by_dex(sweep_rows)
+    if set(starts) != {int(r["dex"]) for r in base} or set(winners) != {int(r["dex"]) for r in base}:
+        raise SystemExit("sim files do not cover the same 966 species as the ranking")
+    sweep_moves = {(int(r["dex"]), r["start"]): r for r in sweep_rows}
+    start_s, slo, shi, best_s, blo, bhi, same, best_move, best_text = sim_arrays(
+        base, starts, winners, sweep_moves, args.use_stored_best
+    )
+    sheet = np.array([int(r["rank_sheet"]) for r in base], dtype=float)
+    v4m = np.array([int(r["rank_v4_max"]) for r in base], dtype=float)
+    v4f = np.array([int(r["rank_v4_fresh"]) for r in base], dtype=float)
+    early_point, late_point, point, fr = draw(start_s, slo, shi, best_s, blo, bhi, same, sheet, v4m, v4f)
+    med = np.median(fr, axis=0)
+    p10 = np.percentile(fr, 10, axis=0)
+    p90 = np.percentile(fr, 90, axis=0)
+    p_s = np.mean(fr <= 30, axis=0)
+    rstart = ranks_of(start_s).astype(int)
+    rbest = ranks_of(best_s).astype(int)
+
+    order_ix = sorted(range(N), key=lambda i: (med[i], -point[i], int(base[i]["dex"])))
+    ungated = [base[i] for i in order_ix]
+    flag_stats: dict[int, bool] = {}
+    flag_types: dict[int, bool] = {}
+    for pos, row in enumerate(ungated, start=1):
+        tier = TIER_OF[pos]
+        dex = int(row["dex"])
+        thr = STAT_MIN.get(tier)
+        flag_stats[dex] = thr is not None and float(row["pct_stats"]) < thr
+        flag_types[dex] = tier == "S" and int(row["attack_types"]) < 3
+    placed = fill_tiers(ungated)
+    index = {int(r["dex"]): i for i, r in enumerate(base)}
+
+    out_rows: list[dict] = []
+    for place, row in enumerate(placed, start=1):
+        dex = int(row["dex"])
+        i = index[dex]
+        tier = TIER_OF[place]
+        lo, hi = BANDS[tier]
+        out = dict(row)
+        out.update({
+            "rank": str(place),
+            "tier": tier,
+            "rank_p10": str(int(round(float(p10[i])))),
+            "rank_p90": str(int(round(float(p90[i])))),
+            "p_tier": fmt_prob(float(np.mean((fr[:, i] >= lo) & (fr[:, i] <= hi)))),
+            "p_S": fmt_prob(float(p_s[i])),
+            "start_median_s": starts[dex]["median_s"],
+            "best_move": best_move[i],
+            "best_median_s": best_text[i],
+            "rank_sim_start": str(int(rstart[i])),
+            "rank_sim_best": str(int(rbest[i])),
+            "rank_early": str(int(early_point[i])),
+            "rank_late": str(int(late_point[i])),
+            "phase_gap": str(int(late_point[i]) - int(early_point[i])),
+            "stats_capped": "1" if flag_stats[dex] else "0",
+            "types_capped": "1" if flag_types[dex] else "0",
+        })
+        out_rows.append(out)
+
+    if args.check:
+        err = [abs(int(r["rank"]) - int(base[index[int(r["dex"])]]["rank"])) for r in out_rows]
+        late_err = [abs(int(r["rank_late"]) - int(base[index[int(r["dex"])]]["rank_late"])) for r in out_rows]
+        early_err = [abs(int(r["rank_early"]) - int(base[index[int(r["dex"])]]["rank_early"])) for r in out_rows]
+        width = float(np.median(p90 - p10))
+        print(
+            f"mae {sum(err)/len(err):.2f}  median abs {sorted(err)[len(err)//2]}  max {max(err)}  "
+            f"band {width:.1f}  late mae {sum(late_err)/len(late_err):.3f}  early mae {sum(early_err)/len(early_err):.3f}"
+        )
+        return
+
+    if not args.use_stored_best:
+        dex_types = {p["dex"]: p["types"] for p in json.loads((ROOT / "data" / "pokedex_export.json").read_text(encoding="utf8"))}
+        groups = combos.compute_all(dex_types, {int(r["dex"]): r["best_move"] for r in out_rows})
+        for row in out_rows:
+            attacks = groups[int(row["dex"])]["moves"][: combos.ATTACK_SLOTS]
+            row["move_pair"] = " + ".join(attacks)
+    lines = [COMMENT, HEADER]
+    cols = HEADER.split(",")
+    for row in out_rows:
+        lines.append(",".join(row[c] for c in cols))
+    args.out.write_text("\n".join(lines) + "\n", encoding="utf8")
+    print(f"wrote {args.out}")
+
+
+if __name__ == "__main__":
+    main()
