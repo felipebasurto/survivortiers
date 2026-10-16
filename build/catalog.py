@@ -333,7 +333,7 @@ def species_details(entries: list[dict], sim_range: list[float], median: float, 
     """Lo que la ficha necesita además de pokemon-index.json, en listas para que pese poco. Orden de cada entrada:
     [pilares (stats, moves, typedef, size), puestos por medida (METHOD_KEYS), ataque inicial, segundos, mejor ataque,
     segundos, pareja de ataques, banderas (1 estado sin simular, 2 cuerpo a cuerpo, 4 estadísticas), estadísticas base
-    oficiales [PS, ataque, defensa, ataque especial, defensa especial, velocidad], trío de cobertura [% super efectivo,
+    oficiales [PS, ataque, defensa, ataque especial, defensa especial, velocidad], combo de cobertura [% super efectivo,
     % no resistido, ids de los ataques y el potenciador, tipos de ataque distintos (1-3)] (build/combos.py)].
     Lo lee src/ficha.js.
     «statMedian» es la mediana de cada estadística base entre los 966, para la línea de referencia de la ficha."""
@@ -376,7 +376,7 @@ def main() -> int:
     write_json("pokemon-index.json", slim(entries), public=True)
     dex_types = {p["dex"]: p["types"] for p in json.loads((DATA / "pokedex_export.json").read_text(encoding="utf8"))}
     write_json("species.json", species_details(entries, meta["simRange"], meta["simMedianSeconds"],
-                                               combos.compute_all(dex_types)), public=True)
+                                               combos.compute_all(dex_types, {e["dex"]: e["r"]["sim"]["best"]["id"] for e in entries})), public=True)
     write_json("moves.json", moves, public=True)
     write_json("gachas.json", gachas, pretty=True)
     write_json("meta.json", meta, pretty=True)

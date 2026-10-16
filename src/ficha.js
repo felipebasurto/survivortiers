@@ -273,7 +273,7 @@
       '<p class="learn-lede">' + esc(t('learn_lede', { n: pool.length })) + '</p>' + rows + '</section>';
   }
 
-  // Trío de cobertura (build/combos.py): tres ataques de tipos distintos y un potenciador, con dos barras.
+  // Combo de cobertura (build/combos.py): hasta tres ataques (el primero, el mejor de la simulación) y un potenciador, con dos barras.
   function combo(d, moves) {
     const [superPct, neutralPct, ids, nTypes] = d[9];
     // El texto sigue al número real de tipos de ataque: nunca dice «tres» si el trío tiene dos.

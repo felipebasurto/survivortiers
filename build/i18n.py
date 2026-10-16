@@ -129,13 +129,13 @@ STR: dict[str, tuple[str, str]] = {
                    "Los porcentajes miran a los 966 Pokémon por igual.",
                    "Three attacks of different types and a boost: what the game fires together with a bond. "
                    "Percentages count all 966 Pokémon equally."),
-    "combo_lede_two": ("Dos tipos de ataque y un potenciador: no llega a tres tipos, así que cubre menos rivales. "
+    "combo_lede_two": ("Ataques de dos tipos y un potenciador: no llega a tres tipos, así que cubre menos rivales. "
                        "Los porcentajes miran a los 966 Pokémon por igual.",
-                       "Two attack types and a boost: it does not reach three types, so it covers fewer foes. "
+                       "Attacks of two types and a boost: it does not reach three types, so it covers fewer foes. "
                        "Percentages count all 966 Pokémon equally."),
-    "combo_lede_one": ("Un solo tipo de ataque y un potenciador: cubre muy pocos rivales. "
+    "combo_lede_one": ("Ataques de un solo tipo y un potenciador: cubre muy pocos rivales. "
                        "Los porcentajes miran a los 966 Pokémon por igual.",
-                       "One attack type and a boost: it covers very few foes. Percentages count all 966 Pokémon equally."),
+                       "Attacks of a single type and a boost: it covers very few foes. Percentages count all 966 Pokémon equally."),
     "combo_super": ("Golpea super efectivo", "Hits super effective"),
     "combo_neutral": ("Nunca le resisten", "Never resisted"),
     "combo_note": ("El tipo normal no es super efectivo contra nada: su papel es que ningún rival le resista.",
