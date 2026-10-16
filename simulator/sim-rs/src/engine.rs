@@ -87,6 +87,12 @@ pub struct Ext {
     pub item: Item,
     /// card priority override for FILL stats (indices into Stat); empty = default
     pub fill: Vec<u8>,
+    /// fire the kinds the parity engine leaves inert (cone, meteor, chain, aura, dash, mine, trail, turret; combat.js)
+    pub xkinds: bool,
+    /// bonds arrive with rift legendaries (rift.js), one group member per bond; false = whole group from t=0
+    pub rift: bool,
+    /// the five bosses of enemies.js BOSS_SLOTS (spawner.js), with waves at 25 % and no surges while one is alive
+    pub bosses: bool,
 }
 
 #[derive(Clone, Copy)]
@@ -500,6 +506,7 @@ struct Enemy {
     poison: f64,
     poison_t: f64,
     poison_tick: f64,
+    boss: bool,
 }
 
 /// What one hit applies to an enemy: the move's slow, burn and poison values (applySlow,
@@ -962,6 +969,22 @@ fn sep_brute(enemies: &mut [Enemy], push: f64, pos: &mut [[f64; 3]]) {
 
 // ---------------------------------------------------------------- match
 
+/// A ground or air effect of the extra kinds (combat.js `fields`): 2 meteor, 6 mine, 7 patch (trail), 8 turret.
+struct Field<'a> {
+    k: u8,
+    x: f64,
+    y: f64,
+    t: f64,
+    life: f64,
+    r: f64,
+    atk: f64,
+    tick: f64,
+    mv: &'a MoveLvl,
+}
+
+const BOSS_SLOTS: [(f64, f64, f64, f64); 5] =
+    [(180.0, 1400.0, 34.0, 220.0), (360.0, 3200.0, 42.0, 420.0), (540.0, 5600.0, 48.0, 680.0), (720.0, 9000.0, 56.0, 1000.0), (900.0, 16000.0, 68.0, 1800.0)];
+
 struct Match<'a, M: MathFns> {
     math: &'a M,
     data: &'a Data,
@@ -980,6 +1003,16 @@ struct Match<'a, M: MathFns> {
     def_buff: usize,
     comps: Vec<(usize, usize, f64)>,
     any_melee: bool,
+    fields: Vec<Field<'a>>,
+    fx: Rng,
+    /// group members bonded so far (index into bond_order) and their order: comps by index, 100 atk buff, 101 2nd buff
+    bonds: usize,
+    bond_order: Vec<u8>,
+    rift_check: f64,
+    rift_misses: f64,
+    rift_travel: f64,
+    boss_idx: usize,
+    patch_at: (f64, f64, f64),
     status_ignored: bool,
     pl: Player,
     enemies: Vec<Enemy>,
@@ -1133,14 +1166,15 @@ impl<'a, M: MathFns> Match<'a, M> {
             }
         }
         for (i, c) in self.comps.iter().enumerate() {
-            if c.1 < self.data.moves[c.0].max_lvl {
+            if c.1 < self.data.moves[c.0].max_lvl && self.bonded(i as u8) {
                 out.push(Card::Up2(i as u8));
             }
         }
-        if self.has_sd && s.sd < 5 {
+        // With rift bonds the bot only levels group members it has already bonded (an unbonded buff never fires).
+        if self.has_sd && s.sd < 5 && (self.opts.ext.buffs == 0 || self.bonded(100)) {
             out.push(Card::Sd);
         }
-        if self.has_hd && s.hd < 5 {
+        if self.has_hd && s.hd < 5 && (self.opts.ext.buffs == 0 || self.bonded(101)) {
             out.push(Card::Hd);
         }
         for st in STATS {
@@ -1266,6 +1300,11 @@ impl<'a, M: MathFns> Match<'a, M> {
                 continue;
             }
             let gained = or(self.enemies[i].xp, 1.0) * 5.6;
+            // pickup.js drops: a boss always leaves a heal orb, any other enemy 1.2 % of the time; game.js:463 heals
+            // 30 % of max HP (the bot is assumed to pick it up).
+            if self.opts.ext.bosses && (self.enemies[i].boss || self.fx.next() < 0.012) {
+                self.pl.hp = jmin(self.st.max_hp, self.pl.hp + self.st.max_hp * 0.3);
+            }
             self.enemies.remove(i);
             self.kills += 1;
             self.grant_xp(gained);
@@ -1280,16 +1319,23 @@ impl<'a, M: MathFns> Match<'a, M> {
         }
     }
 
-    fn cast(&mut self) {
+    fn cast(&mut self) -> bool {
         let mv = self.st.mv;
         if mv.kind != Kind::Orbit {
             self.life_orb();
         }
-        self.cast_mv(mv);
+        self.cast_mv(mv)
+    }
+
+    fn bonded(&self, slot: u8) -> bool {
+        !self.opts.ext.rift || self.bond_order.iter().take(self.bonds).any(|&b| b == slot)
     }
 
     fn cast_comps(&mut self) {
         for i in 0..self.comps.len() {
+            if !self.bonded(i as u8) {
+                continue;
+            }
             self.comps[i].2 -= self.dt;
             if self.comps[i].2 <= 0.0 {
                 let (id, lvl, _) = self.comps[i];
@@ -1297,12 +1343,14 @@ impl<'a, M: MathFns> Match<'a, M> {
                 let mv = &m.levels[lvl.min(m.max_lvl) - 1];
                 self.comps[i].2 = mv.cd * self.st.cd_mul;
                 self.life_orb();
-                self.cast_mv(mv);
+                if !self.cast_mv(mv) {
+                    self.comps[i].2 = 0.05;
+                }
             }
         }
     }
 
-    fn cast_mv(&mut self, mv: &'a MoveLvl) {
+    fn cast_mv(&mut self, mv: &'a MoveLvl) -> bool {
         if unmodelled(mv, self.opts.status) {
             self.status_ignored = true;
         }
@@ -1383,27 +1431,37 @@ impl<'a, M: MathFns> Match<'a, M> {
                 }
                 self.angles = angles;
             }
-            Kind::Inert => {}
+            Kind::Inert => {
+                if self.opts.ext.xkinds && mv.xk != 0 {
+                    return self.cast_x(mv, aim, st);
+                }
+            }
         }
+        true
     }
 
     fn push_shot(&mut self, angle: f64, mv: &MoveLvl) {
-        let speed = mv.speed;
+        let (x, y, atk) = (self.pl.x, self.pl.y, self.st.atk);
+        self.push_shot_at(x, y, angle, mv, mv.speed, mv.life, atk);
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn push_shot_at(&mut self, x: f64, y: f64, angle: f64, mv: &MoveLvl, speed: f64, life: f64, atk: f64) {
         let vx = self.math.cos(angle) * speed;
         let vy = self.math.sin(angle) * speed;
         let st = self.status_of(mv);
         self.shots.push(Shot {
-            x: self.pl.x,
-            y: self.pl.y,
+            x,
+            y,
             vx,
             vy,
             speed,
             r: or(mv.size, 7.0),
-            life: mv.life,
+            life,
             left: or(mv.pierce, 0.0) + 1.0,
             hit: Vec::new(),
             dmg: mv.dmg,
-            atk: self.st.atk,
+            atk,
             ty: mv.ty,
             homing: or(mv.homing, 0.0),
             st,
@@ -1411,6 +1469,319 @@ impl<'a, M: MathFns> Match<'a, M> {
         if self.shots.len() > 80 {
             self.shots.remove(0);
         }
+    }
+
+    // ------------------------------------------------ extra kinds (fixed-group mode, combat.js)
+
+    fn any_within(&self, x: f64, y: f64, r: f64) -> bool {
+        self.enemies.iter().any(|e| e.hp > 0.0 && len(e.x - x, e.y - y) <= r + e.r)
+    }
+
+    /// Hits every live enemy in the circle (combat.js blast / queryCircle: centre distance <= r + e.r).
+    fn blast(&mut self, x: f64, y: f64, r: f64, dmg: f64, atk: f64, mv: &MoveLvl) {
+        let st = self.status_of(mv);
+        for e in self.enemies.iter_mut() {
+            if e.hp > 0.0 && len(e.x - x, e.y - y) <= r + e.r {
+                strike(e, dmg, atk, mv.ty, &self.data.tmult, &self.weather, st);
+            }
+        }
+    }
+
+    fn cast_x(&mut self, mv: &'a MoveLvl, aim: f64, st: Status) -> bool {
+        let atk = self.st.atk;
+        let (px, py) = (self.pl.x, self.pl.y);
+        let count = or(mv.count, 1.0).floor().max(1.0);
+        match mv.xk {
+            // cone(): short fan of fast shots
+            1 => {
+                if !self.any_within(px, py, mv.speed * mv.life + 30.0) {
+                    return false;
+                }
+                let n = count.max(2.0);
+                let arc = or(mv.arc, 0.9);
+                let mut i = 0.0;
+                while i < n {
+                    let a = aim + (i / (n - 1.0) - 0.5) * arc + (self.fx.next() * 0.1 - 0.05);
+                    let sp = mv.speed * (0.85 + self.fx.next() * 0.25);
+                    let life = mv.life * (0.85 + self.fx.next() * 0.2);
+                    self.push_shot_at(px + a.cos() * 4.0, py + a.sin() * 4.0, a, mv, sp, life, atk);
+                    i += 1.0;
+                }
+            }
+            // meteors(): fall 0.5 s later on random enemies within reach 340
+            2 => {
+                let mut near: Vec<usize> =
+                    (0..self.enemies.len()).filter(|&i| { let e = &self.enemies[i]; e.hp > 0.0 && len(e.x - px, e.y - py) <= 340.0 + e.r }).collect();
+                if near.is_empty() {
+                    return false;
+                }
+                for i in (1..near.len()).rev() {
+                    let j = (self.fx.next() * (i + 1) as f64) as usize;
+                    near.swap(i, j);
+                }
+                for i in 0..count as usize {
+                    let (x, y) = match near.get(i) {
+                        Some(&k) => (self.enemies[k].x + self.fx.next() * 16.0 - 8.0, self.enemies[k].y + self.fx.next() * 12.0 - 6.0),
+                        None => (px + self.fx.next() * 280.0 - 140.0, py + self.fx.next() * 220.0 - 110.0),
+                    };
+                    self.fields.push(Field { k: 2, x, y, t: -(i as f64) * 0.09, life: 0.5, r: mv.radius, atk, tick: 0.0, mv });
+                }
+            }
+            // chain(): jumps to the nearest unhit enemy within radius, 15 % less each jump; hex x mv.hex on a status
+            3 => {
+                let mut cur = match nearest(&self.enemies, px, py) {
+                    Some(i) if len(self.enemies[i].x - px, self.enemies[i].y - py) <= 280.0 + self.enemies[i].r => Some(i),
+                    _ => return false,
+                };
+                let mut done: Vec<usize> = Vec::new();
+                let mut k = 1.0;
+                for _ in 0..count as usize {
+                    let Some(i) = cur else { break };
+                    done.push(i);
+                    let e = &mut self.enemies[i];
+                    let hex = if mv.hex.is_finite() && (e.burn > 0.0 || e.poison > 0.0 || e.slow_t > 0.0) { mv.hex } else { 1.0 };
+                    strike(e, mv.dmg * k * hex, atk, mv.ty, &self.data.tmult, &self.weather, st);
+                    k *= 0.85;
+                    let (cx, cy) = (self.enemies[i].x, self.enemies[i].y);
+                    let mut best = None;
+                    let mut bd = mv.radius * mv.radius;
+                    for (j, o) in self.enemies.iter().enumerate() {
+                        if o.hp <= 0.0 || done.contains(&j) || len(o.x - cx, o.y - cy) > mv.radius + o.r {
+                            continue;
+                        }
+                        let d = (o.x - cx) * (o.x - cx) + (o.y - cy) * (o.y - cy);
+                        if d < bd {
+                            bd = d;
+                            best = Some(j);
+                        }
+                    }
+                    cur = best;
+                }
+            }
+            // aura(): everything in the circle; drain heals at most 6 per cast
+            4 => {
+                let mut healed = 0.0;
+                for e in self.enemies.iter_mut() {
+                    if e.hp > 0.0 && len(e.x - px, e.y - py) <= mv.radius + e.r {
+                        strike(e, mv.dmg, atk, mv.ty, &self.data.tmult, &self.weather, st);
+                        if mv.drain.is_finite() {
+                            healed += mv.drain;
+                        }
+                    }
+                }
+                if healed > 0.0 {
+                    self.pl.hp = jmin(self.st.max_hp, self.pl.hp + jmin(healed, 6.0));
+                }
+            }
+            // dash(): lunge along the aim (stopped by walls), 0.3 s invulnerable, hits along the path
+            5 => {
+                if !self.any_within(px, py, mv.radius + 60.0) {
+                    return false;
+                }
+                let (ca, sa) = (aim.cos(), aim.sin());
+                let mut l = 0.0;
+                let mut d = 8.0;
+                let pr = self.pl.r;
+                while d <= mv.radius {
+                    if let Some(t) = &mut self.terrain {
+                        if !t.world.is_free(px + ca * d, py + sa * d, pr * 0.8) {
+                            break;
+                        }
+                    }
+                    l = d;
+                    d += 8.0;
+                }
+                let (ex, ey) = (px + ca * l, py + sa * l);
+                self.pl.x = ex;
+                self.pl.y = ey;
+                self.pl.inv = jmax(self.pl.inv, 0.3);
+                let w = or(mv.width, 34.0);
+                for e in self.enemies.iter_mut() {
+                    if e.hp <= 0.0 {
+                        continue;
+                    }
+                    let (vx, vy) = (ex - px, ey - py);
+                    let ll = vx * vx + vy * vy;
+                    let tt = if ll > 0.0 { (((e.x - px) * vx + (e.y - py) * vy) / ll).clamp(0.0, 1.0) } else { 0.0 };
+                    let (qx, qy) = (px + vx * tt - e.x, py + vy * tt - e.y);
+                    if qx * qx + qy * qy <= (w / 2.0 + e.r) * (w / 2.0 + e.r) {
+                        strike(e, mv.dmg, atk, mv.ty, &self.data.tmult, &self.weather, st);
+                    }
+                }
+            }
+            // mines(): armed after 0.35 s, burst when stepped on (half damage when they expire); 4 + 2n at most
+            6 => {
+                for _ in 0..count as usize {
+                    let a = self.fx.next() * 6.2832;
+                    let d = if count <= 1.0 { 0.0 } else { 18.0 + self.fx.next() * 28.0 };
+                    self.fields.push(Field { k: 6, x: px + a.cos() * d, y: py + a.sin() * d * 0.8, t: 0.0, life: or(mv.dur, 7.0), r: mv.radius, atk, tick: 0.0, mv });
+                }
+                let max = 4 + 2 * count as usize;
+                let n = self.fields.iter().filter(|f| f.k == 6).count();
+                if n > max {
+                    let mut drop = n - max;
+                    self.fields.retain(|f| if f.k == 6 && drop > 0 { drop -= 1; false } else { true });
+                }
+            }
+            // trailPatch(): a damaging puddle every so often, ticks every 0.5 s; 18 at most
+            7 => {
+                let (lx, ly, lt) = self.patch_at;
+                if lx.is_finite() && len(lx - px, ly - py) < mv.radius * 0.9 && self.t - lt < 1.0 {
+                    return true;
+                }
+                self.patch_at = (px, py, self.t);
+                self.fields.push(Field { k: 7, x: px, y: py, t: 0.0, life: or(mv.dur, 3.0), r: mv.radius, atk, tick: 0.0, mv });
+                let n = self.fields.iter().filter(|f| f.k == 7).count();
+                if n > 18 {
+                    let mut drop = n - 18;
+                    self.fields.retain(|f| if f.k == 7 && drop > 0 { drop -= 1; false } else { true });
+                }
+            }
+            // turret(): left behind you, shoots the nearest enemy for a while; `count` at most
+            8 => {
+                let a = aim + PI + (self.fx.next() * 1.2 - 0.6);
+                self.fields.push(Field { k: 8, x: px + a.cos() * 26.0, y: py + a.sin() * 20.0, t: 0.0, life: or(mv.dur, 6.0), r: 0.0, atk, tick: 0.3, mv });
+                let max = count as usize;
+                let n = self.fields.iter().filter(|f| f.k == 8).count();
+                if n > max {
+                    let mut drop = n - max;
+                    self.fields.retain(|f| if f.k == 8 && drop > 0 { drop -= 1; false } else { true });
+                }
+            }
+            _ => {}
+        }
+        true
+    }
+
+    fn step_fields(&mut self) {
+        let dt = self.dt;
+        let mut i = self.fields.len();
+        while i > 0 {
+            i -= 1;
+            self.fields[i].t += dt;
+            let f = &self.fields[i];
+            let (k, x, y, t, life, r, atk, mv) = (f.k, f.x, f.y, f.t, f.life, f.r, f.atk, f.mv);
+            match k {
+                2 => {
+                    if t >= life {
+                        self.blast(x, y, r, mv.dmg, atk, mv);
+                        self.fields.remove(i);
+                    }
+                }
+                6 => {
+                    let trig = t >= 0.35 && self.any_within(x, y, 14.0);
+                    if trig || t >= life {
+                        self.blast(x, y, r, mv.dmg * if trig { 1.0 } else { 0.5 }, atk, mv);
+                        self.fields.remove(i);
+                    }
+                }
+                7 => {
+                    if t >= life {
+                        self.fields.remove(i);
+                        continue;
+                    }
+                    self.fields[i].tick -= dt;
+                    if self.fields[i].tick <= 0.0 {
+                        self.fields[i].tick = 0.5;
+                        self.blast(x, y, r, mv.dmg, atk, mv);
+                    }
+                }
+                8 => {
+                    if t >= life {
+                        self.fields.remove(i);
+                        continue;
+                    }
+                    self.fields[i].tick -= dt;
+                    if self.fields[i].tick <= 0.0 {
+                        let range = or(mv.range, 300.0);
+                        let tg = nearest(&self.enemies, x, y).filter(|&j| len(self.enemies[j].x - x, self.enemies[j].y - y) <= range + self.enemies[j].r);
+                        self.fields[i].tick = if tg.is_some() { or(mv.rate, 0.6) } else { 0.15 };
+                        if let Some(j) = tg {
+                            let a = (self.enemies[j].y - y).atan2(self.enemies[j].x - x);
+                            self.push_shot_at(x, y, a, mv, or(mv.speed, 300.0), 1.4, atk);
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
+    // ------------------------------------------------ rifts and bosses (fixed-group mode)
+
+    /// rift.js update(): from t > 75 s a check every 30 s opens a rift with chance 0.2 x (1 + misses); a check with a
+    /// boss alive does not count. The rift opens 380-560 px away and lasts 45 s; the bot walks there at its speed and
+    /// wins the arena (map paused meanwhile: EnemyMgr.stash, so the arena takes no map time). Each win is one bond.
+    fn tick_rift(&mut self, boss_alive: bool) {
+        if !self.opts.ext.rift || self.bonds >= self.bond_order.len() {
+            return;
+        }
+        let dt = self.dt;
+        if self.rift_travel >= 0.0 {
+            self.rift_travel -= dt;
+            if self.rift_travel < 0.0 {
+                self.bonds += 1;
+                self.rift_check = 30.0;
+                self.stat_dirty = true;
+            }
+            return;
+        }
+        if self.t <= 75.0 {
+            return;
+        }
+        self.rift_check -= dt;
+        if self.rift_check > 0.0 {
+            return;
+        }
+        self.rift_check = 30.0;
+        if boss_alive {
+            return;
+        }
+        if self.fx.next() < 0.2 * (1.0 + self.rift_misses) {
+            self.rift_misses = 0.0;
+            let d = 380.0 + self.fx.next() * 180.0;
+            let walk = d / self.st.spd;
+            if walk <= 45.0 {
+                self.rift_travel = walk;
+            }
+        } else {
+            self.rift_misses += 1.0;
+        }
+    }
+
+    /// spawner.js spawnBoss() with enemies.js BOSS_SLOTS / rollRun / bossScale: hp x1.35, dmg x1.2, both x(1 + t/600),
+    /// shots of 0.55 x slot damage every 1.1 s, range 260. The boss AI (slam, dash, leap, rain, beam, nova, volley) is
+    /// approximated by the sim's ranged / charger / chase behaviours.
+    fn spawn_boss(&mut self) -> bool {
+        let before = self.enemies.len();
+        if before >= CAP {
+            self.enemies.remove(0);
+        }
+        let before = self.enemies.len();
+        self.roll_spawn(None);
+        if self.enemies.len() == before {
+            return false;
+        }
+        let (_, hp, dmg, xp) = BOSS_SLOTS[self.boss_idx];
+        let sc = 1.0 + self.t / 600.0;
+        let roll = self.fx.next();
+        let e = self.enemies.last_mut().unwrap();
+        e.boss = true;
+        e.beh = if roll < 0.35 { Beh::Ranged } else if roll < 0.6 { Beh::Charger } else { Beh::Chase };
+        e.def.beh = e.beh;
+        e.hp = hp * 1.35 * sc;
+        e.max = e.hp;
+        e.dmg = dmg * 1.2 * sc;
+        e.def.dmg = e.dmg;
+        e.shot = dmg * 0.55 * sc;
+        e.def.shot_dmg = e.shot;
+        e.def.shot_cd = 1.1;
+        e.def.range = 260.0;
+        e.spd = 70.0;
+        e.xp = xp / 5.6;
+        e.r *= 1.6;
+        e.fly = true;
+        true
     }
 
     fn step_shots(&mut self) {
@@ -1769,6 +2140,7 @@ impl<'a, M: MathFns> Match<'a, M> {
             poison: 0.0,
             poison_t: 0.0,
             poison_tick: 0.0,
+            boss: false,
         };
         self.seq += 1;
         e.shot = or(e.def.shot_dmg, 10.0) * (e.dmg / or(e.def.dmg, 1.0));
@@ -1825,6 +2197,9 @@ impl<'a, M: MathFns> Match<'a, M> {
 
     fn tick_buffs(&mut self) {
         for which in 0..2 {
+            if self.opts.ext.rift && self.opts.ext.buffs != 0 && !self.bonded(100 + which as u8) {
+                continue;
+            }
             let (id, lvl) = if which == 0 {
                 (self.atk_buff, self.state.sd)
             } else {
@@ -2327,6 +2702,25 @@ pub fn run_match<M: MathFns>(
         atk_buff: if opts.ext.dd { data.dragon_dance } else { data.swords_dance },
         comps: opts.ext.companions.iter().map(|&c| (c, 1usize, 0.0)).collect(),
         any_melee: opts.ext.companions.iter().any(|&c| data.moves[c].kind == Kind::Melee),
+        fields: Vec::new(),
+        fx: Rng::new(opts.seed.wrapping_mul(2654435761).wrapping_add(0x51F7)),
+        bonds: 0,
+        bond_order: {
+            let mut o: Vec<u8> = (0..opts.ext.companions.len() as u8).collect();
+            if opts.ext.buffs & 1 != 0 {
+                o.push(100);
+            }
+            if opts.ext.buffs & 2 != 0 {
+                o.push(101);
+            }
+            o.truncate(3);
+            o
+        },
+        rift_check: 30.0,
+        rift_misses: 0.0,
+        rift_travel: -1.0,
+        boss_idx: 0,
+        patch_at: (f64::NAN, f64::NAN, 9.0),
         status_ignored: move_has_status(start_move, opts.status),
         pl: Player { x: 0.0, y: 0.0, r: mon.r, hp: mon.hp, inv: 0.0, dirx: 1.0, diry: 0.0, react: 0.0, aim: 0.0 },
         enemies: Vec::with_capacity(72),
@@ -2384,14 +2778,26 @@ pub fn run_match<M: MathFns>(
         if m.pl.inv > 0.0 {
             m.pl.inv -= step;
         }
-        m.acc += spawn_rate(math, m.t) * step;
+        let mut boss_alive = false;
+        if opts.ext.bosses {
+            if m.boss_idx < BOSS_SLOTS.len() && m.t >= BOSS_SLOTS[m.boss_idx].0 && m.spawn_boss() {
+                m.boss_idx += 1;
+            }
+            boss_alive = m.enemies.iter().any(|e| e.boss && e.hp > 0.0);
+            m.tick_rift(boss_alive);
+        } else if opts.ext.rift {
+            m.tick_rift(false);
+        }
+        m.acc += spawn_rate(math, m.t) * step * if boss_alive { 0.25 } else { 1.0 };
         let mut n = m.acc.floor();
         m.acc -= n;
         while n > 0.0 {
             n -= 1.0;
             m.roll_spawn(None);
         }
-        m.surge -= step;
+        if !boss_alive {
+            m.surge -= step;
+        }
         if m.surge <= 0.0 {
             m.surge = 38.0 + m.world.next() * 18.0;
             let base = m.world.next() * PI * 2.0;
@@ -2436,11 +2842,13 @@ pub fn run_match<M: MathFns>(
         m.stats();
         m.atk_cd -= step;
         if m.atk_cd <= 0.0 {
-            m.cast();
-            m.atk_cd = m.st.mv.cd * m.st.cd_mul;
+            m.atk_cd = if m.cast() { m.st.mv.cd * m.st.cd_mul } else { 0.05 };
         }
         if !m.comps.is_empty() {
             m.cast_comps();
+        }
+        if !m.fields.is_empty() {
+            m.step_fields();
         }
         m.step_shots();
         m.reap();

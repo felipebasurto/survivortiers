@@ -31,11 +31,11 @@ ITEMS = [
                    "+40% damage, but you cannot switch moves."),
         "reason": ("Si juegas con un grupo fijo de cuatro movimientos vinculados y no cambias nunca, el bloqueo no te "
                    "cuesta nada y el +40 % es puro (también a los ataques del grupo). En la simulación de grupo fijo "
-                   "(2 ataques + Danza Espada y Fortaleza, 150 Pokémon, 100 partidas) sube la mediana un 9 % "
+                   "(2 ataques + Danza Espada y Fortaleza vinculados al ganar grietas, 150 Pokémon, 100 partidas) sube la mediana un 12 % "
                    "(estimación). Solo pierde si todavía cambias de movimiento.",
                    "If you play one fixed group of four bonded moves and never switch, the lock costs nothing and "
                    "the +40% is pure (it applies to every move in the group). In the fixed-group simulation "
-                   "(2 attacks + Swords Dance and Harden, 150 Pokémon, 100 runs) it raises the median by 9% "
+                   "(2 attacks + Swords Dance and Harden, bonded as rifts are won, 150 Pokémon, 100 runs) it raises the median by 12% "
                    "(estimate). It only loses if you still switch moves."),
     },
     {

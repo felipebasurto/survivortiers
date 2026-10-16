@@ -86,6 +86,13 @@ pub struct MoveLvl {
     pub poison: f64,
     /// slow factor of the move (NaN when absent): enemy speed x (1 - slow) for 1.2 s after a hit.
     pub slow: f64,
+    /// game kind the parity engine never fires (Kind::Inert), for the fixed-group mode:
+    /// 0 none/buff, 1 cone, 2 meteor, 3 chain, 4 aura, 5 dash, 6 mine, 7 trail, 8 turret
+    pub xk: u8,
+    pub hex: f64,
+    pub drain: f64,
+    pub rate: f64,
+    pub range: f64,
 }
 
 #[derive(Clone, Debug)]
@@ -243,6 +250,21 @@ fn move_lvl(v: &Value) -> MoveLvl {
         burn: num(v, "burn"),
         poison: num(v, "poison"),
         slow: num(v, "slow"),
+        xk: match v["kind"].as_str().unwrap() {
+            "cone" => 1,
+            "meteor" => 2,
+            "chain" => 3,
+            "aura" => 4,
+            "dash" => 5,
+            "mine" => 6,
+            "trail" => 7,
+            "turret" => 8,
+            _ => 0,
+        },
+        hex: num(v, "hex"),
+        drain: num(v, "drain"),
+        rate: num(v, "rate"),
+        range: num(v, "range"),
     }
 }
 

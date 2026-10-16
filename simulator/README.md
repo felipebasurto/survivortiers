@@ -30,13 +30,33 @@ Options: `--seeds N` (200), `--seconds S` (900), `--bot repulse|line`, `--lvl1`,
 
 ### Fixed main group (Rust only)
 
-`--group 2+2` or `--group 3+1` makes the bot play one fixed bonded group, as players do mid/late game: the starting
-attack plus 1 or 2 more attacks cast together on their own cooldowns (picked from `--partners <solo starter_sweep.csv>`,
-best solo median first, no orbits), and Swords Dance + Harden (2+2) or Swords Dance (3+1) held from t=0. Extra options:
-`--dd` (Dragon Dance instead of Swords Dance), `--agi` (Agility instead of Harden), `--item <id>` (choiceband, lifeorb,
-quickclaw, choicescarf, assaultvest, leftovers, luckyegg; items.js), `--fill a,b` (stat cards first, indices of
-`data::STATS`). `pokesim tasks <file>` runs lines `dex,move[+companion...],item,fill[,buffs]` (buffs: `sd;hd;dd;agi`).
-Default runs (no `--group`) are unchanged and still pass `parity.js`; the JS engine does not have this mode.
+`--group 2+2` or `--group 3+1` makes the bot aim for one fixed group, as players do mid/late game: the starting attack
+plus 1 or 2 more attacks (picked from `--partners <solo starter_sweep.csv>`, best solo median first, no orbits) and
+Swords Dance + Harden (2+2) or Swords Dance (3+1). Extra options: `--dd` (Dragon Dance instead of Swords Dance), `--agi`
+(Agility instead of Harden), `--item <id>` (choiceband, lifeorb, quickclaw, choicescarf, assaultvest, leftovers,
+luckyegg; items.js), `--fill a,b` (stat cards first, indices of `data::STATS`). `pokesim tasks <file>` runs lines
+`dex,move[+companion...],item,fill[,buffs]` (buffs: `sd;hd;dd;agi`).
+
+Group mode also models, from the game source (`v3/js`):
+
+- **Bond timing.** Members are not bonded at t=0. Only the starting attack fires until a rift legendary is beaten. Rifts
+  roll every 30 s from t=75 with chance 0.2·(1+misses), not while a boss is alive, open 380–560 px away and close after
+  45 s (systems/rift.js:20–60). The arena pauses the map; the legendary has 3200+9t HP and the arena lasts 120 s. Each
+  win bonds one more member (entities/player.js:233–270; the first win pairs the start move with the first partner,
+  max 4). Order: attacks, then the attack buff, then Harden/Agility. Buff cards for members not bonded yet are not offered.
+- **Bosses** (entities/enemies.js:45–49, BOSS_SLOTS): at 180/360/540/720/900 s, HP ×1.35 and damage ×1.2 from
+  rollRun, then ×(1+t/600). Spawns drop to ×0.25 and surges stop while one is alive (systems/spawner.js:113–137).
+- **Heal orbs.** A boss always drops one and any other kill does so 1.2 % of the time (systems/pickup.js:81,93). Each
+  heals 30 % of max HP (game.js:463–464). The bot is assumed to pick every one up. Springs (interact.js:59) and the
+  Baya Zidra card (levelup.js:29–30) are not modelled.
+- **All move kinds** (`--xkinds`, on by default in group mode): cone, meteor, chain, aura (drain heal capped at 6),
+  dash, mine, trail and turret, following systems/combat.js. Without the flag these moves stay inert, as in the JS engine.
+
+`--legacy-group` restores the old behaviour (bonded from t=0, no rifts, bosses, heal orbs or extra kinds). Default runs
+(no `--group`) are unchanged and still pass `parity.js`; the JS engine does not have group mode.
+
+Known bias (estimate): the bot does not dodge like a player, so sustain (Synthesis `rgn`, Vigor `hp`) still comes out
+best first card for most species. build/passives.py keeps at most one of them in the Build card's card list.
 Results used for the site are in `results/fixed_group/`.
 
 Any change to `sim/match.js` or `sim/rules.js` has to be mirrored in `sim-rs/src/engine.rs` and re-checked with `parity.js`.

@@ -55,6 +55,8 @@ struct Cfg {
     group: u8,
     dd: bool,
     agi: bool,
+    xkinds: bool,
+    legacy: bool,
     item: String,
     fill: Vec<u8>,
     buffs: Option<u8>,
@@ -63,7 +65,7 @@ struct Cfg {
 }
 
 fn parse(args: &[String]) -> Cfg {
-    let mut c = Cfg { seeds: 200, seconds: 900.0, bot: Bot::Repulse, cards: true, terrain: false, status: false, out: None, group: 0, dd: false, agi: false, item: "none".into(), fill: vec![], buffs: None, comps: None, rest: vec![] };
+    let mut c = Cfg { seeds: 200, seconds: 900.0, bot: Bot::Repulse, cards: true, terrain: false, status: false, out: None, group: 0, dd: false, agi: false, xkinds: false, legacy: false, item: "none".into(), fill: vec![], buffs: None, comps: None, rest: vec![] };
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
@@ -96,6 +98,8 @@ fn parse(args: &[String]) -> Cfg {
             }
             "--dd" => c.dd = true,
             "--agi" => c.agi = true,
+            "--xkinds" => c.xkinds = true,
+            "--legacy-group" => c.legacy = true,
             "--buffs" => {
                 i += 1;
                 c.buffs = Some(args[i].parse().unwrap());
@@ -163,11 +167,14 @@ fn ext_for(data: &Data, mon: &Mon, start: usize, cfg: &Cfg) -> Ext {
         agi: cfg.agi,
         item: Item::by_id(&cfg.item),
         fill: cfg.fill.clone(),
+        xkinds: cfg.xkinds || (cfg.group > 0 && !cfg.legacy),
+        rift: cfg.group > 0 && !cfg.legacy,
+        bosses: cfg.group > 0 && !cfg.legacy,
     }
 }
 
 fn group_label(cfg: &Cfg) -> &'static str {
-    match cfg.group { 2 => "grupo fijo 2 ataques + Danza Espada y Fortaleza", 3 => "grupo fijo 3 ataques + Danza Espada", _ => "un movimiento" }
+    match (cfg.group, cfg.legacy) { (2, false) => "grupo fijo 2 ataques + Danza Espada y Fortaleza con vínculos de grieta, jefes y todos los tipos de ataque", (3, false) => "grupo fijo 3 ataques + Danza Espada con vínculos de grieta, jefes y todos los tipos de ataque", (2, true) => "grupo fijo 2 ataques + Danza Espada y Fortaleza desde t=0, sin grietas, sin jefes", (3, true) => "grupo fijo 3 ataques + Danza Espada desde t=0, sin grietas, sin jefes", _ => "un movimiento, sin grietas, sin jefes" }
 }
 
 fn bot_name(b: Bot) -> &'static str {
@@ -236,7 +243,8 @@ fn sweep(data: &Data, cfg: &Cfg) {
             }
         }
         for id in ids {
-            if data.moves[id].kind.simulated() {
+            let extra = (cfg.xkinds || (cfg.group > 0 && !cfg.legacy)) && data.moves[id].levels[0].xk != 0;
+            if data.moves[id].kind.simulated() || extra {
                 tasks.push((mon, id));
             }
         }
@@ -386,7 +394,7 @@ fn tasks_cmd(data: &Data, cfg: &Cfg) {
 }
 
 fn cfg_clone(c: &Cfg) -> Box<Cfg> {
-    Box::new(Cfg { seeds: c.seeds, seconds: c.seconds, bot: c.bot, cards: c.cards, terrain: c.terrain, status: c.status, out: None, group: c.group, dd: c.dd, agi: c.agi, item: c.item.clone(), fill: c.fill.clone(), buffs: c.buffs, comps: c.comps.clone(), rest: vec![] })
+    Box::new(Cfg { seeds: c.seeds, seconds: c.seconds, bot: c.bot, cards: c.cards, terrain: c.terrain, status: c.status, out: None, group: c.group, dd: c.dd, agi: c.agi, xkinds: c.xkinds, legacy: c.legacy, item: c.item.clone(), fill: c.fill.clone(), buffs: c.buffs, comps: c.comps.clone(), rest: vec![] })
 }
 
 fn rank(data: &Data, cfg: &Cfg) {
@@ -401,7 +409,7 @@ fn rank(data: &Data, cfg: &Cfg) {
     });
     let note = if cfg.status { ", ralentización, quemadura y veneno modelados" } else { "" };
     let mut text = format!(
-        "# step={} seeds=1-{} seconds={} bot={} sin mejoras permanentes, {}, sin grietas, sin jefes, controlador compartido{}\n\
+        "# step={} seeds=1-{} seconds={} bot={} sin mejoras permanentes, {}, controlador compartido{}\n\
          dex,name,n,median_s,mean_s,boot_lo,boot_hi,p10_s,p90_s,median_kills,median_lvl,n_cap,mean_hp_frac,status_ignored\n",
         DT, cfg.seeds, cfg.seconds, bot_name(cfg.bot), group_label(cfg), note
     );
