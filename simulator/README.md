@@ -31,11 +31,13 @@ Options: `--seeds N` (200), `--seconds S` (900), `--bot repulse|line`, `--lvl1`,
 ### Fixed main group (Rust only)
 
 `--group 2+2` or `--group 3+1` makes the bot aim for one fixed group, as players do mid/late game: the starting attack
-plus 1 or 2 more attacks (picked from `--partners <solo starter_sweep.csv>`, best solo median first, no orbits) and
-Swords Dance + Harden (2+2) or Swords Dance (3+1). Extra options: `--dd` (Dragon Dance instead of Swords Dance), `--agi`
-(Agility instead of Harden), `--item <id>` (choiceband, lifeorb, quickclaw, choicescarf, assaultvest, leftovers,
-luckyegg; items.js), `--fill a,b` (stat cards first, indices of `data::STATS`). `pokesim tasks <file>` runs lines
-`dex,move[+companion...],item,fill[,buffs]` (buffs: `sd;hd;dd;agi`).
+plus 1 or 2 more attacks. The pool is searched for a Hex/status or two-dash pair first, then filled from
+`--partners <solo starter_sweep.csv>` (best solo median, no orbits). Swords Dance + Harden (2+2) or Swords Dance (3+1).
+Extra options: `--dd` (Dragon Dance instead of Swords Dance), `--agi` (Agility instead of Harden), `--swap` (second
+slot, clamped to 35% of base cooldown; Choice Band blocks it), `--crit N` (permanent crit levels, 3% each; published
+ranks use 0), `--item <id>` (choiceband, lifeorb, quickclaw, choicescarf, assaultvest, leftovers, luckyegg, shellbell,
+rockyhelmet, focussash; items.js), `--fill a,b` (stat cards first, indices of `data::STATS`). `pokesim tasks <file>`
+runs lines `dex,move[+companion...],item,fill[,buffs]` (buffs: `sd;hd;dd;agi`).
 
 Group mode also models, from the game source (`js/` in JPTER78/pokesurvivor):
 
@@ -58,7 +60,34 @@ Group mode also models, from the game source (`js/` in JPTER78/pokesurvivor):
   Springs and the Baya Zidra card (levelup.js, the instant 45 % heal) are not modelled.
 - **All move kinds** (`--xkinds`, on by default in group mode): cone, meteor, chain, aura (drain heal capped at 6),
   dash, mine, trail and turret, following systems/combat.js. Life Orb costs HP only on a cast that actually fires, and
-  never for orbit or trail (player.js:203). Without the flag these moves stay inert, as in the JS engine.
+  never for orbit or trail, including companion casts (player.js:203). Without the flag these moves stay inert, as in the JS engine.
+- **Synergies on the ranking path** (`--status` or `--xkinds`; both are on for a published group rank). The default
+  run (neither flag) stays bit-exact with `parity.js`. Citations are the live game:
+  - Hex ×1.7 while the target is burned, poisoned or slowed (data/moves.js chain `hex`, systems/combat.js:240). The
+    partner pick prefers that pair (Flamethrower + Hex) or two dashes, then falls back to solo order.
+  - Dash invulnerability is `max(invuln, 0.3)` (systems/combat.js:311). Lava sets invuln to 0 and then hurts
+    (entities/player.js:352). Cooldown cuts shorten the dash's own cooldown.
+  - `--swap` is a second slot at level 1. Switching clamps that slot's timers to 35% of base cd and ignores cdMul
+    (entities/player.js:148). Choice Band refuses the switch (player.js:141). It is a separate rank, not the published one.
+  - Sand and snow chip the player for `max(1, 1.2% max HP)` only while weather level() > 0.5 and never KO
+    (systems/weather.js:111–116). Other non-boss enemies lose `2% max HP + 1` directly (weather.js:117–124).
+    Snow multiplies speed by `1 - 0.1*level()` (weather.js:67–70).
+  - Crit is the permanent perk, +3% per level, ×1.5 (data/upgrades.js, combat.js hit). `--crit N` sets N levels.
+    Published ranks pass 0. Its rng is separate from the effect stream.
+  - Aqua Ring adds its regen only when that move is cast (moves.js aqua-ring, player.js addBuff). It is not bonded
+    into every water group.
+  - Knockback uses Enemy.hurt (entities/enemy.js:100) on the ranking path, including into lava. Direct hits round
+    and the shield absorbs first.
+  - Altars last 25 s (systems/interact.js POWER_TIME). Kind is `floor(hash(tx,ty,seed+910)*4)` (world.js:154):
+    Furia ×2 atk, Rayo ×1.45 speed, Prisa ×0.6 cooldown, Imán unused. The bot triggers one it walks into; it does not path.
+  - Shell Bell heals 4% of dealt damage, buffer cap 4 (player.js:295). Rocky Helmet is 15+4×level with knock 80 on
+    body contact only (combat.js:668). Focus Sash saves at 1 HP once per 60 s (player.js:248).
+  - Orbit rehit is `max(0.12, cd)` with no cooldown multiplier (combat.js:486). Turret rate and trail ticks ignore it too.
+  - A bonded companion evolves after its max level once the needs card was taken (moves.js evolve). Card defense uses
+    the real 0.72 before the 0.8 cap (12 × 0.06).
+
+Numbers from this sim are estimates. The type chart (soft ×1.6/0.6/0.3, clamp [0.3, 2.4]) and the exported melee and
+evolution rows match the game's own `evolve()`.
 
 `--legacy-group` restores the old behaviour (bonded from t=0, no rifts, bosses, heal orbs or extra kinds). Default runs
 (no `--group`) are unchanged and still pass `parity.js`; the JS engine does not have group mode.
