@@ -273,7 +273,7 @@
       '<p class="learn-lede">' + esc(t('learn_lede', { n: pool.length })) + '</p>' + rows + '</section>';
   }
 
-  // Build recomendada (build/combos.py): inicio, tres ataques (el primero, el mejor de la simulación) y un potenciador,
+  // Build recomendada (build/combos.py): inicio, grupo fijo de dos ataques (el primero, el mejor de la simulación) y dos potenciadores,
   // opcionales para los huecos que se abren más tarde y los objetos de la tier list. Una tarjeta oscura que se lee sola
   // en una captura: lleva el sprite, el nombre y la marca del sitio.
   const ITEM_COLOR = '#f2ecd8';
@@ -288,20 +288,24 @@
   const meter = (label, v, cls) => '<div class="bd-meter ' + cls + '"><span>' + esc(label) + '</span>' +
     '<i class="bd-track" role="img" aria-label="' + v + ' %"><b style="width:' + v + '%"></b></i><strong>' + v + '&nbsp;%</strong></div>';
 
-  function build(p, d, moves, items, name, scale) {
-    const [superPct, neutralPct, ids, , altIds] = d[9];
+  function build(p, d, moves, items, name, scale, cards) {
+    const [superPct, neutralPct, ids, , altIds, nBoost = 1] = d[9];
     const find = id => moves.find(m => m.id === id);
     const slots = ids.map(find).filter(Boolean);
-    const attacks = slots.slice(0, -1), boost = slots[slots.length - 1];
+    const attacks = slots.slice(0, slots.length - nBoost), boosts = slots.slice(slots.length - nBoost);
     const start = find(d[2]);
     const alts = altIds.map(find).filter(Boolean);
     const attackTiles = attacks.map((m, i) => tile(m, '', badgeOf(i === 0 ? 'crown' : String(i + 1), i === 0 ? t('build_best') : t('build_slot', { n: i + 1 })), i)).join('');
-    const boostTile = tile(boost, ' bd-boost', badgeOf('sparkle', t('build_boost')), attacks.length);
+    const boostTile = boosts.map((b, i) => tile(b, ' bd-boost', badgeOf('sparkle', t('build_boost')), attacks.length + i)).join('');
     const sprite = '<span class="bd-sprite" style="--tc:' + (TYPE_COLOR[p.types[0]] || '#888') + ';--tc2:' + (TYPE_COLOR[p.types[1] || p.types[0]] || '#888') +
       '"><img class="px" src="' + sprites + p.dex + spriteExt + '" width="' + p.w * scale + '" height="' + p.h * scale + '" alt=""></span>';
     const group = (key, list, cls) => list.length ? '<div class="bd-group"><span class="bd-cap">' + esc(t(key)) + '</span><ul class="bd-small ' + cls + '">' + list + '</ul></div>' : '';
     const altTiles = alts.map((m, i) => tile(m, ' sm', '', i)).join('');
     const itemTiles = items.map((m, i) => tile(m, ' sm item', '', i)).join('');
+    // Cartas de subida de nivel a priorizar (build/passives.py): primero las que evolucionan un ataque del grupo.
+    const [cardIds, nEvo] = d[10] || [[], 0];
+    const cardTiles = cardIds.map(id => cards[id]).filter(Boolean)
+      .map((m, i) => tile(m, ' sm card' + (i < nEvo ? ' evo' : ''), i < nEvo ? badgeOf('sparkle', t('build_card_evo')) : '', i)).join('');
     return '<section class="fig anim fig-build" id="build" aria-labelledby="bd-h"><div class="bd-card" style="--p1:' + (TYPE_COLOR[p.types[0]] || '#888') + ';--p2:' + (TYPE_COLOR[p.types[1] || p.types[0]] || '#888') + '">' +
       '<header class="bd-head">' + sprite + '<div><h2 id="bd-h">' + esc(t('t_build')) + '</h2><span class="bd-who">' + esc(name) + '</span></div>' +
       '<button class="bd-share" type="button" aria-label="' + esc(t('build_share')) + '" title="' + esc(t('build_share')) + '"><svg viewBox="0 0 12 12" width="20" height="20" aria-hidden="true" focusable="false" shape-rendering="crispEdges">' +
@@ -311,7 +315,7 @@
       '<div class="bd-flow"><div class="bd-start"><span class="bd-cap">' + esc(t('build_start')) + '</span><ul>' +
       (start ? tile(start, ' bd-startmove', '', 0) : '') + '</ul></div><i class="ico ico-arrow bd-arrow" aria-hidden="true"></i>' +
       '<ol class="bd-slots">' + attackTiles + boostTile + '</ol></div>' +
-      '<div class="bd-more">' + group('build_alt', altTiles, 'bd-alts') + group('build_items', itemTiles, 'bd-items') + '</div>' +
+      '<div class="bd-more">' + group('build_alt', altTiles, 'bd-alts') + group('build_cards', cardTiles, 'bd-cards') + group('build_items', itemTiles, 'bd-items') + '</div>' +
       '<div class="bd-meters">' + meter(t('build_super'), superPct, 'bd-super') + meter(t('build_neutral'), neutralPct, 'bd-neutral') + '</div>' +
       '<p class="bd-brand">' + esc(t('build_brand')) + '</p></div></section>';
   }
@@ -343,7 +347,7 @@
     }).join('');
   }
 
-  function render(p, d, range, moveName, prev, next, moves, medians, items) {
+  function render(p, d, range, moveName, prev, next, moves, medians, items, cards) {
     const name = EN ? p.nameEn : p.name;
     const scale = Math.max(1, Math.min(5, Math.floor(FICHA_BOX / Math.max(p.w, p.h))));
     const [rank, tier] = p.r;
@@ -368,7 +372,7 @@
       '<div class="facts">' + pills + ' ' + rarity + ' ' + legendary + ' ' + tpl('tpl-regions', 'data-gen', p.bannerId) + '</div>' +
       '<div class="rankline"><span class="tier-badge ' + tier + '" title="' + esc(t('tier', { t: tier })) + '">' + tier + '</span>' +
       '<strong>' + rank + '</strong><span>/ ' + TOTAL + '</span>' + flagsHtml(d[7]) + '</div></div></div>' +
-      build(p, d, moves, items, name, Math.max(1, Math.min(4, Math.floor(72 / Math.max(p.w, p.h))))) +
+      build(p, d, moves, items, name, Math.max(1, Math.min(4, Math.floor(72 / Math.max(p.w, p.h)))), cards) +
       baseStats(d, medians, name) + rankBand(p, name) + pillars(d, name) + sim(d, range, moveName) + learn(p, d, moves) + methods(p, d, name) +
       '<nav class="pager" aria-label="' + esc(t('pager_aria')) + '">' + pager + '</nav>';
     const label = EN || p.nameEn === p.name ? name : p.name + ' (' + p.nameEn + ')';
@@ -401,6 +405,6 @@
     if (i < 0 || !d) { missing(); return; }
     const byId = new Map(moves.map(m => [m.id, m]));
     const moveName = mid => { const m = byId.get(mid); return m ? (EN ? m.en.name : m.name) : mid; };
-    render(index[i], d, species.sim, moveName, index[i - 1], index[i + 1], moves, species.statMedian, species.items);
+    render(index[i], d, species.sim, moveName, index[i - 1], index[i + 1], moves, species.statMedian, species.items, species.cards || {});
   }).catch(err => { root.textContent = err.message; });
 })();

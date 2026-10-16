@@ -14,6 +14,11 @@ pub const FLOOR: u8 = 0;
 pub const WALL: u8 = 1;
 pub const LIQUID: u8 = 2;
 
+/// util.js hash(): 32-bit Math.imul arithmetic. enemies.js behaviorOf calls hash(dex, 7, 11).
+pub(crate) fn js_hash(x: i32, y: i32, seed: i32) -> f64 {
+    hash(x, y, seed)
+}
+
 /// util.js hash(): 32-bit Math.imul arithmetic.
 fn hash(x: i32, y: i32, seed: i32) -> f64 {
     let mut h = x.wrapping_mul(374761393) ^ y.wrapping_mul(668265263) ^ seed.wrapping_mul(2246822519u32 as i32);
@@ -316,13 +321,19 @@ impl World {
         true
     }
 
-    /// world.js isFree() (spawner uses it with r = 14).
+    /// world.js isFree() (spawner uses it with r = 14). Liquid blocks.
     pub fn is_free(&mut self, x: f64, y: f64, r: f64) -> bool {
+        self.is_free_ex(x, y, r, false)
+    }
+
+    /// world.js isFree(x, y, r, allowLiquid). Dash passes allowLiquid so it can cross water
+    /// (systems/combat.js dash, the fourth argument `true`).
+    pub fn is_free_ex(&mut self, x: f64, y: f64, r: f64, allow_liquid: bool) -> bool {
         let (t0x, t1x, t0y, t1y) = (tile_of(x - r), tile_of(x + r), tile_of(y - r), tile_of(y + r));
         for ty in t0y..=t1y {
             for tx in t0x..=t1x {
                 let (t, prop) = self.tile(tx, ty);
-                if t != FLOOR {
+                if t == WALL || (!allow_liquid && t != FLOOR) {
                     return false;
                 }
                 if let Some(p) = prop {

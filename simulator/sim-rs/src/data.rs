@@ -8,12 +8,22 @@ pub const TYPES: [&str; 18] = [
     "normal", "fire", "water", "electric", "grass", "ice", "fighting", "poison", "ground",
     "flying", "psychic", "bug", "rock", "ghost", "dragon", "dark", "steel", "fairy",
 ];
+pub const T_NORMAL: u8 = 0;
 pub const T_FIRE: u8 = 1;
 pub const T_WATER: u8 = 2;
+pub const T_ELECTRIC: u8 = 3;
+pub const T_GRASS: u8 = 4;
 pub const T_ICE: u8 = 5;
+pub const T_FIGHTING: u8 = 6;
+pub const T_POISON: u8 = 7;
 pub const T_GROUND: u8 = 8;
+pub const T_PSYCHIC: u8 = 10;
+pub const T_BUG: u8 = 11;
 pub const T_ROCK: u8 = 12;
+pub const T_GHOST: u8 = 13;
+pub const T_DRAGON: u8 = 14;
 pub const T_STEEL: u8 = 16;
+pub const T_FAIRY: u8 = 17;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Kind {
@@ -86,6 +96,13 @@ pub struct MoveLvl {
     pub poison: f64,
     /// slow factor of the move (NaN when absent): enemy speed x (1 - slow) for 1.2 s after a hit.
     pub slow: f64,
+    /// game kind the parity engine never fires (Kind::Inert), for the fixed-group mode:
+    /// 0 none/buff, 1 cone, 2 meteor, 3 chain, 4 aura, 5 dash, 6 mine, 7 trail, 8 turret
+    pub xk: u8,
+    pub hex: f64,
+    pub drain: f64,
+    pub rate: f64,
+    pub range: f64,
 }
 
 #[derive(Clone, Debug)]
@@ -197,6 +214,10 @@ pub struct Mon {
     pub r: f64,
     pub start: usize,
     pub pool: Vec<usize>,
+    /// legendary or mythical (rift.js only spawns these in arenas)
+    pub leg: bool,
+    /// base stat total (enemies.js boss bands)
+    pub bst: f64,
 }
 
 pub struct Data {
@@ -208,6 +229,8 @@ pub struct Data {
     pub tmult: Vec<Vec<f64>>,
     pub swords_dance: usize,
     pub harden: usize,
+    pub dragon_dance: usize,
+    pub agility: usize,
 }
 
 fn num(v: &Value, k: &str) -> f64 {
@@ -241,6 +264,21 @@ fn move_lvl(v: &Value) -> MoveLvl {
         burn: num(v, "burn"),
         poison: num(v, "poison"),
         slow: num(v, "slow"),
+        xk: match v["kind"].as_str().unwrap() {
+            "cone" => 1,
+            "meteor" => 2,
+            "chain" => 3,
+            "aura" => 4,
+            "dash" => 5,
+            "mine" => 6,
+            "trail" => 7,
+            "turret" => 8,
+            _ => 0,
+        },
+        hex: num(v, "hex"),
+        drain: num(v, "drain"),
+        rate: num(v, "rate"),
+        range: num(v, "range"),
     }
 }
 
@@ -315,6 +353,8 @@ impl Data {
                 r: num(p, "r"),
                 start: move_ix[p["start"].as_str().unwrap()],
                 pool: p["pool"].as_array().unwrap().iter().map(|x| move_ix[x.as_str().unwrap()]).collect(),
+                leg: p["leg"].as_bool().unwrap_or(false),
+                bst: num(p, "bst"),
             })
             .collect();
 
@@ -358,6 +398,8 @@ impl Data {
 
         let swords_dance = move_ix["swords-dance"];
         let harden = move_ix["harden"];
-        Data { moves, move_ix, dex, tiers, tmult, swords_dance, harden }
+        let dragon_dance = move_ix["dragon-dance"];
+        let agility = move_ix["agility"];
+        Data { moves, move_ix, dex, tiers, tmult, swords_dance, harden, dragon_dance, agility }
     }
 }

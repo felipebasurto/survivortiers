@@ -22,6 +22,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import combos  # noqa: E402
+import passives  # noqa: E402
 import credits as credits_mod  # noqa: E402
 import legal  # noqa: E402
 import objetos  # noqa: E402
@@ -340,7 +341,17 @@ def build_items() -> list[dict]:
     return out
 
 
+def build_cards() -> dict:
+    """Cartas de subida de nivel con su dibujo del juego (data/card_icons.json, de build/export_move_icons.js)."""
+    icons = json.loads((DATA / "card_icons.json").read_text(encoding="utf8"))
+    names = {"hp": "Vigor", "atk": "Power", "spd": "Sprint", "cd": "Reflexes", "def": "Armor", "rgn": "Synthesis",
+             "mag": "Magnet", "xp": "Learning"}
+    return {k: {"id": "card:" + k, "name": v["title"], "en": {"name": names[k]},
+                "icon": {"size": v["size"], "pal": v["pal"], "rows": v["rows"]}} for k, v in icons.items() if k in names}
+
+
 def species_details(entries: list[dict], sim_range: list[float], median: float, combo: dict) -> dict:
+    psim = passives.load()
     """Lo que la ficha necesita además de pokemon-index.json, en listas para que pese poco. Orden de cada entrada:
     [pilares (stats, moves, typedef, size), puestos por medida (METHOD_KEYS), ataque inicial, segundos, mejor ataque,
     segundos, pareja de ataques, banderas (1 estado sin simular, 2 cuerpo a cuerpo, 4 estadísticas), estadísticas base
@@ -358,9 +369,11 @@ def species_details(entries: list[dict], sim_range: list[float], median: float, 
             r["sim"]["start"]["id"], r["sim"]["start"]["seconds"], r["sim"]["best"]["id"], r["sim"]["best"]["seconds"],
             [m["id"] for m in r["pair"]], int(f["statusUnmodelled"]) + 2 * int(f["melee"]) + 4 * int(f["statsCapped"]) + 8 * int(f["typesCapped"]),
             e["stats"], [combo[e["dex"]]["super"], combo[e["dex"]]["neutral"], combo[e["dex"]]["moves"],
-                         combo[e["dex"]]["types"], combo[e["dex"]]["alts"]]]
+                         combo[e["dex"]]["types"], combo[e["dex"]]["alts"], combo[e["dex"]]["nBoost"]],
+            # cartas a priorizar (build/passives.py): [ids de LevelUp.STATS, cuántas de las primeras evolucionan un ataque]
+            passives.compute(e["dex"], combo[e["dex"]]["moves"], psim)]
     medians = [statistics.median(e["stats"][i] for e in entries) for i in range(6)]
-    return {"sim": [*sim_range, median], "statMedian": medians, "items": build_items(), "d": out}
+    return {"sim": [*sim_range, median], "statMedian": medians, "items": build_items(), "cards": build_cards(), "d": out}
 
 
 def write_json(name: str, obj, pretty: bool = False, public: bool = False) -> None:
