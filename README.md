@@ -16,6 +16,7 @@ Web: https://survivortiers.pages.dev
 | `build/pack.py` | Empaqueta `src/` en `site/`: iconos dentro del CSS, CSS y JS minificados, JSON copiados |
 | `build/i18n.py` | Todos los textos en español e inglés, validados al importar |
 | `build/agents.py` | Archivos para agentes de IA y buscadores: `llms.txt`, `llms-full.txt` (diccionario de datos y método), `robots.txt`, `sitemap.xml`, `data/ranking.csv`, `data/meta.json`, `data/gachas.json` y el JSON-LD `Dataset` de la portada |
+| `build/combos.py` | La build de cada Pokémon: el mejor ataque de la simulación, dos de cobertura, el potenciador y tres ataques opcionales (`species.json`, posición 9). Los objetos recomendados salen de `build/objetos.py` y son los mismos para todos |
 | `build/charts.py` | Gráficos HTML, CSS y SVG (la ficha usa las mismas fórmulas en `src/ficha.js`) |
 | `build/regions.py` | Insignias de región de la página Gacha (SVG propio y sprites de los legendarios de portada) |
 | `build/serve.py` | Servidor local con el mismo comportamiento que el hosting: 404.html con estado 404 y `/_sprites/` |

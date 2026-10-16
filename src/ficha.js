@@ -273,23 +273,62 @@
       '<p class="learn-lede">' + esc(t('learn_lede', { n: pool.length })) + '</p>' + rows + '</section>';
   }
 
-  // Combo de cobertura (build/combos.py): hasta tres ataques (el primero, el mejor de la simulación) y un potenciador, con dos barras.
-  function combo(d, moves) {
-    const [superPct, neutralPct, ids, nTypes] = d[9];
-    // El texto sigue al número real de tipos de ataque: nunca dice «tres» si el trío tiene dos.
-    const chips = ids.map(id => {
-      const m = moves.find(x => x.id === id);
-      const name = m ? (EN ? m.en.name : m.name) : id;
-      return '<li class="cb-move">' + (m ? '<img class="lt-ico" src="' + iconUrl(m) + '" alt="" width="32" height="32">' : '') +
-        esc(name) + '</li>';
-    }).join('');
-    const bar = (label, pct, cls) => '<div class="cb-bar ' + cls + '"><span class="cb-label">' + esc(label) + '</span>' +
-      '<span class="cb-track" role="img" aria-label="' + pct + ' %"><i style="width:' + pct + '%"></i></span><strong>' + pct + ' %</strong></div>';
-    return '<section class="fig anim fig-combo"><figcaption><h3>' + esc(t('t_combo')) + '</h3></figcaption>' +
-      '<p class="learn-lede">' + esc(t(nTypes >= 3 ? 'combo_lede' : nTypes === 2 ? 'combo_lede_two' : 'combo_lede_one')) +
-      '</p><ul class="cb-moves">' + chips + '</ul>' +
-      bar(t('combo_super'), superPct, 'cb-super') + bar(t('combo_neutral'), neutralPct, 'cb-neutral') +
-      '<p class="cb-note">' + esc(t('combo_note')) + '</p></section>';
+  // Build recomendada (build/combos.py): inicio, tres ataques (el primero, el mejor de la simulación) y un potenciador,
+  // opcionales para los huecos que se abren más tarde y los objetos de la tier list. Una tarjeta oscura que se lee sola
+  // en una captura: lleva el sprite, el nombre y la marca del sitio.
+  const ITEM_COLOR = '#f2ecd8';
+  function tile(m, cls, badge, i) {
+    const color = TYPE_COLOR[m.type] || ITEM_COLOR;
+    const nm = EN ? m.en.name : m.name;
+    return '<li class="bd-tile' + cls + '" style="--tc:' + color + ';--i:' + i + '">' + (badge || '') +
+      '<span class="bd-ico"><img src="' + iconUrl(m) + '" alt="" width="48" height="48"></span><span class="bd-nm">' + esc(nm) + '</span></li>';
+  }
+  const badgeOf = (kind, label) => '<b class="bd-badge" title="' + esc(label) + '" aria-label="' + esc(label) + '">' +
+    (kind === 'crown' || kind === 'sparkle' ? '<i class="ico ico-' + kind + '" aria-hidden="true"></i>' : kind) + '</b>';
+  const meter = (label, v, cls) => '<div class="bd-meter ' + cls + '"><span>' + esc(label) + '</span>' +
+    '<i class="bd-track" role="img" aria-label="' + v + ' %"><b style="width:' + v + '%"></b></i><strong>' + v + '&nbsp;%</strong></div>';
+
+  function build(p, d, moves, items, name, scale) {
+    const [superPct, neutralPct, ids, , altIds] = d[9];
+    const find = id => moves.find(m => m.id === id);
+    const slots = ids.map(find).filter(Boolean);
+    const attacks = slots.slice(0, -1), boost = slots[slots.length - 1];
+    const start = find(d[2]);
+    const alts = altIds.map(find).filter(Boolean);
+    const attackTiles = attacks.map((m, i) => tile(m, '', badgeOf(i === 0 ? 'crown' : String(i + 1), i === 0 ? t('build_best') : t('build_slot', { n: i + 1 })), i)).join('');
+    const boostTile = tile(boost, ' bd-boost', badgeOf('sparkle', t('build_boost')), attacks.length);
+    const sprite = '<span class="bd-sprite" style="--tc:' + (TYPE_COLOR[p.types[0]] || '#888') + ';--tc2:' + (TYPE_COLOR[p.types[1] || p.types[0]] || '#888') +
+      '"><img class="px" src="' + sprites + p.dex + spriteExt + '" width="' + p.w * scale + '" height="' + p.h * scale + '" alt=""></span>';
+    const group = (key, list, cls) => list.length ? '<div class="bd-group"><span class="bd-cap">' + esc(t(key)) + '</span><ul class="bd-small ' + cls + '">' + list + '</ul></div>' : '';
+    const altTiles = alts.map((m, i) => tile(m, ' sm', '', i)).join('');
+    const itemTiles = items.map((m, i) => tile(m, ' sm item', '', i)).join('');
+    return '<section class="fig anim fig-build" id="build" aria-labelledby="bd-h"><div class="bd-card" style="--p1:' + (TYPE_COLOR[p.types[0]] || '#888') + ';--p2:' + (TYPE_COLOR[p.types[1] || p.types[0]] || '#888') + '">' +
+      '<header class="bd-head">' + sprite + '<div><h2 id="bd-h">' + esc(t('t_build')) + '</h2><span class="bd-who">' + esc(name) + '</span></div>' +
+      '<button class="bd-share" type="button" aria-label="' + esc(t('build_share')) + '" title="' + esc(t('build_share')) + '"><svg viewBox="0 0 12 12" width="20" height="20" aria-hidden="true" focusable="false" shape-rendering="crispEdges">' +
+      '<path d="M4 6l4-4M4 6l4 4" stroke="currentColor" stroke-width="1.4" fill="none"/>' +
+      '<path fill="currentColor" d="M8 0h4v4H8zM0 4h4v4H0zM8 8h4v4H8z"/></svg></button>' +
+      '<span class="bd-toast" role="status" aria-live="polite"></span></header>' +
+      '<div class="bd-flow"><div class="bd-start"><span class="bd-cap">' + esc(t('build_start')) + '</span><ul>' +
+      (start ? tile(start, ' bd-startmove', '', 0) : '') + '</ul></div><i class="ico ico-arrow bd-arrow" aria-hidden="true"></i>' +
+      '<ol class="bd-slots">' + attackTiles + boostTile + '</ol></div>' +
+      '<div class="bd-more">' + group('build_alt', altTiles, 'bd-alts') + group('build_items', itemTiles, 'bd-items') + '</div>' +
+      '<div class="bd-meters">' + meter(t('build_super'), superPct, 'bd-super') + meter(t('build_neutral'), neutralPct, 'bd-neutral') + '</div>' +
+      '<p class="bd-brand">' + esc(t('build_brand')) + '</p></div></section>';
+  }
+
+  function wireShare(p) {
+    const btn = document.querySelector('.bd-share');
+    if (!btn) return;
+    const toast = document.querySelector('.bd-toast');
+    btn.addEventListener('click', () => {
+      const url = location.origin + location.pathname + '?id=' + p.dex + '#build';
+      const done = () => { toast.textContent = t('build_copied'); setTimeout(() => { toast.textContent = ''; }, 1800); };
+      if (navigator.share) {
+        navigator.share({ title: document.title, url }).catch(() => {});
+      } else if (navigator.clipboard) {
+        navigator.clipboard.writeText(url).then(done, () => {});
+      }
+    });
   }
 
   const tpl = (id, attr, val) => {
@@ -304,7 +343,7 @@
     }).join('');
   }
 
-  function render(p, d, range, moveName, prev, next, moves, medians) {
+  function render(p, d, range, moveName, prev, next, moves, medians, items) {
     const name = EN ? p.nameEn : p.name;
     const scale = Math.max(1, Math.min(5, Math.floor(FICHA_BOX / Math.max(p.w, p.h))));
     const [rank, tier] = p.r;
@@ -329,13 +368,16 @@
       '<div class="facts">' + pills + ' ' + rarity + ' ' + legendary + ' ' + tpl('tpl-regions', 'data-gen', p.bannerId) + '</div>' +
       '<div class="rankline"><span class="tier-badge ' + tier + '" title="' + esc(t('tier', { t: tier })) + '">' + tier + '</span>' +
       '<strong>' + rank + '</strong><span>/ ' + TOTAL + '</span>' + flagsHtml(d[7]) + '</div></div></div>' +
-      baseStats(d, medians, name) + rankBand(p, name) + pillars(d, name) + sim(d, range, moveName) + learn(p, d, moves) + combo(d, moves) + methods(p, d, name) +
+      build(p, d, moves, items, name, Math.max(1, Math.min(4, Math.floor(72 / Math.max(p.w, p.h))))) +
+      baseStats(d, medians, name) + rankBand(p, name) + pillars(d, name) + sim(d, range, moveName) + learn(p, d, moves) + methods(p, d, name) +
       '<nav class="pager" aria-label="' + esc(t('pager_aria')) + '">' + pager + '</nav>';
     const label = EN || p.nameEn === p.name ? name : p.name + ' (' + p.nameEn + ')';
     document.title = t('ficha_title', { name, tier });
     const desc = document.querySelector('meta[name=description]');
     if (desc) desc.setAttribute('content', t('ficha_desc', { label, tier, rank }));
-    document.querySelectorAll('.lang a[hreflang]:not([aria-current])').forEach(a => { a.href = a.getAttribute('href').split('?')[0] + location.search; });
+    document.querySelectorAll('.lang a[hreflang]:not([aria-current])').forEach(a => { a.href = a.getAttribute('href').split('?')[0] + location.search + location.hash; });
+    wireShare(p);
+    if (location.hash === '#build') document.getElementById('build').scrollIntoView();
     const figs = [...root.querySelectorAll('.anim')];
     if (!('IntersectionObserver' in window)) { figs.forEach(f => f.classList.add('in')); return; }
     const io = new IntersectionObserver(es => es.forEach(e => {
@@ -359,6 +401,6 @@
     if (i < 0 || !d) { missing(); return; }
     const byId = new Map(moves.map(m => [m.id, m]));
     const moveName = mid => { const m = byId.get(mid); return m ? (EN ? m.en.name : m.name) : mid; };
-    render(index[i], d, species.sim, moveName, index[i - 1], index[i + 1], moves, species.statMedian);
+    render(index[i], d, species.sim, moveName, index[i - 1], index[i + 1], moves, species.statMedian, species.items);
   }).catch(err => { root.textContent = err.message; });
 })();

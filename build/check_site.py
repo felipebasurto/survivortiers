@@ -216,6 +216,13 @@ def browser_check(base: str, index: list[dict], args, err, notes: list[str]) -> 
                     h1: document.querySelector('h1').firstChild.textContent.trim(),
                     img: document.querySelector('.ficha-sprite img').naturalWidth,
                     src: document.querySelector('.ficha-sprite img').src,
+                    build: { start: document.querySelectorAll('#build .bd-start .bd-tile').length,
+                             slots: document.querySelectorAll('#build .bd-slots .bd-tile').length,
+                             alts: document.querySelectorAll('#build .bd-alts .bd-tile').length,
+                             items: document.querySelectorAll('#build .bd-items .bd-tile').length,
+                             icons: [...document.querySelectorAll('#build .bd-ico img')].every(i => i.complete && i.naturalWidth > 0),
+                             title: (document.querySelector('#build h2') || {}).textContent,
+                             overflow: [...document.querySelectorAll('#build, #build *')].some(e => e.getBoundingClientRect().right > innerWidth + 1) },
                     base: new URL(document.documentElement.dataset.sprites, location.href).href,
                     ext: document.documentElement.dataset.spritesExt || '.png' })""")
                 want = by_dex[d]["nameEn" if en else "name"]
@@ -223,6 +230,11 @@ def browser_check(base: str, index: list[dict], args, err, notes: list[str]) -> 
                     err(f"{lang}pokemon/?id={d}: el título es {info['h1']!r} y debería ser {want!r}")
                 if len(info["alts"]) != 5 or min(info["alts"]) < 20:
                     err(f"{lang}pokemon/?id={d}: {len(info['alts'])} gráficos con texto alternativo (se esperaban 5 de 20+ letras)")
+                b = info["build"]
+                if (b["start"], b["slots"]) != (1, 4) or not 2 <= b["alts"] <= 3 or b["items"] != 3 or not b["icons"] or b["title"] != "Build":
+                    err(f"{lang}pokemon/?id={d}: la sección Build está incompleta ({b})")
+                if b["overflow"]:
+                    err(f"{lang}pokemon/?id={d}: la sección Build se desborda en 390 px de ancho")
                 if info["src"] != f"{info['base']}{d}{info['ext']}" or info["img"] == 0:
                     err(f"{lang}pokemon/?id={d}: el sprite no carga ({info['src']})")
                 if problems:
@@ -306,9 +318,11 @@ def main() -> int:
               and e[2] in move_ids and e[4] in move_ids and e[3] > 0 and e[5] > 0
               and all(m in move_ids for m in e[6]) and isinstance(e[7], int) and 0 <= e[7] <= 15
               and len(e[8]) == 6 and all(isinstance(v, int) and 1 <= v <= 255 for v in e[8])
-              # combo de cobertura: % super efectivo, % no resistido y 2-4 ids de movimientos (build/combos.py)
-              and len(e[9]) == 4 and all(isinstance(v, int) and 0 <= v <= 100 for v in e[9][:2])
-              and 2 <= len(e[9][2]) <= 4 and all(m in move_ids for m in e[9][2]) and e[9][3] in (1, 2, 3))
+              # build: % super efectivo, % no resistido, 2-4 ids de movimientos, tipos y 0-3 opcionales (build/combos.py)
+              and len(e[9]) == 5 and all(isinstance(v, int) and 0 <= v <= 100 for v in e[9][:2])
+              and 2 <= len(e[9][2]) <= 4 and all(m in move_ids for m in e[9][2]) and e[9][3] in (1, 2, 3)
+              and len(e[9][4]) <= 3 and all(m in move_ids for m in e[9][4])
+              and not set(e[9][4]) & set(e[9][2]) and e[9][2][0] == e[4])
         if not ok:
             err(f"data/species.json: datos incompletos o raros para el Pokémon {d}")
 

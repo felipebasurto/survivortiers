@@ -124,22 +124,18 @@ STR: dict[str, tuple[str, str]] = {
                    "{n} moves: normal-type ones and those of its types, by overall tier (the same as on Moves). "
                    "They are not simulated with this Pokémon."),
     "learn_start": ("inicial", "start"),
-    "t_combo": ("Combo de cobertura", "Coverage combo"),
-    "combo_lede": ("Tres ataques de tipos distintos y un potenciador: lo que el juego lanza junto con un vínculo. "
-                   "Los porcentajes miran a los 966 Pokémon por igual.",
-                   "Three attacks of different types and a boost: what the game fires together with a bond. "
-                   "Percentages count all 966 Pokémon equally."),
-    "combo_lede_two": ("Ataques de dos tipos y un potenciador: no llega a tres tipos, así que cubre menos rivales. "
-                       "Los porcentajes miran a los 966 Pokémon por igual.",
-                       "Attacks of two types and a boost: it does not reach three types, so it covers fewer foes. "
-                       "Percentages count all 966 Pokémon equally."),
-    "combo_lede_one": ("Ataques de un solo tipo y un potenciador: cubre muy pocos rivales. "
-                       "Los porcentajes miran a los 966 Pokémon por igual.",
-                       "Attacks of a single type and a boost: it covers very few foes. Percentages count all 966 Pokémon equally."),
-    "combo_super": ("Golpea super efectivo", "Hits super effective"),
-    "combo_neutral": ("Nunca le resisten", "Never resisted"),
-    "combo_note": ("El tipo normal no es super efectivo contra nada: su papel es que ningún rival le resista.",
-                   "Normal type is not super effective against anything: its job is that no foe resists it."),
+    "t_build": ("Build", "Build"),
+    "build_start": ("Inicio", "Start"),
+    "build_best": ("Mejor ataque", "Best move"),
+    "build_boost": ("Potenciador", "Boost"),
+    "build_alt": ("Opcionales", "Optional"),
+    "build_items": ("Objetos", "Items"),
+    "build_super": ("Super efectivo", "Super effective"),
+    "build_neutral": ("Sin resistencia", "Never resisted"),
+    "build_share": ("Compartir esta build", "Share this build"),
+    "build_copied": ("Enlace copiado", "Link copied"),
+    "build_slot": ("Hueco {n}", "Slot {n}"),
+    "build_brand": ("{site}", "{site}"),
     "sort_by": ("Ordenar por", "Sort by"),
     "sort_rank": ("Puesto", "Rank"),
     "sort_name": ("Nombre", "Name"),

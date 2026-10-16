@@ -13,7 +13,8 @@ Qué elige, de los ataques que ofrece el juego a ese Pokémon (POOL.normal + POO
      empatan, el de más daño total, que cuenta todos los proyectiles de los ataques de varios disparos o de área.
      Cuando ya no queda cobertura por ganar, rellena con el de más daño que no sea normal (los normales solo entran
      si abren al menos un 2 % de rivales, salvo que el Pokémon no tenga otra cosa que ofrecer).
-  3. Potenciador: el de mejor score_rel.
+  3. Opcionales: se sigue con la misma regla tres ataques más (ALT_SLOTS), para los huecos que se abren más tarde.
+  4. Potenciador: el de mejor score_rel.
 
 Datos: data/move_pool.json, data/move_mechanics.json, data/type_matrix.json (los exporta
 build/export_move_mechanics.js desde el juego) y data/move_tierlist_v4.csv.
@@ -46,6 +47,7 @@ def _mult(matrix: dict, atk: str, defender: list[str]) -> float:
 
 
 ATTACK_SLOTS = 3
+ALT_SLOTS = 3
 # Un ataque normal solo suma neutral, así que solo cuenta como «mejora la cobertura» si abre al menos este % de rivales.
 NORMAL_MIN_GAIN = 0.02
 
@@ -72,10 +74,10 @@ def _coverage(matrix: dict, types: list[str], enemies: list[list[str]], cache: d
 
 
 def pick_attacks(candidates: list[str], best_move: str, rows: dict, mech: dict, matrix: dict,
-                 enemies: list[list[str]], cache: dict) -> list[str]:
+                 enemies: list[list[str]], cache: dict, slots: int = ATTACK_SLOTS) -> list[str]:
     damage = {i: total_damage(rows[i], mech[i]) for i in candidates}
     chosen = [best_move]
-    while len(chosen) < ATTACK_SLOTS:
+    while len(chosen) < slots:
         have = [rows[i]["type"] for i in chosen]
         base = _coverage(matrix, have, enemies, cache)
         scored = []
@@ -102,7 +104,8 @@ def pick_attacks(candidates: list[str], best_move: str, rows: dict, mech: dict, 
 
 
 def compute_all(types_by_dex: dict[int, list[str]], best_move_by_dex: dict[int, str]) -> dict[int, dict]:
-    """Devuelve {dex: {"moves": [ids de los ataques + potenciador], "types", "super": %, "neutral": %}}."""
+    """Devuelve {dex: {"moves": [ids de los ataques + potenciador], "alts": [ids opcionales], "types", "super": %,
+    "neutral": %}}."""
     pool, mech, matrix, rows = _load()
     boost = lambda mid: float(rows[mid]["score_rel"] or 0)
     everyone = list(types_by_dex.values())
@@ -117,12 +120,13 @@ def compute_all(types_by_dex: dict[int, list[str]], best_move_by_dex: dict[int, 
         best = best_move_by_dex[dex]
         if best not in attacks:
             raise ValueError(f"el mejor ataque de la simulación ({best}) no está entre los que aprende {dex}")
-        trio = pick_attacks(attacks, best, rows, mech, matrix, everyone, cache)
+        ranked = pick_attacks(attacks, best, rows, mech, matrix, everyone, cache, ATTACK_SLOTS + ALT_SLOTS)
+        trio, alts = ranked[:ATTACK_SLOTS], ranked[ATTACK_SLOTS:]
         group = trio + ([max(buffs, key=boost)] if buffs else [])
         super_hits, neutral_hits = _coverage(matrix, [rows[i]["type"] for i in trio], everyone, cache)
         n = len(everyone)
         # types: tipos de ataque distintos (3 como máximo). Con menos de tres, el combo cubre menos rivales.
-        out[dex] = {"moves": group, "types": len({rows[i]["type"] for i in trio}),
+        out[dex] = {"moves": group, "alts": alts, "types": len({rows[i]["type"] for i in trio}),
                     "super": round(100 * super_hits / n), "neutral": round(100 * neutral_hits / n)}
     return out
 
@@ -136,4 +140,4 @@ if __name__ == "__main__":
     res = compute_all(dex, best_by_dex)
     for d in map(int, sys.argv[1:]):
         r = res[d]
-        print(d, r["super"], r["neutral"], r["moves"])
+        print(d, r["super"], r["neutral"], r["moves"], "opcionales:", r["alts"])

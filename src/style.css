@@ -252,14 +252,88 @@ textarea {
 .lt-move.start { box-shadow: 0 0 0 2px var(--accent); }
 .lt-move em { font: .7rem var(--pix); color: var(--accent); text-transform: uppercase; }
 .lt-ico { width: 32px; height: 32px; flex: none; image-rendering: pixelated; }
-.cb-moves { list-style: none; display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 14px; padding: 0; }
-.cb-move { display: flex; align-items: center; gap: 6px; padding: 3px 10px 3px 4px; border: 1px solid var(--rule-soft); border-radius: 999px; font: .85rem/1.2 var(--sans); }
-.cb-bar { display: grid; grid-template-columns: minmax(0, 13rem) 1fr 3.5rem; align-items: center; gap: 12px; margin: 8px 0; font: .85rem var(--sans); }
-.cb-track { display: block; height: 10px; border-radius: 6px; background: var(--rule-soft); overflow: hidden; }
-.cb-track i { display: block; height: 100%; background: var(--accent); }
-.cb-neutral .cb-track i { background: var(--ink-2); }
-.cb-bar strong { text-align: right; font-variant-numeric: tabular-nums; }
-.cb-note { margin: 10px 0 0; font: .8rem/1.5 var(--sans); color: var(--ink-2); max-width: 66ch; }
+/* ---------- build recomendada (ficha) ---------- */
+/* Tarjeta oscura, igual en claro y en oscuro: se lee sola en una captura. --tc de cada ficha es el color de su tipo. */
+.fig-build { margin-top: 8px; }
+.bd-card {
+  position: relative; isolation: isolate; padding: 20px 22px 14px; color: #f2ecd8; font-family: var(--pix);
+  background:
+    radial-gradient(ellipse 60% 70% at 0% 0%, color-mix(in srgb, var(--p1) 38%, transparent), transparent 70%),
+    radial-gradient(ellipse 50% 60% at 100% 100%, color-mix(in srgb, var(--p2) 26%, transparent), transparent 70%),
+    linear-gradient(180deg, #2a2245 0%, #140f22 100%);
+  box-shadow: var(--notch);
+}
+.bd-card::before { content: ""; position: absolute; inset: 0; z-index: -1; opacity: .5; pointer-events: none;
+  background: repeating-conic-gradient(rgba(255, 255, 255, .04) 0 25%, transparent 0 50%) 0 0 / 12px 12px; }
+.bd-head { position: relative; display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
+.bd-sprite { display: grid; place-items: center; flex: none; width: 64px; height: 64px;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--tc) 60%, transparent), transparent); }
+.bd-sprite img { max-width: 100%; max-height: 100%; object-fit: contain; filter: drop-shadow(0 2px 0 rgba(0, 0, 0, .4)); }
+.bd-head h2 { margin: 0; padding: 0; border: 0; font: 700 1.5rem/1.1 var(--pix); letter-spacing: .02em; color: #fff; text-shadow: 2px 2px 0 rgba(0, 0, 0, .45); }
+.bd-who { display: block; margin-top: 2px; font: 500 .9rem var(--pix); color: #a89fbd; }
+.bd-share { margin-left: auto; align-self: flex-start; display: grid; place-items: center; width: 40px; height: 40px; padding: 0;
+  border: 0; cursor: pointer; background: rgba(255, 255, 255, .08); color: #f2ecd8; box-shadow: 0 0 0 2px rgba(255, 255, 255, .25); }
+.bd-share:hover, .bd-share:focus-visible { background: rgba(255, 255, 255, .18); }
+.bd-share:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+.bd-toast { position: absolute; right: 50px; top: 10px; font: .75rem var(--pix); color: #ffd33d; }
+.bd-flow { display: flex; align-items: flex-end; gap: 12px; }
+.bd-start { flex: none; }
+.bd-arrow { flex: none; width: 28px; height: 28px; margin: 0 0 26px; color: #a89fbd; }
+.bd-cap { display: block; margin: 0 0 8px; font: 600 .7rem var(--pix); letter-spacing: .08em; text-transform: uppercase; color: #a89fbd; }
+.bd-flow ul, .bd-flow ol, .bd-more ul { list-style: none; margin: 0; padding: 0; }
+.bd-slots { display: grid; grid-template-columns: repeat(4, 104px); gap: 12px; }
+.bd-tile { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; width: 104px; padding: 10px 4px 8px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--tc) 30%, #1d1631), #1d1631 85%);
+  box-shadow: 0 -2px 0 0 var(--tc), 0 2px 0 0 var(--tc), -2px 0 0 0 var(--tc), 2px 0 0 0 var(--tc); }
+.bd-slots .bd-tile { width: auto; }
+.bd-ico { display: grid; place-items: center; width: 56px; height: 56px;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--tc) 55%, transparent), transparent); }
+.bd-ico img { width: 48px; height: 48px; image-rendering: pixelated; filter: drop-shadow(0 2px 0 rgba(0, 0, 0, .4)); }
+.bd-nm { display: block; min-height: 2.3em; font: 500 .8rem/1.15 var(--pix); text-align: center; color: #f2ecd8; overflow-wrap: anywhere; }
+.bd-badge { position: absolute; top: -9px; left: -9px; display: grid; place-items: center; min-width: 20px; height: 20px; padding: 0 3px;
+  background: var(--tc); color: #1b1528; font: 700 .8rem/1 var(--pix); box-shadow: 0 0 0 2px #140f22; }
+.bd-badge .ico { width: 14px; height: 14px; margin: 0; vertical-align: 0; }
+.bd-boost { background: linear-gradient(180deg, color-mix(in srgb, var(--tc) 40%, #1d1631), #1d1631 85%); }
+.bd-more { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 22px 36px; margin-top: 24px; padding-top: 18px; border-top: 2px dashed rgba(255, 255, 255, .14); }
+.bd-small { display: flex; flex-wrap: wrap; gap: 10px; }
+.bd-small .bd-tile.sm { width: 84px; padding: 8px 3px 6px; opacity: .92;
+  box-shadow: 0 -2px 0 0 color-mix(in srgb, var(--tc) 65%, transparent), 0 2px 0 0 color-mix(in srgb, var(--tc) 65%, transparent),
+    -2px 0 0 0 color-mix(in srgb, var(--tc) 65%, transparent), 2px 0 0 0 color-mix(in srgb, var(--tc) 65%, transparent); }
+.bd-tile.sm .bd-ico { width: 40px; height: 40px; }
+.bd-tile.sm .bd-ico img { width: 32px; height: 32px; }
+.bd-tile.sm .bd-nm { font-size: .7rem; min-height: 2.3em; }
+.bd-meters { display: grid; gap: 8px; margin-top: 20px; }
+.bd-meter { display: grid; grid-template-columns: minmax(0, 11rem) 1fr 3.4rem; align-items: center; gap: 12px; font: .78rem var(--pix); color: #a89fbd; }
+.bd-track { display: block; height: 8px; background: rgba(255, 255, 255, .1); overflow: hidden; }
+.bd-track b { display: block; height: 100%; background: #ffd33d; }
+.bd-neutral .bd-track b { background: #6bcb77; }
+.bd-meter strong { text-align: right; color: #f2ecd8; font-weight: 600; font-variant-numeric: tabular-nums; }
+.bd-brand { margin: 14px 0 0; text-align: right; font: 600 .7rem var(--pix); letter-spacing: .08em; color: #6f6590; }
+@media (max-width: 560px) {
+  .bd-card { padding: 16px 14px 12px; }
+  .bd-head h2 { font-size: 1.3rem; }
+  .bd-flow { flex-direction: column; align-items: stretch; gap: 6px; }
+  .bd-start { align-self: flex-start; }
+  .bd-start .bd-tile { flex-direction: row; min-width: 12rem; width: auto; gap: 12px; padding: 8px 12px 8px 8px; }
+  .bd-start .bd-nm { min-height: 0; text-align: left; font-size: .9rem; }
+  .bd-arrow { align-self: center; margin: 4px 0; transform: rotate(90deg); }
+  .bd-slots { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  .bd-tile { padding-inline: 2px; }
+  .bd-ico { width: 48px; height: 48px; }
+  .bd-ico img { width: 40px; height: 40px; }
+  .bd-nm { font-size: .72rem; }
+  .bd-badge { top: -8px; left: -6px; }
+  .bd-more { gap: 18px 24px; }
+  .bd-small .bd-tile.sm { width: 76px; padding-inline: 1px; }
+  .bd-tile.sm .bd-nm { font-size: .64rem; }
+  .bd-meter { grid-template-columns: 1fr 3.4rem; row-gap: 4px; }
+  .bd-meter > span { grid-column: 1 / -1; }
+  .bd-meter .bd-track { grid-column: 1; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .anim .bd-tile { animation: rise .5s ease-out backwards; animation-delay: calc(var(--i, 0) * 90ms); }
+  .anim .bd-track b { animation: grow .8s cubic-bezier(.2, .7, .2, 1) backwards; }
+}
 .rb-ticks span:first-child { transform: none; }
 .rb-ticks span:last-child { transform: translateX(-100%); }
 /* Banda de la ficha: mini-barra de los 966 con el tramo ampliado, y un marco con la vista ampliada. */
@@ -691,6 +765,7 @@ code, kbd { background: var(--rule-soft); box-shadow: 0 0 0 1px var(--rule); }
 .ico-heart { --ico: url(img/ui/heart.png); }
 .ico-potion { --ico: url(img/ui/potion.png); }
 .ico-trophy { --ico: url(img/ui/trophy.png); }
+.ico-arrow { --ico: url(img/ui/arrow.png); }
 .tier-head { border-bottom: 4px solid var(--rule-soft); }
 .tier-head b { text-shadow: 3px 3px 0 var(--rule); }
 .tier-S .tier-head { border-bottom-color: var(--tier-S); }
