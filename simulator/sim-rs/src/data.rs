@@ -166,6 +166,8 @@ pub struct Def {
 #[derive(Clone, Debug)]
 pub struct Cand {
     pub def: Def,
+    /// national dex number, only used by traces
+    pub dex: u16,
     /// index into `Data::combos`
     pub combo: u16,
     /// first type, used as the attack type of everything this enemy does
@@ -341,6 +343,7 @@ impl Data {
                                 zones: num(d, "zones"),
                                 fan_n: num(d, "fanN"),
                             },
+                            dex: c["dex"].as_u64().unwrap_or(0) as u16,
                             combo: combo_of(&c["types"]),
                             ty0: type_ix(c["types"][0].as_str().unwrap()),
                             r: num(c, "r"),

@@ -19,8 +19,8 @@ cargo build --release --manifest-path sim-rs/Cargo.toml
 # every attack it can learn as a start
 ./sim-rs/target/release/pokesim sweep
 
-# one game, with a position trace
-./sim-rs/target/release/pokesim run 7 water-gun 1 --out trace.csv
+# one game, with a trace: CSV of positions, or JSON with enemy species and shots for a replay
+./sim-rs/target/release/pokesim run 7 water-gun 17 --out trace.json
 
 # bit-exact parity against the JavaScript engine
 node sim-rs/parity.js

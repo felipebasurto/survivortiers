@@ -330,7 +330,21 @@ fn main() {
             let opts = Opts { seed: cfg.rest[3].parse().unwrap(), seconds: cfg.seconds, cards: cfg.cards, bot: cfg.bot, terrain: cfg.terrain, trace: false, status: cfg.status };
             let opts = Opts { trace: cfg.out.is_some(), ..opts };
             print_result(&run_match(&Libm, &data, &Tables::new(), mon, start, &opts));
-            if let Some(path) = &cfg.out {
+            if let Some(path) = cfg.out.as_ref().filter(|p| p.ends_with(".json")) {
+                // Compact trace for a browser replay: [t, hp, x, y, enemies, shots, enemy shots],
+                // enemies as id,dex,x,y,fly; shots as x,y,vx,vy; enemy shots as x,y,vx,vy,type.
+                let r = |v: f64| v.round() as i64;
+                let frames: Vec<String> = take_trace()
+                    .iter()
+                    .map(|f| {
+                        let es: Vec<String> = f.enemies.iter().zip(&f.ids).map(|(e, id)| format!("{},{},{},{},{}", id.0, id.1, r(e.0), r(e.1), e.3 as u8)).collect();
+                        let ss: Vec<String> = f.shots.iter().map(|s| format!("{},{},{},{}", r(s.0), r(s.1), r(s.2), r(s.3))).collect();
+                        let xs: Vec<String> = f.e_shots.iter().map(|s| format!("{},{},{},{},\"{}\"", r(s.0), r(s.1), r(s.2), r(s.3), data::TYPES[s.4 as usize])).collect();
+                        format!("[{:.2},{:.1},{},{},[{}],[{}],[{}]]", f.t, f.hp, r(f.x), r(f.y), es.join(","), ss.join(","), xs.join(","))
+                    })
+                    .collect();
+                std::fs::write(path, format!("{{\"frames\":[\n{}\n]}}\n", frames.join(",\n"))).expect("write trace");
+            } else if let Some(path) = &cfg.out {
                 let mut csv = String::from("t,x,y,hp,enemies\n");
                 for f in take_trace() {
                     let es: Vec<String> = f.enemies.iter().map(|e| format!("{:.0}:{:.0}:{:.0}:{}", e.0, e.1, e.2, e.3 as u8)).collect();

@@ -70,13 +70,20 @@ pub struct Opts {
     pub status: bool,
 }
 
-/// One trace sample: time, player x/y/hp, and walking/flying enemy positions.
+/// One trace sample: time, player x/y/hp, enemies, and both sides' shots.
 pub struct Frame {
     pub t: f64,
     pub x: f64,
     pub y: f64,
     pub hp: f64,
+    /// x, y, r, flying
     pub enemies: Vec<(f64, f64, f64, bool)>,
+    /// id, dex of each entry in `enemies`
+    pub ids: Vec<(u32, u16)>,
+    /// x, y, vx, vy
+    pub shots: Vec<(f64, f64, f64, f64)>,
+    /// x, y, vx, vy, attack type
+    pub e_shots: Vec<(f64, f64, f64, f64, u8)>,
 }
 
 thread_local! {
@@ -407,6 +414,7 @@ struct Jump {
 
 struct Enemy {
     id: u32,
+    dex: u16,
     x: f64,
     y: f64,
     r: f64,
@@ -1614,6 +1622,7 @@ impl<'a, M: MathFns> Match<'a, M> {
         let dmg = def.dmg * sc_dmg * DMG_K;
         let mut e = Enemy {
             id: self.seq,
+            dex: cand.dex,
             x,
             y,
             r: cand.r,
@@ -2334,6 +2343,9 @@ pub fn run_match<M: MathFns>(
                 y: m.pl.y,
                 hp: m.pl.hp,
                 enemies: m.enemies.iter().filter(|e| e.hp > 0.0).map(|e| (e.x, e.y, e.r, e.fly)).collect(),
+                ids: m.enemies.iter().filter(|e| e.hp > 0.0).map(|e| (e.id, e.dex)).collect(),
+                shots: m.shots.iter().map(|s| (s.x, s.y, s.vx, s.vy)).collect(),
+                e_shots: m.e_shots.iter().map(|s| (s.x, s.y, s.vx, s.vy, s.ty)).collect(),
             };
             TRACE.with(|t| t.borrow_mut().push(f));
         }
