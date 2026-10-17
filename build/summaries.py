@@ -1,30 +1,26 @@
-"""Short summaries for every ficha, in Spanish and English, written from data/summary_facts.json.
+"""Claim checker for the ficha summaries (data/summaries.json), in Spanish and English.
 
-    python3 build/summaries.py --write    # (re)writes data/summaries.json where the facts changed or a text fails
-    python3 build/summaries.py --write --all   # recomposes every text (after editing the phrase banks)
-    python3 build/summaries.py            # validates data/summaries.json against the current facts
-
-The texts are composed by this script from phrase banks written by hand below, picked by the facts of each species.
-Nothing runs at page load and there is no AI service: the ficha only reads the JSON.
+The texts are written by the pipeline in build/summary_pipeline.py (Grok subagents, prompt in
+build/prompts/summary.md) from data/facts.parquet. This module only checks them; it uses the standard library so
+build/catalog.py can run it on the hosting.
 
 Every claim sits in a mark, `[key|text]`. `key` names the fact it states, for example `spd+` (fast), `hb-` (big
-hitbox), `m.start:ember` (the start move) or `down:hitbox:S` (the hitbox is what keeps it out of S). The validator:
+hitbox), `m.start:ember` (the start move) or `down:hitbox:S` (the hitbox is what keeps it out of S). The checker:
 
   1. checks that the fact behind each key holds (thresholds below);
   2. scans the plain text with a lexicon (fast, slow, HP, hitbox, damage, types, tier letters, every move, item and
-     card name...). A word that states something must sit inside a mark whose key licenses it, so a hand edit cannot
-     add an unsupported claim;
+     card name...). A word that states something must sit inside a mark whose key licenses it, so neither the
+     writer nor a hand edit can add an unsupported claim;
   3. checks move, item and card names against the build the ficha shows now (start move, bonded group,
      alternatives, best item, priority cards), in that language;
-  4. checks 2-3 sentences, the length, that Spanish and English carry the same keys, and that the stored facts
-     fingerprint is the current one.
+  4. checks 2-3 sentences, the length, that Spanish and English carry the same keys, and that the facts hash
+     stored with the text is the current one.
 
-Any failure makes build/catalog.py stop.
+On a record without drivers (summary_facts.base_records(), what catalog.py has) the rank-driver keys are not
+re-derived; everything else is, and the stored `bfp` must match.
 """
 from __future__ import annotations
 
-import argparse
-import hashlib
 import json
 import re
 import sys
@@ -42,6 +38,8 @@ DRIVER_MIN = 10             # places a factor must move the species to be named 
 MAX_LEN = 240               # characters of plain text per language
 TIERS = "SABCD"
 TIER_BANDS = {"S": (1, 30), "A": (31, 120), "B": (121, 320), "C": (321, 620), "D": (621, 966)}
+THRESHOLDS = {"high": HIGH, "low": LOW, "hugeRadius": HUGE_R, "driverMin": DRIVER_MIN, "maxLen": MAX_LEN}
+DRIVER_HEADS = ("up", "down")
 
 MARK = re.compile(r"\[([^\[\]|]+)\|([^\[\]]+)\]")
 NAME_ROLES = ("m.start", "m.group", "m.alt", "i.best", "c.first")
@@ -119,6 +117,9 @@ def qualifies(f: dict, tier: str, factor: str) -> bool:
 def holds(key: str, f: dict) -> str | None:
     """None if the fact behind `key` holds for species f, else why not."""
     b = f["build"]
+    head, _, ref = key.partition(":")
+    if "drivers" not in f and (head in DRIVER_HEADS or key in ("calm", "nodown")):
+        return None  # base record: drivers are checked where they are computed (summary_pipeline.py)
     simple = {
         "spd+": _stat(f, "spd") >= HIGH, "spd-": _stat(f, "spd") <= LOW,
         "hp+": _stat(f, "hp") >= HIGH, "hp-": _stat(f, "hp") <= LOW,
@@ -127,12 +128,12 @@ def holds(key: str, f: dict) -> str | None:
         "hb0": _hb(f)[0] == _hb(f)[1],
         "td+": f["pillars"]["typedef"] >= HIGH, "td-": f["pillars"]["typedef"] <= LOW,
         "avg": all(LOW < _stat(f, k) < HIGH for k in ("spd", "hp", "atk")),
-        "calm": not ranked_drivers(f, True) and not ranked_drivers(f, False),
-        "nodown": not ranked_drivers(f, False),
     }
+    if key in ("calm", "nodown"):
+        ups, downs = ranked_drivers(f, True), ranked_drivers(f, False)
+        return None if not downs and (key == "nodown" or not ups) else f"{key}: el dato no lo respalda"
     if key in simple:
         return None if simple[key] else f"{key}: el dato no lo respalda"
-    head, _, ref = key.partition(":")
     if head == "m.start":
         return None if ref == b["start"]["id"] else f"{key}: el ataque inicial es {b['start']['id']}"
     if head == "m.group":
@@ -143,7 +144,7 @@ def holds(key: str, f: dict) -> str | None:
         return None if ref == b["item"]["id"] else f"{key}: el mejor objeto es {b['item']['id']}"
     if head == "c.first":
         return None if b["cards"] and ref == b["cards"][0]["id"] else f"{key}: no es la primera carta"
-    if head in ("up", "down"):
+    if head in DRIVER_HEADS:
         factor, _, tier = ref.partition(":")
         if factor not in DIRECTION:
             return f"{key}: factor desconocido"
@@ -230,7 +231,8 @@ def names_in(f: dict, lang: str) -> dict[str, list[str]]:
 
 def validate(dex: str, entry: dict, f: dict, all_names: dict[str, set[str]]) -> list[str]:
     errs = []
-    if entry.get("fp") != summary_facts.fingerprint(f):
+    full = "drivers" in f
+    if entry.get("fp" if full else "bfp") != summary_facts.fingerprint(f):
         errs.append("los datos han cambiado desde que se escribió (huella distinta)")
     keysets = {}
     for lang in ("es", "en"):
@@ -284,174 +286,85 @@ def validate(dex: str, entry: dict, f: dict, all_names: dict[str, set[str]]) -> 
             errs.append(f"{lang}: {len(sentences)} frases (2-3)")
         if len(p) > MAX_LEN:
             errs.append(f"{lang}: {len(p)} caracteres (máximo {MAX_LEN})")
+    errs += coverage(keysets.get("es", []), f)
     if keysets.get("es") != keysets.get("en"):
         errs.append(f"español e inglés no dicen lo mismo: {keysets.get('es')} / {keysets.get('en')}")
     return [f"{dex} {f['name']}: {e}" for e in errs]
 
 
-def all_build_names(facts: dict) -> dict[str, set[str]]:
+TRAIT_KEYS = ("spd+", "spd-", "hp+", "hp-", "atk+", "atk-", "hb+", "hb-", "hb--", "hb0", "td+", "td-", "avg")
+
+
+def coverage(keys: list[str], f: dict) -> list[str]:
+    """The three things a summary must say: what it is, how to build it, why that rank."""
+    errs = []
+    heads = {k.split(":")[0] for k in keys}
+    if not set(keys) & set(TRAIT_KEYS) and any(holds(k, f) is None for k in TRAIT_KEYS):
+        errs.append("falta el perfil: ningún rasgo marcado (spd+, hb-, td+...)")
+    if "m.start" not in heads:
+        errs.append("falta el ataque inicial (m.start)")
+    if "i.best" not in heads:
+        errs.append("falta el objeto (i.best)")
+    if not heads & {"up", "down", "nodown", "calm"}:
+        errs.append("falta el porqué del puesto (up:..., down:..., nodown o calm)")
+    return errs
+
+
+def all_build_names(facts: dict[str, dict]) -> dict[str, set[str]]:
     """Names of every move, item and card any build uses, so a name from another species is caught too."""
     out = {"es": set(), "en": set()}
-    for f in facts["species"].values():
+    for f in facts.values():
         for lang in out:
             out[lang].update(names_in(f, lang))
             out[lang].update(c[lang] for c in f["build"]["cards"])
     return out
 
 
-def check(facts: dict, summaries: dict) -> tuple[list[str], dict]:
+def check(facts: dict[str, dict], summaries: dict) -> tuple[list[str], dict]:
+    """All errors of data/summaries.json against these records (dex -> record, full or base). A flagged species
+    (the writer failed it after every retry) has no text and is not an error; it is counted."""
     names = all_build_names(facts)
-    errs = []
-    missing = sorted(set(facts["species"]) - set(summaries["species"]), key=int)
-    errs += [f"{d}: sin resumen" for d in missing]
-    errs += [f"{d}: resumen de un Pokémon que no existe" for d in set(summaries["species"]) - set(facts["species"])]
-    for d, entry in summaries["species"].items():
-        if d in facts["species"]:
-            errs += validate(d, entry, facts["species"][d], names)
-    stats = {"species": len(summaries["species"]), "texts": 2 * len(summaries["species"]),
-             "claims": sum(len(MARK.findall(e[lang])) for e in summaries["species"].values() for lang in ("es", "en")),
+    texts, flagged = summaries["species"], summaries.get("flagged", {})
+    errs = [f"{d}: sin resumen" for d in sorted(set(facts) - set(texts) - set(flagged), key=int)]
+    errs += [f"{d}: resumen de un Pokémon que no existe" for d in sorted(set(texts) - set(facts), key=int)]
+    for d, entry in texts.items():
+        if d in facts:
+            errs += validate(d, entry, facts[d], names)
+    stats = {"species": len(texts), "texts": 2 * len(texts), "flagged": len(flagged),
+             "claims": sum(len(MARK.findall(e[lang])) for e in texts.values() for lang in ("es", "en")),
              "errors": len(errs)}
     return errs, stats
 
 
-# ------------------------------------------------------------------ the phrase banks
-
-def pick(dex: int, options: list, salt: str = ""):
-    h = int(hashlib.sha1(f"{dex}{salt}".encode()).hexdigest(), 16)
-    return options[h % len(options)]
-
-
-def cap(s: str) -> str:
-    return s[0].upper() + s[1:]
+def crossing(f: dict, factor: str, up: bool) -> str | None:
+    """The tier a factor alone decides: the one it keeps (up) or the one it blocks (down), if any."""
+    cf = tier_of(f["rank"] - _places(f, factor))
+    if up:
+        return f["tier"] if TIERS.index(cf) > TIERS.index(f["tier"]) else None
+    return cf if TIERS.index(cf) < TIERS.index(f["tier"]) and qualifies(f, cf, factor) else None
 
 
-# trait key: (form, Spanish, English). Forms: "adj" (rápido / fast), "verb" (pega fuerte / hits hard) and "noun"
-# (mucha vida / lots of HP), which share one «con» (or «tiene» after a verb or «pero») and one "has".
-TRAITS = {
-    "spd+": ("adj", "rápido", "fast"),
-    "spd-": ("adj", "lento", "slow"),
-    "atk+": ("verb", "pega fuerte", "hits hard"),
-    "atk-": ("verb", "pega poco", "hits soft"),
-    "td+": ("verb", "aguanta bien los tipos rivales", "shrugs off enemy types"),
-    "td-": ("verb", "sufre contra los tipos rivales", "suffers against enemy types"),
-    "hp+": ("noun", "mucha vida", "lots of HP"),
-    "hp-": ("noun", "poca vida", "low HP"),
-    "hb+": ("noun", "hitbox pequeño", "a small hitbox"),
-    "hb-": ("noun", "hitbox grande", "a big hitbox"),
-    "hb--": ("noun", "hitbox enorme", "a huge hitbox"),
+# ------------------------------------------------------------------ what a writer may claim
+
+TRAIT_WORDS = {
+    "spd+": ("rápido", "fast"), "spd-": ("lento", "slow"),
+    "hp+": ("mucha vida", "lots of HP"), "hp-": ("poca vida", "low HP"),
+    "atk+": ("pega fuerte", "hits hard"), "atk-": ("pega poco", "hits soft"),
+    "hb+": ("hitbox pequeño", "small hitbox"), "hb-": ("hitbox grande", "big hitbox"),
+    "hb--": ("hitbox enorme", "huge hitbox"), "hb0": ("hitbox normal", "normal hitbox"),
+    "td+": ("aguanta bien los tipos rivales", "shrugs off enemy types"),
+    "td-": ("sufre contra los tipos rivales", "suffers against enemy types"),
+    "avg": ("del montón en velocidad, vida y daño", "average speed, HP and damage"),
 }
-GOOD = {"spd+", "hp+", "atk+", "hb+", "td+"}
-ORDER = ["spd", "atk", "td", "hp", "hb"]  # adjectives, then verbs, then the nouns that share «con»
-
-
-def traits(f: dict) -> list[str]:
-    """Up to three of the clearest traits, strongest first."""
-    cands = []
-    for k, stat in (("spd", "spd"), ("hp", "hp"), ("atk", "atk")):
-        p = _stat(f, stat)
-        if p >= HIGH:
-            cands.append((p - 0.5, k + "+"))
-        elif p <= LOW:
-            cands.append((0.5 - p, k + "-"))
-    r, med = _hb(f)
-    if r < med:
-        cands.append((0.4, "hb+"))
-    elif r >= HUGE_R:
-        cands.append((0.45, "hb--"))
-    elif r > med:
-        cands.append((0.3, "hb-"))
-    td = f["pillars"]["typedef"]
-    if td >= 0.85:
-        cands.append((td - 0.5 - 0.1, "td+"))
-    elif td <= 0.15:
-        cands.append((0.5 - td - 0.1, "td-"))
-    return [k for _, k in sorted(cands, reverse=True)[:3]]
-
-
-def _join(parts: list[str], sep_last: str) -> str:
-    return parts[0] if len(parts) == 1 else ", ".join(parts[:-1]) + sep_last + parts[-1]
-
-
-def profile(f: dict) -> tuple[str, str]:
-    ks = traits(f)
-    if not ks:
-        hb = "hb0" if _hb(f)[0] == _hb(f)[1] else None
-        es = "[avg|Del montón en velocidad, vida y daño]"
-        en = "[avg|Average speed, HP and damage]"
-        if hb:
-            es += ", con [hb0|hitbox normal]"
-            en += ", [hb0|normal hitbox]"
-        return es + ".", en + "."
-    ks = sorted(ks, key=lambda k: ORDER.index(k.rstrip("+-")))
-    good = [k for k in ks if k in GOOD]
-    bad = [k for k in ks if k not in GOOD]
-    lead, rest = (good, bad) if good else (bad, [])
-    es, en = cap_text(trait_list(lead, "es", True)), cap_text(trait_list(lead, "en", True))
-    if rest:
-        es += ", pero " + trait_list(rest, "es", False)
-        en += ", but " + trait_list(rest, "en", False)
-    return es + ".", en + "."
-
-
-def trait_list(keys: list[str], lang: str, leading: bool) -> str:
-    """«rápido, pega fuerte, con mucha vida y hitbox pequeño» / «es lento y tiene hitbox grande»."""
-    col = 1 if lang == "es" else 2
-    and_ = " y " if lang == "es" else " and "
-    parts = []
-    for k in keys:
-        form, text = TRAITS[k][0], TRAITS[k][col]
-        if form == "adj" and not leading:
-            text = ("es " if lang == "es" else "is ") + text
-        parts.append((form, f"[{k}|{text}]"))
-    nouns = [p for f, p in parts if f == "noun"]
-    others = [p for f, p in parts if f != "noun"]
-    if nouns:
-        after_verb = any(f == "verb" for f, _ in parts)
-        with_ = ("con " if lang == "es" and leading and others and not after_verb
-                 else ("tiene " if lang == "es" else "has "))
-        others.append(with_ + _join(nouns, and_))
-        if len(nouns) > 1:
-            return ", ".join(others)
-    return _join(others, and_)
-
-
-def mv(role: str, m: dict, lang: str) -> str:
-    return f"[{role}:{m['id']}|{m[lang]}]"
-
-
-def build_lines(f: dict) -> list[tuple[str, str]]:
-    """The build sentence, longest first: with the attack buff and an alternative, then without them."""
-    b = f["build"]
-    start = b["start"]
-    attacks = [m for m in b["group"][:b["attacks"]] if m["id"] != start["id"]]
-    boosts = b["group"][b["attacks"]:]
-    used = {start["id"]} | {m["id"] for m in b["group"]}
-    alt = next((m for m in b["alts"] if m["id"] not in used), None)
-    item = b["item"]
-    out = []
-    for with_boost, with_alt in ((True, True), (False, True), (True, False), (False, False)):
-        pair = []
-        for lang in ("es", "en"):
-            parts = [mv("m.group", m, lang) for m in attacks]
-            if with_alt and alt and parts:
-                parts[-1] += f" ({'o' if lang == 'es' else 'or'} {mv('m.alt', alt, lang)})"
-            if with_boost and boosts:
-                parts.append(mv("m.group", boosts[0], lang))
-            group = _join(parts, " y " if lang == "es" else " and ") if parts else None
-            it = f"[i.best:{item['id']}|{item[lang]}]"
-            if lang == "es":
-                verb = pick(f["dex"], ["vincula", "súmale", "vincúlale"], "es-bond")
-                bond = f" y {verb} {group}" if group else ""
-                pair.append(f"Empieza con {mv('m.start', start, lang)}{bond}; lleva {it}.")
-            else:
-                verb = pick(f["dex"], ["bond", "add", "link"], "en-bond")
-                bond = f", {verb} {group}" if group else ""
-                pair.append(f"Start with {mv('m.start', start, lang)}{bond}; carry {it}.")
-        out.append(tuple(pair))
-    return out
-
-
-# factor: (Spanish noun phrase, English noun phrase). The hitbox says small or big, as its direction requires.
+TRAIT_MEANS = {
+    "spd+": "speed in the top quarter", "spd-": "speed in the bottom quarter",
+    "hp+": "HP in the top quarter", "hp-": "HP in the bottom quarter",
+    "atk+": "attack in the top quarter", "atk-": "attack in the bottom quarter",
+    "hb+": "body radius below the median (harder to hit)", "hb-": "body radius above the median (easier to hit)",
+    "hb--": "body radius in the huge range", "hb0": "body radius exactly the median",
+    "td+": "its types take little damage from the enemy pool", "td-": "its types take a lot from the enemy pool",
+    "avg": "speed, HP and attack all in the middle half",
+}
 FACTOR = {
     "speed": ("su velocidad", "its speed"), "hp": ("su vida", "its HP"), "attack": ("su daño", "its damage"),
     "start_move": ("su ataque inicial", "its start move"),
@@ -461,167 +374,73 @@ FACTOR = {
     "gate_types": ("tener un solo tipo de ataque", "having a single attack type"),
     "gate_melee": ("empezar cuerpo a cuerpo", "its melee start"),
 }
+FACTOR_MEANS = {
+    "hitbox": "its hitbox size", "speed": "its speed", "hp": "its HP", "attack": "its attack",
+    "start_move": "its game start move compared with the other starts it can learn",
+    "best_move": "its best move compared with its second best", "stats": "its stats overall",
+    "moves": "the moves it can learn", "typedef": "how its types take enemy hits", "late": "how it does in long runs",
+    "gate_stats": "a tier cap for low stats", "gate_types": "a tier cap for a single attack type",
+    "gate_melee": "a tier cap for a melee start",
+}
 
 
-def noun(f: dict, factor: str, up: bool) -> tuple[str, str]:
+def factor_words(f: dict, factor: str, up: bool) -> tuple[str, str]:
     if factor == "hitbox":
         return ("su hitbox pequeño", "its small hitbox") if up else ("su hitbox grande", "its big hitbox")
     if factor == "late":
         return (("cómo aguanta las partidas largas", "how it holds up in long runs") if up
                 else ("cómo flojea en partidas largas", "how it fades in long runs"))
-    if factor == "best_move":  # what that move adds over its next best start: say the move
+    if factor == "best_move":
         return f["build"]["best"]["es"], f["build"]["best"]["en"]
     return FACTOR[factor]
 
 
-def gate_factor(f: dict) -> str | None:
-    if f["drivers"]["gate"]["places"] > -DRIVER_MIN:
-        return None
-    for flag, key in (("statsCapped", "gate_stats"), ("typesCapped", "gate_types"), ("melee", "gate_melee")):
-        if f["flags"][flag]:
-            return key
-    return None
-
-
-def crossing(f: dict, factor: str, up: bool) -> str | None:
-    """The tier named when that factor alone decides it: the one it keeps (up) or the one it blocks (down)."""
-    cf = tier_of(f["rank"] - _places(f, factor))
-    if up:
-        return f["tier"] if TIERS.index(cf) > TIERS.index(f["tier"]) else None
-    return cf if TIERS.index(cf) < TIERS.index(f["tier"]) and qualifies(f, cf, factor) else None
-
-
-PLURAL = {"stats", "moves", "typedef"}
-
-
-def why_line(f: dict, short: bool = False) -> tuple[str, str]:
-    ups = ranked_drivers(f, True)
-    downs = ranked_drivers(f, False)
-    up = ups[0] if ups else None
-    down = downs[0] if downs else None
-    d = f["dex"]
-    # Spanish and English verb endings for a singular or plural subject
-    n_ = lambda k: "n" if k in PLURAL else ""  # noqa: E731
-    es_ = lambda k: "son" if k in PLURAL else "es"  # noqa: E731
-    s_ = lambda k: "" if k in PLURAL else "s"  # noqa: E731
-    is_ = lambda k: "are" if k in PLURAL else "is"  # noqa: E731
-    t_up = t_dn = None
-    if up:
-        n_es, n_en = noun(f, up, True)
-        t_up = crossing(f, up, True) if up != "best_move" else None  # that mark holds only the move name
-        up_es = f"[up:{up}:{t_up}|sin {n_es} no estaría en el {t_up}]" if t_up else f"[up:{up}|{n_es}]"
-        up_en = f"[up:{up}:{t_up}|without {n_en} it would drop out of {t_up}]" if t_up else f"[up:{up}|{n_en}]"
-    if down:
-        n_es, n_en = noun(f, down, False)
-        t_dn = crossing(f, down, False) if down != "best_move" else None
-        dn_es = (f"[down:{down}:{t_dn}|{n_es} {es_(down)} lo que lo deja fuera del {t_dn}]" if t_dn
-                 else f"[down:{down}|{n_es}]")
-        dn_en = (f"[down:{down}:{t_dn}|{n_en} {is_(down)} what keeps it out of {t_dn}]" if t_dn
-                 else f"[down:{down}|{n_en}]")
-
-    if up and down:
-        if t_up and t_dn:
-            return f"{cap_mark(up_es)}, y {dn_es}.", f"{cap_mark(up_en)}, and {dn_en}."
-        if t_dn:
-            return (f"{cap_mark(dn_es)}; lo sube{n_(up)} {up_es}.", f"{cap_mark(dn_en)}; {up_en} lift{s_(up)} it.")
-        if t_up:
-            return (f"{cap_mark(up_es)}; lo frena{n_(down)} {dn_es}.",
-                    f"{cap_mark(up_en)}; {dn_en} hold{s_(down)} it back.")
-        es = (lambda o: o[0] if short else pick(d, o, "why"))([f"Lo sube{n_(up)} {up_es}; lo frena{n_(down)} {dn_es}.",
-                      f"Tira{n_(up)} de él {up_es}; lo lastra{n_(down)} {dn_es}.",
-                      f"Lo que más le ayuda {es_(up)} {up_es}; lo que más le pesa, {dn_es}."])
-        en = (lambda o: o[0] if short else pick(d, o, "why"))([f"{cap_mark(up_en)} lift{s_(up)} it; {dn_en} hold{s_(down)} it back.",
-                      f"{cap_mark(up_en)} carr{'y' if up in PLURAL else 'ies'} it; {dn_en} drag{s_(down)} it down.",
-                      f"What helps most {is_(up)} {up_en}; what hurts most, {dn_en}."])
-        return es, en
-    if up:
-        if t_up:
-            return (f"{cap_mark(up_es)}, y [nodown|nada lo frena] de verdad.",
-                    f"{cap_mark(up_en)}, and [nodown|nothing holds it back] much.")
-        return (f"Lo que más lo sube {es_(up)} {up_es}, y [nodown|nada lo frena] de verdad.",
-                f"What lifts it most {is_(up)} {up_en}, and [nodown|nothing holds it back] much.")
-    if down:
-        if t_dn:
-            return f"{cap_mark(dn_es)}.", f"{cap_mark(dn_en)}."
-        return (f"Lo que más lo frena {es_(down)} {dn_es}.", f"What holds it back most {is_(down)} {dn_en}.")
-    return ("[calm|Ningún factor] lo mueve mucho: está donde lo ponen todas las medidas juntas.",
-            "[calm|No single factor] moves it much: it sits where all the measures put it together.")
-
-
-def cap_mark(s: str) -> str:
-    """Capitalise the visible text of a mark that starts a sentence."""
-    i = s.index("|") + 1
-    return s[:i] + s[i].upper() + s[i + 1:]
-
-
-def cap_text(s: str) -> str:
-    return cap_mark(s) if s.startswith("[") else cap(s)
-
-
-def compose(f: dict) -> dict:
-    p_es, p_en = profile(f)
-    for (w_es, w_en), (b_es, b_en) in ((w, b) for w in (why_line(f), why_line(f, short=True)) for b in build_lines(f)):
-        es, en = " ".join([p_es, b_es, w_es]), " ".join([p_en, b_en, w_en])
-        if max(len(plain(es)), len(plain(en))) <= MAX_LEN:
-            break
-    return {"fp": summary_facts.fingerprint(f), "es": es, "en": en}
+def claims(f: dict) -> list[dict]:
+    """Every key that holds for this full facts record, what it means and plain wording. A writer may use these
+    and nothing else."""
+    out = []
+    for k, (es, en) in TRAIT_WORDS.items():
+        if holds(k, f) is None:
+            out.append({"key": k, "means": TRAIT_MEANS[k], "es": es, "en": en})
+    b = f["build"]
+    named = [("m.start", b["start"], "game start move")] + [("m.group", m, "bonded group move") for m in b["group"]]
+    named += [("m.alt", m, "alternative move") for m in b["alts"]]
+    named.append(("i.best", b["item"], "best item"))
+    if b["cards"]:
+        named.append(("c.first", b["cards"][0], "first card to pick"))
+    for role, m, means in named:
+        out.append({"key": f"{role}:{m['id']}", "means": means, "es": m["es"], "en": m["en"]})
+    for head, up in (("up", True), ("down", False)):
+        for factor in ranked_drivers(f, up)[:2]:
+            es, en = factor_words(f, factor, up)
+            places = abs(_places(f, factor))
+            verb = "lifts it" if up else "holds it back"
+            out.append({"key": f"{head}:{factor}", "means": f"{FACTOR_MEANS[factor]} {verb} (about {places} places)",
+                        "es": es, "en": en})
+            t = crossing(f, factor, up) if factor != "best_move" else None
+            if t:
+                means = (f"without it, it would drop out of tier {t}" if up
+                         else f"it is what keeps it out of tier {t}")
+                es_t = f"sin {es} no estaría en el {t}" if up else f"{es} lo deja fuera del {t}"
+                en_t = f"without {en} it would drop out of {t}" if up else f"{en} keeps it out of {t}"
+                out.append({"key": f"{head}:{factor}:{t}", "means": means, "es": es_t, "en": en_t})
+    for k, es, en, means in (("nodown", "nada lo frena", "nothing holds it back", "no factor holds it back"),
+                             ("calm", "ningún factor", "no single factor", "no factor moves it much either way")):
+        if holds(k, f) is None:
+            out.append({"key": k, "means": means, "es": es, "en": en})
+    return out
 
 
 # ------------------------------------------------------------------ files
 
-def load_facts() -> dict:
-    return json.loads(summary_facts.OUT.read_text(encoding="utf8"))
-
-
 def load() -> dict:
     if not PATH.exists():
-        return {"species": {}}
-    return json.loads(PATH.read_text(encoding="utf8"))
-
-
-def write(facts: dict, everything: bool = False) -> dict:
-    """Recompose the entries whose facts changed, that fail validation or that are missing (all with everything).
-    Keeps the rest, so a hand-edited text that still validates survives."""
-    old = load()
-    names = all_build_names(facts)
-    out, counts = {}, {"regenerated": 0, "kept": 0, "new": 0}
-    for d, f in facts["species"].items():
-        prev = old["species"].get(d)
-        if prev and not everything and not validate(d, prev, f, names):
-            out[d] = prev
-            counts["kept"] += 1
-            continue
-        out[d] = compose(f)
-        counts["regenerated" if prev else "new"] += 1
-    doc = {"note": "Escrito por build/summaries.py a partir de data/summary_facts.json. Las marcas [clave|texto] "
-                   "dicen qué dato respalda cada afirmación; la ficha las convierte en iconos.",
-           "thresholds": {"high": HIGH, "low": LOW, "hugeRadius": HUGE_R, "driverMin": DRIVER_MIN, "maxLen": MAX_LEN},
-           "species": out}
-    PATH.write_text(json.dumps(doc, ensure_ascii=False, indent=1) + "\n", encoding="utf8")
-    return counts
+        return {"species": {}, "flagged": {}}
+    doc = json.loads(PATH.read_text(encoding="utf8"))
+    doc.setdefault("flagged", {})
+    return doc
 
 
 def public(summaries: dict, lang: str) -> dict:
     """What the ficha loads: dex -> marked text in that language."""
     return {d: e[lang] for d, e in summaries["species"].items()}
-
-
-def main() -> int:
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--write", action="store_true")
-    ap.add_argument("--all", action="store_true", help="with --write, recompose every text (after editing the phrase banks)")
-    args = ap.parse_args()
-    facts = load_facts()
-    if args.write:
-        counts = write(facts, args.all)
-        print(f"resúmenes: {counts['regenerated']} reescritos, {counts['new']} nuevos, {counts['kept']} sin cambios")
-    errs, stats = check(facts, load())
-    for e in errs[:40]:
-        print("  " + e, file=sys.stderr)
-    print(f"validación: {stats['species']} Pokémon, {stats['texts']} textos, {stats['claims']} afirmaciones marcadas, "
-          f"{stats['errors']} errores")
-    return 1 if errs else 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())
