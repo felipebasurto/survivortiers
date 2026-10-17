@@ -266,10 +266,11 @@ def render_index(c: Ctx, pokemon: list[dict], meta: dict) -> str:
 FICHA_KEYS = (
     "crumb_home", "legendary", "stars_alt", "sprite_alt", "ficha_title", "ficha_desc", "flag_status", "flag_melee",
     "flag_capped", "flag_types", "pager_aria", "dex_no", "tier", "f_missing", "t_band", "t_pillars", "t_methods", "t_sim",
-    "band_rank", "band_range", "band_alt", "band_zoom", "band_all", "t_learn", "learn_lede", "learn_start", "t_build", "build_start", "build_best", "build_boost", "build_alt", "build_items", "build_cards", "build_card_evo", "build_super", "build_neutral",
-    "build_share", "build_copied", "build_slot", "build_brand", "pill_stats", "pill_moves", "pill_typedef", "pill_size", "pillars_alt_item",
+    "band_rank", "band_range", "band_alt", "t_learn", "learn_start", "t_build", "build_start", "build_best", "build_boost", "build_alt", "build_items", "build_cards", "build_card_evo", "build_super", "build_neutral",
+    "build_share", "build_copied", "build_slot", "build_brand", "build_group", "build_best_item", "build_card_n", "build_more",
+    "t_rank", "rank_how", "ficha_rank", "pill_stats", "pill_moves", "pill_typedef", "pill_size", "pillars_alt_item",
     "median", "m_sheet", "m_simStart", "m_simBest", "m_lateMax", "m_lateFresh", "methods_final", "methods_alt",
-    "methods_alt_item", "sim_start", "sim_best", "sim_median", "sim_alt", "sim_lede", "sim_scale", "sim_gain", "methods_lede",
+    "methods_alt_item", "sim_start", "sim_best", "sim_median", "sim_alt", "sim_gain",
     "rar_1", "rar_2", "rar_3", "rar_4", "rar_5", "t_base", "bs_hp", "bs_atk", "bs_def", "bs_spa", "bs_spd", "bs_spe",
     "bs_total", "bs_alt_item", "bs_s_hp", "bs_s_atk", "bs_s_def", "bs_s_spa", "bs_s_spd", "bs_s_spe")
 
