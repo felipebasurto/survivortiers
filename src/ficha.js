@@ -73,20 +73,9 @@
     return out;
   }
 
-  // Mini-barra con los 966: el tramo ampliado queda marcado con un recuadro, y el Pokémon, con un punto.
-  function overview(rank, tier, w0, w1) {
-    const pos = n => (n - 1) / (TOTAL - 1) * 100;
-    const segs = CUTS.map(c => '<i class="t-' + c[0] + (c[0] === tier ? ' on' : '') + '" style="flex:' + (c[2] - c[1] + 1) + '"></i>').join('');
-    return '<div class="rb-over">' +
-      '<div class="rb-ov">' + segs +
-      '<b class="rb-ov-win" style="left:' + f2(pos(w0)) + '%;width:' + f2(Math.max(pos(w1) - pos(w0), 1.2)) + '%"></b>' +
-      '<b class="rb-ov-dot" style="left:' + f2(pos(rank)) + '%"></b></div></div>';
-  }
-
   function rankBand(p, name) {
     const [rank, tier, lo, hi] = p.r;
     const [w0, w1] = zoomWindow(lo, hi);
-    const zoomed = w0 !== 1 || w1 !== TOTAL;
     const at = n => (n - w0) / (w1 - w0) * 100;
     const x = at(rank);
     const sd = x < 14 ? 'l' : x > 86 ? 'r' : 'c';
@@ -105,14 +94,12 @@
     });
     const ticks = kept.map(n => '<span style="left:' + f2(at(n)) + '%">' + n + '</span>').join('');
     const span = Math.max(at(hi) - at(lo), 0.5);
-    const legend = zoomed ? t('band_zoom', { lo: w0, hi: w1, total: TOTAL }) : t('band_all', { total: TOTAL });
-    const view = '<div class="rb-view"><span class="rb-legend">' + esc(legend) + '</span>' +
+    const body = '<div class="rb-view">' +
       '<div class="rb-note rb-' + sd + '" style="' + noteStyle + '"><b>' + esc(t('band_rank', { rank })) + '</b>' +
       '<span>' + esc(t('band_range', { lo, hi })) + '</span></div>' +
       '<div class="rb-track">' + segs + '<b class="rb-range" style="left:' + f2(at(lo)) + '%;width:' + f2(span) + '%"></b>' +
       '<b class="rb-dot" style="left:' + f2(x) + '%"></b></div>' +
       '<div class="rb-tiers" aria-hidden="true">' + letters + '</div><div class="rb-ticks" aria-hidden="true">' + ticks + '</div></div>';
-    const body = (zoomed ? overview(rank, tier, w0, w1) : '') + view;
     return fig('band', t('t_band'), body, t('band_alt', { name, rank, total: TOTAL, tier, lo, hi }));
   }
 
@@ -188,10 +175,7 @@
     const at = n => (n - w0) / (w1 - w0) * 100;
     const xf = at(final);
     const rows = METHODS.map((k, i) => ({ label: t('m_' + k), x: at(d[1][i]), text: String(d[1][i]), v: d[1][i] }));
-    const zoomed = w0 !== 1 || w1 !== TOTAL;
-    const zoomNote = zoomed ? '<p class="zoom-note">' + esc(t('band_zoom', { lo: w0, hi: w1 })) + '</p>' : '';
-    const body = '<p class="fig-lede">' + esc(t('methods_lede')) + '</p>' +
-      dotplot({ text: t('methods_final', { rank: final }), x: xf, side: side(xf) }, rows, [String(w0), String(w1)]) + zoomNote;
+    const body = dotplot({ text: t('methods_final', { rank: final }), x: xf, side: side(xf) }, rows, [String(w0), String(w1)]);
     const alt = t('methods_alt', { name, rank: final }) + rows.map(r => t('methods_alt_item', { label: r.label, v: r.v })).join('; ') + '.';
     return fig('methods', t('t_methods'), body, alt);
   }
@@ -225,10 +209,7 @@
     const ref = '<div class="mt-ref"><span class="' + side(xm) + '" style="left:' + f2(xm) + '%">' + esc(t('sim_median', { s: rnd(median) })) + '</span></div>';
     const gainNote = items.length === 2 && items[1].s > items[0].s
       ? '<p class="fig-note sim-gain">' + esc(t('sim_gain', { d: rnd(items[1].s - items[0].s) })) + '</p>' : '';
-    const body = '<p class="fig-lede">' + esc(t('sim_lede')) + '</p>' +
-      '<div class="sim-chart">' + ref + rows + '<div class="mt-axis sim-axis" aria-hidden="true">' + axis + '</div></div>' +
-      gainNote +
-      '<p class="fig-note">' + esc(t('sim_scale', { lo: rnd(lo), hi: rnd(hi) })) + '</p>';
+    const body = '<div class="sim-chart">' + ref + rows + '<div class="mt-axis sim-axis" aria-hidden="true">' + axis + '</div></div>' + gainNote;
     const alt = t('sim_alt') + items.map(i => i.label + ', ' + secs(i.s)).join('; ') + '.';
     return fig('sim', t('t_sim'), body, alt);
   }
@@ -259,18 +240,19 @@
     return u;
   }
 
+  const learnPool = (p, moves) => moves.filter(m => m.type === 'normal' || p.types.includes(m.type));
   function learn(p, d, moves) {
-    const pool = moves.filter(m => m.type === 'normal' || p.types.includes(m.type));
-    const rows = LEARN_TIERS.map(tier => {
+    const pool = learnPool(p, moves);
+    const group = new Set(d[9][2]);
+    return LEARN_TIERS.map(tier => {
       const ms = pool.filter(m => m.tier === tier).sort((a, b) => b.score - a.score);
       if (!ms.length) return '';
-      const chips = ms.map(m => '<li class="lt-move' + (m.id === d[2] ? ' start' : '') + '"><img class="lt-ico" src="' + iconUrl(m) +
+      const chips = ms.map(m => '<li class="lt-move' + (m.id === d[2] ? ' start' : '') + (group.has(m.id) ? ' in-build' : '') +
+        '" style="--tc:' + (TYPE_COLOR[m.type] || ITEM_COLOR) + '"><img class="lt-ico" src="' + iconUrl(m) +
         '" alt="" width="32" height="32">' + esc(EN ? m.en.name : m.name) +
         (m.id === d[2] ? ' <em>' + esc(t('learn_start')) + '</em>' : '') + '</li>').join('');
       return '<div class="lt-row"><span class="tier-badge ' + tier + '">' + tier + '</span><ul class="lt-moves">' + chips + '</ul></div>';
     }).join('');
-    return '<section class="fig anim fig-learn"><figcaption><h3>' + esc(t('t_learn')) + '</h3></figcaption>' +
-      '<p class="learn-lede">' + esc(t('learn_lede', { n: pool.length })) + '</p>' + rows + '</section>';
   }
 
   // Build recomendada (build/combos.py): inicio, grupo fijo de dos ataques (el primero, el mejor de la simulación) y dos potenciadores,
@@ -288,6 +270,18 @@
   const meter = (label, v, cls) => '<div class="bd-meter ' + cls + '"><span>' + esc(label) + '</span>' +
     '<i class="bd-track" role="img" aria-label="' + v + ' %"><b style="width:' + v + '%"></b></i><strong>' + v + '&nbsp;%</strong></div>';
 
+  // Dos eslabones de cadena en píxeles: el grupo de cuatro se lanza junto, vinculado.
+  const LINK_SVG = '<svg class="bd-link" viewBox="0 0 14 8" width="21" height="12" aria-hidden="true" focusable="false" shape-rendering="crispEdges">' +
+    '<path fill="currentColor" d="M1 1h5v1H1zM0 2h1v4H0zM1 6h5v1H1zM8 1h5v1H8zM13 2h1v4h-1zM8 6h5v1H8zM4 3h6v2H4z"/></svg>';
+  const SHARE_SVG = '<svg viewBox="0 0 12 12" width="20" height="20" aria-hidden="true" focusable="false" shape-rendering="crispEdges">' +
+    '<path d="M4 6l4-4M4 6l4 4" stroke="currentColor" stroke-width="1.4" fill="none"/>' +
+    '<path fill="currentColor" d="M8 0h4v4H8zM0 4h4v4H0zM8 8h4v4H8z"/></svg>';
+  const typeVars = p => '--p1:' + (TYPE_COLOR[p.types[0]] || '#888') + ';--p2:' + (TYPE_COLOR[p.types[1] || p.types[0]] || '#888');
+  const capOf = (key, extra) => '<span class="bd-cap">' + (extra || '') + esc(t(key)) + '</span>';
+  const group = (key, list, cls, icon) => list ? '<div class="bd-group ' + cls + '-g">' + capOf(key, icon) + '<ul class="bd-small ' + cls + '">' + list + '</ul></div>' : '';
+
+  // Lo que un jugador mira primero: con qué empieza, el grupo vinculado de cuatro, el objeto y qué cartas coger.
+  // Los opcionales y la cobertura de tipos quedan plegados en «Más».
   function build(p, d, moves, items, name, scale, cards) {
     const [superPct, neutralPct, ids, , altIds, nBoost = 1] = d[9];
     const find = id => moves.find(m => m.id === id);
@@ -297,28 +291,39 @@
     const alts = altIds.map(find).filter(Boolean);
     const attackTiles = attacks.map((m, i) => tile(m, '', badgeOf(i === 0 ? 'crown' : String(i + 1), i === 0 ? t('build_best') : t('build_slot', { n: i + 1 })), i)).join('');
     const boostTile = boosts.map((b, i) => tile(b, ' bd-boost', badgeOf('sparkle', t('build_boost')), attacks.length + i)).join('');
-    const sprite = '<span class="bd-sprite" style="--tc:' + (TYPE_COLOR[p.types[0]] || '#888') + ';--tc2:' + (TYPE_COLOR[p.types[1] || p.types[0]] || '#888') +
+    const sprite = '<span class="bd-sprite" style="--tc:' + (TYPE_COLOR[p.types[0]] || '#888') +
       '"><img class="px" src="' + sprites + p.dex + spriteExt + '" width="' + p.w * scale + '" height="' + p.h * scale + '" alt=""></span>';
-    const group = (key, list, cls) => list.length ? '<div class="bd-group"><span class="bd-cap">' + esc(t(key)) + '</span><ul class="bd-small ' + cls + '">' + list + '</ul></div>' : '';
     const altTiles = alts.map((m, i) => tile(m, ' sm', '', i)).join('');
-    const itemTiles = items.map((m, i) => tile(m, ' sm item', '', i)).join('');
-    // Cartas de subida de nivel a priorizar (build/passives.py): primero las que evolucionan un ataque del grupo.
+    const itemTiles = items.map((m, i) => tile(m, ' sm item' + (i === 0 ? ' best' : ''), i === 0 ? badgeOf('crown', t('build_best_item')) : '', i)).join('');
+    // Cartas de subida de nivel en orden de prioridad (build/passives.py): primero las que evolucionan un ataque del grupo.
     const [cardIds, nEvo] = d[10] || [[], 0];
     const cardTiles = cardIds.map(id => cards[id]).filter(Boolean)
-      .map((m, i) => tile(m, ' sm card' + (i < nEvo ? ' evo' : ''), i < nEvo ? badgeOf('sparkle', t('build_card_evo')) : '', i)).join('');
-    return '<section class="fig anim fig-build" id="build" aria-labelledby="bd-h"><div class="bd-card" style="--p1:' + (TYPE_COLOR[p.types[0]] || '#888') + ';--p2:' + (TYPE_COLOR[p.types[1] || p.types[0]] || '#888') + '">' +
-      '<header class="bd-head">' + sprite + '<div><h2 id="bd-h">' + esc(t('t_build')) + '</h2><span class="bd-who">' + esc(name) + '</span></div>' +
-      '<button class="bd-share" type="button" aria-label="' + esc(t('build_share')) + '" title="' + esc(t('build_share')) + '"><svg viewBox="0 0 12 12" width="20" height="20" aria-hidden="true" focusable="false" shape-rendering="crispEdges">' +
-      '<path d="M4 6l4-4M4 6l4 4" stroke="currentColor" stroke-width="1.4" fill="none"/>' +
-      '<path fill="currentColor" d="M8 0h4v4H8zM0 4h4v4H0zM8 8h4v4H8z"/></svg></button>' +
-      '<span class="bd-toast" role="status" aria-live="polite"></span></header>' +
-      '<div class="bd-flow"><div class="bd-start"><span class="bd-cap">' + esc(t('build_start')) + '</span><ul>' +
-      (start ? tile(start, ' bd-startmove', '', 0) : '') + '</ul></div><i class="ico ico-arrow bd-arrow" aria-hidden="true"></i>' +
-      '<ol class="bd-slots">' + attackTiles + boostTile + '</ol></div>' +
-      '<div class="bd-more">' + group('build_alt', altTiles, 'bd-alts') + group('build_cards', cardTiles, 'bd-cards') + group('build_items', itemTiles, 'bd-items') + '</div>' +
+      .map((m, i) => tile(m, ' sm card' + (i < nEvo ? ' evo' : ''),
+        badgeOf(String(i + 1), i < nEvo ? t('build_card_evo') : t('build_card_n', { n: i + 1 })), i)).join('');
+    const extra = '<details class="bd-extra"><summary>' + esc(t('build_more')) + '</summary><div class="bd-extra-body">' +
+      group('build_alt', altTiles, 'bd-alts') +
       '<div class="bd-meters">' + meter(t('build_super'), superPct, 'bd-super') + meter(t('build_neutral'), neutralPct, 'bd-neutral') + '</div>' +
-      '<p class="bd-brand">' + esc(t('build_brand')) + '</p></div></section>';
+      '</div></details>';
+    return '<section class="fig anim fig-build" id="build" aria-labelledby="bd-h"><div class="bd-card" style="' + typeVars(p) + '">' +
+      '<header class="bd-head">' + sprite + '<div><h2 id="bd-h">' + esc(t('t_build')) + '</h2><span class="bd-who">' + esc(name) + '</span></div>' +
+      '<button class="bd-share" type="button" aria-label="' + esc(t('build_share')) + '" title="' + esc(t('build_share')) + '">' + SHARE_SVG + '</button>' +
+      '<span class="bd-toast" role="status" aria-live="polite"></span></header>' +
+      '<div class="bd-flow"><div class="bd-start">' + capOf('build_start') + '<ul>' +
+      (start ? tile(start, ' bd-startmove', '', 0) : '') + '</ul></div><i class="ico ico-arrow bd-arrow" aria-hidden="true"></i>' +
+      '<div class="bd-bond">' + capOf('build_group', LINK_SVG) + '<ol class="bd-slots">' + attackTiles + boostTile + '</ol></div></div>' +
+      '<div class="bd-gear">' + group('build_items', itemTiles, 'bd-items') + group('build_cards', cardTiles, 'bd-cards') + '</div>' +
+      extra + '<p class="bd-brand">' + esc(t('build_brand')) + '</p></div></section>';
   }
+
+  // Bloques plegables bajo la build: un icono, un título y un adelanto a la derecha; el detalle, al abrirlo.
+  const panel = (id, icon, title, aside, body) =>
+    '<details class="fx" id="' + id + '"><summary><i class="ico ico-' + icon + '" aria-hidden="true"></i>' +
+    '<span class="fx-t">' + esc(title) + '</span>' + (aside ? '<span class="fx-aside">' + aside + '</span>' : '') +
+    '<i class="fx-chev" aria-hidden="true"></i></summary><div class="fx-body">' + body + '</div></details>';
+
+  // Adelanto de las estadísticas: seis barritas con el color de su tramo, sin números.
+  const statSpark = s => '<span class="fx-spark" aria-hidden="true">' +
+    s.map(v => '<i class="b' + bandOf(v) + '" style="height:' + f2(Math.min(100, Math.max(12, v / 160 * 100))) + '%"></i>').join('') + '</span>';
 
   function wireShare(p) {
     const btn = document.querySelector('.bd-share');
@@ -340,48 +345,67 @@
     return el ? el.innerHTML : '';
   };
 
-  function flagsHtml(flags) {
-    return FLAGS.filter(f => flags & f[0]).map(f => {
-      const text = esc(t(f[2]));
-      return '<span class="flag" role="img" tabindex="0" aria-label="' + text + '" data-tip="' + text + '" title="' + text + '"><i class="ico ico-' + f[1] + '" aria-hidden="true"></i></span>';
-    }).join('');
+  // Avisos de la simulación (estado sin reproducir, inicio cuerpo a cuerpo...): un icono y una frase, dentro de Ranking.
+  const flagList = flags => FLAGS.filter(f => flags & f[0]);
+  const flagsHtml = flags => {
+    const fs = flagList(flags);
+    return fs.length ? '<ul class="fx-flags">' + fs.map(f => '<li><i class="ico ico-' + f[1] + '" aria-hidden="true"></i>' + esc(t(f[2])) + '</li>').join('') + '</ul>' : '';
+  };
+  const flagIcons = flags => flagList(flags).map(f => '<i class="ico ico-' + f[1] + '" aria-hidden="true"></i>').join('');
+
+  function hero(p, name, rank, tier) {
+    const scale = Math.max(1, Math.min(5, Math.floor(FICHA_BOX / Math.max(p.w, p.h))));
+    const otherName = !EN && p.nameEn !== p.name ? '<small>' + esc(p.nameEn) + '</small>' : '';
+    const pills = '<span class="types">' + p.types.map(ty => tpl('tpl-types', 'data-t', ty)).join('') + '</span>';
+    // La rareza se ve como la Poké Ball del juego; el nombre (Común... Legendaria) queda en el texto alternativo.
+    const rarityName = esc(t('rar_' + p.rarity));
+    const rarity = '<span class="rarity r' + p.rarity + '" role="img" aria-label="' + rarityName + '" title="' + rarityName + '">' +
+      '<svg class="rball" viewBox="0 0 12 12" aria-hidden="true"><use href="#rball-' + p.rarity + '"/></svg></span>';
+    const legendary = p.legendary ? '<span class="chip">' + esc(t('legendary')) + '</span>' : '';
+    const rankTitle = esc(t('ficha_rank', { rank, total: TOTAL }));
+    return '<header class="ficha-head">' +
+      '<div class="ficha-sprite" style="--tc:' + (TYPE_COLOR[p.types[0]] || '#888') + ';--tc2:' + (TYPE_COLOR[p.types[1] || p.types[0]] || '#888') + '">' +
+      '<img class="px" src="' + sprites + p.dex + spriteExt + '" width="' + p.w * scale + '" height="' + p.h * scale + '" alt="' + esc(t('sprite_alt', { name })) + '">' +
+      '<span class="tier-badge medal ' + tier + '" title="' + esc(t('tier', { t: tier })) + '">' + tier + '</span></div>' +
+      '<div class="fh-main"><h1>' + esc(name) + ' ' + otherName + '<small class="fh-dex">' + esc(t('dex_no', { dex: p.dex })) + '</small></h1>' +
+      '<div class="facts">' + pills + rarity + legendary + tpl('tpl-regions', 'data-gen', p.bannerId) + '</div>' +
+      '<p class="rankline" title="' + rankTitle + '" aria-label="' + rankTitle + '"><i class="ico ico-trophy" aria-hidden="true"></i><strong>' + rank + '</strong><span>/ ' + TOTAL + '</span></p>' +
+      '</div></header>';
+  }
+
+  function pager(prev, next) {
+    const link = (q, dir) => {
+      const k = Math.max(1, Math.min(2, Math.floor(40 / Math.max(q.w, q.h))));
+      return '<a class="pg pg-' + dir + '" href="?id=' + q.dex + '"><b aria-hidden="true">' + (dir === 'prev' ? '‹' : '›') + '</b>' +
+        '<img class="px" src="' + sprites + q.dex + spriteExt + '" width="' + q.w * k + '" height="' + q.h * k + '" alt="" loading="lazy">' +
+        '<span>' + esc(EN ? q.nameEn : q.name) + '<small>' + esc(t('dex_no', { dex: q.dex })) + '</small></span></a>';
+    };
+    return '<nav class="pager" aria-label="' + esc(t('pager_aria')) + '">' + (prev ? link(prev, 'prev') : '<span></span>') + (next ? link(next, 'next') : '<span></span>') + '</nav>';
   }
 
   function render(p, d, range, moveName, prev, next, moves, medians, items, cards) {
     const name = EN ? p.nameEn : p.name;
-    const scale = Math.max(1, Math.min(5, Math.floor(FICHA_BOX / Math.max(p.w, p.h))));
     const [rank, tier] = p.r;
-    const otherName = !EN && p.nameEn !== p.name ? '<small>' + esc(p.nameEn) + '</small>' : '';
-    const pills = '<span class="types">' + p.types.map(ty => tpl('tpl-types', 'data-t', ty)).join('') + '</span>';
-    // La rareza se ve como la Poké Ball del juego, con su nombre al lado (Común... Legendaria).
-    const rarityName = t('rar_' + p.rarity);
-    const rarity = '<span class="rarity r' + p.rarity + '"><svg class="rball" viewBox="0 0 12 12" aria-hidden="true">' +
-      '<use href="#rball-' + p.rarity + '"/></svg>' + esc(rarityName) + '</span>';
-    const legendary = p.legendary ? '<span class="chip">' + esc(t('legendary')) + '</span>' : '';
-    const link = (q, left) => {
-      const label = esc(EN ? q.nameEn : q.name) + '<span> ' + esc(t('dex_no', { dex: q.dex })) + '</span>';
-      return '<a href="?id=' + q.dex + '">' + (left ? '← ' + label : label + ' →') + '</a>';
-    };
-    const pager = (prev ? link(prev, true) : '<span></span>') + (next ? link(next, false) : '<span></span>');
-    root.innerHTML =
-      '<p class="crumbs"><a href="' + home + 'index.html">' + esc(t('crumb_home')) + '</a> › ' + esc(name) + '</p>' +
-      '<div class="ficha-head"><div class="ficha-sprite" style="--tc:' + (TYPE_COLOR[p.types[0]] || '#888') +
-      ';--tc2:' + (TYPE_COLOR[p.types[1] || p.types[0]] || '#888') + '"><img class="px" src="' + sprites + p.dex + spriteExt + '" width="' + p.w * scale +
-      '" height="' + p.h * scale + '" alt="' + esc(t('sprite_alt', { name })) + '"></div><div>' +
-      '<h1>' + esc(name) + ' ' + otherName + '<small>' + esc(t('dex_no', { dex: p.dex })) + '</small></h1>' +
-      '<div class="facts">' + pills + ' ' + rarity + ' ' + legendary + ' ' + tpl('tpl-regions', 'data-gen', p.bannerId) + '</div>' +
-      '<div class="rankline"><span class="tier-badge ' + tier + '" title="' + esc(t('tier', { t: tier })) + '">' + tier + '</span>' +
-      '<strong>' + rank + '</strong><span>/ ' + TOTAL + '</span>' + flagsHtml(d[7]) + '</div></div></div>' +
-      build(p, d, moves, items, name, Math.max(1, Math.min(4, Math.floor(72 / Math.max(p.w, p.h)))), cards) +
-      baseStats(d, medians, name) + rankBand(p, name) + pillars(d, name) + sim(d, range, moveName) + learn(p, d, moves) + methods(p, d, name) +
-      '<nav class="pager" aria-label="' + esc(t('pager_aria')) + '">' + pager + '</nav>';
+    const back = '<a class="back" href="' + home + 'index.html"><b aria-hidden="true">‹</b>' + esc(t('crumb_home')) + '</a>';
+    const stats = panel('stats', 'heart', t('t_base'), statSpark(d[8]), baseStats(d, medians, name));
+    const learnable = panel('moves', 'sword', t('t_learn'), '<b class="fx-n">' + learnPool(p, moves).length + '</b>', learn(p, d, moves));
+    const ranking = panel('ranking', 'trophy', t('t_rank'), flagIcons(d[7]),
+      flagsHtml(d[7]) + rankBand(p, name) + pillars(d, name) + sim(d, range, moveName) + methods(p, d, name) +
+      '<p class="fx-more"><a href="' + home + 'metodo.html">' + esc(t('rank_how')) + ' →</a></p>');
+    root.innerHTML = back + hero(p, name, rank, tier) +
+      build(p, d, moves, items, name, Math.max(1, Math.min(4, Math.floor(56 / Math.max(p.w, p.h)))), cards) +
+      '<div class="fx-list">' + stats + learnable + ranking + '</div>' + pager(prev, next);
     const label = EN || p.nameEn === p.name ? name : p.name + ' (' + p.nameEn + ')';
     document.title = t('ficha_title', { name, tier });
     const desc = document.querySelector('meta[name=description]');
     if (desc) desc.setAttribute('content', t('ficha_desc', { label, tier, rank }));
     document.querySelectorAll('.lang a[hreflang]:not([aria-current])').forEach(a => { a.href = a.getAttribute('href').split('?')[0] + location.search + location.hash; });
     wireShare(p);
-    if (location.hash === '#build') document.getElementById('build').scrollIntoView();
+    const target = location.hash && document.getElementById(location.hash.slice(1));
+    if (target) {
+      if (target.tagName === 'DETAILS') target.open = true;
+      target.scrollIntoView();
+    }
     const figs = [...root.querySelectorAll('.anim')];
     if (!('IntersectionObserver' in window)) { figs.forEach(f => f.classList.add('in')); return; }
     const io = new IntersectionObserver(es => es.forEach(e => {
