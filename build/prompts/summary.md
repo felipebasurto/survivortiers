@@ -44,6 +44,9 @@ like a friend giving a tip. No marketing, no "este Pokémon", no exclamation mar
    claim with a tier letter exists (for example `down:hitbox:S`), prefer it. If there is no `down:` claim you may
    say `nodown`; if there are none at all, `calm`.
 
+Mind the grammar: the verb agrees with the reason ("lo frenan sus estadísticas", "lo frena su hitbox grande";
+"its stats hold it back", "its hitbox holds it back").
+
 Example of the voice (Spanish): "Rápido y con mucha vida, pero pega poco. Úsalo con Ascuas y Danza Espada. Su
 hitbox grande es lo que lo baja del S."
 
@@ -79,7 +82,11 @@ the key to verify the claim. The visible text is yours, but keep it close to the
 5. Spanish and English must use exactly the same marks (same keys, same number of times).
 6. 2 or 3 sentences per language, each ending with a full stop; no "!" or "?" or abbreviations with dots.
    At most 240 characters per language, counting only the visible text.
-7. Every summary must include at least one trait key, the `m.start` key, the `i.best` key and one rank key
+7. Every sentence starts with a capital letter, also when it starts with a mark (`[hb+|Hitbox pequeño]`,
+   `[up:typedef|Its types]`).
+8. Say the hitbox the same way everywhere: if the species has `hb--` (huge), a `down:hitbox` reason says
+   "hitbox enorme" / "huge hitbox", never "grande" / "big"; otherwise never "enorme" / "huge".
+9. Every summary must include at least one trait key, the `m.start` key, the `i.best` key and one rank key
    (`up:...`, `down:...`, `nodown` or `calm`).
 
 ## Example (Kommo-o, dex 784; its claims include atk+, hb-, td+, m.start:dragon-rage, m.group:aura-sphere,

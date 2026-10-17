@@ -187,7 +187,7 @@ LEXICON = [
     (r"\bhitbox\b", True, True, _keys("hb+", "hb-", "hb--", "hb0", "up:hitbox", "down:hitbox")),
     (r"\bpequeñ[oa]\b", True, False, _keys("hb+", "up:hitbox")), (r"\bsmall\b", False, True, _keys("hb+", "up:hitbox")),
     (r"\bgrande\b", True, False, _keys("hb-", "down:hitbox")), (r"\bbig\b", False, True, _keys("hb-", "down:hitbox")),
-    (r"\benorme\b", True, False, _keys("hb--")), (r"\bhuge\b", False, True, _keys("hb--")),
+    (r"\benorme\b", True, False, _keys("hb--", "down:hitbox")), (r"\bhuge\b", False, True, _keys("hb--", "down:hitbox")),
     (r"\bnormal\b", True, True, _keys("hb0")),
     (r"\btipos?\b", True, False, _keys("td+", "td-", "up:typedef", "down:typedef", "down:gate_types")),
     (r"\btypes?\b", False, True, _keys("td+", "td-", "up:typedef", "down:typedef", "down:gate_types")),
@@ -276,12 +276,16 @@ def validate(dex: str, entry: dict, f: dict, all_names: dict[str, set[str]]) -> 
                     continue  # part of a longer name in a name mark, checked whole below
                 if key is None or key not in build_names.get(nm, []):
                     errs.append(f"{lang}: «{nm}» no coincide con la build ({key or 'fuera de marca'})")
+        huge = _hb(f)[0] >= HUGE_R
         for s, e, key in spans:
+            if key.startswith("down:hitbox") and re.search(r"\b(grande|big)\b" if huge else r"\b(enorme|huge)\b", flat[s:e]):
+                errs.append(f"{lang}: el hitbox es {'enorme' if huge else 'grande, no enorme'}: «{flat[s:e]}»")
             if is_name(key):
                 if key not in build_names.get(flat[s:e], []):
                     errs.append(f"{lang}: el nombre de {key} debería ser el de la build, no «{flat[s:e]}»")
         p = plain(text)
         sentences = [s for s in re.split(r"(?<=[.!?])\s+", p.strip()) if s]
+        errs += [f"{lang}: frase en minúscula: «{x[:30]}»" for x in sentences if not x[0].isupper()]
         if not 2 <= len(sentences) <= 3:
             errs.append(f"{lang}: {len(sentences)} frases (2-3)")
         if len(p) > MAX_LEN:
@@ -386,7 +390,9 @@ FACTOR_MEANS = {
 
 def factor_words(f: dict, factor: str, up: bool) -> tuple[str, str]:
     if factor == "hitbox":
-        return ("su hitbox pequeño", "its small hitbox") if up else ("su hitbox grande", "its big hitbox")
+        if up:
+            return "su hitbox pequeño", "its small hitbox"
+        return ("su hitbox enorme", "its huge hitbox") if _hb(f)[0] >= HUGE_R else ("su hitbox grande", "its big hitbox")
     if factor == "late":
         return (("cómo aguanta las partidas largas", "how it holds up in long runs") if up
                 else ("cómo flojea en partidas largas", "how it fades in long runs"))

@@ -397,18 +397,14 @@ def main() -> int:
     except (CatalogError, credits_mod.CreditsError, ValueError, KeyError, OSError) as exc:
         print(f"ERROR de catálogo: {exc}", file=sys.stderr)
         return 1
-    # Los resúmenes de la ficha se validan contra los datos de hoy: un hecho nuevo o una afirmación sin respaldo para el build.
-    facts = summary_facts.build()
-    if summary_facts.dump(facts) != summary_facts.OUT.read_text(encoding="utf8"):
-        print("ERROR de catálogo: data/summary_facts.json no coincide con los datos actuales; "
-              "python3 build/summary_facts.py && python3 build/summaries.py --write", file=sys.stderr)
-        return 1
+    # Los resúmenes de la ficha se validan contra los datos de hoy (solo biblioteca estándar: aquí no hay numpy).
+    # Un dato que cambió, un nombre que ya no es el de la build o una afirmación sin respaldo paran el build.
     texts = summaries.load()
-    errs, sstats = summaries.check(facts, texts)
+    errs, sstats = summaries.check(summary_facts.base_records(), texts)
     if errs:
         for e in errs[:40]:
             print("  " + e, file=sys.stderr)
-        print(f"ERROR de catálogo: {len(errs)} errores en data/summaries.json; python3 build/summaries.py --write",
+        print(f"ERROR de catálogo: {len(errs)} errores en data/summaries.json; ver build/summary_pipeline.py",
               file=sys.stderr)
         return 1
     shutil.rmtree(OUT, ignore_errors=True)
@@ -425,7 +421,7 @@ def main() -> int:
     write_json("meta.json", meta, pretty=True)
     print(f"catálogo: {len(entries)} Pokémon, {len(moves)} movimientos, {len(gachas)} banners → {OUT}")
     print("  " + " ".join(f"{t} {n}" for t, n in counts.items()))
-    print(f"  resúmenes: {sstats['texts']} textos, {sstats['claims']} afirmaciones validadas")
+    print(f"  resúmenes: {sstats['texts']} textos, {sstats['claims']} afirmaciones validadas, {sstats['flagged']} marcados")
     for g in sorted(gachas, key=lambda g: -g["sPlusARate"]):
         print(f"  {g['name']:8s} pool {g['poolSize']:3d}  S+A {g['sCount'] + g['aCount']:2d}  {g['sPlusARate']:5.1f} %"
               f"  (por tirada {g['pullChance']:.1f} %)")
