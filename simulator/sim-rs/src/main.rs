@@ -65,11 +65,19 @@ struct Cfg {
     swap: bool,
     /// crit perk levels (upgrades.js). Chance is levels * 0.03. Published ranks pass 0.
     crit: f64,
+    /// offer Aprendizaje and Baya Zidra (levelup.js). Off keeps the published card pool.
+    full_cards: bool,
+    /// fill priority stops once that stat reaches this count. 0 = no extra limit.
+    stop: u32,
+    /// take Baya Zidra only at or below this hp fraction. 0 = whenever it is preferred.
+    heal_below: f64,
+    /// stat index:count pairs. Start with that many and do not take more. 7 = Aprendizaje.
+    locks: Vec<(u8, u32)>,
     rest: Vec<String>,
 }
 
 fn parse(args: &[String]) -> Cfg {
-    let mut c = Cfg { seeds: 200, seconds: 900.0, bot: Bot::Repulse, cards: true, terrain: false, status: false, out: None, group: 0, dd: false, agi: false, xkinds: false, legacy: false, item: "none".into(), fill: vec![], buffs: None, comps: None, swap: false, crit: 0.0, rest: vec![] };
+    let mut c = Cfg { seeds: 200, seconds: 900.0, bot: Bot::Repulse, cards: true, terrain: false, status: false, out: None, group: 0, dd: false, agi: false, xkinds: false, legacy: false, item: "none".into(), fill: vec![], buffs: None, comps: None, swap: false, crit: 0.0, full_cards: false, stop: 0, heal_below: 0.0, locks: vec![], rest: vec![] };
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
@@ -121,6 +129,19 @@ fn parse(args: &[String]) -> Cfg {
                 i += 1;
                 c.fill = args[i].split(',').map(|x| x.parse().unwrap()).collect();
             }
+            "--full-cards" => c.full_cards = true,
+            "--stop" => {
+                i += 1;
+                c.stop = args[i].parse().expect("--stop");
+            }
+            "--heal-below" => {
+                i += 1;
+                c.heal_below = args[i].parse().expect("--heal-below");
+            }
+            "--lock" => {
+                i += 1;
+                c.locks = parse_locks(&args[i]);
+            }
             "--out" => {
                 i += 1;
                 c.out = Some(args[i].clone());
@@ -130,6 +151,19 @@ fn parse(args: &[String]) -> Cfg {
         i += 1;
     }
     c
+}
+
+fn parse_locks(s: &str) -> Vec<(u8, u32)> {
+    if s.is_empty() {
+        return vec![];
+    }
+    s.split(';')
+        .filter(|p| !p.is_empty())
+        .map(|p| {
+            let (k, n) = p.split_once(':').unwrap_or_else(|| panic!("lock {p}"));
+            (k.parse().unwrap(), n.parse().unwrap())
+        })
+        .collect()
 }
 
 fn read_partners(path: &str) -> HashMap<u32, Vec<String>> {
@@ -228,6 +262,10 @@ fn ext_for(data: &Data, mon: &Mon, start: usize, cfg: &Cfg) -> Ext {
         bosses: cfg.group > 0 && !cfg.legacy,
         alt,
         crit: cfg.crit,
+        full_cards: cfg.full_cards,
+        stop: cfg.stop,
+        heal_below: cfg.heal_below,
+        locks: cfg.locks.clone(),
     }
 }
 
@@ -404,8 +442,10 @@ fn sweep(data: &Data, cfg: &Cfg) {
     eprintln!("wrote {long_path} ({} runs)\nwrote {best_path} ({} species)", rows.len(), best.len());
 }
 
-/// tasks <file>: each line "dex,move,item,fill" (fill = ';'-separated stat indices or empty).
-/// Runs the group config of cfg with that item and card order; writes dex,move,item,fill,median,mean,lo,hi.
+/// tasks <file>: each line "dex,move,item,fill[,buffs][,stop][,heal_below][,lock][,mods]".
+/// fill is ';'-separated stat indices (0 atk … 6 mag, 7 xp, 8 heal) or empty.
+/// lock is "index:count;..." (start with that many, and do not take more).
+/// Writes the input columns plus median, mean, bootstrap, p75, p90 and how many runs reached 3/5/10 min.
 fn tasks_cmd(data: &Data, cfg: &Cfg) {
     let text = std::fs::read_to_string(&cfg.rest[1]).expect("tasks file");
     let lines: Vec<Vec<String>> = text.lines().filter(|l| !l.is_empty()).map(|l| l.split(',').map(String::from).collect()).collect();
@@ -420,39 +460,95 @@ fn tasks_cmd(data: &Data, cfg: &Cfg) {
             let (mon, start) = find(data, &c[0], parts.next().unwrap());
             let explicit: Vec<String> = parts.map(String::from).collect();
             let mut sub = Cfg { item: c[2].clone(), fill: if c[3].is_empty() { vec![] } else { c[3].split(';').map(|x| x.parse().unwrap()).collect() }, rest: vec![], out: None, ..*cfg_clone(cfg) };
+            if let Some(s) = c.get(5) {
+                if !s.is_empty() {
+                    sub.stop = s.parse().unwrap();
+                }
+            }
+            if let Some(h) = c.get(6) {
+                if !h.is_empty() {
+                    sub.heal_below = h.parse().unwrap();
+                }
+            }
+            if let Some(lock) = c.get(7) {
+                if !lock.is_empty() {
+                    sub.locks = parse_locks(lock);
+                }
+            }
             sub.dd = cfg.dd;
             sub.agi = cfg.agi;
             if !explicit.is_empty() {
                 sub.comps = Some(explicit);
             }
-            // optional 5th column: buffs held in the group, ';'-separated (sd, dd, hd, agi); "-" = none
+            // optional 5th column: buffs held in the group, ';'-separated (sd, dd, hd, agi); "-" = none.
+            // An empty column keeps the group default (2+2 is Swords Dance and Harden).
             if let Some(b) = c.get(4) {
-                let mut mask = 0u8;
-                for x in b.split(';').filter(|x| !x.is_empty() && *x != "-") {
-                    match x {
-                        "sd" => mask |= 1,
-                        "dd" => { mask |= 1; sub.dd = true; }
-                        "hd" => mask |= 2,
-                        "agi" => { mask |= 2; sub.agi = true; }
-                        _ => panic!("buff {x}"),
+                if !b.is_empty() {
+                    let mut mask = 0u8;
+                    for x in b.split(';').filter(|x| !x.is_empty() && *x != "-") {
+                        match x {
+                            "sd" => mask |= 1,
+                            "dd" => { mask |= 1; sub.dd = true; }
+                            "hd" => mask |= 2,
+                            "agi" => { mask |= 2; sub.agi = true; }
+                            _ => panic!("buff {x}"),
+                        }
                     }
+                    sub.buffs = Some(mask);
                 }
-                sub.buffs = Some(mask);
-                if mask == 0 { sub.buffs = Some(0); }
             }
-            let s = run_species(data, &tables, mon, start, &sub);
+            // optional 9th column: species overrides for counterfactuals, "r=14.08;spd=105;hp=99;atk=1.17".
+            let modded = c.get(8).filter(|m| !m.is_empty()).map(|m| with_mods(mon, m));
+            let s = run_species(data, &tables, modded.as_ref().unwrap_or(mon), start, &sub);
             let d = done.fetch_add(1, Ordering::Relaxed) + 1;
             if d % 500 == 0 { eprintln!("  {d}/{total}"); }
-            format!("{},{},{},{},{},{},{},{},{}", c[0], c[1], c[2], c[3], c.get(4).map(String::as_str).unwrap_or(""), num(s.median_s), num(s.mean_s), num(s.boot_lo), num(s.boot_hi))
+            format!(
+                "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+                c[0],
+                c[1],
+                c[2],
+                c[3],
+                c.get(4).map(String::as_str).unwrap_or(""),
+                c.get(5).map(String::as_str).unwrap_or(""),
+                c.get(6).map(String::as_str).unwrap_or(""),
+                c.get(7).map(String::as_str).unwrap_or(""),
+                c.get(8).map(String::as_str).unwrap_or(""),
+                num(s.median_s),
+                num(s.mean_s),
+                num(s.boot_lo),
+                num(s.boot_hi),
+                num(s.p75_s),
+                num(s.p90_s),
+                num(s.median_lvl),
+                s.alive180,
+                s.alive300,
+                s.alive600
+            )
         })
         .collect();
     let path = cfg.out.clone().expect("--out");
-    std::fs::write(&path, format!("dex,move,item,fill,buffs,median_s,mean_s,boot_lo,boot_hi\n{}\n", rows.join("\n"))).unwrap();
+    std::fs::write(&path, format!("dex,move,item,fill,buffs,stop,heal_below,lock,mods,median_s,mean_s,boot_lo,boot_hi,p75_s,p90_s,median_lvl,alive180,alive300,alive600\n{}\n", rows.join("\n"))).unwrap();
     eprintln!("wrote {path}");
 }
 
+fn with_mods(mon: &Mon, mods: &str) -> Mon {
+    let mut m = mon.clone();
+    for kv in mods.split(';').filter(|p| !p.is_empty()) {
+        let (k, v) = kv.split_once('=').unwrap_or_else(|| panic!("mod {kv}"));
+        let v: f64 = v.parse().unwrap_or_else(|_| panic!("mod {kv}"));
+        match k {
+            "r" => m.r = v,
+            "spd" => m.spd = v,
+            "hp" => m.hp = v,
+            "atk" => m.atk = v,
+            _ => panic!("mod {k}"),
+        }
+    }
+    m
+}
+
 fn cfg_clone(c: &Cfg) -> Box<Cfg> {
-    Box::new(Cfg { seeds: c.seeds, seconds: c.seconds, bot: c.bot, cards: c.cards, terrain: c.terrain, status: c.status, out: None, group: c.group, dd: c.dd, agi: c.agi, xkinds: c.xkinds, legacy: c.legacy, item: c.item.clone(), fill: c.fill.clone(), buffs: c.buffs, comps: c.comps.clone(), swap: c.swap, crit: c.crit, rest: vec![] })
+    Box::new(Cfg { seeds: c.seeds, seconds: c.seconds, bot: c.bot, cards: c.cards, terrain: c.terrain, status: c.status, out: None, group: c.group, dd: c.dd, agi: c.agi, xkinds: c.xkinds, legacy: c.legacy, item: c.item.clone(), fill: c.fill.clone(), buffs: c.buffs, comps: c.comps.clone(), swap: c.swap, crit: c.crit, full_cards: c.full_cards, stop: c.stop, heal_below: c.heal_below, locks: c.locks.clone(), rest: vec![] })
 }
 
 fn rank(data: &Data, cfg: &Cfg) {

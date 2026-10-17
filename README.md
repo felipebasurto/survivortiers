@@ -59,9 +59,24 @@ El sitio es estático y no tiene API: los datos son JSON y CSV en `/data/`, sin 
 1. Regenera `ranking_definitive.csv` con el análisis y cópialo a `data/`.
 2. Si cambia el juego: actualiza `data/pokedex_export.json`, `data/CREDITS.md` y `data/GAME_LICENSE.txt`, y el commit en `build/legal.py` (`GAME_COMMIT`).
 3. `python3 build/move_tierlist_v4.py --game /ruta/al/juego` para los ataques.
-4. `python3 build/catalog.py && python3 build/render.py && python3 build/check_site.py …`.
+4. Rehaz los resúmenes de las fichas que cambiaron (ver «Resúmenes de la ficha»).
+5. `python3 build/catalog.py && python3 build/render.py && python3 build/check_site.py …`.
 
 Si cambian los tamaños de tier (`TIER_CUTS`) o los conteos esperados, ajusta `build/catalog.py`.
+
+## Resúmenes de la ficha
+
+Las tres líneas bajo el nombre de cada ficha (perfil, build y por qué ese puesto) salen de `data/summaries.json`. Las escriben subagentes Grok a partir de los datos, y un comprobador rechaza cualquier afirmación que no respalde un dato. Hay que repetirlo cuando cambie el ranking, la build o la simulación; si no, `catalog.py` falla. Para estas etapas necesitas `pip install numpy "pyarrow<17" duckdb pandas` (el build del sitio sigue usando solo la biblioteca estándar).
+
+| Etapa | Comando | Qué hace |
+| --- | --- | --- |
+| 1. Datos | `python3 build/facts_export.py` | Escribe `data/facts.parquet`, una fila por Pokémon: percentiles de estadísticas, hitbox, tipos y emparejamientos, ataque inicial y grupo de 4, objeto, cartas, tier y puesto, y los factores del puesto (contrafactuales de `simulator/counterfactual_bench.py`). Es determinista: `--check` falla si el archivo no es el que dan los datos de hoy |
+| 2. Lotes | `python3 build/summary_pipeline.py plan` | Elige los Pokémon cuya fila cambió, que no tienen texto o cuyo texto ya no pasa (`--all`: los 966), los parte en lotes de unos 40 y escribe un prompt por lote en `.cache/summaries/` a partir de `build/prompts/summary.md` |
+| 3. Escritura | un subagente por prompt | Un agente Grok 4.7 por lote, todos en paralelo. Cada uno lee su parte del parquet con duckdb y escribe `.cache/summaries/out/<ronda>-<lote>.jsonl`, una línea `{"dex", "es", "en"}` por Pokémon |
+| 4. Comprobación | `python3 build/summary_pipeline.py validate` | Pasa el comprobador (`build/summaries.py`) a cada salida. Para lo que falla escribe prompts de reintento con el error concreto; tras 2 reintentos el Pokémon queda marcado |
+| 5. Montaje | `python3 build/summary_pipeline.py assemble` | Escribe `data/summaries.json`, con la huella `fp` de la fila de datos de cada texto. Esa huella hace de caché: la próxima vez solo se reescriben las filas que cambiaron |
+
+`python3 build/summary_pipeline.py check` valida `data/summaries.json` contra el parquet, y `python3 -m unittest build/test_summaries.py` prueba el comprobador. `catalog.py` repite la comprobación con la biblioteca estándar (todo menos los factores del puesto, que necesitan numpy) y para el build si un texto ya no cuadra con los datos actuales.
 
 ## Licencias
 

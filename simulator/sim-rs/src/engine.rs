@@ -98,6 +98,14 @@ pub struct Ext {
     pub alt: Option<usize>,
     /// crit chance from the permanent perk (upgrades.js crit, 0.03 per level). 0 in published ranks.
     pub crit: f64,
+    /// offer Aprendizaje and Baya Zidra (levelup.js STATS). Off keeps the published card pool.
+    pub full_cards: bool,
+    /// fill priority applies only while that stat is below this count. 0 = no extra limit.
+    pub stop: u32,
+    /// take Baya Zidra only while hp/maxHp is at or below this. 0 = whenever it is preferred.
+    pub heal_below: f64,
+    /// (stat index, count): start the run with that many and do not take more. 7 = Aprendizaje.
+    pub locks: Vec<(u8, u32)>,
 }
 
 #[derive(Clone, Copy)]
@@ -403,6 +411,10 @@ enum Card {
     Up2(u8),
     Evo2(u8),
     Stat(Stat),
+    /// Aprendizaje, levelup.js:24. Only offered with `Ext::full_cards`.
+    Xp,
+    /// Baya Zidra, levelup.js:26. Only offered with `Ext::full_cards`.
+    Heal,
 }
 
 const FILL: [Card; 9] = [
@@ -1319,6 +1331,10 @@ struct Match<'a, M: MathFns> {
     /// player.js sashT starts at -999 ms, so the first lethal hit can proc
     sash_t: f64,
     crit_rng: RefCell<Rng>,
+    /// Aprendizaje stacks (levelup.js:25, max 8). Separate from `state.cards` so parity stays 7-wide.
+    xp_n: u32,
+    /// Baya Zidra taken this run (no max in levelup.js).
+    heal_n: u32,
 }
 
 fn xp_for<M: MathFns>(math: &M, level: u32) -> f64 {
@@ -1411,12 +1427,21 @@ impl<'a, M: MathFns> Match<'a, M> {
         st.max_hp = self.mon.hp + 20.0 * s.cards[Stat::Hp as usize] as f64;
         st.atk = self.mon.atk * self.tables.atk[s.cards[Stat::Pow as usize] as usize] * (1.0 + atk_buff) * it.atk;
         st.spd = spd * it.spd * spd_buff;
-        // player.js reduction: 12 cards × 0.06 = 0.72, then the 0.8 cap. Parity keeps the inner 0.7.
+        // levelup.js:19 clamps each Coraza with Math.min(0.7, dmgReduce + 0.06). The vest is already
+        // inside dmgReduce when it was equipped first (items.js:35). player.js:96 then caps at 0.8
+        // after Harden. Parity has no item, so both branches agree until 12 cards.
         let cor = 0.06 * s.cards[Stat::Cor as usize] as f64;
-        let cor = if faithful { cor } else { jmin(0.7, cor) };
-        st.red = jmin(0.8, cor + it.red + def_buff);
+        let (stacked, extra) = if faithful {
+            (jmin(0.7, it.red + cor), 0.0)
+        } else {
+            (jmin(0.7, cor), it.red)
+        };
+        st.red = jmin(0.8, stacked + extra + def_buff);
         st.cd_mul = self.tables.cd[s.cards[Stat::Cd as usize] as usize] * it.cd;
-        st.regen = 0.9 * s.cards[Stat::Rgn as usize] as f64 + it.regen * st.max_hp;
+        // items.js:14 snapshots leftovers at equip time. The sim equips at t=0, so that is base HP.
+        // Parity never holds an item, so the scaling branch stays 0.
+        let left = if faithful { it.regen * self.mon.hp } else { it.regen * st.max_hp };
+        st.regen = 0.9 * s.cards[Stat::Rgn as usize] as f64 + left;
         if self.regen_n > 0.0 && self.regen_t > 0.0 {
             st.regen += self.regen_n * self.regen_amt;
         }
@@ -1569,6 +1594,54 @@ impl<'a, M: MathFns> Match<'a, M> {
 
     // ------------------------------------------------ cards
 
+    /// levelup.js `max`. Vigor and Síntesis have none; the ranking path stops at 250, which a 900 s
+    /// run cannot reach. Parity keeps the old caps (hp 99, rgn 10).
+    fn stat_cap(&self, st: Stat) -> u32 {
+        if let Some(&(_, n)) = self.opts.ext.locks.iter().find(|(k, _)| *k == st as u8) {
+            return n;
+        }
+        if self.faith() && (st == Stat::Hp || st == Stat::Rgn) {
+            return 250;
+        }
+        CAPS[st as usize]
+    }
+
+    fn xp_cap(&self) -> u32 {
+        self.opts.ext.locks.iter().find(|(k, _)| *k == 7).map(|(_, n)| *n).unwrap_or(8)
+    }
+
+    fn card_count(&self, k: u8) -> u32 {
+        match k {
+            7 => self.xp_n,
+            8 => self.heal_n,
+            _ => self.state.cards[k as usize],
+        }
+    }
+
+    fn fill_card(k: u8) -> Card {
+        match k {
+            7 => Card::Xp,
+            8 => Card::Heal,
+            _ => Card::Stat(STATS[k as usize]),
+        }
+    }
+
+    /// Start with locked stacks already applied (Vigor also fills the new HP, as addMaxHp does at full life).
+    fn apply_locks(&mut self) {
+        let locks = self.opts.ext.locks.clone();
+        for (k, n) in locks {
+            match k {
+                7 => self.xp_n = n,
+                8 => self.heal_n = n,
+                k if (k as usize) < STATS.len() => self.state.cards[k as usize] = n,
+                _ => {}
+            }
+        }
+        self.stat_dirty = true;
+        self.stats();
+        self.pl.hp = self.st.max_hp;
+    }
+
     fn legal_cards(&self, out: &mut Vec<Card>) {
         out.clear();
         let s = &self.state;
@@ -1610,9 +1683,16 @@ impl<'a, M: MathFns> Match<'a, M> {
             if out.contains(&Card::Stat(st)) {
                 continue;
             }
-            if s.cards[st as usize] < CAPS[st as usize] {
+            if s.cards[st as usize] < self.stat_cap(st) {
                 out.push(Card::Stat(st));
             }
+        }
+        // levelup.js:24-27. Imán is already in STATS; it does nothing here because XP is granted on kill.
+        if self.opts.ext.full_cards && self.faith() {
+            if self.xp_n < self.xp_cap() {
+                out.push(Card::Xp);
+            }
+            out.push(Card::Heal);
         }
     }
 
@@ -1656,7 +1736,16 @@ impl<'a, M: MathFns> Match<'a, M> {
                 }
             }
             for &k in &self.opts.ext.fill {
-                let c = Card::Stat(STATS[k as usize]);
+                if self.opts.ext.stop > 0 && self.card_count(k) >= self.opts.ext.stop {
+                    continue;
+                }
+                let c = Self::fill_card(k);
+                if c == Card::Heal && self.opts.ext.heal_below > 0.0 {
+                    let frac = if self.st.max_hp > 0.0 { self.pl.hp / self.st.max_hp } else { 1.0 };
+                    if frac > self.opts.ext.heal_below {
+                        continue;
+                    }
+                }
                 if has(c) {
                     return c;
                 }
@@ -1684,9 +1773,19 @@ impl<'a, M: MathFns> Match<'a, M> {
                 }
             }
             Card::Stat(st) => {
-                if self.state.cards[st as usize] < CAPS[st as usize] {
+                if self.state.cards[st as usize] < self.stat_cap(st) {
                     self.state.cards[st as usize] += 1;
                 }
+            }
+            Card::Xp => {
+                if self.xp_n < self.xp_cap() {
+                    self.xp_n += 1;
+                }
+            }
+            // levelup.js:27 heals 45 % of max HP on the spot. No cap.
+            Card::Heal => {
+                self.heal_n += 1;
+                self.pl.hp = jmin(self.st.max_hp, self.pl.hp + self.st.max_hp * 0.45);
             }
         }
     }
@@ -1731,7 +1830,16 @@ impl<'a, M: MathFns> Match<'a, M> {
     }
 
     fn grant_xp(&mut self, amount: f64) {
-        self.xp += amount * self.opts.ext.item.xp;
+        // player.js:273 xpMul. Lucky Egg is ×1.3 (items.js:27). Aprendizaje is ×1.12 per card (levelup.js:25).
+        let mut mul = self.opts.ext.item.xp;
+        if self.opts.ext.full_cards && self.faith() && self.xp_n > 0 {
+            let mut x = 1.0;
+            for _ in 0..self.xp_n {
+                x *= 1.12;
+            }
+            mul *= x;
+        }
+        self.xp += amount * mul;
         while self.xp >= self.need {
             self.xp -= self.need;
             self.level += 1;
@@ -3645,8 +3753,13 @@ pub fn run_match<M: MathFns>(
         bell: 0.0,
         sash_t: -1.0e9,
         crit_rng: RefCell::new(Rng::new(opts.seed.wrapping_add(0xC217))),
+        xp_n: 0,
+        heal_n: 0,
     };
     m.need = xp_for(math, 1);
+    if !opts.ext.locks.is_empty() {
+        m.apply_locks();
+    }
     if opts.ext.bosses {
         m.roll_bosses();
     }

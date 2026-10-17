@@ -27,6 +27,7 @@ node sim-rs/parity.js
 ```
 
 Options: `--seeds N` (200), `--seconds S` (900), `--bot repulse|line`, `--lvl1`, `--terrain` (real map, not JS-parity), `--status` (slow, burn and poison, not JS-parity).
+`--full-cards` also offers Aprendizaje and Baya Zidra (levelup.js). `--stop N` limits a `--fill` priority to N copies. `--heal-below F` takes Baya Zidra only at or below that fraction of max HP. `--lock 2:4` starts with 4 Vigor and takes no more (index 7 is Aprendizaje).
 
 ### Fixed main group (Rust only)
 
@@ -57,7 +58,8 @@ Group mode also models, from the game source (`js/` in JPTER78/pokesurvivor):
   The boss still spawns at the cap (EnemyMgr.add does not check it).
 - **Heal orbs.** A boss or legendary always drops one (entities/pickup.js:81) and any other kill does so 1.2 % of the
   time (entities/pickup.js:93). Each heals 30 % of max HP (game.js:496–497). The bot is assumed to pick every one up.
-  Springs and the Baya Zidra card (levelup.js, the instant 45 % heal) are not modelled.
+  Springs are not modelled. Baya Zidra (levelup.js:26, instant 45 % heal, no cap) and Aprendizaje
+  (levelup.js:24, ×1.12 XP, max 8) are offered only with `--full-cards`.
 - **All move kinds** (`--xkinds`, on by default in group mode): cone, meteor, chain, aura (drain heal capped at 6),
   dash, mine, trail and turret, following systems/combat.js. Life Orb costs HP only on a cast that actually fires, and
   never for orbit or trail, including companion casts (player.js:203). Without the flag these moves stay inert, as in the JS engine.
@@ -83,8 +85,12 @@ Group mode also models, from the game source (`js/` in JPTER78/pokesurvivor):
   - Shell Bell heals 4% of dealt damage, buffer cap 4 (player.js:295). Rocky Helmet is 15+4×level with knock 80 on
     body contact only (combat.js:668). Focus Sash saves at 1 HP once per 60 s (player.js:248).
   - Orbit rehit is `max(0.12, cd)` with no cooldown multiplier (combat.js:486). Turret rate and trail ticks ignore it too.
-  - A bonded companion evolves after its max level once the needs card was taken (moves.js evolve). Card defense uses
-    the real 0.72 before the 0.8 cap (12 × 0.06).
+  - A bonded companion evolves after its max level once the needs card was taken (moves.js evolve). Coraza clamps
+    inside the 0.7 cap on each card (levelup.js:19), and the 0.8 cap is applied after Harden (player.js:96). A vest
+    equipped at the start sits in that same 0.7 bucket, so later Coraza cards eat it. Parity (no item) still stops at 0.7.
+  - Leftovers adds 1.5 % of max HP once, at equip (items.js:14). The sim equips at t=0, so that is base HP, not HP after Vigor.
+  - Vigor and Síntesis have no `max` in levelup.js. The ranking path allows 250, which a 900 s run does not reach.
+    Parity keeps the old caps (HP 99, regen 10). Imán is offered but XP is granted on the kill, so the radius does nothing.
 
 Numbers from this sim are estimates. The type chart (soft ×1.6/0.6/0.3, clamp [0.3, 2.4]) and the exported melee and
 evolution rows match the game's own `evolve()`.

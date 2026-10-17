@@ -23,6 +23,7 @@ import balls  # noqa: E402
 import charts  # noqa: E402
 import legal  # noqa: E402
 import objetos  # noqa: E402
+import pasivas  # noqa: E402
 import pack  # noqa: E402
 import regions  # noqa: E402
 import share_image  # noqa: E402
@@ -40,6 +41,7 @@ TIERS = ["S", "A", "B", "C", "D"]
 CATEGORIES = [("melee", "cuerpo a cuerpo"), ("ranged", "distancia"), ("stat", "estadística")]  # (id, valor del CSV)
 NAV = [("index", "index.html", "nav_tiers"),
        ("ataques", "ataques.html", "nav_ataques"), ("objetos", "objetos.html", "nav_objetos"),
+       ("pasivas", "pasivas.html", "nav_pasivas"),
        ("gachas", "gachas.html", "nav_gachas"),
        ("coleccion", "coleccion.html", "nav_coleccion"), ("acerca", "acerca.html", "nav_acerca"),
        ("metodo", "metodo.html", "nav_metodo")]
@@ -233,22 +235,19 @@ def render_index(c: Ctx, pokemon: list[dict], meta: dict) -> str:
 <h1>{esc(L.t("index_h1", game=legal.GAME_NAME))}</h1>
 <div class="finder">
   <div class="search">
-    <label class="search-label" for="q">{esc(L.t("search_label"))}</label>
+    <label class="sr" for="q">{esc(L.t("search_label"))}</label>
     <div class="search-field">
       <svg class="search-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><circle cx="7" cy="7" r="4.6" fill="none" stroke="currentColor" stroke-width="2"/><path d="M10.6 10.6 14.5 14.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
-      <input id="q" type="search" placeholder="{esc(L.t("search_ph"))}" autocomplete="off" spellcheck="false" aria-describedby="hint">
+      <input id="q" type="search" placeholder="{esc(L.t("search_ph"))}" autocomplete="off" spellcheck="false">
       <button id="clear" class="clear" type="button" hidden aria-label="{esc(L.t("search_clear"))}">×</button>
     </div>
-    <p id="hint" class="hint">{esc(L.t("search_hint"))}</p>
   </div>
   <div class="sortline">
-    <div class="field"><label for="sort">{esc(L.t("sort_by"))}</label><select id="sort">{options}</select></div>
-    <button id="dir" class="btn small" type="button" data-asc="{esc(L.t("dir_asc"))}" data-desc="{esc(L.t("dir_desc"))}">{esc(L.t("dir_asc"))}</button>
-    <button id="random" class="btn small ghost" type="button"><i class="ico ico-dice" aria-hidden="true"></i>{esc(L.t("random_btn"))}</button>
+    <label class="sr" for="sort">{esc(L.t("sort_by"))}</label><select id="sort">{options}</select>
+    <button id="dir" class="icon-btn" type="button" data-asc="{esc(L.t("dir_asc"))}" data-desc="{esc(L.t("dir_desc"))}" aria-label="{esc(L.t("dir_asc"))}" title="{esc(L.t("dir_asc"))}"><i class="ico ico-arrow" aria-hidden="true"></i></button>
+    <button id="random" class="icon-btn" type="button" aria-label="{esc(L.t("random_btn"))}" title="{esc(L.t("random_btn"))}"><i class="ico ico-dice" aria-hidden="true"></i></button>
   </div>
-  <div class="group-by" role="group" aria-label="{esc(L.t("group_by"))}">
-    <span class="group-label">{esc(L.t("group_by"))}</span>{groups}
-  </div>
+  <div class="group-by" role="group" aria-label="{esc(L.t("group_by"))}">{groups}</div>
   <p id="count" aria-live="polite"></p>
   <p id="nomatch" class="nomatch" hidden>{esc(L.t("no_match"))}</p>
 </div>
@@ -266,10 +265,11 @@ def render_index(c: Ctx, pokemon: list[dict], meta: dict) -> str:
 FICHA_KEYS = (
     "crumb_home", "legendary", "stars_alt", "sprite_alt", "ficha_title", "ficha_desc", "flag_status", "flag_melee",
     "flag_capped", "flag_types", "pager_aria", "dex_no", "tier", "f_missing", "t_band", "t_pillars", "t_methods", "t_sim",
-    "band_rank", "band_range", "band_alt", "band_zoom", "band_all", "t_learn", "learn_lede", "learn_start", "t_build", "build_start", "build_best", "build_boost", "build_alt", "build_items", "build_cards", "build_card_evo", "build_super", "build_neutral",
-    "build_share", "build_copied", "build_slot", "build_brand", "pill_stats", "pill_moves", "pill_typedef", "pill_size", "pillars_alt_item",
+    "band_rank", "band_range", "band_alt", "t_learn", "learn_start", "t_build", "build_start", "build_best", "build_boost", "build_alt", "build_items", "build_cards", "build_card_evo", "build_super", "build_neutral",
+    "build_share", "build_copied", "build_slot", "build_brand", "build_group", "build_best_item", "build_card_n", "build_more",
+    "t_rank", "rank_how", "ficha_rank", "pill_stats", "pill_moves", "pill_typedef", "pill_size", "pillars_alt_item",
     "median", "m_sheet", "m_simStart", "m_simBest", "m_lateMax", "m_lateFresh", "methods_final", "methods_alt",
-    "methods_alt_item", "sim_start", "sim_best", "sim_median", "sim_alt", "sim_lede", "sim_scale", "sim_gain", "methods_lede",
+    "methods_alt_item", "sim_start", "sim_best", "sim_median", "sim_alt", "sim_gain",
     "rar_1", "rar_2", "rar_3", "rar_4", "rar_5", "t_base", "bs_hp", "bs_atk", "bs_def", "bs_spa", "bs_spd", "bs_spe",
     "bs_total", "bs_alt_item", "bs_s_hp", "bs_s_atk", "bs_s_def", "bs_s_spa", "bs_s_spd", "bs_s_spe")
 
@@ -419,14 +419,12 @@ def render_ataques(c: Ctx, moves: list[dict], meta: dict, index: list[dict]) -> 
         blocks.append(f'<section id="{cat_id}" class="mv-section"><h2>{icon(icon_name)}{esc(L.t("cat_" + cat_id))}</h2>'
                       f'{"".join(inner)}</section>')
         toc.append(f'<li><a href="#{cat_id}">{icon(icon_name)}{esc(L.t("cat_" + cat_id))}</a></li>')
-    howto = "".join(f"<li>{esc(L.t(k))}</li>" for k in ("ataques_how1", "ataques_how2", "ataques_how3"))
     search_icon = ('<svg class="search-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><circle cx="7" cy="7" '
                    'r="4.6" fill="none" stroke="currentColor" stroke-width="2"/><path d="M10.6 10.6 14.5 14.5" '
                    'stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>')
     content = f"""
 <h1>{esc(L.t("ataques_h1"))}</h1>
 <p class="lede">{esc(L.t("ataques_lede"))}</p>
-<ol class="mv-howto">{howto}</ol>
 <div class="search-field mv-finder">{search_icon}<input id="mv-q" type="search" autocomplete="off" placeholder="{esc(L.t("mv_search"))}" aria-label="{esc(L.t("mv_search"))}"></div>
 <p id="mv-none" class="mv-none" hidden>{esc(L.t("mv_none"))}</p>
 <ul class="toc">{"".join(toc)}</ul>
@@ -442,6 +440,14 @@ def render_objetos(c: Ctx, meta: dict) -> str:
     content = objetos.items_content(L, L.t("obj_h1"), L.t("obj_lede"), L.t("obj_phases_h"), L.t("obj_table_h"))
     return page(c, "objetos", L.t("obj_title", site=legal.SITE_NAME),
                 L.t("obj_desc", game=legal.GAME_NAME), content, meta)
+
+
+def render_pasivas(c: Ctx, meta: dict) -> str:
+    L = c.L
+    content = pasivas.content(L, L.t("pv_h1"), L.t("pv_lede"), L.t("pv_order_h"), L.t("pv_phases_h"),
+                              L.t("pv_items_h"), L.t("pv_except_h"))
+    return page(c, "pasivas", L.t("pv_title", site=legal.SITE_NAME),
+                L.t("pv_desc", game=legal.GAME_NAME), content, meta)
 
 
 GACHA_STARS = (5, 4, 4, 3, 3, 3, 2, 2, 1)  # estrellas de cada banner, del mejor al peor
@@ -625,6 +631,7 @@ def main() -> int:
         put("index.html", lambda c: render_index(c, index, meta))
         put("ataques.html", lambda c: render_ataques(c, moves, meta, index))
         put("objetos.html", lambda c: render_objetos(c, meta))
+        put("pasivas.html", lambda c: render_pasivas(c, meta))
         put("gachas.html", lambda c: render_gachas(c, gachas, index, meta))
         put("coleccion.html", lambda c: render_coleccion(c, gachas, meta))
         put("metodo.html", lambda c: render_metodo(c, index, full, meta))
