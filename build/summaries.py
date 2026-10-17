@@ -1,6 +1,7 @@
 """Short summaries for every ficha, in Spanish and English, written from data/summary_facts.json.
 
     python3 build/summaries.py --write    # (re)writes data/summaries.json where the facts changed or a text fails
+    python3 build/summaries.py --write --all   # recomposes every text (after editing the phrase banks)
     python3 build/summaries.py            # validates data/summaries.json against the current facts
 
 The texts are composed by this script from phrase banks written by hand below, picked by the facts of each species.
@@ -44,6 +45,12 @@ TIER_BANDS = {"S": (1, 30), "A": (31, 120), "B": (121, 320), "C": (321, 620), "D
 
 MARK = re.compile(r"\[([^\[\]|]+)\|([^\[\]]+)\]")
 NAME_ROLES = ("m.start", "m.group", "m.alt", "i.best", "c.first")
+
+
+def is_name(key: str) -> bool:
+    """Marks whose text is a move, item or card name. The best move as a rank driver is said by its name too."""
+    head, _, ref = key.partition(":")
+    return head in NAME_ROLES or (head in ("up", "down") and ref.split(":")[0] == "best_move")
 
 
 def tier_of(rank: int) -> str:
@@ -216,6 +223,8 @@ def names_in(f: dict, lang: str) -> dict[str, list[str]]:
     out.setdefault(b["item"][lang], []).append("i.best:" + b["item"]["id"])
     if b["cards"]:
         out.setdefault(b["cards"][0][lang], []).append("c.first:" + b["cards"][0]["id"])
+    out.setdefault(b["best"][lang], []).extend(
+        f"{d}:best_move" for d in ("up", "down"))
     return out
 
 
@@ -251,7 +260,7 @@ def validate(dex: str, entry: dict, f: dict, all_names: dict[str, set[str]]) -> 
             flags = 0 if any(c.isupper() for c in rx) else re.IGNORECASE
             for m in re.finditer(rx, flat, flags):
                 key = owner(m.start())
-                if key and key.split(":")[0] in NAME_ROLES:
+                if key and is_name(key):
                     continue  # inside a move, item or card name; checked against the build below
                 if key is None or not ok(key):
                     errs.append(f"{lang}: «{m.group(0)}» sin dato que lo respalde ({key or 'fuera de marca'})")
@@ -261,12 +270,12 @@ def validate(dex: str, entry: dict, f: dict, all_names: dict[str, set[str]]) -> 
         for nm in sorted(all_names[lang], key=len, reverse=True):
             for m in re.finditer(r"(?<!\w)" + re.escape(nm) + r"(?!\w)", flat):
                 key = owner(m.start())
-                if key and key.split(":")[0] in NAME_ROLES:
+                if key and is_name(key):
                     continue  # part of a longer name in a name mark, checked whole below
                 if key is None or key not in build_names.get(nm, []):
                     errs.append(f"{lang}: «{nm}» no coincide con la build ({key or 'fuera de marca'})")
         for s, e, key in spans:
-            if key.split(":")[0] in NAME_ROLES:
+            if is_name(key):
                 if key not in build_names.get(flat[s:e], []):
                     errs.append(f"{lang}: el nombre de {key} debería ser el de la build, no «{flat[s:e]}»")
         p = plain(text)
@@ -398,7 +407,8 @@ def trait_list(keys: list[str], lang: str, leading: bool) -> str:
     others = [p for f, p in parts if f != "noun"]
     if nouns:
         after_verb = any(f == "verb" for f, _ in parts)
-        with_ = "con " if lang == "es" and leading and not after_verb else ("tiene " if lang == "es" else "has ")
+        with_ = ("con " if lang == "es" and leading and others and not after_verb
+                 else ("tiene " if lang == "es" else "has "))
         others.append(with_ + _join(nouns, and_))
         if len(nouns) > 1:
             return ", ".join(others)
@@ -444,18 +454,23 @@ def build_lines(f: dict) -> list[tuple[str, str]]:
 # factor: (Spanish noun phrase, English noun phrase). The hitbox says small or big, as its direction requires.
 FACTOR = {
     "speed": ("su velocidad", "its speed"), "hp": ("su vida", "its HP"), "attack": ("su daño", "its damage"),
-    "start_move": ("su ataque inicial", "its start move"), "best_move": ("su mejor ataque", "its best move"),
+    "start_move": ("su ataque inicial", "its start move"),
     "stats": ("sus estadísticas", "its stats"), "moves": ("los ataques que aprende", "the moves it learns"),
-    "typedef": ("sus tipos", "its types"), "late": ("su final de partida", "its late game"),
+    "typedef": ("sus tipos", "its types"),
     "gate_stats": ("el tope por estadísticas", "the stats cap"),
     "gate_types": ("tener un solo tipo de ataque", "having a single attack type"),
     "gate_melee": ("empezar cuerpo a cuerpo", "its melee start"),
 }
 
 
-def noun(factor: str, up: bool) -> tuple[str, str]:
+def noun(f: dict, factor: str, up: bool) -> tuple[str, str]:
     if factor == "hitbox":
         return ("su hitbox pequeño", "its small hitbox") if up else ("su hitbox grande", "its big hitbox")
+    if factor == "late":
+        return (("cómo aguanta las partidas largas", "how it holds up in long runs") if up
+                else ("cómo flojea en partidas largas", "how it fades in long runs"))
+    if factor == "best_move":  # what that move adds over its next best start: say the move
+        return f["build"]["best"]["es"], f["build"]["best"]["en"]
     return FACTOR[factor]
 
 
@@ -479,7 +494,7 @@ def crossing(f: dict, factor: str, up: bool) -> str | None:
 PLURAL = {"stats", "moves", "typedef"}
 
 
-def why_line(f: dict) -> tuple[str, str]:
+def why_line(f: dict, short: bool = False) -> tuple[str, str]:
     ups = ranked_drivers(f, True)
     downs = ranked_drivers(f, False)
     up = ups[0] if ups else None
@@ -492,13 +507,13 @@ def why_line(f: dict) -> tuple[str, str]:
     is_ = lambda k: "are" if k in PLURAL else "is"  # noqa: E731
     t_up = t_dn = None
     if up:
-        n_es, n_en = noun(up, True)
-        t_up = crossing(f, up, True)
+        n_es, n_en = noun(f, up, True)
+        t_up = crossing(f, up, True) if up != "best_move" else None  # that mark holds only the move name
         up_es = f"[up:{up}:{t_up}|sin {n_es} no estaría en el {t_up}]" if t_up else f"[up:{up}|{n_es}]"
         up_en = f"[up:{up}:{t_up}|without {n_en} it would drop out of {t_up}]" if t_up else f"[up:{up}|{n_en}]"
     if down:
-        n_es, n_en = noun(down, False)
-        t_dn = crossing(f, down, False)
+        n_es, n_en = noun(f, down, False)
+        t_dn = crossing(f, down, False) if down != "best_move" else None
         dn_es = (f"[down:{down}:{t_dn}|{n_es} {es_(down)} lo que lo deja fuera del {t_dn}]" if t_dn
                  else f"[down:{down}|{n_es}]")
         dn_en = (f"[down:{down}:{t_dn}|{n_en} {is_(down)} what keeps it out of {t_dn}]" if t_dn
@@ -512,12 +527,12 @@ def why_line(f: dict) -> tuple[str, str]:
         if t_up:
             return (f"{cap_mark(up_es)}; lo frena{n_(down)} {dn_es}.",
                     f"{cap_mark(up_en)}; {dn_en} hold{s_(down)} it back.")
-        es = pick(d, [f"Lo sube{n_(up)} {up_es}; lo frena{n_(down)} {dn_es}.",
+        es = (lambda o: o[0] if short else pick(d, o, "why"))([f"Lo sube{n_(up)} {up_es}; lo frena{n_(down)} {dn_es}.",
                       f"Tira{n_(up)} de él {up_es}; lo lastra{n_(down)} {dn_es}.",
-                      f"Lo que más le ayuda {es_(up)} {up_es}; lo que más le pesa, {dn_es}."], "why")
-        en = pick(d, [f"{cap_mark(up_en)} lift{s_(up)} it; {dn_en} hold{s_(down)} it back.",
+                      f"Lo que más le ayuda {es_(up)} {up_es}; lo que más le pesa, {dn_es}."])
+        en = (lambda o: o[0] if short else pick(d, o, "why"))([f"{cap_mark(up_en)} lift{s_(up)} it; {dn_en} hold{s_(down)} it back.",
                       f"{cap_mark(up_en)} carr{'y' if up in PLURAL else 'ies'} it; {dn_en} drag{s_(down)} it down.",
-                      f"What helps most {is_(up)} {up_en}; what hurts most, {dn_en}."], "why")
+                      f"What helps most {is_(up)} {up_en}; what hurts most, {dn_en}."])
         return es, en
     if up:
         if t_up:
@@ -545,8 +560,7 @@ def cap_text(s: str) -> str:
 
 def compose(f: dict) -> dict:
     p_es, p_en = profile(f)
-    w_es, w_en = why_line(f)
-    for b_es, b_en in build_lines(f):
+    for (w_es, w_en), (b_es, b_en) in ((w, b) for w in (why_line(f), why_line(f, short=True)) for b in build_lines(f)):
         es, en = " ".join([p_es, b_es, w_es]), " ".join([p_en, b_en, w_en])
         if max(len(plain(es)), len(plain(en))) <= MAX_LEN:
             break
@@ -565,14 +579,15 @@ def load() -> dict:
     return json.loads(PATH.read_text(encoding="utf8"))
 
 
-def write(facts: dict) -> dict:
-    """Recompose the entries whose facts changed, that fail validation or that are missing. Keeps the rest."""
+def write(facts: dict, everything: bool = False) -> dict:
+    """Recompose the entries whose facts changed, that fail validation or that are missing (all with everything).
+    Keeps the rest, so a hand-edited text that still validates survives."""
     old = load()
     names = all_build_names(facts)
     out, counts = {}, {"regenerated": 0, "kept": 0, "new": 0}
     for d, f in facts["species"].items():
         prev = old["species"].get(d)
-        if prev and not validate(d, prev, f, names):
+        if prev and not everything and not validate(d, prev, f, names):
             out[d] = prev
             counts["kept"] += 1
             continue
@@ -594,10 +609,11 @@ def public(summaries: dict, lang: str) -> dict:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--write", action="store_true")
+    ap.add_argument("--all", action="store_true", help="with --write, recompose every text (after editing the phrase banks)")
     args = ap.parse_args()
     facts = load_facts()
     if args.write:
-        counts = write(facts)
+        counts = write(facts, args.all)
         print(f"resúmenes: {counts['regenerated']} reescritos, {counts['new']} nuevos, {counts['kept']} sin cambios")
     errs, stats = check(facts, load())
     for e in errs[:40]:

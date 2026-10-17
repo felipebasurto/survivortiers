@@ -362,7 +362,7 @@
   const HITBOX_SVG = pixSvg('sm-hb', 'M4 0h4v1H4zM2 1h2v1H2zM8 1h2v1H8zM1 2h1v2H1zM10 2h1v2h-1zM0 4h1v4H0zM11 4h1v4h-1zM1 8h1v2H1zM10 8h1v2h-1zM2 10h2v1H2zM8 10h2v1H8zM4 11h4v1H4zM5 5h2v2H5z');
   const SHIELD_SVG = pixSvg('sm-td', 'M1 1h10v5h-1v2H9v1H8v1H7v1H5v-1H4V9H3V8H2V6H1zM3 3v3h1v2h1v1h2V8h1V6h1V3z');
   const SM_STAT_CARD = { spd: 'spd', hp: 'hp', atk: 'atk' };
-  function summary(text, moves, items, cards) {
+  function summary(text, moves, items, cards, bestId) {
     const byId = new Map(moves.map(m => [m.id, m]));
     const item = new Map(items.map(m => [m.id, m]));
     const img = m => '<img class="sm-ico" src="' + iconUrl(m) + '" alt="" width="18" height="18">';
@@ -383,7 +383,10 @@
       }
       if (role === 'i.best' && item.has(id)) return '<span class="sm-m sm-item">' + img(item.get(id)) + label + '</span>';
       if (role === 'c.first' && cards[id]) return '<span class="sm-m">' + img(cards[id]) + label + '</span>';
-      if (role === 'up' || role === 'down') return '<b class="sm-d ' + role + '"><i aria-hidden="true"></i>' + label + '</b>';
+      if (role === 'up' || role === 'down') {
+        const icon = id === 'best_move' && byId.has(bestId) ? img(byId.get(bestId)) : '';
+        return '<b class="sm-d ' + role + '"><i aria-hidden="true"></i>' + icon + label + '</b>';
+      }
       return '<b class="sm-n">' + label + '</b>';
     };
     const line = s => {
@@ -435,7 +438,7 @@
     const ranking = panel('ranking', 'trophy', t('t_rank'), flagIcons(d[7]),
       flagsHtml(d[7]) + rankBand(p, name) + pillars(d, name) + sim(d, range, moveName) + methods(p, d, name) +
       '<p class="fx-more"><a href="' + home + 'metodo.html">' + esc(t('rank_how')) + ' →</a></p>');
-    root.innerHTML = back + hero(p, name, rank, tier, text ? summary(text, moves, items, cards) : '') +
+    root.innerHTML = back + hero(p, name, rank, tier, text ? summary(text, moves, items, cards, d[4]) : '') +
       build(p, d, moves, items, name, Math.max(1, Math.min(4, Math.floor(56 / Math.max(p.w, p.h)))), cards) +
       '<div class="fx-list">' + stats + learnable + ranking + '</div>' + pager(prev, next);
     const label = EN || p.nameEn === p.name ? name : p.name + ' (' + p.nameEn + ')';
