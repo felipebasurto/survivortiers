@@ -88,6 +88,9 @@ the key to verify the claim. The visible text is yours, but keep it close to the
    "hitbox enorme" / "huge hitbox", never "grande" / "big"; otherwise never "enorme" / "huge".
 9. Every summary must include at least one trait key, the `m.start` key, the `i.best` key and one rank key
    (`up:...`, `down:...`, `nodown` or `calm`).
+10. Spanish verb agreement with the reason is checked: plural reasons ("sus estadísticas", "sus tipos", "los
+   ataques que aprende") take "lo suben / lo bajan / lo frenan"; singular ones ("su hitbox", "su mejor ataque",
+   "tener un solo tipo de ataque", "cómo aguanta...") take "lo sube / lo baja / lo frena".
 
 ## Example (Kommo-o, dex 784; its claims include atk+, hb-, td+, m.start:dragon-rage, m.group:aura-sphere,
 ## m.group:dragon-dance, m.alt:hyper-voice, i.best:luckyegg, up:best_move, up:stats, nodown)

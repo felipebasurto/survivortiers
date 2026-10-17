@@ -42,6 +42,10 @@ THRESHOLDS = {"high": HIGH, "low": LOW, "hugeRadius": HUGE_R, "driverMin": DRIVE
 DRIVER_HEADS = ("up", "down")
 
 MARK = re.compile(r"\[([^\[\]|]+)\|([^\[\]]+)\]")
+_VERBS = "sube|baja|frena|hunde|lastra|ayuda|castiga|penaliza|lleva|empuja|impulsa"
+AGREE = re.compile(
+    rf"\b(?:lo|la)\s+(?:(?:{_VERBS})\s+(?:sus|los|las)|(?:{'|'.join(v + 'n' for v in _VERBS.split('|'))})\s+(?:su|el|la|tener|cómo))\b",
+    re.IGNORECASE)
 NAME_ROLES = ("m.start", "m.group", "m.alt", "i.best", "c.first")
 
 
@@ -286,6 +290,8 @@ def validate(dex: str, entry: dict, f: dict, all_names: dict[str, set[str]]) -> 
         p = plain(text)
         sentences = [s for s in re.split(r"(?<=[.!?])\s+", p.strip()) if s]
         errs += [f"{lang}: frase en minúscula: «{x[:30]}»" for x in sentences if not x[0].isupper()]
+        if lang == "es":
+            errs += [f"es: concordancia: «{m.group(0)}»" for m in AGREE.finditer(p)]
         if not 2 <= len(sentences) <= 3:
             errs.append(f"{lang}: {len(sentences)} frases (2-3)")
         if len(p) > MAX_LEN:
