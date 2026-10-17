@@ -256,7 +256,10 @@
 
   function syncDir() {
     const b = $('#dir');
-    b.textContent = sortDesc ? b.dataset.desc : b.dataset.asc;
+    const label = sortDesc ? b.dataset.desc : b.dataset.asc;
+    b.setAttribute('aria-label', label);
+    b.title = label;
+    b.classList.toggle('desc', sortDesc);
   }
 
   function indexMons(mons) {

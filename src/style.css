@@ -111,18 +111,26 @@ textarea {
 #count { color: var(--ink-2); font: .875rem var(--sans); margin: 0 0 8px; }
 
 /* Buscador, orden y agrupación de la tier list */
-.finder { display: grid; gap: 16px; margin: 26px 0 0; }
-.search-label { display: block; font: 600 .75rem var(--pix); text-transform: uppercase; letter-spacing: .06em; color: var(--ink-2); margin-bottom: 8px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.finder { display: grid; grid-template-columns: minmax(0, 32rem) auto; justify-content: start; align-items: center; gap: 14px 12px; margin: 22px 0 0; }
+.finder > .group-by, .finder > #count, .finder > .nomatch { grid-column: 1 / -1; }
 .search-field { position: relative; display: flex; align-items: center; max-width: 36rem; }
 .search-icon { position: absolute; left: 14px; width: 18px; height: 18px; color: var(--ink-2); pointer-events: none; }
 .search-field input[type="search"] { width: 100%; padding: 14px 44px 14px 42px; font: 1.1rem var(--pix); }
 .search-field input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: none; display: none; }
 .clear { position: absolute; right: 8px; width: 30px; height: 30px; border: 0; background: var(--bg); color: var(--ink); font: 700 1.05rem var(--sans); cursor: pointer; box-shadow: var(--notch-soft); }
 .clear[hidden] { display: none; }
-.hint { margin: 8px 2px 0; font: .8rem/1.4 var(--sans); color: var(--ink-2); }
-.sortline { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 14px; }
+.sortline { display: flex; align-items: center; gap: 10px; }
+.sortline select { min-height: 48px; border: 0; box-shadow: var(--notch); background: var(--bg); color: var(--ink); padding: 0 12px; margin: 2px;
+  font: 1rem var(--pix); }
+.icon-btn { display: grid; place-items: center; flex: none; width: 48px; height: 48px; margin: 2px; padding: 0; border: 0; cursor: pointer;
+  background: var(--bg); color: var(--ink); box-shadow: var(--notch), inset 0 -4px 0 var(--rule); }
+.icon-btn:hover { background: var(--rule-soft); }
+.icon-btn:active { transform: translateY(2px); }
+.icon-btn .ico { width: 22px; height: 22px; margin: 0; }
+#dir .ico { transform: rotate(-90deg); transition: transform .15s; }
+#dir.desc .ico { transform: rotate(90deg); }
 .group-by { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.group-label { font: 600 .72rem var(--pix); text-transform: uppercase; letter-spacing: .06em; color: var(--ink-2); margin-right: 4px; }
 .seg { font: 600 .72rem var(--pix); text-transform: uppercase; letter-spacing: .04em; color: var(--ink); background: var(--bg); border: 0; box-shadow: var(--notch-soft); padding: 8px 12px; cursor: pointer; }
 .seg:hover { filter: brightness(1.15); }
 .seg[aria-pressed="true"] { background: var(--ink); color: var(--bg); box-shadow: var(--notch); }
@@ -937,6 +945,7 @@ h2 { margin: 48px 0 16px; }
 .field input[type="search"] { width: 100%; }
 #count { flex-basis: 100%; margin: 0; min-height: 1.2em; }
 .tier { margin-top: 56px; }
+#tierlist > .tier:first-child { margin-top: 20px; }
 .tier-head { align-items: center; gap: 14px; }
 .tier-head b { font-size: 3.6rem; width: auto; min-width: 2.4rem; }
 .tier-head .n { font: 700 1.25rem var(--pix); color: var(--ink-2); margin-left: auto; }
@@ -1043,30 +1052,33 @@ html { overflow-x: hidden; }
 @media (max-width: 600px) {
   body { font-size: 1rem; }
   .wrap { width: calc(100% - 28px); }
-  /* cabecera fija y compacta: marca + idioma arriba, menú en una fila que se desliza */
-  .top { position: sticky; top: 0; z-index: 20; }
+  /* cabecera compacta: marca + idioma arriba y todo el menú a la vista, en una rejilla de 4 */
   .top::after { display: none; }
-  .top .wrap { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 0 8px; padding-block: 4px 0; }
+  .top .wrap { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 0 8px; padding-block: 6px 10px; }
   .brand { font-size: 1.3rem; display: flex; align-items: center; min-height: 44px; }
   .tools { grid-column: 2; grid-row: 1; justify-self: end; }
   .lang { margin: 0; gap: 6px; }
   .lang a, .follow { display: grid; place-items: center; min-width: 44px; min-height: 44px; padding: 0 8px; }
   .follow { margin-left: 0; }
-  .nav { grid-column: 1 / -1; flex-wrap: nowrap; overflow-x: auto; margin: 0 -14px; padding: 2px 14px 6px; gap: 4px;
-    scrollbar-width: none; -webkit-overflow-scrolling: touch; scroll-snap-type: x proximity; }
-  .nav::-webkit-scrollbar { display: none; }
-  .nav a { flex: none; display: grid; place-items: center; min-height: 44px; padding: 0 12px; scroll-snap-align: start; }
+  .nav { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin: 4px 0 0; font-size: .7rem; }
+  .nav a { display: grid; place-items: center; min-height: 40px; padding: 0 2px; text-align: center; box-shadow: var(--notch-soft); }
   main { padding-block: 20px 56px; }
   h1 { font-size: 1.9rem; margin-bottom: 16px; }
   h2 { font-size: 1.3rem; margin-top: 40px; }
-  /* tier list: 4 por fila a 360-414 px */
-  .tier { margin-top: 36px; scroll-margin-top: 110px; }
-  .tier-head b { font-size: 2.8rem; }
-  .grid { grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 2px 2px; }
-  .mon { min-height: 44px; padding: 6px 0 4px; }
-  .mon .sp { height: 52px; }
-  .mon .sp img { max-height: 52px; }
-  .mon .nm { font-size: .72rem; }
+  /* tier list: buscador arriba, orden en una fila y agrupación deslizable; 5 por fila a 360-414 px */
+  .finder { grid-template-columns: 1fr; gap: 10px; }
+  .sortline select { flex: 1; min-width: 0; }
+  .group-by { flex-wrap: nowrap; overflow-x: auto; margin: 0 -14px; padding: 4px 14px 6px; scrollbar-width: none; }
+  .group-by::-webkit-scrollbar { display: none; }
+  .seg { flex: none; min-height: 40px; }
+  .tier { margin-top: 30px; }
+  .tier-head b { font-size: 2.6rem; }
+  .grid { grid-template-columns: repeat(auto-fill, minmax(62px, 1fr)); gap: 2px; }
+  .mon { min-height: 44px; padding: 4px 0; }
+  .mon .sp { height: 44px; }
+  .mon .sp img { max-height: 44px; }
+  .mon .nm { font-size: .62rem; }
+  .mon .rk { font-size: .64rem; }
   .controls .field { flex: 1 1 0; max-width: none; }
   .field input[type="search"], .field input[type="text"] { min-height: 44px; font-size: 1rem; }
   .btn, .toc a { min-height: 44px; }

@@ -48,8 +48,6 @@ STR: dict[str, tuple[str, str]] = {
     "index_h1": ("Tier list de {game}", "{game} tier list"),
     "search_label": ("Buscar", "Search"),
     "search_ph": ("Pikachu, fuego, #25…", "Pikachu, fire, #25…"),
-    "search_hint": ("Pulsa / para escribir en el buscador. Prueba «dragón», «#149» o «pikachu».",
-                    "Press / to type in the search. Try “dragon”, “#149” or “pikachu”."),
     "search_clear": ("Borrar búsqueda", "Clear search"),
     "random_btn": ("Al azar", "Random"),
     "group_by": ("Agrupar por", "Group by"),

@@ -233,22 +233,19 @@ def render_index(c: Ctx, pokemon: list[dict], meta: dict) -> str:
 <h1>{esc(L.t("index_h1", game=legal.GAME_NAME))}</h1>
 <div class="finder">
   <div class="search">
-    <label class="search-label" for="q">{esc(L.t("search_label"))}</label>
+    <label class="sr" for="q">{esc(L.t("search_label"))}</label>
     <div class="search-field">
       <svg class="search-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><circle cx="7" cy="7" r="4.6" fill="none" stroke="currentColor" stroke-width="2"/><path d="M10.6 10.6 14.5 14.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
-      <input id="q" type="search" placeholder="{esc(L.t("search_ph"))}" autocomplete="off" spellcheck="false" aria-describedby="hint">
+      <input id="q" type="search" placeholder="{esc(L.t("search_ph"))}" autocomplete="off" spellcheck="false">
       <button id="clear" class="clear" type="button" hidden aria-label="{esc(L.t("search_clear"))}">×</button>
     </div>
-    <p id="hint" class="hint">{esc(L.t("search_hint"))}</p>
   </div>
   <div class="sortline">
-    <div class="field"><label for="sort">{esc(L.t("sort_by"))}</label><select id="sort">{options}</select></div>
-    <button id="dir" class="btn small" type="button" data-asc="{esc(L.t("dir_asc"))}" data-desc="{esc(L.t("dir_desc"))}">{esc(L.t("dir_asc"))}</button>
-    <button id="random" class="btn small ghost" type="button"><i class="ico ico-dice" aria-hidden="true"></i>{esc(L.t("random_btn"))}</button>
+    <label class="sr" for="sort">{esc(L.t("sort_by"))}</label><select id="sort">{options}</select>
+    <button id="dir" class="icon-btn" type="button" data-asc="{esc(L.t("dir_asc"))}" data-desc="{esc(L.t("dir_desc"))}" aria-label="{esc(L.t("dir_asc"))}" title="{esc(L.t("dir_asc"))}"><i class="ico ico-arrow" aria-hidden="true"></i></button>
+    <button id="random" class="icon-btn" type="button" aria-label="{esc(L.t("random_btn"))}" title="{esc(L.t("random_btn"))}"><i class="ico ico-dice" aria-hidden="true"></i></button>
   </div>
-  <div class="group-by" role="group" aria-label="{esc(L.t("group_by"))}">
-    <span class="group-label">{esc(L.t("group_by"))}</span>{groups}
-  </div>
+  <div class="group-by" role="group" aria-label="{esc(L.t("group_by"))}">{groups}</div>
   <p id="count" aria-live="polite"></p>
   <p id="nomatch" class="nomatch" hidden>{esc(L.t("no_match"))}</p>
 </div>
