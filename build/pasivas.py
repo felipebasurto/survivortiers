@@ -17,9 +17,9 @@ ITEM_ICONS = json.loads((DATA / "item_icons.json").read_text(encoding="utf8"))
 ICON_LETTERS = "abcdefghijklmnopqrstuvwxyz"
 
 PHASES = [
-    ("early", ("Al empezar", "At the start")),
-    ("mid", ("A mitad", "Midway")),
-    ("late", ("Si duras", "If it lasts")),
+    ("early", ("Al empezar", "At the start"), ("La primera carta.", "The first card.")),
+    ("mid", ("A mitad", "Midway"), ("El orden se queda.", "The order holds.")),
+    ("late", ("Si duras", "If it lasts"), ("Síntesis se aleja.", "Synthesis pulls ahead.")),
 ]
 TIER_ORDER = ["S", "A", "B", "C", "D"]
 
@@ -91,8 +91,11 @@ NOTE = ("Tiempos estimados. El bot no esquiva, así que vida y curación son un 
         "If a card evolves your move, it goes first.")
 
 EXCEPTIONS = [
-    ("Cuerpo a cuerpo: la baya primero.", "Melee: the berry first."),
-    ("Rayo: Síntesis sube más.", "Beam: Synthesis climbs more."),
+    ("Cono: Síntesis sube más.", "Cone: Synthesis climbs more."),
+    ("Órbita: Vigor por delante. Reflejos no entra.", "Orbit: Vigor ahead. Reflexes does nothing."),
+    ("Aura: ninguna carta alarga.", "Aura: no card adds time."),
+    ("Torreta y estela: Reflejos no suma.", "Turret and trail: Reflexes adds nothing."),
+    ("Cuerpo a cuerpo de salida: la baya primero.", "Melee starter: the berry first."),
 ]
 
 
@@ -138,7 +141,7 @@ def _by_id(card_id: str) -> dict:
     return next(c for c in CARDS if c["id"] == card_id)
 
 
-def _phase(L: Lang, idx: int, name: tuple[str, str]) -> str:
+def _phase(L: Lang, idx: int, name: tuple[str, str], note: tuple[str, str]) -> str:
     rows = []
     for tier in TIER_ORDER:
         if not any(c["tiers"][idx] == tier for c in CARDS):
@@ -148,6 +151,7 @@ def _phase(L: Lang, idx: int, name: tuple[str, str]) -> str:
             for c in CARDS if c["tiers"][idx] == tier)
         rows.append(f'<li>{_badge(tier)}<span class="ph-chips">{chips}</span></li>')
     return (f'<section class="ph"><h2>{escape(_t(name, L))}</h2>'
+            f'<p class="muted small">{escape(_t(note, L))}</p>'
             f'<ul class="ph-list">{"".join(rows)}</ul></section>')
 
 
@@ -191,7 +195,7 @@ def _exceptions(L: Lang) -> str:
 
 
 def content(L: Lang, h1: str, lede: str, order_h: str, phases_h: str, items_h: str, except_h: str) -> str:
-    phases = "".join(_phase(L, i, name) for i, (_, name) in enumerate(PHASES))
+    phases = "".join(_phase(L, i, name, note) for i, (_, name, note) in enumerate(PHASES))
     return (_symbols()
             + f'<h1>{escape(h1)}</h1>'
             + f'<p class="lede">{escape(lede)}</p>'
