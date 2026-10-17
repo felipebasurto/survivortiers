@@ -17,8 +17,8 @@
   "2": {
    "fp": "5086d6613d5b",
    "bfp": "e67ee292aa2e",
-   "es": "Queda [avg|del montón en velocidad, vida y daño] y [td+|aguanta bien los tipos rivales]. Empieza con [m.start:vine-whip|Látigo Cepa], vincula [m.group:poison-sting|Picotazo Veneno] y [m.group:leaf-storm|Tormenta Floral], y lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:typedef|sus tipos]; lo baja [down:speed|su velocidad].",
-   "en": "Sits [avg|average speed, HP and damage] and [td+|shrugs off enemy types]. Start with [m.start:vine-whip|Vine Whip], bond [m.group:poison-sting|Poison Sting] and [m.group:leaf-storm|Petal Blizzard], and carry [i.best:luckyegg|Lucky Egg]. [up:typedef|Its types] lift it; [down:speed|its speed] holds it back."
+   "es": "[td+|Aguanta bien los tipos rivales], aunque está [avg|del montón en velocidad, vida y daño]. Empieza con [m.start:vine-whip|Látigo Cepa] y vincula [m.group:poison-sting|Picotazo Veneno] (o [m.alt:sludge|Residuos]); lleva [i.best:luckyegg|Huevo Suerte]. Lo que más lo sube es [up:best_move|Picotazo Veneno], pero [down:speed|su velocidad] lo frena.",
+   "en": "[td+|Shrugs off enemy types], though it stays [avg|average speed, HP and damage]. Start with [m.start:vine-whip|Vine Whip] and bond [m.group:poison-sting|Poison Sting] (or [m.alt:sludge|Sludge]); carry [i.best:luckyegg|Lucky Egg]. What lifts it most is [up:best_move|Poison Sting], but [down:speed|its speed] holds it back."
   },
   "3": {
    "fp": "cbf69dc034c5",
@@ -29,14 +29,14 @@
   "4": {
    "fp": "e7b0d3b851d4",
    "bfp": "a79a8c61fae2",
-   "es": "Trae [hp-|poca vida] y [atk-|pega poco]. Empieza con [m.start:ember|Ascuas], vincula [m.group:hyper-voice|Vozarrón] (o [m.alt:heat-wave|Onda Ígnea]), y lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Ascuas]; lo baja [down:stats|sus estadísticas].",
-   "en": "Brings [hp-|low HP] and [atk-|hits soft]. Start with [m.start:ember|Ember], bond [m.group:hyper-voice|Hyper Voice] (or [m.alt:heat-wave|Heat Wave]), and carry [i.best:luckyegg|Lucky Egg]. [up:best_move|Ember] lifts it; [down:stats|its stats] hold it back."
+   "es": "[hp-|Poca vida] y [atk-|pega poco]. Empieza con [m.start:ember|Ascuas] y vincula [m.group:hyper-voice|Vozarrón] (o [m.alt:heat-wave|Onda Ígnea]); lleva [i.best:luckyegg|Huevo Suerte]. Lo que más lo sube es [up:best_move|Ascuas], pero [down:stats|sus estadísticas] lo frenan.",
+   "en": "[hp-|Low HP] and [atk-|hits soft]. Start with [m.start:ember|Ember] and bond [m.group:hyper-voice|Hyper Voice] (or [m.alt:heat-wave|Heat Wave]); carry [i.best:luckyegg|Lucky Egg]. What lifts it most is [up:best_move|Ember], but [down:stats|its stats] hold it back."
   },
   "5": {
    "fp": "85346b23c789",
    "bfp": "92c6856f0c90",
-   "es": "Queda [avg|del montón en velocidad, vida y daño]. Empieza con [m.start:ember|Ascuas], vincula [m.group:hyper-voice|Vozarrón] (o [m.alt:heat-wave|Onda Ígnea]), y lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Ascuas]; lo baja [down:typedef|sus tipos].",
-   "en": "Sits [avg|average speed, HP and damage]. Start with [m.start:ember|Ember], bond [m.group:hyper-voice|Hyper Voice] (or [m.alt:heat-wave|Heat Wave]), and carry [i.best:luckyegg|Lucky Egg]. [up:best_move|Ember] lifts it; [down:typedef|its types] hold it back."
+   "es": "[avg|Del montón en velocidad, vida y daño]. Empieza con [m.start:ember|Ascuas] y vincula [m.group:hyper-voice|Vozarrón] (o [m.alt:flame-wheel|Rueda Fuego]); lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:late|cómo aguanta las partidas largas], y [down:typedef|sus tipos] lo frenan.",
+   "en": "[avg|Average speed, HP and damage]. Start with [m.start:ember|Ember] and bond [m.group:hyper-voice|Hyper Voice] (or [m.alt:flame-wheel|Flame Wheel]); carry [i.best:luckyegg|Lucky Egg]. [up:late|How it holds up in long runs] lifts it, and [down:typedef|its types] hold it back."
   },
   "6": {
    "fp": "bbe797570d75",
@@ -47,14 +47,14 @@
   "7": {
    "fp": "2e32e5310a26",
    "bfp": "9e88cbc00f97",
-   "es": "Sale [spd-|lento], con [hp-|poca vida] y [atk-|pega poco]. Empieza con [m.start:water-gun|Pistola Agua], vincula [m.group:hyper-voice|Vozarrón] (o [m.alt:hydro-pump|Hidrobomba]), y lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Pistola Agua]; lo baja [down:stats|sus estadísticas].",
-   "en": "Comes out [spd-|slow], with [hp-|low HP] and [atk-|hits soft]. Start with [m.start:water-gun|Water Gun], bond [m.group:hyper-voice|Hyper Voice] (or [m.alt:hydro-pump|Hydro Pump]), and carry [i.best:luckyegg|Lucky Egg]. [up:best_move|Water Gun] lifts it; [down:stats|its stats] hold it back."
+   "es": "[spd-|Lento], con [hp-|poca vida] y [atk-|pega poco]. Empieza con [m.start:water-gun|Pistola Agua] y vincula [m.group:hyper-voice|Vozarrón] (o [m.alt:hydro-pump|Hidrobomba]); lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Pistola Agua], pero [down:stats|sus estadísticas] lo frenan.",
+   "en": "[spd-|Slow], with [hp-|low HP] and [atk-|hits soft]. Start with [m.start:water-gun|Water Gun] and bond [m.group:hyper-voice|Hyper Voice] (or [m.alt:hydro-pump|Hydro Pump]); carry [i.best:luckyegg|Lucky Egg]. [up:best_move|Water Gun] lifts it, but [down:stats|its stats] hold it back."
   },
   "8": {
    "fp": "d6c6cf4a99cc",
    "bfp": "1510bfb0c59b",
-   "es": "Tiene [hb+|hitbox pequeño] y queda [avg|del montón en velocidad, vida y daño]. Empieza con [m.start:water-gun|Pistola Agua], vincula [m.group:hyper-voice|Vozarrón] (o [m.alt:bubble-beam|Rayo Burbuja]), y lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Pistola Agua]; lo baja [down:stats|sus estadísticas].",
-   "en": "Has a [hb+|small hitbox] and sits [avg|average speed, HP and damage]. Start with [m.start:water-gun|Water Gun], bond [m.group:hyper-voice|Hyper Voice] (or [m.alt:bubble-beam|Bubble Beam]), and carry [i.best:luckyegg|Lucky Egg]. [up:best_move|Water Gun] lifts it; [down:stats|its stats] hold it back."
+   "es": "[hb+|Hitbox pequeño] y [avg|del montón en velocidad, vida y daño]. Empieza con [m.start:water-gun|Pistola Agua] y vincula [m.group:hyper-voice|Vozarrón] (o [m.alt:bubble-beam|Rayo Burbuja]); lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:hitbox|su hitbox pequeño], y [down:stats|sus estadísticas] lo frenan.",
+   "en": "[hb+|Small hitbox] and [avg|average speed, HP and damage]. Start with [m.start:water-gun|Water Gun] and bond [m.group:hyper-voice|Hyper Voice] (or [m.alt:bubble-beam|Bubble Beam]); carry [i.best:luckyegg|Lucky Egg]. [up:hitbox|Its small hitbox] lifts it, and [down:stats|its stats] hold it back."
   },
   "9": {
    "fp": "29c596daba4b",
@@ -89,8 +89,8 @@
   "14": {
    "fp": "715ec3d58af8",
    "bfp": "f5a838825e65",
-   "es": "Sale [spd-|lento], con [hp-|poca vida], pero tiene [hb+|hitbox pequeño]. Empieza con [m.start:bug-bite|Picadura], vincula [m.group:sludge|Residuos] y [m.group:bug-buzz|Zumbido], y lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:hitbox|su hitbox pequeño]; lo baja [down:stats|sus estadísticas].",
-   "en": "Comes out [spd-|slow], with [hp-|low HP], but has a [hb+|small hitbox]. Start with [m.start:bug-bite|Bug Bite], bond [m.group:sludge|Sludge] and [m.group:bug-buzz|Bug Buzz], and carry [i.best:luckyegg|Lucky Egg]. [up:hitbox|Its small hitbox] lifts it; [down:stats|its stats] hold it back."
+   "es": "[spd-|Lento], [hp-|poca vida] y [atk-|pega poco], aunque tiene [hb+|hitbox pequeño]. Empieza con [m.start:bug-bite|Picadura] y vincula [m.group:sludge|Residuos] (o [m.alt:poison-sting|Picotazo Veneno]) y [m.group:bug-buzz|Zumbido]; lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Residuos], pero [down:stats|sus estadísticas] lo frenan.",
+   "en": "[spd-|Slow], [hp-|low HP] and [atk-|hits soft], though it has a [hb+|small hitbox]. Start with [m.start:bug-bite|Bug Bite] and bond [m.group:sludge|Sludge] (or [m.alt:poison-sting|Poison Sting]) and [m.group:bug-buzz|Bug Buzz]; carry [i.best:luckyegg|Lucky Egg]. [up:best_move|Sludge] lifts it, but [down:stats|its stats] hold it back."
   },
   "15": {
    "fp": "2ea5bec79553",
@@ -101,8 +101,8 @@
   "16": {
    "fp": "eb64098b00f5",
    "bfp": "e9ec9e0ccc4b",
-   "es": "Trae [hp-|poca vida] y [atk-|pega poco], con [hb+|hitbox pequeño]. Empieza con [m.start:tackle|Placaje], vincula [m.group:hyper-voice|Vozarrón] y [m.group:gust|Tornado], y lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Vozarrón]; lo baja [down:stats|sus estadísticas].",
-   "en": "Brings [hp-|low HP] and [atk-|hits soft], with a [hb+|small hitbox]. Start with [m.start:tackle|Tackle], bond [m.group:hyper-voice|Hyper Voice] and [m.group:gust|Gust], and carry [i.best:luckyegg|Lucky Egg]. [up:best_move|Hyper Voice] lifts it; [down:stats|its stats] hold it back."
+   "es": "[hp-|Poca vida] y [atk-|pega poco], con [hb+|hitbox pequeño]. Empieza con [m.start:tackle|Placaje] y vincula [m.group:hyper-voice|Vozarrón] y [m.group:gust|Tornado] (o [m.alt:wing-attack|Ataque Ala]); lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Vozarrón], pero [down:late|cómo flojea en partidas largas] lo frena.",
+   "en": "[hp-|Low HP] and [atk-|hits soft], with a [hb+|small hitbox]. Start with [m.start:tackle|Tackle] and bond [m.group:hyper-voice|Hyper Voice] and [m.group:gust|Gust] (or [m.alt:wing-attack|Wing Attack]); carry [i.best:luckyegg|Lucky Egg]. [up:best_move|Hyper Voice] lifts it, but [down:late|how it fades in long runs] holds it back."
   },
   "17": {
    "fp": "c0e26a9ea894",
@@ -119,14 +119,14 @@
   "19": {
    "fp": "1b780632fe9d",
    "bfp": "72088bb2ec8b",
-   "es": "Trae [hp-|poca vida] y [atk-|pega poco]. Empieza con [m.start:tackle|Placaje], vincula [m.group:hyper-voice|Vozarrón] y [m.group:body-slam|Golpe Cuerpo], y lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Vozarrón]; lo baja [down:stats|sus estadísticas].",
-   "en": "Brings [hp-|low HP] and [atk-|hits soft]. Start with [m.start:tackle|Tackle], bond [m.group:hyper-voice|Hyper Voice] and [m.group:body-slam|Body Slam], and carry [i.best:luckyegg|Lucky Egg]. [up:best_move|Hyper Voice] lifts it; [down:stats|its stats] hold it back."
+   "es": "[hp-|Poca vida] y [atk-|pega poco]. Empieza con [m.start:tackle|Placaje] y vincula [m.group:hyper-voice|Vozarrón] (o [m.alt:substitute|Sustituto]) y [m.group:body-slam|Golpe Cuerpo]; lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Vozarrón], pero [down:stats|sus estadísticas] lo frenan.",
+   "en": "[hp-|Low HP] and [atk-|hits soft]. Start with [m.start:tackle|Tackle] and bond [m.group:hyper-voice|Hyper Voice] (or [m.alt:substitute|Substitute]) and [m.group:body-slam|Body Slam]; carry [i.best:luckyegg|Lucky Egg]. [up:best_move|Hyper Voice] lifts it, but [down:stats|its stats] hold it back."
   },
   "20": {
    "fp": "9190c440130b",
    "bfp": "6cd304597163",
-   "es": "Es [spd+|rápido] desde el primer momento. Empieza con [m.start:tackle|Placaje], vincula [m.group:hyper-voice|Vozarrón] y [m.group:body-slam|Golpe Cuerpo], y lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Vozarrón]; lo baja [down:moves|los ataques que aprende].",
-   "en": "Is [spd+|fast] from the opening moments. Start with [m.start:tackle|Tackle], bond [m.group:hyper-voice|Hyper Voice] and [m.group:body-slam|Body Slam], and carry [i.best:luckyegg|Lucky Egg]. [up:best_move|Hyper Voice] lifts it; [down:moves|the moves it learns] hold it back."
+   "es": "[spd+|Rápido]. Empieza con [m.start:tackle|Placaje] y vincula [m.group:hyper-voice|Vozarrón] (o [m.alt:substitute|Sustituto]) y [m.group:body-slam|Golpe Cuerpo]; lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Vozarrón], pero [down:moves|los ataques que aprende] lo frenan.",
+   "en": "[spd+|Fast]. Start with [m.start:tackle|Tackle] and bond [m.group:hyper-voice|Hyper Voice] (or [m.alt:substitute|Substitute]) and [m.group:body-slam|Body Slam]; carry [i.best:luckyegg|Lucky Egg]. [up:best_move|Hyper Voice] lifts it, but [down:moves|the moves it learns] hold it back."
   },
   "21": {
    "fp": "9c7c97203ee8",
@@ -143,20 +143,20 @@
   "23": {
    "fp": "1ba25f8b43e0",
    "bfp": "b6d9c767bb34",
-   "es": "Trae [hp-|poca vida] y [atk-|pega poco], aunque [td+|aguanta bien los tipos rivales]. Empieza con [m.start:sludge|Residuos], vincula [m.group:hyper-voice|Vozarrón] (o [m.alt:poison-sting|Picotazo Veneno]), y lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Residuos]; lo baja [down:stats|sus estadísticas].",
-   "en": "Brings [hp-|low HP] and [atk-|hits soft], though it [td+|shrugs off enemy types]. Start with [m.start:sludge|Sludge], bond [m.group:hyper-voice|Hyper Voice] (or [m.alt:poison-sting|Poison Sting]), and carry [i.best:luckyegg|Lucky Egg]. [up:best_move|Sludge] lifts it; [down:stats|its stats] hold it back."
+   "es": "[hp-|Poca vida] y [atk-|pega poco], aunque [td+|aguanta bien los tipos rivales]. Empieza con [m.start:sludge|Residuos] y vincula [m.group:hyper-voice|Vozarrón] (o [m.alt:toxic|Tóxico]); lleva [i.best:luckyegg|Huevo Suerte]. Lo suben [up:typedef|sus tipos], pero [down:stats|sus estadísticas] lo frenan.",
+   "en": "[hp-|Low HP] and [atk-|hits soft], though it [td+|shrugs off enemy types]. Start with [m.start:sludge|Sludge] and bond [m.group:hyper-voice|Hyper Voice] (or [m.alt:toxic|Toxic]); carry [i.best:luckyegg|Lucky Egg]. [up:typedef|Its types] lift it, but [down:stats|its stats] hold it back."
   },
   "24": {
    "fp": "7022f5e5447e",
    "bfp": "6e77f7373c03",
-   "es": "Queda [avg|del montón en velocidad, vida y daño] y [td+|aguanta bien los tipos rivales]. Empieza con [m.start:sludge|Residuos], vincula [m.group:hyper-voice|Vozarrón] (o [m.alt:toxic|Tóxico]), y lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:typedef|sus tipos]; lo baja [down:moves|los ataques que aprende].",
-   "en": "Sits [avg|average speed, HP and damage] and [td+|shrugs off enemy types]. Start with [m.start:sludge|Sludge], bond [m.group:hyper-voice|Hyper Voice] (or [m.alt:toxic|Toxic]), and carry [i.best:luckyegg|Lucky Egg]. [up:typedef|Its types] lift it; [down:moves|the moves it learns] hold it back."
+   "es": "[avg|Del montón en velocidad, vida y daño] y [td+|aguanta bien los tipos rivales]. Empieza con [m.start:sludge|Residuos] y vincula [m.group:hyper-voice|Vozarrón] (o [m.alt:toxic|Tóxico]); lleva [i.best:luckyegg|Huevo Suerte]. Lo suben [up:stats|sus estadísticas], y [down:moves|los ataques que aprende] lo frenan.",
+   "en": "[avg|Average speed, HP and damage] and it [td+|shrugs off enemy types]. Start with [m.start:sludge|Sludge] and bond [m.group:hyper-voice|Hyper Voice] (or [m.alt:toxic|Toxic]); carry [i.best:luckyegg|Lucky Egg]. [up:stats|Its stats] lift it, and [down:moves|the moves it learns] hold it back."
   },
   "25": {
    "fp": "ca19886f2668",
    "bfp": "dbd2b9256bef",
-   "es": "Es [spd+|rápido], con [hp-|poca vida] y [hb-|hitbox grande]. Empieza con [m.start:thunder-shock|Impactrueno], vincula [m.group:hyper-voice|Vozarrón] (o [m.alt:thunderbolt|Rayo]), y lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Impactrueno]; lo baja [down:stats|sus estadísticas].",
-   "en": "Is [spd+|fast], with [hp-|low HP] and a [hb-|big hitbox]. Start with [m.start:thunder-shock|Thunder Shock], bond [m.group:hyper-voice|Hyper Voice] (or [m.alt:thunderbolt|Thunderbolt]), and carry [i.best:luckyegg|Lucky Egg]. [up:best_move|Thunder Shock] lifts it; [down:stats|its stats] hold it back."
+   "es": "[spd+|Rápido], pero [hp-|poca vida], [atk-|pega poco] y [hb-|hitbox grande]. Empieza con [m.start:thunder-shock|Impactrueno] y vincula [m.group:hyper-voice|Vozarrón] (o [m.alt:thunderbolt|Rayo]); lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Impactrueno], pero [down:stats|sus estadísticas] lo frenan.",
+   "en": "[spd+|Fast], but [hp-|low HP], [atk-|hits soft] and a [hb-|big hitbox]. Start with [m.start:thunder-shock|Thunder Shock] and bond [m.group:hyper-voice|Hyper Voice] (or [m.alt:thunderbolt|Thunderbolt]); carry [i.best:luckyegg|Lucky Egg]. [up:best_move|Thunder Shock] lifts it, but [down:stats|its stats] hold it back."
   },
   "26": {
    "fp": "666f0e92636e",
@@ -173,44 +173,44 @@
   "28": {
    "fp": "d00b3b1dee80",
    "bfp": "ba96a0598814",
-   "es": "Queda [avg|del montón en velocidad, vida y daño] y [td-|sufre contra los tipos rivales]. Empieza con [m.start:mud-shot|Disparo Lodo], vincula [m.group:bonemerang|Huesomerang] (o [m.alt:bulldoze|Terratemblor]), y lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Huesomerang]; lo baja [down:typedef|sus tipos].",
-   "en": "Sits [avg|average speed, HP and damage] and [td-|suffers against enemy types]. Start with [m.start:mud-shot|Mud Shot], bond [m.group:bonemerang|Bonemerang] (or [m.alt:bulldoze|Bulldoze]), and carry [i.best:luckyegg|Lucky Egg]. [up:best_move|Bonemerang] lifts it; [down:typedef|its types] hold it back."
+   "es": "[avg|Del montón en velocidad, vida y daño], aunque [td-|sufre contra los tipos rivales]. Empieza con [m.start:mud-shot|Disparo Lodo] y vincula [m.group:bonemerang|Huesomerang] (o [m.alt:bulldoze|Terratemblor]); lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Huesomerang], pero [down:typedef|sus tipos] lo frenan.",
+   "en": "[avg|Average speed, HP and damage], though it [td-|suffers against enemy types]. Start with [m.start:mud-shot|Mud Shot] and bond [m.group:bonemerang|Bonemerang] (or [m.alt:bulldoze|Bulldoze]); carry [i.best:luckyegg|Lucky Egg]. [up:best_move|Bonemerang] lifts it, but [down:typedef|its types] hold it back."
   },
   "29": {
    "fp": "cee58b207abc",
    "bfp": "3117af30ab27",
-   "es": "Sale [spd-|lento] y [atk-|pega poco], pero tiene [hb+|hitbox pequeño]. Empieza con [m.start:sludge|Residuos], vincula [m.group:hyper-voice|Vozarrón] (o [m.alt:poison-sting|Picotazo Veneno]), y lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:hitbox|su hitbox pequeño]; lo baja [down:stats|sus estadísticas].",
-   "en": "Comes out [spd-|slow] and [atk-|hits soft], but has a [hb+|small hitbox]. Start with [m.start:sludge|Sludge], bond [m.group:hyper-voice|Hyper Voice] (or [m.alt:poison-sting|Poison Sting]), and carry [i.best:luckyegg|Lucky Egg]. [up:hitbox|Its small hitbox] lifts it; [down:stats|its stats] hold it back."
+   "es": "[spd-|Lento] y [atk-|pega poco], con [hb+|hitbox pequeño]. Empieza con [m.start:sludge|Residuos] y vincula [m.group:hyper-voice|Vozarrón] (o [m.alt:toxic|Tóxico]); lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:hitbox|su hitbox pequeño], pero [down:stats|sus estadísticas] lo frenan.",
+   "en": "[spd-|Slow] and [atk-|hits soft], with a [hb+|small hitbox]. Start with [m.start:sludge|Sludge] and bond [m.group:hyper-voice|Hyper Voice] (or [m.alt:toxic|Toxic]); carry [i.best:luckyegg|Lucky Egg]. [up:hitbox|Its small hitbox] lifts it, but [down:stats|its stats] hold it back."
   },
   "30": {
    "fp": "ff140f0d1ceb",
    "bfp": "1c7d54ed6647",
-   "es": "[atk-|Pega poco], pero tiene [hb+|hitbox pequeño] y [td+|aguanta bien los tipos rivales]. Empieza con [m.start:sludge|Residuos], vincula [m.group:poison-sting|Picotazo Veneno] y [m.group:hyper-voice|Vozarrón], y lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:hitbox|su hitbox pequeño]; lo baja [down:stats|sus estadísticas].",
-   "en": "[atk-|Hits soft], but has a [hb+|small hitbox] and [td+|shrugs off enemy types]. Start with [m.start:sludge|Sludge], bond [m.group:poison-sting|Poison Sting] and [m.group:hyper-voice|Hyper Voice], and carry [i.best:luckyegg|Lucky Egg]. [up:hitbox|Its small hitbox] lifts it; [down:stats|its stats] hold it back."
+   "es": "[atk-|Pega poco] y [td+|aguanta bien los tipos rivales], con [hb+|hitbox pequeño]. Empieza con [m.start:sludge|Residuos] y vincula [m.group:poison-sting|Picotazo Veneno] (o [m.alt:toxic|Tóxico]) y [m.group:hyper-voice|Vozarrón]; lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:hitbox|su hitbox pequeño], y [down:stats|sus estadísticas] lo frenan.",
+   "en": "[atk-|Hits soft] and [td+|shrugs off enemy types], with a [hb+|small hitbox]. Start with [m.start:sludge|Sludge] and bond [m.group:poison-sting|Poison Sting] (or [m.alt:toxic|Toxic]) and [m.group:hyper-voice|Hyper Voice]; carry [i.best:luckyegg|Lucky Egg]. [up:hitbox|Its small hitbox] lifts it, and [down:stats|its stats] hold it back."
   },
   "31": {
    "fp": "e166a0f7722b",
    "bfp": "c434297aa4f6",
-   "es": "Tiene [hp+|mucha vida] para aguantar las oleadas. Empieza con [m.start:sludge|Residuos], vincula [m.group:bonemerang|Huesomerang] (o [m.alt:mud-shot|Disparo Lodo]), y lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Huesomerang]; lo baja [down:typedef|sus tipos].",
-   "en": "Has [hp+|lots of HP] for soaking up the waves. Start with [m.start:sludge|Sludge], bond [m.group:bonemerang|Bonemerang] (or [m.alt:mud-shot|Mud Shot]), and carry [i.best:luckyegg|Lucky Egg]. [up:best_move|Bonemerang] lifts it; [down:typedef|its types] hold it back."
+   "es": "[hp+|Mucha vida]. Empieza con [m.start:sludge|Residuos] y vincula [m.group:bonemerang|Huesomerang] (o [m.alt:mud-shot|Disparo Lodo]); lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Huesomerang], pero [down:typedef|sus tipos] lo frenan.",
+   "en": "[hp+|Lots of HP]. Start with [m.start:sludge|Sludge] and bond [m.group:bonemerang|Bonemerang] (or [m.alt:mud-shot|Mud Shot]); carry [i.best:luckyegg|Lucky Egg]. [up:best_move|Bonemerang] lifts it, but [down:typedef|its types] hold it back."
   },
   "32": {
    "fp": "74afe1778757",
    "bfp": "b000d1d4922b",
-   "es": "Trae [hp-|poca vida] y [atk-|pega poco]. Empieza con [m.start:sludge|Residuos], vincula [m.group:hyper-voice|Vozarrón] (o [m.alt:toxic|Tóxico]), y lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:typedef|sus tipos]; lo baja [down:stats|sus estadísticas].",
-   "en": "Brings [hp-|low HP] and [atk-|hits soft]. Start with [m.start:sludge|Sludge], bond [m.group:hyper-voice|Hyper Voice] (or [m.alt:toxic|Toxic]), and carry [i.best:luckyegg|Lucky Egg]. [up:typedef|Its types] lift it; [down:stats|its stats] hold it back."
+   "es": "[hp-|Poca vida] y [atk-|pega poco], aunque [td+|aguanta bien los tipos rivales]. Empieza con [m.start:sludge|Residuos] y vincula [m.group:hyper-voice|Vozarrón] (o [m.alt:poison-sting|Picotazo Veneno]); lleva [i.best:luckyegg|Huevo Suerte]. Lo suben [up:typedef|sus tipos], pero [down:speed|su velocidad] lo frena.",
+   "en": "[hp-|Low HP] and [atk-|hits soft], though it [td+|shrugs off enemy types]. Start with [m.start:sludge|Sludge] and bond [m.group:hyper-voice|Hyper Voice] (or [m.alt:poison-sting|Poison Sting]); carry [i.best:luckyegg|Lucky Egg]. [up:typedef|Its types] lift it, but [down:speed|its speed] holds it back."
   },
   "33": {
    "fp": "31e521c6bce8",
    "bfp": "8c6d57ad8012",
-   "es": "Queda [avg|del montón en velocidad, vida y daño], pero tiene [hb-|hitbox grande]. Empieza con [m.start:sludge|Residuos], vincula [m.group:poison-sting|Picotazo Veneno] y [m.group:hyper-voice|Vozarrón], y lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:typedef|sus tipos]; lo baja [down:hitbox|su hitbox grande].",
-   "en": "Sits [avg|average speed, HP and damage], but has a [hb-|big hitbox]. Start with [m.start:sludge|Sludge], bond [m.group:poison-sting|Poison Sting] and [m.group:hyper-voice|Hyper Voice], and carry [i.best:luckyegg|Lucky Egg]. [up:typedef|Its types] lift it; [down:hitbox|its big hitbox] holds it back."
+   "es": "[td+|Aguanta bien los tipos rivales] y está [avg|del montón en velocidad, vida y daño], pero tiene [hb-|hitbox grande]. Empieza con [m.start:sludge|Residuos] y vincula [m.group:poison-sting|Picotazo Veneno] (o [m.alt:toxic|Tóxico]); lleva [i.best:luckyegg|Huevo Suerte]. Lo suben [up:typedef|sus tipos], y [down:hitbox|su hitbox grande] lo frena.",
+   "en": "[td+|Shrugs off enemy types] and stays [avg|average speed, HP and damage], but has a [hb-|big hitbox]. Start with [m.start:sludge|Sludge] and bond [m.group:poison-sting|Poison Sting] (or [m.alt:toxic|Toxic]); carry [i.best:luckyegg|Lucky Egg]. [up:typedef|Its types] lift it, and [down:hitbox|its big hitbox] holds it back."
   },
   "34": {
    "fp": "ed8029266697",
    "bfp": "3982efe838c2",
-   "es": "Queda [avg|del montón en velocidad, vida y daño] en el perfil base. Empieza con [m.start:sludge|Residuos], vincula [m.group:bonemerang|Huesomerang] (o [m.alt:bulldoze|Terratemblor]), y lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:stats|sus estadísticas]; lo baja [down:typedef|sus tipos].",
-   "en": "Sits [avg|average speed, HP and damage] on the base profile. Start with [m.start:sludge|Sludge], bond [m.group:bonemerang|Bonemerang] (or [m.alt:bulldoze|Bulldoze]), and carry [i.best:luckyegg|Lucky Egg]. [up:stats|Its stats] lift it; [down:typedef|its types] hold it back."
+   "es": "[avg|Del montón en velocidad, vida y daño]. Empieza con [m.start:sludge|Residuos] y vincula [m.group:bonemerang|Huesomerang] (o [m.alt:bulldoze|Terratemblor]); lleva [i.best:luckyegg|Huevo Suerte]. Lo suben [up:stats|sus estadísticas], pero [down:typedef|sus tipos] lo frenan.",
+   "en": "[avg|Average speed, HP and damage]. Start with [m.start:sludge|Sludge] and bond [m.group:bonemerang|Bonemerang] (or [m.alt:bulldoze|Bulldoze]); carry [i.best:luckyegg|Lucky Egg]. [up:stats|Its stats] lift it, but [down:typedef|its types] hold it back."
   },
   "35": {
    "fp": "a7f270d0322e",
@@ -221,14 +221,14 @@
   "36": {
    "fp": "1d66162fd1ba",
    "bfp": "63d7b73966b7",
-   "es": "Tiene [hp+|mucha vida] para seguir en pie. Empieza con [m.start:fairy-wind|Viento Feérico], vincula [m.group:hyper-voice|Vozarrón] (o [m.alt:dazzling-gleam|Brillo Mágico]), y lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:hp|su vida]; lo baja [down:moves|los ataques que aprende].",
-   "en": "Has [hp+|lots of HP] for staying on the field. Start with [m.start:fairy-wind|Fairy Wind], bond [m.group:hyper-voice|Hyper Voice] (or [m.alt:dazzling-gleam|Dazzling Gleam]), and carry [i.best:luckyegg|Lucky Egg]. [up:hp|Its HP] lifts it; [down:moves|the moves it learns] hold it back."
+   "es": "[hp+|Mucha vida]. Empieza con [m.start:fairy-wind|Viento Feérico] y vincula [m.group:hyper-voice|Vozarrón] (o [m.alt:dazzling-gleam|Brillo Mágico]); lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:hp|su vida], pero [down:moves|los ataques que aprende] lo frenan.",
+   "en": "[hp+|Lots of HP]. Start with [m.start:fairy-wind|Fairy Wind] and bond [m.group:hyper-voice|Hyper Voice] (or [m.alt:dazzling-gleam|Dazzling Gleam]); carry [i.best:luckyegg|Lucky Egg]. [up:hp|Its HP] lifts it, but [down:moves|the moves it learns] hold it back."
   },
   "37": {
    "fp": "8abb807b4289",
    "bfp": "b653e643ca2c",
-   "es": "Trae [hp-|poca vida] y [atk-|pega poco]. Empieza con [m.start:ember|Ascuas], vincula [m.group:hyper-voice|Vozarrón] (o [m.alt:heat-wave|Onda Ígnea]), y lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:moves|los ataques que aprende]; lo baja [down:stats|sus estadísticas].",
-   "en": "Brings [hp-|low HP] and [atk-|hits soft]. Start with [m.start:ember|Ember], bond [m.group:hyper-voice|Hyper Voice] (or [m.alt:heat-wave|Heat Wave]), and carry [i.best:luckyegg|Lucky Egg]. [up:moves|The moves it learns] lift it; [down:stats|its stats] hold it back."
+   "es": "[hp-|Poca vida] y [atk-|pega poco]. Empieza con [m.start:ember|Ascuas] y vincula [m.group:hyper-voice|Vozarrón] (o [m.alt:heat-wave|Onda Ígnea]); lleva [i.best:luckyegg|Huevo Suerte]. Lo suben [up:moves|los ataques que aprende], pero [down:attack|su daño] lo frena.",
+   "en": "[hp-|Low HP] and [atk-|hits soft]. Start with [m.start:ember|Ember] and bond [m.group:hyper-voice|Hyper Voice] (or [m.alt:heat-wave|Heat Wave]); carry [i.best:luckyegg|Lucky Egg]. [up:moves|The moves it learns] lift it, but [down:attack|its damage] holds it back."
   },
   "38": {
    "fp": "f8d0f06ca427",
@@ -239,14 +239,14 @@
   "39": {
    "fp": "dc888652a651",
    "bfp": "ac4738b863ff",
-   "es": "Sale [spd-|lento] y [atk-|pega poco], pero tiene [hp+|mucha vida] y [hb+|hitbox pequeño]. Empieza con [m.start:tackle|Placaje], vincula [m.group:fairy-wind|Viento Feérico] y [m.group:hyper-voice|Vozarrón], y lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:hitbox|su hitbox pequeño]; lo baja [down:stats|sus estadísticas].",
-   "en": "Comes out [spd-|slow] and [atk-|hits soft], but has [hp+|lots of HP] and a [hb+|small hitbox]. Start with [m.start:tackle|Tackle], bond [m.group:fairy-wind|Fairy Wind] and [m.group:hyper-voice|Hyper Voice], and carry [i.best:luckyegg|Lucky Egg]. [up:hitbox|Its small hitbox] lifts it; [down:stats|its stats] hold it back."
+   "es": "[spd-|Lento] y [atk-|pega poco], pero tiene [hp+|mucha vida] y [hb+|hitbox pequeño]. Empieza con [m.start:tackle|Placaje] y vincula [m.group:fairy-wind|Viento Feérico] (o [m.alt:dazzling-gleam|Brillo Mágico]) y [m.group:hyper-voice|Vozarrón]; lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:hp|su vida], pero [down:stats|sus estadísticas] lo frenan.",
+   "en": "[spd-|Slow] and [atk-|hits soft], but has [hp+|lots of HP] and a [hb+|small hitbox]. Start with [m.start:tackle|Tackle] and bond [m.group:fairy-wind|Fairy Wind] (or [m.alt:dazzling-gleam|Dazzling Gleam]) and [m.group:hyper-voice|Hyper Voice]; carry [i.best:luckyegg|Lucky Egg]. [up:hp|Its HP] lifts it, but [down:stats|its stats] hold it back."
   },
   "40": {
    "fp": "28d7d6b67a95",
    "bfp": "4b24c1614c54",
-   "es": "[hp+|Mucha vida] y un [hb0|hitbox normal]. Empieza con [m.start:tackle|Placaje], vincula [m.group:fairy-wind|Viento Feérico] (o [m.alt:dazzling-gleam|Brillo Mágico]) y lleva [i.best:luckyegg|Huevo Suerte]. Lo que más sube es [up:hp|su vida], aunque lo frena [down:moves|los ataques que aprende].",
-   "en": "[hp+|Lots of HP] and a [hb0|normal hitbox]. Start with [m.start:tackle|Tackle], bond [m.group:fairy-wind|Fairy Wind] (or [m.alt:dazzling-gleam|Dazzling Gleam]) and carry [i.best:luckyegg|Lucky Egg]. What lifts it most is [up:hp|its HP], though [down:moves|the moves it learns] holds it back."
+   "es": "[hp+|Mucha vida]. Empieza con [m.start:tackle|Placaje] y vincula [m.group:fairy-wind|Viento Feérico] (o [m.alt:hyper-voice|Vozarrón]) y [m.group:substitute|Sustituto]; lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:hp|su vida], pero [down:moves|los ataques que aprende] lo frenan.",
+   "en": "[hp+|Lots of HP]. Start with [m.start:tackle|Tackle] and bond [m.group:fairy-wind|Fairy Wind] (or [m.alt:hyper-voice|Hyper Voice]) and [m.group:substitute|Substitute]; carry [i.best:luckyegg|Lucky Egg]. [up:hp|Its HP] lifts it, but [down:moves|the moves it learns] hold it back."
   },
   "41": {
    "fp": "0969f8f45e36",
@@ -263,8 +263,8 @@
   "43": {
    "fp": "531ed02fbd90",
    "bfp": "4ec60dbc3ee1",
-   "es": "[spd-|Lento] y con [hp-|poca vida], pero [hb+|hitbox pequeño] y [td+|aguanta bien los tipos rivales]. Empieza con [m.start:vine-whip|Látigo Cepa], vincula [m.group:poison-sting|Picotazo Veneno] y [m.group:leaf-storm|Tormenta Floral]; lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:hitbox|su hitbox pequeño], y lo baja [down:stats|sus estadísticas].",
-   "en": "[spd-|Slow] and with [hp-|low HP], but a [hb+|small hitbox] and it [td+|shrugs off enemy types]. Start with [m.start:vine-whip|Vine Whip], bond [m.group:poison-sting|Poison Sting] and [m.group:leaf-storm|Petal Blizzard]; carry [i.best:luckyegg|Lucky Egg]. What lifts it is [up:hitbox|its small hitbox], and what holds it back is [down:stats|its stats]."
+   "es": "[spd-|Lento] y [hp-|poca vida], con [hb+|hitbox pequeño]. Empieza con [m.start:vine-whip|Látigo Cepa] y vincula [m.group:poison-sting|Picotazo Veneno] (o [m.alt:sludge|Residuos]) y [m.group:leaf-storm|Tormenta Floral]; lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Picotazo Veneno], pero [down:stats|sus estadísticas] lo frenan.",
+   "en": "[spd-|Slow] and [hp-|low HP], with a [hb+|small hitbox]. Start with [m.start:vine-whip|Vine Whip] and bond [m.group:poison-sting|Poison Sting] (or [m.alt:sludge|Sludge]) and [m.group:leaf-storm|Petal Blizzard]; carry [i.best:luckyegg|Lucky Egg]. [up:best_move|Poison Sting] lifts it, but [down:stats|its stats] hold it back."
   },
   "44": {
    "fp": "22f699076adc",
@@ -281,8 +281,8 @@
   "46": {
    "fp": "53ec19d8ae2e",
    "bfp": "7b1f8fe6abf3",
-   "es": "[spd-|Lento], [hp-|poca vida] y [td-|sufre contra los tipos rivales], aunque tiene [hb+|hitbox pequeño]. Empieza con [m.start:bug-bite|Picadura], vincula [m.group:hyper-voice|Vozarrón] y [m.group:leaf-storm|Tormenta Floral]; lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Vozarrón], y lo baja [down:stats|sus estadísticas].",
-   "en": "[spd-|Slow], [hp-|low HP] and it [td-|suffers against enemy types], though it has a [hb+|small hitbox]. Start with [m.start:bug-bite|Bug Bite], bond [m.group:hyper-voice|Hyper Voice] and [m.group:leaf-storm|Petal Blizzard]; carry [i.best:luckyegg|Lucky Egg]. What lifts it is [up:best_move|Hyper Voice], and what holds it back is [down:stats|its stats]."
+   "es": "[spd-|Lento] y [hp-|poca vida], aunque tiene [hb+|hitbox pequeño]. Empieza con [m.start:bug-bite|Picadura] y vincula [m.group:hyper-voice|Vozarrón] (o [m.alt:bug-buzz|Zumbido]) y [m.group:leaf-storm|Tormenta Floral]; lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Vozarrón], pero [down:stats|sus estadísticas] lo frenan.",
+   "en": "[spd-|Slow] and [hp-|low HP], though it has a [hb+|small hitbox]. Start with [m.start:bug-bite|Bug Bite] and bond [m.group:hyper-voice|Hyper Voice] (or [m.alt:bug-buzz|Bug Buzz]) and [m.group:leaf-storm|Petal Blizzard]; carry [i.best:luckyegg|Lucky Egg]. [up:best_move|Hyper Voice] lifts it, but [down:stats|its stats] hold it back."
   },
   "47": {
    "fp": "81b7874d148d",
@@ -293,44 +293,44 @@
   "48": {
    "fp": "9d447e43a0d2",
    "bfp": "164043b73dd8",
-   "es": "[atk-|Pega poco], con [hb+|hitbox pequeño] y [td+|aguanta bien los tipos rivales]. Empieza con [m.start:bug-bite|Picadura], vincula [m.group:sludge|Residuos] y [m.group:bug-buzz|Zumbido]; lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:hitbox|su hitbox pequeño], y lo baja [down:stats|sus estadísticas].",
-   "en": "[atk-|Hits soft], with a [hb+|small hitbox] and it [td+|shrugs off enemy types]. Start with [m.start:bug-bite|Bug Bite], bond [m.group:sludge|Sludge] and [m.group:bug-buzz|Bug Buzz]; carry [i.best:luckyegg|Lucky Egg]. What lifts it is [up:hitbox|its small hitbox], and what holds it back is [down:stats|its stats]."
+   "es": "[atk-|Pega poco] y [td+|aguanta bien los tipos rivales], con [hb+|hitbox pequeño]. Empieza con [m.start:bug-bite|Picadura] y vincula [m.group:sludge|Residuos] (o [m.alt:poison-sting|Picotazo Veneno]) y [m.group:bug-buzz|Zumbido]; lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Residuos], pero [down:attack|su daño] lo frena.",
+   "en": "[atk-|Hits soft] and [td+|shrugs off enemy types], with a [hb+|small hitbox]. Start with [m.start:bug-bite|Bug Bite] and bond [m.group:sludge|Sludge] (or [m.alt:poison-sting|Poison Sting]) and [m.group:bug-buzz|Bug Buzz]; carry [i.best:luckyegg|Lucky Egg]. [up:best_move|Sludge] lifts it, but [down:attack|its damage] holds it back."
   },
   "49": {
    "fp": "b65b867696bd",
    "bfp": "8774b059e917",
-   "es": "[spd+|Rápido], [hb0|hitbox normal] y [td+|aguanta bien los tipos rivales]. Empieza con [m.start:bug-bite|Picadura], vincula [m.group:poison-sting|Picotazo Veneno] y [m.group:bug-buzz|Zumbido]; lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:stats|sus estadísticas], y lo baja [down:start_move|su ataque inicial].",
-   "en": "[spd+|Fast], a [hb0|normal hitbox] and it [td+|shrugs off enemy types]. Start with [m.start:bug-bite|Bug Bite], bond [m.group:poison-sting|Poison Sting] and [m.group:bug-buzz|Bug Buzz]; carry [i.best:luckyegg|Lucky Egg]. What lifts it is [up:stats|its stats], and what holds it back is [down:start_move|its start move]."
+   "es": "[spd+|Rápido] y [td+|aguanta bien los tipos rivales]. Empieza con [m.start:bug-bite|Picadura] y vincula [m.group:poison-sting|Picotazo Veneno] (o [m.alt:sludge|Residuos]) y [m.group:bug-buzz|Zumbido]; lleva [i.best:luckyegg|Huevo Suerte]. Lo suben [up:stats|sus estadísticas], pero [down:start_move|su ataque inicial] lo frena.",
+   "en": "[spd+|Fast] and [td+|shrugs off enemy types]. Start with [m.start:bug-bite|Bug Bite] and bond [m.group:poison-sting|Poison Sting] (or [m.alt:sludge|Sludge]) and [m.group:bug-buzz|Bug Buzz]; carry [i.best:luckyegg|Lucky Egg]. [up:stats|Its stats] lift it, but [down:start_move|its start move] holds it back."
   },
   "50": {
    "fp": "976ff50a53c4",
    "bfp": "776d41e3a980",
-   "es": "[spd+|Rápido], pero [hp-|poca vida], [atk-|pega poco] y [td-|sufre contra los tipos rivales]; tiene [hb+|hitbox pequeño]. Empieza con [m.start:mud-shot|Disparo Lodo], vincula [m.group:bonemerang|Huesomerang] y lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Huesomerang], y lo baja [down:stats|sus estadísticas].",
-   "en": "[spd+|Fast], but [hp-|low HP], [atk-|hits soft] and it [td-|suffers against enemy types]; it has a [hb+|small hitbox]. Start with [m.start:mud-shot|Mud Shot], bond [m.group:bonemerang|Bonemerang] and carry [i.best:luckyegg|Lucky Egg]. What lifts it is [up:best_move|Bonemerang], and what holds it back is [down:stats|its stats]."
+   "es": "[spd+|Rápido] y con [hb+|hitbox pequeño], pero [atk-|pega poco] y [hp-|poca vida]. Empieza con [m.start:mud-shot|Disparo Lodo] y vincula [m.group:bonemerang|Huesomerang] (o [m.alt:bulldoze|Terratemblor]); lleva [i.best:luckyegg|Huevo Suerte]. Lo frenan [down:stats|sus estadísticas].",
+   "en": "[spd+|Fast] and with a [hb+|small hitbox], but [atk-|hits soft] and [hp-|low HP]. Start with [m.start:mud-shot|Mud Shot] and bond [m.group:bonemerang|Bonemerang] (or [m.alt:bulldoze|Bulldoze]); carry [i.best:luckyegg|Lucky Egg]. [down:stats|Its stats] hold it back."
   },
   "51": {
    "fp": "d447506a3c68",
    "bfp": "ad72866b8d4e",
-   "es": "[spd+|Rápido] y [hp-|poca vida], con [hb0|hitbox normal] y [td-|sufre contra los tipos rivales]. Empieza con [m.start:mud-shot|Disparo Lodo], vincula [m.group:bonemerang|Huesomerang] (o [m.alt:bulldoze|Terratemblor]) y lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Huesomerang], y lo baja [down:typedef|sus tipos].",
-   "en": "[spd+|Fast] and [hp-|low HP], with a [hb0|normal hitbox] and it [td-|suffers against enemy types]. Start with [m.start:mud-shot|Mud Shot], bond [m.group:bonemerang|Bonemerang] (or [m.alt:bulldoze|Bulldoze]) and carry [i.best:luckyegg|Lucky Egg]. What lifts it is [up:best_move|Bonemerang], and what holds it back is [down:typedef|its types]."
+   "es": "[spd+|Rápido], con [hb0|hitbox normal] y [hp-|poca vida]. Empieza con [m.start:mud-shot|Disparo Lodo], vincula [m.group:bonemerang|Huesomerang] y [m.group:hyper-voice|Vozarrón]; lleva [i.best:luckyegg|Huevo Suerte]. Lo que más lo sube es [up:best_move|Huesomerang], y lo frenan [down:typedef|sus tipos].",
+   "en": "[spd+|Fast], with a [hb0|normal hitbox] and [hp-|low HP]. Start with [m.start:mud-shot|Mud Shot], bond [m.group:bonemerang|Bonemerang] and [m.group:hyper-voice|Hyper Voice]; carry [i.best:luckyegg|Lucky Egg]. What lifts it most is [up:best_move|Bonemerang], and [down:typedef|its types] hold it back."
   },
   "52": {
    "fp": "d41e886fb4ee",
    "bfp": "b81a564b8912",
-   "es": "[spd+|Rápido], [hp-|poca vida] y [atk-|pega poco], con [hb0|hitbox normal]. Empieza con [m.start:tackle|Placaje], vincula [m.group:hyper-voice|Vozarrón] y [m.group:body-slam|Golpe Cuerpo]; lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Vozarrón], y lo baja [down:stats|sus estadísticas].",
-   "en": "[spd+|Fast], [hp-|low HP] and [atk-|hits soft], with a [hb0|normal hitbox]. Start with [m.start:tackle|Tackle], bond [m.group:hyper-voice|Hyper Voice] and [m.group:body-slam|Body Slam]; carry [i.best:luckyegg|Lucky Egg]. What lifts it is [up:best_move|Hyper Voice], and what holds it back is [down:stats|its stats]."
+   "es": "[spd+|Rápido] pero [atk-|pega poco], con [hp-|poca vida] y [hb0|hitbox normal]. Empieza con [m.start:tackle|Placaje] y vincula [m.group:hyper-voice|Vozarrón] y [m.group:body-slam|Golpe Cuerpo]; lleva [i.best:luckyegg|Huevo Suerte]. Lo frenan [down:moves|los ataques que aprende].",
+   "en": "[spd+|Fast] but [atk-|hits soft], with [hp-|low HP] and a [hb0|normal hitbox]. Start with [m.start:tackle|Tackle] and bond [m.group:hyper-voice|Hyper Voice] and [m.group:body-slam|Body Slam]; carry [i.best:luckyegg|Lucky Egg]. [down:moves|The moves it learns] hold it back."
   },
   "53": {
    "fp": "070fee373e1e",
    "bfp": "a5cafdc3bc26",
-   "es": "[spd+|Rápido] y con [hb0|hitbox normal]. Empieza con [m.start:tackle|Placaje], vincula [m.group:hyper-voice|Vozarrón] y [m.group:body-slam|Golpe Cuerpo]; lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Vozarrón], y lo baja [down:moves|los ataques que aprende].",
-   "en": "[spd+|Fast] and with a [hb0|normal hitbox]. Start with [m.start:tackle|Tackle], bond [m.group:hyper-voice|Hyper Voice] and [m.group:body-slam|Body Slam]; carry [i.best:luckyegg|Lucky Egg]. What lifts it is [up:best_move|Hyper Voice], and what holds it back is [down:moves|the moves it learns]."
+   "es": "[spd+|Rápido] y con [hb0|hitbox normal]. Empieza con [m.start:tackle|Placaje], vincula [m.group:hyper-voice|Vozarrón] y [m.group:body-slam|Golpe Cuerpo]; lleva [i.best:luckyegg|Huevo Suerte]. Lo que más lo sube es [up:best_move|Vozarrón], pero lo frenan [down:moves|los ataques que aprende].",
+   "en": "[spd+|Fast] and with a [hb0|normal hitbox]. Start with [m.start:tackle|Tackle], bond [m.group:hyper-voice|Hyper Voice] and [m.group:body-slam|Body Slam]; carry [i.best:luckyegg|Lucky Egg]. What lifts it most is [up:best_move|Hyper Voice], but [down:moves|the moves it learns] hold it back."
   },
   "54": {
    "fp": "d49af4cf3eeb",
    "bfp": "4e939a63a9bd",
-   "es": "[hp-|Poca vida] y [hb+|hitbox pequeño]. Empieza con [m.start:confusion|Confusión], vincula [m.group:water-gun|Pistola Agua] (o [m.alt:hydro-pump|Hidrobomba]) y lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Pistola Agua], y lo baja [down:stats|sus estadísticas].",
-   "en": "[hp-|Low HP] and a [hb+|small hitbox]. Start with [m.start:confusion|Confusion], bond [m.group:water-gun|Water Gun] (or [m.alt:hydro-pump|Hydro Pump]) and carry [i.best:luckyegg|Lucky Egg]. What lifts it is [up:best_move|Water Gun], and what holds it back is [down:stats|its stats]."
+   "es": "[hb+|Hitbox pequeño] y con [hp-|poca vida]. Empieza con [m.start:confusion|Confusión] y vincula [m.group:water-gun|Pistola Agua] (o [m.alt:hydro-pump|Hidrobomba]); lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:late|cómo aguanta las partidas largas], aunque lo frenan [down:stats|sus estadísticas].",
+   "en": "[hb+|Small hitbox] and [hp-|low HP]. Start with [m.start:confusion|Confusion] and bond [m.group:water-gun|Water Gun] (or [m.alt:hydro-pump|Hydro Pump]); carry [i.best:luckyegg|Lucky Egg]. [up:late|How it holds up in long runs] lifts it, though [down:stats|its stats] hold it back."
   },
   "55": {
    "fp": "b13bff235138",
@@ -341,8 +341,8 @@
   "56": {
    "fp": "4fae94dcd06c",
    "bfp": "620716b0b191",
-   "es": "[hp-|Poca vida] y [hb0|hitbox normal]. Empieza con [m.start:karate-chop|Golpe Kárate], vincula [m.group:aura-sphere|Esfera Aural] y [m.group:hyper-voice|Vozarrón]; lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Esfera Aural], y lo baja [down:stats|sus estadísticas].",
-   "en": "[hp-|Low HP] and a [hb0|normal hitbox]. Start with [m.start:karate-chop|Karate Chop], bond [m.group:aura-sphere|Aura Sphere] and [m.group:hyper-voice|Hyper Voice]; carry [i.best:luckyegg|Lucky Egg]. What lifts it is [up:best_move|Aura Sphere], and what holds it back is [down:stats|its stats]."
+   "es": "Tiene [hp-|poca vida] y un [hb0|hitbox normal]. Empieza con [m.start:karate-chop|Golpe Kárate], vincula [m.group:aura-sphere|Esfera Aural] y [m.group:hyper-voice|Vozarrón]; lleva [i.best:luckyegg|Huevo Suerte]. Lo que más lo sube es [up:best_move|Esfera Aural], y lo frenan [down:stats|sus estadísticas].",
+   "en": "Has [hp-|low HP] and a [hb0|normal hitbox]. Start with [m.start:karate-chop|Karate Chop], bond [m.group:aura-sphere|Aura Sphere] and [m.group:hyper-voice|Hyper Voice]; carry [i.best:luckyegg|Lucky Egg]. What lifts it most is [up:best_move|Aura Sphere], and [down:stats|its stats] hold it back."
   },
   "57": {
    "fp": "03f05833af53",
@@ -359,20 +359,20 @@
   "59": {
    "fp": "65a0ee10591c",
    "bfp": "3e43a42ec887",
-   "es": "[spd+|Rápido], [hp+|mucha vida] y [atk+|pega fuerte], pero [hb-|hitbox grande]. Empieza con [m.start:ember|Ascuas], vincula [m.group:hyper-voice|Vozarrón] (o [m.alt:flame-wheel|Rueda Fuego]) y lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:stats|sus estadísticas], y lo baja [down:hitbox|su hitbox grande].",
-   "en": "[spd+|Fast], [hp+|lots of HP] and [atk+|hits hard], but a [hb-|big hitbox]. Start with [m.start:ember|Ember], bond [m.group:hyper-voice|Hyper Voice] (or [m.alt:flame-wheel|Flame Wheel]) and carry [i.best:luckyegg|Lucky Egg]. What lifts it is [up:stats|its stats], and what holds it back is [down:hitbox|its big hitbox]."
+   "es": "[spd+|Rápido], [atk+|pega fuerte] y con [hp+|mucha vida], aunque tiene [hb-|hitbox grande]. Empieza con [m.start:ember|Ascuas] y vincula [m.group:hyper-voice|Vozarrón] (o [m.alt:heat-wave|Onda Ígnea]); lleva [i.best:luckyegg|Huevo Suerte]. Lo suben [up:stats|sus estadísticas], y lo frena [down:hitbox|su hitbox grande].",
+   "en": "[spd+|Fast], [atk+|hits hard] and with [hp+|lots of HP], though it has a [hb-|big hitbox]. Start with [m.start:ember|Ember] and bond [m.group:hyper-voice|Hyper Voice] (or [m.alt:heat-wave|Heat Wave]); carry [i.best:luckyegg|Lucky Egg]. [up:stats|Its stats] lift it, and [down:hitbox|its big hitbox] holds it back."
   },
   "60": {
    "fp": "15c88c98feec",
    "bfp": "3cdfa1489c3c",
-   "es": "[spd+|Rápido], pero [hp-|poca vida], [atk-|pega poco] y [hb-|hitbox grande]. Empieza con [m.start:water-gun|Pistola Agua], vincula [m.group:hyper-voice|Vozarrón] y lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Pistola Agua], y lo baja [down:stats|sus estadísticas].",
-   "en": "[spd+|Fast], but [hp-|low HP], [atk-|hits soft] and a [hb-|big hitbox]. Start with [m.start:water-gun|Water Gun], bond [m.group:hyper-voice|Hyper Voice] and carry [i.best:luckyegg|Lucky Egg]. What lifts it is [up:best_move|Water Gun], and what holds it back is [down:stats|its stats]."
+   "es": "[spd+|Rápido], pero [atk-|pega poco] y [hp-|poca vida], con [hb-|hitbox grande]. Empieza con [m.start:water-gun|Pistola Agua] y vincula [m.group:hyper-voice|Vozarrón] (o [m.alt:hydro-pump|Hidrobomba]); lleva [i.best:luckyegg|Huevo Suerte]. Lo frenan [down:stats|sus estadísticas].",
+   "en": "[spd+|Fast], but [atk-|hits soft] and [hp-|low HP], with a [hb-|big hitbox]. Start with [m.start:water-gun|Water Gun] and bond [m.group:hyper-voice|Hyper Voice] (or [m.alt:hydro-pump|Hydro Pump]); carry [i.best:luckyegg|Lucky Egg]. [down:stats|Its stats] hold it back."
   },
   "61": {
    "fp": "175c8cfd4665",
    "bfp": "8a9fcdadd755",
-   "es": "[spd+|Rápido] y con [hb0|hitbox normal]. Empieza con [m.start:water-gun|Pistola Agua], vincula [m.group:hyper-voice|Vozarrón] (o [m.alt:bubble-beam|Rayo Burbuja]) y lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:late|cómo aguanta las partidas largas], y lo baja [down:stats|sus estadísticas].",
-   "en": "[spd+|Fast] and with a [hb0|normal hitbox]. Start with [m.start:water-gun|Water Gun], bond [m.group:hyper-voice|Hyper Voice] (or [m.alt:bubble-beam|Bubble Beam]) and carry [i.best:luckyegg|Lucky Egg]. What lifts it is [up:late|how it holds up in long runs], and what holds it back is [down:stats|its stats]."
+   "es": "[spd+|Rápido] y con [hb0|hitbox normal]. Empieza con [m.start:water-gun|Pistola Agua], vincula [m.group:hyper-voice|Vozarrón] y [m.group:swords-dance|Danza Espada]; lleva [i.best:luckyegg|Huevo Suerte]. Lo que más lo sube es [up:best_move|Pistola Agua], y lo frenan [down:stats|sus estadísticas].",
+   "en": "[spd+|Fast] and with a [hb0|normal hitbox]. Start with [m.start:water-gun|Water Gun], bond [m.group:hyper-voice|Hyper Voice] and [m.group:swords-dance|Swords Dance]; carry [i.best:luckyegg|Lucky Egg]. What lifts it most is [up:best_move|Water Gun], and [down:stats|its stats] hold it back."
   },
   "62": {
    "fp": "840fb36fd658",
@@ -383,26 +383,26 @@
   "63": {
    "fp": "f716aa92972e",
    "bfp": "0004917c6869",
-   "es": "[spd+|Rápido] y [hp-|poca vida], con [hb+|hitbox pequeño] y [td-|sufre contra los tipos rivales]. Empieza con [m.start:confusion|Confusión], vincula [m.group:psychic|Psíquico] (o [m.alt:psycho-cut|Psicocorte]) y lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:attack|su daño], y lo baja [down:stats|sus estadísticas].",
-   "en": "[spd+|Fast] and [hp-|low HP], with a [hb+|small hitbox] and it [td-|suffers against enemy types]. Start with [m.start:confusion|Confusion], bond [m.group:psychic|Psychic] (or [m.alt:psycho-cut|Psycho Cut]) and carry [i.best:luckyegg|Lucky Egg]. What lifts it is [up:attack|its damage], and what holds it back is [down:stats|its stats]."
+   "es": "[spd+|Rápido] y [hb+|hitbox pequeño], pero [hp-|poca vida] y [td-|sufre contra los tipos rivales]. Empieza con [m.start:confusion|Confusión] y vincula [m.group:psychic|Psíquico] (o [m.alt:psycho-cut|Psicocorte]); lleva [i.best:luckyegg|Huevo Suerte]. Lo frenan [down:stats|sus estadísticas].",
+   "en": "[spd+|Fast] and [hb+|small hitbox], but [hp-|low HP] and [td-|suffers against enemy types]. Start with [m.start:confusion|Confusion] and bond [m.group:psychic|Psychic] (or [m.alt:psycho-cut|Psycho Cut]); carry [i.best:luckyegg|Lucky Egg]. [down:stats|Its stats] hold it back."
   },
   "64": {
    "fp": "25a8460387a3",
    "bfp": "cd8535d9467f",
-   "es": "[spd+|Rápido] y [atk+|pega fuerte], pero [hp-|poca vida], [hb-|hitbox grande] y [td-|sufre contra los tipos rivales]. Empieza con [m.start:confusion|Confusión], vincula [m.group:psychic|Psíquico] y lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Psíquico], y lo baja [down:typedef|sus tipos].",
-   "en": "[spd+|Fast] and [atk+|hits hard], but [hp-|low HP], a [hb-|big hitbox] and it [td-|suffers against enemy types]. Start with [m.start:confusion|Confusion], bond [m.group:psychic|Psychic] and carry [i.best:luckyegg|Lucky Egg]. What lifts it is [up:best_move|Psychic], and what holds it back is [down:typedef|its types]."
+   "es": "[spd+|Rápido] y [atk+|pega fuerte], con [hp-|poca vida] y [hb-|hitbox grande]. Empieza con [m.start:confusion|Confusión], vincula [m.group:psychic|Psíquico] y [m.group:hyper-voice|Vozarrón]; lleva [i.best:luckyegg|Huevo Suerte]. Lo que más lo sube es [up:best_move|Psíquico], y lo frenan [down:typedef|sus tipos].",
+   "en": "[spd+|Fast] and [atk+|hits hard], with [hp-|low HP] and a [hb-|big hitbox]. Start with [m.start:confusion|Confusion], bond [m.group:psychic|Psychic] and [m.group:hyper-voice|Hyper Voice]; carry [i.best:luckyegg|Lucky Egg]. What lifts it most is [up:best_move|Psychic], and [down:typedef|its types] hold it back."
   },
   "65": {
    "fp": "f1c8f96f8585",
    "bfp": "94afc9e23ff4",
-   "es": "[spd+|Rápido] y [atk+|pega fuerte], con [hb0|hitbox normal], aunque [td-|sufre contra los tipos rivales]. Empieza con [m.start:confusion|Confusión], vincula [m.group:psychic|Psíquico] y [m.group:hyper-voice|Vozarrón]; lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:stats|sus estadísticas], y lo baja [down:typedef|sus tipos].",
-   "en": "[spd+|Fast] and [atk+|hits hard], with a [hb0|normal hitbox], though it [td-|suffers against enemy types]. Start with [m.start:confusion|Confusion], bond [m.group:psychic|Psychic] and [m.group:hyper-voice|Hyper Voice]; carry [i.best:luckyegg|Lucky Egg]. What lifts it is [up:stats|its stats], and what holds it back is [down:typedef|its types]."
+   "es": "[spd+|Rápido] y [atk+|pega fuerte], con [hb0|hitbox normal], aunque [td-|sufre contra los tipos rivales]. Empieza con [m.start:confusion|Confusión] y vincula [m.group:psychic|Psíquico]; lleva [i.best:luckyegg|Huevo Suerte]. Lo suben [up:stats|sus estadísticas], y lo frenan [down:typedef|sus tipos].",
+   "en": "[spd+|Fast] and [atk+|hits hard], with a [hb0|normal hitbox], though [td-|suffers against enemy types]. Start with [m.start:confusion|Confusion] and bond [m.group:psychic|Psychic]; carry [i.best:luckyegg|Lucky Egg]. [up:stats|Its stats] lift it, and [down:typedef|its types] hold it back."
   },
   "66": {
    "fp": "39b751c38b1a",
    "bfp": "cb2a6d9a96d9",
-   "es": "[spd-|Lento], con [hb+|hitbox pequeño]. Empieza con [m.start:karate-chop|Golpe Kárate], vincula [m.group:aura-sphere|Esfera Aural] y [m.group:hyper-voice|Vozarrón]; lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:hitbox|su hitbox pequeño], y lo baja [down:stats|sus estadísticas].",
-   "en": "[spd-|Slow], with a [hb+|small hitbox]. Start with [m.start:karate-chop|Karate Chop], bond [m.group:aura-sphere|Aura Sphere] and [m.group:hyper-voice|Hyper Voice]; carry [i.best:luckyegg|Lucky Egg]. What lifts it is [up:hitbox|its small hitbox], and what holds it back is [down:stats|its stats]."
+   "es": "[spd-|Lento], pero con [hb+|hitbox pequeño]. Empieza con [m.start:karate-chop|Golpe Kárate] y vincula [m.group:aura-sphere|Esfera Aural] (o [m.alt:body-slam|Golpe Cuerpo]); lleva [i.best:luckyegg|Huevo Suerte]. Lo que más lo sube es [up:best_move|Esfera Aural], y lo frenan [down:stats|sus estadísticas].",
+   "en": "[spd-|Slow], but with a [hb+|small hitbox]. Start with [m.start:karate-chop|Karate Chop] and bond [m.group:aura-sphere|Aura Sphere] (or [m.alt:body-slam|Body Slam]); carry [i.best:luckyegg|Lucky Egg]. What lifts it most is [up:best_move|Aura Sphere], and [down:stats|its stats] hold it back."
   },
   "67": {
    "fp": "977dfd2ab2fe",
@@ -419,8 +419,8 @@
   "69": {
    "fp": "0c879124b766",
    "bfp": "bab3056e5381",
-   "es": "[spd-|Lento] y [hp-|poca vida], pero [hb+|hitbox pequeño] y [td+|aguanta bien los tipos rivales]. Empieza con [m.start:vine-whip|Látigo Cepa], vincula [m.group:sludge|Residuos] y [m.group:leaf-storm|Tormenta Floral]; lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:hitbox|su hitbox pequeño], y lo baja [down:stats|sus estadísticas].",
-   "en": "[spd-|Slow] and [hp-|low HP], but a [hb+|small hitbox] and it [td+|shrugs off enemy types]. Start with [m.start:vine-whip|Vine Whip], bond [m.group:sludge|Sludge] and [m.group:leaf-storm|Petal Blizzard]; carry [i.best:luckyegg|Lucky Egg]. What lifts it is [up:hitbox|its small hitbox], and what holds it back is [down:stats|its stats]."
+   "es": "[spd-|Lento] y con [hp-|poca vida], aunque [td+|aguanta bien los tipos rivales] y tiene [hb+|hitbox pequeño]. Empieza con [m.start:vine-whip|Látigo Cepa], vincula [m.group:sludge|Residuos] y [m.group:leaf-storm|Tormenta Floral]; lleva [i.best:luckyegg|Huevo Suerte]. Lo frenan [down:stats|sus estadísticas].",
+   "en": "[spd-|Slow] and with [hp-|low HP], though [td+|shrugs off enemy types] and has a [hb+|small hitbox]. Start with [m.start:vine-whip|Vine Whip], bond [m.group:sludge|Sludge] and [m.group:leaf-storm|Petal Blizzard]; carry [i.best:luckyegg|Lucky Egg]. [down:stats|Its stats] hold it back."
   },
   "70": {
    "fp": "7c218645a993",
@@ -431,14 +431,14 @@
   "71": {
    "fp": "693e73a110f2",
    "bfp": "b0585fa43a27",
-   "es": "[avg|Del montón en velocidad, vida y daño], [hb0|hitbox normal] y [td+|aguanta bien los tipos rivales]. Empieza con [m.start:vine-whip|Látigo Cepa], vincula [m.group:poison-sting|Picotazo Veneno] (o [m.alt:sludge|Residuos]) y [m.group:leaf-storm|Tormenta Floral]; lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:stats|sus estadísticas], y [nodown|nada lo frena].",
-   "en": "[avg|Average speed, HP and damage], a [hb0|normal hitbox] and it [td+|shrugs off enemy types]. Start with [m.start:vine-whip|Vine Whip], bond [m.group:poison-sting|Poison Sting] (or [m.alt:sludge|Sludge]) and [m.group:leaf-storm|Petal Blizzard]; carry [i.best:luckyegg|Lucky Egg]. What lifts it is [up:stats|its stats], and [nodown|nothing holds it back]."
+   "es": "[avg|Del montón en velocidad, vida y daño], con [hb0|hitbox normal] y [td+|aguanta bien los tipos rivales]. Empieza con [m.start:vine-whip|Látigo Cepa], vincula [m.group:poison-sting|Picotazo Veneno] y [m.group:leaf-storm|Tormenta Floral]; lleva [i.best:luckyegg|Huevo Suerte]. Lo suben [up:stats|sus estadísticas], y [nodown|nada lo frena].",
+   "en": "[avg|Average speed, HP and damage], with a [hb0|normal hitbox] and [td+|shrugs off enemy types]. Start with [m.start:vine-whip|Vine Whip], bond [m.group:poison-sting|Poison Sting] and [m.group:leaf-storm|Petal Blizzard]; carry [i.best:luckyegg|Lucky Egg]. [up:stats|Its stats] lift it, and [nodown|nothing holds it back]."
   },
   "72": {
    "fp": "b473bb771123",
    "bfp": "68f85f91d860",
-   "es": "[hp-|Poca vida] y [atk-|pega poco], pero [hb+|hitbox pequeño] y [td+|aguanta bien los tipos rivales]. Empieza con [m.start:water-gun|Pistola Agua], vincula [m.group:sludge|Residuos] y lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:hitbox|su hitbox pequeño], y lo baja [down:stats|sus estadísticas].",
-   "en": "[hp-|Low HP] and [atk-|hits soft], but a [hb+|small hitbox] and it [td+|shrugs off enemy types]. Start with [m.start:water-gun|Water Gun], bond [m.group:sludge|Sludge] and carry [i.best:luckyegg|Lucky Egg]. What lifts it is [up:hitbox|its small hitbox], and what holds it back is [down:stats|its stats]."
+   "es": "[atk-|Pega poco] y [hp-|poca vida], aunque [td+|aguanta bien los tipos rivales] y tiene [hb+|hitbox pequeño]. Empieza con [m.start:water-gun|Pistola Agua] y vincula [m.group:sludge|Residuos] (o [m.alt:poison-sting|Picotazo Veneno]); lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:hitbox|su hitbox pequeño], y lo frenan [down:stats|sus estadísticas].",
+   "en": "[atk-|Hits soft] and [hp-|low HP], though [td+|shrugs off enemy types] and has a [hb+|small hitbox]. Start with [m.start:water-gun|Water Gun] and bond [m.group:sludge|Sludge] (or [m.alt:poison-sting|Poison Sting]); carry [i.best:luckyegg|Lucky Egg]. [up:hitbox|Its small hitbox] lifts it, and [down:stats|its stats] hold it back."
   },
   "73": {
    "fp": "872a4328f38e",
@@ -449,20 +449,20 @@
   "74": {
    "fp": "e6fd88a5ca5e",
    "bfp": "defcc35a8bd9",
-   "es": "[spd-|Lento] y [hp-|poca vida], con [hb0|hitbox normal] y [td-|sufre contra los tipos rivales]. Empieza con [m.start:rock-throw|Lanzarrocas], vincula [m.group:rock-slide|Avalancha] y [m.group:mud-shot|Disparo Lodo]; lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Avalancha], y lo baja [down:typedef|sus tipos].",
-   "en": "[spd-|Slow] and [hp-|low HP], with a [hb0|normal hitbox] and it [td-|suffers against enemy types]. Start with [m.start:rock-throw|Rock Throw], bond [m.group:rock-slide|Rock Slide] and [m.group:mud-shot|Mud Shot]; carry [i.best:luckyegg|Lucky Egg]. What lifts it is [up:best_move|Rock Slide], and what holds it back is [down:typedef|its types]."
+   "es": "[spd-|Lento] y con [hp-|poca vida], [hb0|hitbox normal] y [td-|sufre contra los tipos rivales]. Empieza con [m.start:rock-throw|Lanzarrocas], vincula [m.group:rock-slide|Avalancha] y [m.group:mud-shot|Disparo Lodo]; lleva [i.best:luckyegg|Huevo Suerte]. Lo frenan [down:stats|sus estadísticas].",
+   "en": "[spd-|Slow] and with [hp-|low HP], a [hb0|normal hitbox] and [td-|suffers against enemy types]. Start with [m.start:rock-throw|Rock Throw], bond [m.group:rock-slide|Rock Slide] and [m.group:mud-shot|Mud Shot]; carry [i.best:luckyegg|Lucky Egg]. [down:stats|Its stats] hold it back."
   },
   "75": {
    "fp": "13dccd2c237a",
    "bfp": "483ccde5871a",
-   "es": "[spd-|Lento], [hb-|hitbox grande] y [td-|sufre contra los tipos rivales]. Empieza con [m.start:rock-throw|Lanzarrocas], vincula [m.group:rock-slide|Avalancha] y [m.group:mud-shot|Disparo Lodo]; lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Avalancha], y lo baja [down:typedef|sus tipos].",
-   "en": "[spd-|Slow], a [hb-|big hitbox] and it [td-|suffers against enemy types]. Start with [m.start:rock-throw|Rock Throw], bond [m.group:rock-slide|Rock Slide] and [m.group:mud-shot|Mud Shot]; carry [i.best:luckyegg|Lucky Egg]. What lifts it is [up:best_move|Rock Slide], and what holds it back is [down:typedef|its types]."
+   "es": "[spd-|Lento], con [hb-|hitbox grande], y [td-|sufre contra los tipos rivales]. Empieza con [m.start:rock-throw|Lanzarrocas] y vincula [m.group:rock-slide|Avalancha] (o [m.alt:bonemerang|Huesomerang]); lleva [i.best:luckyegg|Huevo Suerte]. Lo que más lo sube es [up:best_move|Avalancha], y lo frenan [down:typedef|sus tipos].",
+   "en": "[spd-|Slow], with a [hb-|big hitbox], and [td-|suffers against enemy types]. Start with [m.start:rock-throw|Rock Throw] and bond [m.group:rock-slide|Rock Slide] (or [m.alt:bonemerang|Bonemerang]); carry [i.best:luckyegg|Lucky Egg]. What lifts it most is [up:best_move|Rock Slide], and [down:typedef|its types] hold it back."
   },
   "76": {
    "fp": "87b9ba3737cb",
    "bfp": "842a25b2c6e1",
-   "es": "[atk+|Pega fuerte], [hb0|hitbox normal] y [td-|sufre contra los tipos rivales]. Empieza con [m.start:rock-throw|Lanzarrocas], vincula [m.group:rock-slide|Avalancha] y [m.group:mud-shot|Disparo Lodo]; lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:moves|los ataques que aprende], y lo baja [down:typedef|sus tipos].",
-   "en": "[atk+|Hits hard], a [hb0|normal hitbox] and it [td-|suffers against enemy types]. Start with [m.start:rock-throw|Rock Throw], bond [m.group:rock-slide|Rock Slide] and [m.group:mud-shot|Mud Shot]; carry [i.best:luckyegg|Lucky Egg]. What lifts it is [up:moves|the moves it learns], and what holds it back is [down:typedef|its types]."
+   "es": "[atk+|Pega fuerte], con [hb0|hitbox normal], aunque [td-|sufre contra los tipos rivales]. Empieza con [m.start:rock-throw|Lanzarrocas], vincula [m.group:rock-slide|Avalancha] y [m.group:mud-shot|Disparo Lodo]; lleva [i.best:luckyegg|Huevo Suerte]. Lo suben [up:moves|los ataques que aprende], y lo frenan [down:typedef|sus tipos].",
+   "en": "[atk+|Hits hard], with a [hb0|normal hitbox], though [td-|suffers against enemy types]. Start with [m.start:rock-throw|Rock Throw], bond [m.group:rock-slide|Rock Slide] and [m.group:mud-shot|Mud Shot]; carry [i.best:luckyegg|Lucky Egg]. [up:moves|The moves it learns] lift it, and [down:typedef|its types] hold it back."
   },
   "77": {
    "fp": "40df80822f34",
@@ -485,8 +485,8 @@
   "80": {
    "fp": "c64acab39615",
    "bfp": "dc5676e7d392",
-   "es": "[spd-|Lento] y [hp+|mucha vida], pero [hb-|hitbox grande] y [td-|sufre contra los tipos rivales]. Empieza con [m.start:water-gun|Pistola Agua] y vincula [m.group:psychic|Psíquico] (o [m.alt:hyper-voice|Vozarrón]) y [m.group:water-gun|Pistola Agua]; lleva [i.best:luckyegg|Huevo Suerte]. Lo suben [up:moves|los ataques que aprende], y lo frena [down:typedef|sus tipos].",
-   "en": "[spd-|Slow] with [hp+|lots of HP], but a [hb-|big hitbox] and it [td-|suffers against enemy types]. Start with [m.start:water-gun|Water Gun] and bond [m.group:psychic|Psychic] (or [m.alt:hyper-voice|Hyper Voice]) and [m.group:water-gun|Water Gun]; carry [i.best:luckyegg|Lucky Egg]. [up:moves|The moves it learns] lift it, and [down:typedef|its types] hold it back."
+   "es": "[spd-|Lento] y con [hp+|mucha vida], pero [hb-|hitbox grande] y [td-|sufre contra los tipos rivales]. Empieza con [m.start:water-gun|Pistola Agua] y vincula [m.group:psychic|Psíquico] (o [m.alt:hyper-voice|Vozarrón]); lleva [i.best:luckyegg|Huevo Suerte]. Lo suben [up:moves|los ataques que aprende], y lo frena [down:hitbox|su hitbox grande].",
+   "en": "[spd-|Slow] and with [hp+|lots of HP], but a [hb-|big hitbox] and [td-|suffers against enemy types]. Start with [m.start:water-gun|Water Gun] and bond [m.group:psychic|Psychic] (or [m.alt:hyper-voice|Hyper Voice]); carry [i.best:luckyegg|Lucky Egg]. [up:moves|The moves it learns] lift it, and [down:hitbox|its big hitbox] holds it back."
   },
   "81": {
    "fp": "9e36d9552e59",
@@ -587,8 +587,8 @@
   "97": {
    "fp": "321ebeaaa976",
    "bfp": "97ed3f0d54d2",
-   "es": "[hp+|Mucha vida], pero [hb-|hitbox grande] y [td-|sufre contra los tipos rivales]. Empieza con [m.start:confusion|Confusión] y vincula [m.group:psychic|Psíquico] y [m.group:hyper-voice|Vozarrón] (o [m.alt:psycho-cut|Psicocorte]); lleva [i.best:luckyegg|Huevo Suerte]. Lo levanta [up:best_move|Psíquico], y lo frena [down:typedef|sus tipos].",
-   "en": "[hp+|Lots of HP], but a [hb-|big hitbox] and it [td-|suffers against enemy types]. Start with [m.start:confusion|Confusion] and bond [m.group:psychic|Psychic] and [m.group:hyper-voice|Hyper Voice] (or [m.alt:psycho-cut|Psycho Cut]); carry [i.best:luckyegg|Lucky Egg]. [up:best_move|Psychic] lifts it, and [down:typedef|its types] hold it back."
+   "es": "Tiene [hp+|mucha vida], [hb-|hitbox grande] y [td-|sufre contra los tipos rivales]. Empieza con [m.start:confusion|Confusión], vincula [m.group:psychic|Psíquico] y [m.group:hyper-voice|Vozarrón]; lleva [i.best:luckyegg|Huevo Suerte]. Lo que más lo sube es [up:best_move|Psíquico], y lo frenan [down:typedef|sus tipos].",
+   "en": "Has [hp+|lots of HP], a [hb-|big hitbox] and [td-|suffers against enemy types]. Start with [m.start:confusion|Confusion], bond [m.group:psychic|Psychic] and [m.group:hyper-voice|Hyper Voice]; carry [i.best:luckyegg|Lucky Egg]. What lifts it most is [up:best_move|Psychic], and [down:typedef|its types] hold it back."
   },
   "98": {
    "fp": "6ff112a9ab4d",
@@ -623,8 +623,8 @@
   "103": {
    "fp": "0af0c54bd6f7",
    "bfp": "530cc0970fc8",
-   "es": "[hp+|Mucha vida] y [atk+|pega fuerte], pero [hb-|hitbox grande] y [td-|sufre contra los tipos rivales]. Empieza con [m.start:vine-whip|Látigo Cepa] y vincula [m.group:psychic|Psíquico] y [m.group:leaf-storm|Tormenta Floral] (o [m.alt:confusion|Confusión]); lleva [i.best:luckyegg|Huevo Suerte]. Lo suben [up:stats|sus estadísticas], y lo frena [down:typedef|sus tipos].",
-   "en": "[hp+|Lots of HP] and [atk+|hits hard], but a [hb-|big hitbox] and it [td-|suffers against enemy types]. Start with [m.start:vine-whip|Vine Whip] and bond [m.group:psychic|Psychic] and [m.group:leaf-storm|Petal Blizzard] (or [m.alt:confusion|Confusion]); carry [i.best:luckyegg|Lucky Egg]. [up:stats|Its stats] lift it, and [down:typedef|its types] hold it back."
+   "es": "[atk+|Pega fuerte] y con [hp+|mucha vida], pero [hb-|hitbox grande] y [td-|sufre contra los tipos rivales]. Empieza con [m.start:vine-whip|Látigo Cepa], vincula [m.group:psychic|Psíquico] y [m.group:leaf-storm|Tormenta Floral]; lleva [i.best:luckyegg|Huevo Suerte]. Lo suben [up:stats|sus estadísticas], y lo frenan [down:typedef|sus tipos].",
+   "en": "[atk+|Hits hard] and with [hp+|lots of HP], but a [hb-|big hitbox] and [td-|suffers against enemy types]. Start with [m.start:vine-whip|Vine Whip], bond [m.group:psychic|Psychic] and [m.group:leaf-storm|Petal Blizzard]; carry [i.best:luckyegg|Lucky Egg]. [up:stats|Its stats] lift it, and [down:typedef|its types] hold it back."
   },
   "104": {
    "fp": "6647d9b210fb",
@@ -677,8 +677,8 @@
   "112": {
    "fp": "2cc7efce683c",
    "bfp": "b6f7581c3ecf",
-   "es": "[spd-|Lento], [hp+|mucha vida] y [atk+|pega fuerte], con [hb-|hitbox grande] y [td-|sufre contra los tipos rivales]. Empieza con [m.start:mud-shot|Disparo Lodo] y vincula [m.group:rock-slide|Avalancha] y [m.group:mud-shot|Disparo Lodo] (o [m.alt:rock-throw|Lanzarrocas]); lleva [i.best:luckyegg|Huevo Suerte]. Lo suben [up:moves|los ataques que aprende], y lo frena [down:typedef|sus tipos].",
-   "en": "[spd-|Slow], but [hp+|lots of HP] and [atk+|hits hard], with a [hb-|big hitbox] and it [td-|suffers against enemy types]. Start with [m.start:mud-shot|Mud Shot] and bond [m.group:rock-slide|Rock Slide] and [m.group:mud-shot|Mud Shot] (or [m.alt:rock-throw|Rock Throw]); carry [i.best:luckyegg|Lucky Egg]. [up:moves|The moves it learns] lift it, and [down:typedef|its types] hold it back."
+   "es": "[atk+|Pega fuerte] y con [hp+|mucha vida], pero [spd-|lento] y [hb-|hitbox grande]. Empieza con [m.start:mud-shot|Disparo Lodo] y vincula [m.group:rock-slide|Avalancha] (o [m.alt:bonemerang|Huesomerang]); lleva [i.best:luckyegg|Huevo Suerte]. Lo frenan [down:typedef|sus tipos].",
+   "en": "[atk+|Hits hard] and with [hp+|lots of HP], but [spd-|slow] and a [hb-|big hitbox]. Start with [m.start:mud-shot|Mud Shot] and bond [m.group:rock-slide|Rock Slide] (or [m.alt:bonemerang|Bonemerang]); carry [i.best:luckyegg|Lucky Egg]. [down:typedef|Its types] hold it back."
   },
   "113": {
    "fp": "fc0d55348d95",
@@ -731,14 +731,14 @@
   "121": {
    "fp": "8b75ceddd3f8",
    "bfp": "d0251451a610",
-   "es": "Es [spd+|rápido], con [hb+|hitbox pequeño], aunque [td-|sufre contra los tipos rivales]. Empieza con [m.start:water-gun|Pistola Agua] y vincula [m.group:psychic|Psíquico] (o [m.alt:hyper-voice|Vozarrón]); lleva [i.best:luckyegg|Huevo Suerte]. Lo que más lo sube es [up:late|cómo aguanta las partidas largas], y lo frena [down:typedef|sus tipos].",
-   "en": "Is [spd+|fast], with a [hb+|small hitbox], though it [td-|suffers against enemy types]. Start with [m.start:water-gun|Water Gun] and bond [m.group:psychic|Psychic] (or [m.alt:hyper-voice|Hyper Voice]); carry [i.best:luckyegg|Lucky Egg]. What lifts it most is [up:late|how it holds up in long runs], and [down:typedef|its types] hold it back."
+   "es": "[spd+|Rápido] y [hb+|hitbox pequeño], aunque [td-|sufre contra los tipos rivales]. Empieza con [m.start:water-gun|Pistola Agua], vincula [m.group:psychic|Psíquico] y [m.group:water-gun|Pistola Agua]; lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:late|cómo aguanta las partidas largas], y lo frenan [down:typedef|sus tipos].",
+   "en": "[spd+|Fast] and [hb+|small hitbox], though [td-|suffers against enemy types]. Start with [m.start:water-gun|Water Gun], bond [m.group:psychic|Psychic] and [m.group:water-gun|Water Gun]; carry [i.best:luckyegg|Lucky Egg]. [up:late|How it holds up in long runs] lifts it, and [down:typedef|its types] hold it back."
   },
   "122": {
    "fp": "46bd4930e8e2",
    "bfp": "28e650d02f2d",
-   "es": "Sale [spd+|rápido] pero con [hp-|poca vida]. Empieza con [m.start:confusion|Confusión], vincula [m.group:psychic|Psíquico] y [m.group:fairy-wind|Viento Feérico]; lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:attack|su daño], y lo baja [down:stats|sus estadísticas].",
-   "en": "Comes out [spd+|fast] but with [hp-|low HP]. Start with [m.start:confusion|Confusion], bond [m.group:psychic|Psychic] and [m.group:fairy-wind|Fairy Wind]; carry [i.best:luckyegg|Lucky Egg]. [up:attack|Its damage] lifts it, and [down:stats|its stats] pull it down."
+   "es": "[spd+|Rápido], con [hp-|poca vida] y [hb0|hitbox normal]. Empieza con [m.start:confusion|Confusión], vincula [m.group:psychic|Psíquico] y [m.group:fairy-wind|Viento Feérico]; lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:attack|su daño], y lo frenan [down:stats|sus estadísticas].",
+   "en": "[spd+|Fast], with [hp-|low HP] and a [hb0|normal hitbox]. Start with [m.start:confusion|Confusion], bond [m.group:psychic|Psychic] and [m.group:fairy-wind|Fairy Wind]; carry [i.best:luckyegg|Lucky Egg]. [up:attack|Its damage] lifts it, and [down:stats|its stats] hold it back."
   },
   "123": {
    "fp": "52e789532e04",
@@ -761,8 +761,8 @@
   "126": {
    "fp": "e553ea7806ba",
    "bfp": "17d67867c7c5",
-   "es": "Corre [spd+|rápido]. Empieza con [m.start:ember|Ascuas], vincula [m.group:hyper-voice|Vozarrón] (o [m.alt:heat-wave|Onda Ígnea]) y lleva [i.best:luckyegg|Huevo Suerte]. Lo levanta [up:best_move|Ascuas], y lo baja [down:typedef|sus tipos].",
-   "en": "Moves [spd+|fast]. Start with [m.start:ember|Ember], bond [m.group:hyper-voice|Hyper Voice] (or [m.alt:heat-wave|Heat Wave]) and carry [i.best:luckyegg|Lucky Egg]. [up:best_move|Ember] lifts it, and [down:typedef|its types] pull it down."
+   "es": "[spd+|Rápido] y con [hb0|hitbox normal]. Empieza con [m.start:ember|Ascuas], vincula [m.group:hyper-voice|Vozarrón] (o [m.alt:heat-wave|Onda Ígnea]); lleva [i.best:luckyegg|Huevo Suerte]. Lo que más lo sube es [up:best_move|Ascuas], y lo frenan [down:typedef|sus tipos].",
+   "en": "[spd+|Fast] and with a [hb0|normal hitbox]. Start with [m.start:ember|Ember], bond [m.group:hyper-voice|Hyper Voice] (or [m.alt:heat-wave|Heat Wave]); carry [i.best:luckyegg|Lucky Egg]. What lifts it most is [up:best_move|Ember], and [down:typedef|its types] hold it back."
   },
   "127": {
    "fp": "00b945643828",
@@ -839,8 +839,8 @@
   "139": {
    "fp": "5f8328aa916a",
    "bfp": "65da5758f810",
-   "es": "[atk+|Pega fuerte], pero [td-|sufre contra los tipos rivales]. Empieza con [m.start:rock-throw|Lanzarrocas] y vincula [m.group:rock-slide|Avalancha] (o [m.alt:hydro-pump|Hidrobomba]); lleva [i.best:luckyegg|Huevo Suerte]. Lo que más lo sube es [up:late|cómo aguanta las partidas largas], y lo frena [down:typedef|sus tipos].",
-   "en": "[atk+|Hits hard], but [td-|suffers against enemy types]. Start with [m.start:rock-throw|Rock Throw] and bond [m.group:rock-slide|Rock Slide] (or [m.alt:hydro-pump|Hydro Pump]); carry [i.best:luckyegg|Lucky Egg]. What lifts it most is [up:late|how it holds up in long runs], and [down:typedef|its types] hold it back."
+   "es": "[atk+|Pega fuerte], con [hb0|hitbox normal], aunque [td-|sufre contra los tipos rivales]. Empieza con [m.start:rock-throw|Lanzarrocas], vincula [m.group:rock-slide|Avalancha] y [m.group:water-gun|Pistola Agua]; lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:late|cómo aguanta las partidas largas], y lo frenan [down:typedef|sus tipos].",
+   "en": "[atk+|Hits hard], with a [hb0|normal hitbox], though [td-|suffers against enemy types]. Start with [m.start:rock-throw|Rock Throw], bond [m.group:rock-slide|Rock Slide] and [m.group:water-gun|Water Gun]; carry [i.best:luckyegg|Lucky Egg]. [up:late|How it holds up in long runs] lifts it, and [down:typedef|its types] hold it back."
   },
   "140": {
    "fp": "3390a362debe",
@@ -905,8 +905,8 @@
   "150": {
    "fp": "59630e11d736",
    "bfp": "7d2367321f68",
-   "es": "Es [spd+|rápido], con [hp+|mucha vida], [atk+|pega fuerte], pero [td-|sufre contra los tipos rivales]. Empieza con [m.start:confusion|Confusión] y vincula [m.group:psychic|Psíquico] y [m.group:hyper-voice|Vozarrón]; lleva [i.best:luckyegg|Huevo Suerte]. Lo que más lo sube es [up:stats|sus estadísticas], y lo frena [down:typedef|sus tipos].",
-   "en": "Is [spd+|fast], with [hp+|lots of HP], [atk+|hits hard], but [td-|suffers against enemy types]. Start with [m.start:confusion|Confusion] and bond [m.group:psychic|Psychic] and [m.group:hyper-voice|Hyper Voice]; carry [i.best:luckyegg|Lucky Egg]. What lifts it most is [up:stats|its stats], and [down:typedef|its types] hold it back."
+   "es": "[spd+|Rápido], con [hp+|mucha vida] y [atk+|pega fuerte], aunque [td-|sufre contra los tipos rivales]. Empieza con [m.start:confusion|Confusión] y vincula [m.group:psychic|Psíquico] y [m.group:hyper-voice|Vozarrón]; lleva [i.best:luckyegg|Huevo Suerte]. Lo suben [up:stats|sus estadísticas], pero lo frenan [down:typedef|sus tipos].",
+   "en": "[spd+|Fast], with [hp+|lots of HP] and [atk+|hits hard], though it [td-|suffers against enemy types]. Start with [m.start:confusion|Confusion] and bond [m.group:psychic|Psychic] and [m.group:hyper-voice|Hyper Voice]; carry [i.best:luckyegg|Lucky Egg]. [up:stats|Its stats] lift it, but [down:typedef|its types] hold it back."
   },
   "151": {
    "fp": "52df2978a331",
@@ -941,8 +941,8 @@
   "156": {
    "fp": "616741ac4a4e",
    "bfp": "55c2ede961a1",
-   "es": "Está [avg|del montón en velocidad, vida y daño]. Empieza con [m.start:ember|Ascuas], vincula [m.group:hyper-voice|Vozarrón] (o [m.alt:heat-wave|Onda Ígnea]) y lleva [i.best:luckyegg|Huevo Suerte]. Lo levanta [up:best_move|Ascuas], y lo frena [down:typedef|sus tipos].",
-   "en": "Lands [avg|average speed, HP and damage]. Start with [m.start:ember|Ember], bond [m.group:hyper-voice|Hyper Voice] (or [m.alt:heat-wave|Heat Wave]) and carry [i.best:luckyegg|Lucky Egg]. [up:best_move|Ember] lifts it, and [down:typedef|its types] hold it back."
+   "es": "[avg|Del montón en velocidad, vida y daño]. Empieza con [m.start:ember|Ascuas] y vincula [m.group:hyper-voice|Vozarrón] (o [m.alt:heat-wave|Onda Ígnea]); lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Ascuas], pero lo frenan [down:stats|sus estadísticas].",
+   "en": "[avg|Average speed, HP and damage]. Start with [m.start:ember|Ember] and bond [m.group:hyper-voice|Hyper Voice] (or [m.alt:heat-wave|Heat Wave]); carry [i.best:luckyegg|Lucky Egg]. [up:best_move|Ember] lifts it, but [down:stats|its stats] hold it back."
   },
   "157": {
    "fp": "a7efba4af978",
@@ -953,8 +953,8 @@
   "158": {
    "fp": "7639f4f2206a",
    "bfp": "3c71121eaa2a",
-   "es": "[spd-|Lento], con [hp-|poca vida] y [hb0|hitbox normal]. Empieza con [m.start:water-gun|Pistola Agua] y vincula [m.group:hyper-voice|Vozarrón] (o [m.alt:hydro-pump|Hidrobomba]); lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Pistola Agua], pero lo frena [down:stats|sus estadísticas].",
-   "en": "[spd-|Slow], with [hp-|low HP] and a [hb0|normal hitbox]. Start with [m.start:water-gun|Water Gun] and bond [m.group:hyper-voice|Hyper Voice] (or [m.alt:hydro-pump|Hydro Pump]); carry [i.best:luckyegg|Lucky Egg]. [up:best_move|Water Gun] lifts it, but [down:stats|its stats] hold it back."
+   "es": "[spd-|Lento] y con [hp-|poca vida]. Empieza con [m.start:water-gun|Pistola Agua], vincula [m.group:hyper-voice|Vozarrón] y [m.group:swords-dance|Danza Espada]; lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Pistola Agua], y lo frenan [down:stats|sus estadísticas].",
+   "en": "[spd-|Slow] and with [hp-|low HP]. Start with [m.start:water-gun|Water Gun], bond [m.group:hyper-voice|Hyper Voice] and [m.group:swords-dance|Swords Dance]; carry [i.best:luckyegg|Lucky Egg]. [up:best_move|Water Gun] lifts it, and [down:stats|its stats] hold it back."
   },
   "159": {
    "fp": "80425abeba6b",
@@ -977,14 +977,14 @@
   "162": {
    "fp": "04b68c68c48d",
    "bfp": "55c86fb7141c",
-   "es": "[spd+|Rápido] y con [hp+|mucha vida], pero [hb-|hitbox grande]. Empieza con [m.start:tackle|Placaje] y vincula [m.group:hyper-voice|Vozarrón] (o [m.alt:substitute|Sustituto]); lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Vozarrón], y lo baja [down:moves|los ataques que aprende].",
-   "en": "[spd+|Fast] and with [hp+|lots of HP], but a [hb-|big hitbox]. Start with [m.start:tackle|Tackle] and bond [m.group:hyper-voice|Hyper Voice] (or [m.alt:substitute|Substitute]); carry [i.best:luckyegg|Lucky Egg]. [up:best_move|Hyper Voice] lifts it, and [down:moves|the moves it learns] pull it down."
+   "es": "[spd+|Rápido] y con [hp+|mucha vida], pero tiene [hb-|hitbox grande]. Empieza con [m.start:tackle|Placaje] y vincula [m.group:hyper-voice|Vozarrón] y [m.group:body-slam|Golpe Cuerpo]; lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Vozarrón], y lo frena [down:hitbox|su hitbox grande].",
+   "en": "[spd+|Fast] and with [hp+|lots of HP], but has a [hb-|big hitbox]. Start with [m.start:tackle|Tackle] and bond [m.group:hyper-voice|Hyper Voice] and [m.group:body-slam|Body Slam]; carry [i.best:luckyegg|Lucky Egg]. [up:best_move|Hyper Voice] lifts it, and [down:hitbox|its big hitbox] holds it back."
   },
   "163": {
    "fp": "ef0891da1339",
    "bfp": "b96009122131",
-   "es": "[atk-|Pega poco] y con [hb+|hitbox pequeño]. Empieza con [m.start:tackle|Placaje], vincula [m.group:hyper-voice|Vozarrón] y [m.group:gust|Tornado]; lleva [i.best:luckyegg|Huevo Suerte]. Lo frena [down:stats|sus estadísticas].",
-   "en": "[atk-|Hits soft] and has a [hb+|small hitbox]. Start with [m.start:tackle|Tackle], bond [m.group:hyper-voice|Hyper Voice] and [m.group:gust|Gust]; carry [i.best:luckyegg|Lucky Egg]. What holds it back is [down:stats|its stats]."
+   "es": "[atk-|Pega poco], aunque tiene [hb+|hitbox pequeño]. Empieza con [m.start:tackle|Placaje] y vincula [m.group:hyper-voice|Vozarrón] y [m.group:gust|Tornado]; lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:hitbox|su hitbox pequeño], pero lo frenan [down:stats|sus estadísticas].",
+   "en": "[atk-|Hits soft], though it has a [hb+|small hitbox]. Start with [m.start:tackle|Tackle] and bond [m.group:hyper-voice|Hyper Voice] and [m.group:gust|Gust]; carry [i.best:luckyegg|Lucky Egg]. [up:hitbox|Its small hitbox] lifts it, but [down:stats|its stats] hold it back."
   },
   "164": {
    "fp": "03409b668cf6",
@@ -1007,8 +1007,8 @@
   "167": {
    "fp": "9e7a38387219",
    "bfp": "1b90bc94285a",
-   "es": "[spd-|Lento] y [atk-|pega poco], aunque [td+|aguanta bien los tipos rivales]. Empieza con [m.start:bug-bite|Picadura], vincula [m.group:sludge|Residuos] y [m.group:bug-buzz|Zumbido]; lleva [i.best:luckyegg|Huevo Suerte]. Lo baja [down:stats|sus estadísticas].",
-   "en": "[spd-|Slow] and [atk-|hits soft], though it [td+|shrugs off enemy types]. Start with [m.start:bug-bite|Bug Bite], bond [m.group:sludge|Sludge] and [m.group:bug-buzz|Bug Buzz]; carry [i.best:luckyegg|Lucky Egg]. What pulls it down is [down:stats|its stats]."
+   "es": "[spd-|Lento], [atk-|pega poco] y con [hp-|poca vida], pero [td+|aguanta bien los tipos rivales]. Empieza con [m.start:bug-bite|Picadura] y vincula [m.group:sludge|Residuos] y [m.group:bug-buzz|Zumbido]; lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Residuos], y lo frenan [down:stats|sus estadísticas].",
+   "en": "[spd-|Slow], [atk-|hits soft] and with [hp-|low HP], but [td+|shrugs off enemy types]. Start with [m.start:bug-bite|Bug Bite] and bond [m.group:sludge|Sludge] and [m.group:bug-buzz|Bug Buzz]; carry [i.best:luckyegg|Lucky Egg]. [up:best_move|Sludge] lifts it, and [down:stats|its stats] hold it back."
   },
   "168": {
    "fp": "c36532e1632c",
@@ -1019,8 +1019,8 @@
   "169": {
    "fp": "1069d0644494",
    "bfp": "f4751ed80f7c",
-   "es": "[spd+|Rápido] y [hp+|mucha vida], con [hb-|hitbox grande]. Empieza con [m.start:sludge|Residuos], vincula [m.group:poison-sting|Picotazo Veneno] y [m.group:gust|Tornado]; lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:stats|sus estadísticas], y lo baja [down:hitbox|su hitbox grande].",
-   "en": "[spd+|Fast] and [hp+|lots of HP], with a [hb-|big hitbox]. Start with [m.start:sludge|Sludge], bond [m.group:poison-sting|Poison Sting] and [m.group:gust|Gust]; carry [i.best:luckyegg|Lucky Egg]. [up:stats|Its stats] lift it, and [down:hitbox|its big hitbox] pulls it down."
+   "es": "[spd+|Rápido], con [hp+|mucha vida] y [td+|aguanta bien los tipos rivales], pese al [hb-|hitbox grande]. Empieza con [m.start:sludge|Residuos] y vincula [m.group:poison-sting|Picotazo Veneno] y [m.group:gust|Tornado]; lleva [i.best:luckyegg|Huevo Suerte]. Lo suben [up:stats|sus estadísticas], y lo frena [down:hitbox|su hitbox grande].",
+   "en": "[spd+|Fast], with [hp+|lots of HP] and it [td+|shrugs off enemy types], despite the [hb-|big hitbox]. Start with [m.start:sludge|Sludge] and bond [m.group:poison-sting|Poison Sting] and [m.group:gust|Gust]; carry [i.best:luckyegg|Lucky Egg]. [up:stats|Its stats] lift it, and [down:hitbox|its big hitbox] holds it back."
   },
   "170": {
    "fp": "b69f2f65931f",
@@ -1037,26 +1037,26 @@
   "172": {
    "fp": "d539421481c4",
    "bfp": "b895fe7ff37a",
-   "es": "[hp-|Poca vida] y [atk-|pega poco], con [hb0|hitbox normal]. Empieza con [m.start:thunder-shock|Impactrueno], vincula [m.group:hyper-voice|Vozarrón] (o [m.alt:thunderbolt|Rayo]); lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Impactrueno], y lo baja [down:stats|sus estadísticas].",
-   "en": "[hp-|Low HP] and [atk-|hits soft], with a [hb0|normal hitbox]. Start with [m.start:thunder-shock|Thunder Shock], bond [m.group:hyper-voice|Hyper Voice] (or [m.alt:thunderbolt|Thunderbolt]); carry [i.best:luckyegg|Lucky Egg]. [up:best_move|Thunder Shock] lifts it, and [down:stats|its stats] pull it down."
+   "es": "[hp-|Poca vida] y [atk-|pega poco]. Empieza con [m.start:thunder-shock|Impactrueno] y vincula [m.group:hyper-voice|Vozarrón] (o [m.alt:thunderbolt|Rayo]); lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Impactrueno], pero lo frenan [down:stats|sus estadísticas].",
+   "en": "[hp-|Low HP] and [atk-|hits soft]. Start with [m.start:thunder-shock|Thunder Shock] and bond [m.group:hyper-voice|Hyper Voice] (or [m.alt:thunderbolt|Thunderbolt]); carry [i.best:luckyegg|Lucky Egg]. [up:best_move|Thunder Shock] lifts it, but [down:stats|its stats] hold it back."
   },
   "173": {
    "fp": "20ca3f933f97",
    "bfp": "645ec11229c1",
-   "es": "[spd-|Lento], [atk-|pega poco] y [hb+|hitbox pequeño]. Empieza con [m.start:fairy-wind|Viento Feérico], vincula [m.group:hyper-voice|Vozarrón] (o [m.alt:dazzling-gleam|Brillo Mágico]); lleva [i.best:luckyegg|Huevo Suerte]. Lo frena [down:stats|sus estadísticas].",
-   "en": "[spd-|Slow], [atk-|hits soft] and a [hb+|small hitbox]. Start with [m.start:fairy-wind|Fairy Wind], bond [m.group:hyper-voice|Hyper Voice] (or [m.alt:dazzling-gleam|Dazzling Gleam]); carry [i.best:luckyegg|Lucky Egg]. What holds it back is [down:stats|its stats]."
+   "es": "[spd-|Lento] y [atk-|pega poco], con [hb+|hitbox pequeño]. Empieza con [m.start:fairy-wind|Viento Feérico] y vincula [m.group:hyper-voice|Vozarrón]; lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:hitbox|su hitbox pequeño], pero lo frena [down:late|cómo flojea en partidas largas].",
+   "en": "[spd-|Slow] and [atk-|hits soft], with a [hb+|small hitbox]. Start with [m.start:fairy-wind|Fairy Wind] and bond [m.group:hyper-voice|Hyper Voice]; carry [i.best:luckyegg|Lucky Egg]. [up:hitbox|Its small hitbox] lifts it, but [down:late|how it fades in long runs] holds it back."
   },
   "174": {
    "fp": "7b1effde6c77",
    "bfp": "86d7921dd624",
-   "es": "[spd-|Lento] y [atk-|pega poco], pero con [hp+|mucha vida] y [hb+|hitbox pequeño]. Empieza con [m.start:tackle|Placaje], vincula [m.group:fairy-wind|Viento Feérico] y [m.group:hyper-voice|Vozarrón]; lleva [i.best:luckyegg|Huevo Suerte]. Lo baja [down:stats|sus estadísticas].",
-   "en": "[spd-|Slow] and [atk-|hits soft], but with [hp+|lots of HP] and a [hb+|small hitbox]. Start with [m.start:tackle|Tackle], bond [m.group:fairy-wind|Fairy Wind] and [m.group:hyper-voice|Hyper Voice]; carry [i.best:luckyegg|Lucky Egg]. What pulls it down is [down:stats|its stats]."
+   "es": "[spd-|Lento] y [atk-|pega poco], aunque tiene [hp+|mucha vida] y [hb+|hitbox pequeño]. Empieza con [m.start:tackle|Placaje] y vincula [m.group:fairy-wind|Viento Feérico] y [m.group:hyper-voice|Vozarrón]; lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:hitbox|su hitbox pequeño], pero lo frenan [down:stats|sus estadísticas].",
+   "en": "[spd-|Slow] and [atk-|hits soft], though it has [hp+|lots of HP] and a [hb+|small hitbox]. Start with [m.start:tackle|Tackle] and bond [m.group:fairy-wind|Fairy Wind] and [m.group:hyper-voice|Hyper Voice]; carry [i.best:luckyegg|Lucky Egg]. [up:hitbox|Its small hitbox] lifts it, but [down:stats|its stats] hold it back."
   },
   "175": {
    "fp": "958dcd1134a3",
    "bfp": "12b3081fcc30",
-   "es": "[spd-|Lento], [hp-|poca vida] y [atk-|pega poco], con [hb+|hitbox pequeño]. Empieza con [m.start:fairy-wind|Viento Feérico] y vincula [m.group:hyper-voice|Vozarrón]; lleva [i.best:luckyegg|Huevo Suerte]. Lo frena [down:stats|sus estadísticas].",
-   "en": "[spd-|Slow], [hp-|low HP] and [atk-|hits soft], with a [hb+|small hitbox]. Start with [m.start:fairy-wind|Fairy Wind] and bond [m.group:hyper-voice|Hyper Voice]; carry [i.best:luckyegg|Lucky Egg]. What holds it back is [down:stats|its stats]."
+   "es": "[spd-|Lento], con [hp-|poca vida] y [atk-|pega poco], pese al [hb+|hitbox pequeño]. Empieza con [m.start:fairy-wind|Viento Feérico] y vincula [m.group:hyper-voice|Vozarrón]; lleva [i.best:luckyegg|Huevo Suerte]. Lo frenan [down:stats|sus estadísticas].",
+   "en": "[spd-|Slow], with [hp-|low HP] and [atk-|hits soft], despite the [hb+|small hitbox]. Start with [m.start:fairy-wind|Fairy Wind] and bond [m.group:hyper-voice|Hyper Voice]; carry [i.best:luckyegg|Lucky Egg]. [down:stats|Its stats] hold it back."
   },
   "176": {
    "fp": "d8182d25966e",
@@ -1067,20 +1067,20 @@
   "177": {
    "fp": "e334bd5bde30",
    "bfp": "a6a1e3090a63",
-   "es": "[hp-|Poca vida] y [hb+|hitbox pequeño], y [td-|sufre contra los tipos rivales]. Empieza con [m.start:confusion|Confusión], vincula [m.group:psychic|Psíquico] y [m.group:gust|Tornado]; lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Psíquico], y lo frena [down:stats|sus estadísticas].",
-   "en": "[hp-|Low HP] and a [hb+|small hitbox], and it [td-|suffers against enemy types]. Start with [m.start:confusion|Confusion], bond [m.group:psychic|Psychic] and [m.group:gust|Gust]; carry [i.best:luckyegg|Lucky Egg]. [up:best_move|Psychic] lifts it, and [down:stats|its stats] hold it back."
+   "es": "[hp-|Poca vida] y [hb+|hitbox pequeño], aunque [td-|sufre contra los tipos rivales]. Empieza con [m.start:confusion|Confusión] y vincula [m.group:psychic|Psíquico] y [m.group:gust|Tornado]; lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Psíquico], pero lo frenan [down:stats|sus estadísticas].",
+   "en": "[hp-|Low HP] and a [hb+|small hitbox], though it [td-|suffers against enemy types]. Start with [m.start:confusion|Confusion] and bond [m.group:psychic|Psychic] and [m.group:gust|Gust]; carry [i.best:luckyegg|Lucky Egg]. [up:best_move|Psychic] lifts it, but [down:stats|its stats] hold it back."
   },
   "178": {
    "fp": "cf69c817ecbd",
    "bfp": "9808995a5469",
-   "es": "[spd+|Rápido], con [hb0|hitbox normal], aunque [td-|sufre contra los tipos rivales]. Empieza con [m.start:confusion|Confusión], vincula [m.group:psychic|Psíquico] (o [m.alt:psycho-cut|Psicocorte]); lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Psíquico], y lo baja [down:typedef|sus tipos].",
-   "en": "[spd+|Fast], with a [hb0|normal hitbox], though it [td-|suffers against enemy types]. Start with [m.start:confusion|Confusion], bond [m.group:psychic|Psychic] (or [m.alt:psycho-cut|Psycho Cut]); carry [i.best:luckyegg|Lucky Egg]. [up:best_move|Psychic] lifts it, and [down:typedef|its types] pull it down."
+   "es": "[spd+|Rápido], aunque [td-|sufre contra los tipos rivales]. Empieza con [m.start:confusion|Confusión] y vincula [m.group:psychic|Psíquico] y [m.group:gust|Tornado]; lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Psíquico], pero lo frenan [down:typedef|sus tipos].",
+   "en": "[spd+|Fast], though it [td-|suffers against enemy types]. Start with [m.start:confusion|Confusion] and bond [m.group:psychic|Psychic] and [m.group:gust|Gust]; carry [i.best:luckyegg|Lucky Egg]. [up:best_move|Psychic] lifts it, but [down:typedef|its types] hold it back."
   },
   "179": {
    "fp": "a342c607c612",
    "bfp": "adcadb45ed5c",
-   "es": "[spd-|Lento] y [hb0|hitbox normal]. Empieza con [m.start:thunder-shock|Impactrueno], vincula [m.group:hyper-voice|Vozarrón] (o [m.alt:thunderbolt|Rayo]); lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Impactrueno], y lo frena [down:stats|sus estadísticas].",
-   "en": "[spd-|Slow] and a [hb0|normal hitbox]. Start with [m.start:thunder-shock|Thunder Shock], bond [m.group:hyper-voice|Hyper Voice] (or [m.alt:thunderbolt|Thunderbolt]); carry [i.best:luckyegg|Lucky Egg]. [up:best_move|Thunder Shock] lifts it, and [down:stats|its stats] hold it back."
+   "es": "[spd-|Lento]. Empieza con [m.start:thunder-shock|Impactrueno] y vincula [m.group:hyper-voice|Vozarrón] (o [m.alt:discharge|Chispazo]); lleva [i.best:luckyegg|Huevo Suerte]. Lo suben [up:moves|los ataques que aprende], pero lo frena [down:attack|su daño].",
+   "en": "[spd-|Slow]. Start with [m.start:thunder-shock|Thunder Shock] and bond [m.group:hyper-voice|Hyper Voice] (or [m.alt:discharge|Discharge]); carry [i.best:luckyegg|Lucky Egg]. [up:moves|The moves it learns] lift it, but [down:attack|its damage] holds it back."
   },
   "180": {
    "fp": "a97ae9d9c33f",
@@ -1097,26 +1097,26 @@
   "182": {
    "fp": "5b5d09d72758",
    "bfp": "c9c4066377b4",
-   "es": "[hb+|Hitbox pequeño] y [avg|del montón en velocidad, vida y daño]. Empieza con [m.start:vine-whip|Látigo Cepa], vincula [m.group:hyper-voice|Vozarrón] y [m.group:leaf-storm|Tormenta Floral]; lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Vozarrón], y lo baja [down:moves|los ataques que aprende].",
-   "en": "Has a [hb+|small hitbox] and [avg|average speed, HP and damage]. Start with [m.start:vine-whip|Vine Whip], bond [m.group:hyper-voice|Hyper Voice] and [m.group:leaf-storm|Petal Blizzard]; carry [i.best:luckyegg|Lucky Egg]. [up:best_move|Hyper Voice] lifts it, and [down:moves|the moves it learns] pull it down."
+   "es": "[hb+|Hitbox pequeño] y [avg|del montón en velocidad, vida y daño]. Empieza con [m.start:vine-whip|Látigo Cepa] y vincula [m.group:hyper-voice|Vozarrón] y [m.group:leaf-storm|Tormenta Floral]; lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Vozarrón], pero lo bajan [down:moves|los ataques que aprende].",
+   "en": "[hb+|Small hitbox] and [avg|average speed, HP and damage]. Start with [m.start:vine-whip|Vine Whip] and bond [m.group:hyper-voice|Hyper Voice] and [m.group:leaf-storm|Petal Blizzard]; carry [i.best:luckyegg|Lucky Egg]. [up:best_move|Hyper Voice] lifts it, but [down:moves|the moves it learns] hold it back."
   },
   "183": {
    "fp": "eee6a393aa80",
    "bfp": "93facfacf340",
-   "es": "[spd-|Lento] y [atk-|pega poco], aunque [td+|aguanta bien los tipos rivales]. Empieza con [m.start:water-gun|Pistola Agua], vincula [m.group:fairy-wind|Viento Feérico] (o [m.alt:dazzling-gleam|Brillo Mágico]); lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Pistola Agua], y lo frena [down:stats|sus estadísticas].",
-   "en": "[spd-|Slow] and [atk-|hits soft], though it [td+|shrugs off enemy types]. Start with [m.start:water-gun|Water Gun], bond [m.group:fairy-wind|Fairy Wind] (or [m.alt:dazzling-gleam|Dazzling Gleam]); carry [i.best:luckyegg|Lucky Egg]. [up:best_move|Water Gun] lifts it, and [down:stats|its stats] hold it back."
+   "es": "[spd-|Lento] y [atk-|pega poco], aunque [td+|aguanta bien los tipos rivales]. Empieza con [m.start:water-gun|Pistola Agua] y vincula [m.group:fairy-wind|Viento Feérico]; lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Pistola Agua], pero lo frenan [down:stats|sus estadísticas].",
+   "en": "[spd-|Slow] and [atk-|hits soft], though it [td+|shrugs off enemy types]. Start with [m.start:water-gun|Water Gun] and bond [m.group:fairy-wind|Fairy Wind]; carry [i.best:luckyegg|Lucky Egg]. [up:best_move|Water Gun] lifts it, but [down:stats|its stats] hold it back."
   },
   "184": {
    "fp": "8b24508caed9",
    "bfp": "15aa765e599f",
-   "es": "[hp+|Mucha vida] pero [atk-|pega poco], y [td+|aguanta bien los tipos rivales]. Empieza con [m.start:water-gun|Pistola Agua], vincula [m.group:fairy-wind|Viento Feérico] y [m.group:swords-dance|Danza Espada]; lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Pistola Agua], y lo baja [down:stats|sus estadísticas].",
-   "en": "[hp+|Lots of HP] but [atk-|hits soft], and it [td+|shrugs off enemy types]. Start with [m.start:water-gun|Water Gun], bond [m.group:fairy-wind|Fairy Wind] and [m.group:swords-dance|Swords Dance]; carry [i.best:luckyegg|Lucky Egg]. [up:best_move|Water Gun] lifts it, and [down:stats|its stats] pull it down."
+   "es": "[hp+|Mucha vida] pero [atk-|pega poco], y [td+|aguanta bien los tipos rivales]. Empieza con [m.start:water-gun|Pistola Agua] y vincula [m.group:fairy-wind|Viento Feérico] (o [m.alt:dazzling-gleam|Brillo Mágico]); lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:late|cómo aguanta las partidas largas], pero lo frenan [down:stats|sus estadísticas].",
+   "en": "[hp+|Lots of HP] but [atk-|hits soft], and it [td+|shrugs off enemy types]. Start with [m.start:water-gun|Water Gun] and bond [m.group:fairy-wind|Fairy Wind] (or [m.alt:dazzling-gleam|Dazzling Gleam]); carry [i.best:luckyegg|Lucky Egg]. [up:late|How it holds up in long runs] lifts it, but [down:stats|its stats] hold it back."
   },
   "185": {
    "fp": "cfcb17af22da",
    "bfp": "da30585f319c",
-   "es": "[spd-|Lento], con [hb+|hitbox pequeño], y [td-|sufre contra los tipos rivales]. Empieza con [m.start:rock-throw|Lanzarrocas], vincula [m.group:rock-slide|Avalancha] y [m.group:hyper-voice|Vozarrón]; lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Avalancha], y lo frena [down:typedef|sus tipos].",
-   "en": "[spd-|Slow], with a [hb+|small hitbox], and it [td-|suffers against enemy types]. Start with [m.start:rock-throw|Rock Throw], bond [m.group:rock-slide|Rock Slide] and [m.group:hyper-voice|Hyper Voice]; carry [i.best:luckyegg|Lucky Egg]. [up:best_move|Rock Slide] lifts it, and [down:typedef|its types] hold it back."
+   "es": "[spd-|Lento] y con [hb+|hitbox pequeño], aunque [td-|sufre contra los tipos rivales]. Empieza con [m.start:rock-throw|Lanzarrocas] y vincula [m.group:rock-slide|Avalancha] y [m.group:hyper-voice|Vozarrón]; lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Avalancha], pero lo frenan [down:typedef|sus tipos].",
+   "en": "[spd-|Slow] and with a [hb+|small hitbox], though it [td-|suffers against enemy types]. Start with [m.start:rock-throw|Rock Throw] and bond [m.group:rock-slide|Rock Slide] and [m.group:hyper-voice|Hyper Voice]; carry [i.best:luckyegg|Lucky Egg]. [up:best_move|Rock Slide] lifts it, but [down:typedef|its types] hold it back."
   },
   "186": {
    "fp": "12a2c766c994",
@@ -1127,8 +1127,8 @@
   "187": {
    "fp": "c49484627f15",
    "bfp": "f63b8b076d20",
-   "es": "[hp-|Poca vida] y [atk-|pega poco], con [hb0|hitbox normal]. Empieza con [m.start:vine-whip|Látigo Cepa], vincula [m.group:hyper-voice|Vozarrón] y [m.group:gust|Tornado]; lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Vozarrón], y lo baja [down:stats|sus estadísticas].",
-   "en": "[hp-|Low HP] and [atk-|hits soft], with a [hb0|normal hitbox]. Start with [m.start:vine-whip|Vine Whip], bond [m.group:hyper-voice|Hyper Voice] and [m.group:gust|Gust]; carry [i.best:luckyegg|Lucky Egg]. [up:best_move|Hyper Voice] lifts it, and [down:stats|its stats] pull it down."
+   "es": "[hp-|Poca vida] y [atk-|pega poco]. Empieza con [m.start:vine-whip|Látigo Cepa] y vincula [m.group:hyper-voice|Vozarrón] y [m.group:gust|Tornado]; lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Vozarrón], pero lo frenan [down:stats|sus estadísticas].",
+   "en": "[hp-|Low HP] and [atk-|hits soft]. Start with [m.start:vine-whip|Vine Whip] and bond [m.group:hyper-voice|Hyper Voice] and [m.group:gust|Gust]; carry [i.best:luckyegg|Lucky Egg]. [up:best_move|Hyper Voice] lifts it, but [down:stats|its stats] hold it back."
   },
   "188": {
    "fp": "a2ae5da8b464",
@@ -1145,20 +1145,20 @@
   "190": {
    "fp": "105982803258",
    "bfp": "d363bd843108",
-   "es": "[avg|Del montón en velocidad, vida y daño], con [hb0|hitbox normal]. Empieza con [m.start:tackle|Placaje], vincula [m.group:hyper-voice|Vozarrón] y [m.group:body-slam|Golpe Cuerpo]; lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Vozarrón], y lo frena [down:moves|los ataques que aprende].",
-   "en": "[avg|Average speed, HP and damage], with a [hb0|normal hitbox]. Start with [m.start:tackle|Tackle], bond [m.group:hyper-voice|Hyper Voice] and [m.group:body-slam|Body Slam]; carry [i.best:luckyegg|Lucky Egg]. [up:best_move|Hyper Voice] lifts it, and [down:moves|the moves it learns] hold it back."
+   "es": "[avg|Del montón en velocidad, vida y daño]. Empieza con [m.start:tackle|Placaje] y vincula [m.group:hyper-voice|Vozarrón] y [m.group:body-slam|Golpe Cuerpo]; lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Vozarrón], pero lo bajan [down:moves|los ataques que aprende].",
+   "en": "[avg|Average speed, HP and damage]. Start with [m.start:tackle|Tackle] and bond [m.group:hyper-voice|Hyper Voice] and [m.group:body-slam|Body Slam]; carry [i.best:luckyegg|Lucky Egg]. [up:best_move|Hyper Voice] lifts it, but [down:moves|the moves it learns] hold it back."
   },
   "191": {
    "fp": "47f90aab93e1",
    "bfp": "324735ca6629",
-   "es": "[spd-|Lento], [hp-|poca vida] y [atk-|pega poco], con [hb+|hitbox pequeño]. Empieza con [m.start:vine-whip|Látigo Cepa] y vincula [m.group:hyper-voice|Vozarrón]; lleva [i.best:luckyegg|Huevo Suerte]. Lo baja [down:stats|sus estadísticas].",
-   "en": "[spd-|Slow], [hp-|low HP] and [atk-|hits soft], with a [hb+|small hitbox]. Start with [m.start:vine-whip|Vine Whip] and bond [m.group:hyper-voice|Hyper Voice]; carry [i.best:luckyegg|Lucky Egg]. What pulls it down is [down:stats|its stats]."
+   "es": "[spd-|Lento], con [hp-|poca vida], [atk-|pega poco] y [hb+|hitbox pequeño]. Empieza con [m.start:vine-whip|Látigo Cepa] y vincula [m.group:leaf-storm|Tormenta Floral] y [m.group:hyper-voice|Vozarrón]; lleva [i.best:luckyegg|Huevo Suerte]. Lo frenan [down:stats|sus estadísticas].",
+   "en": "[spd-|Slow], with [hp-|low HP], [atk-|hits soft] and a [hb+|small hitbox]. Start with [m.start:vine-whip|Vine Whip] and bond [m.group:leaf-storm|Petal Blizzard] and [m.group:hyper-voice|Hyper Voice]; carry [i.best:luckyegg|Lucky Egg]. [down:stats|Its stats] hold it back."
   },
   "192": {
    "fp": "f128974ce10f",
    "bfp": "3a27588cac5f",
-   "es": "[spd-|Lento] y [hb0|hitbox normal]. Empieza con [m.start:vine-whip|Látigo Cepa], vincula [m.group:hyper-voice|Vozarrón] y [m.group:leaf-storm|Tormenta Floral]; lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:attack|su daño], y lo frena [down:moves|los ataques que aprende].",
-   "en": "[spd-|Slow] and a [hb0|normal hitbox]. Start with [m.start:vine-whip|Vine Whip], bond [m.group:hyper-voice|Hyper Voice] and [m.group:leaf-storm|Petal Blizzard]; carry [i.best:luckyegg|Lucky Egg]. [up:attack|Its damage] lifts it, and [down:moves|the moves it learns] hold it back."
+   "es": "[spd-|Lento]. Empieza con [m.start:vine-whip|Látigo Cepa] y vincula [m.group:hyper-voice|Vozarrón] (o [m.alt:razor-leaf|Hoja Afilada]); lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:attack|su daño], pero lo frena [down:late|cómo flojea en partidas largas].",
+   "en": "[spd-|Slow]. Start with [m.start:vine-whip|Vine Whip] and bond [m.group:hyper-voice|Hyper Voice] (or [m.alt:razor-leaf|Razor Leaf]); carry [i.best:luckyegg|Lucky Egg]. [up:attack|Its damage] lifts it, but [down:late|how it fades in long runs] holds it back."
   },
   "193": {
    "fp": "914f3b3abb9b",
@@ -1169,8 +1169,8 @@
   "194": {
    "fp": "d69f2f626963",
    "bfp": "6063024dbe50",
-   "es": "[spd-|Lento] y [atk-|pega poco], con [hb0|hitbox normal], y [td-|sufre contra los tipos rivales]. Empieza con [m.start:water-gun|Pistola Agua], vincula [m.group:bonemerang|Huesomerang] (o [m.alt:mud-shot|Disparo Lodo]); lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:moves|los ataques que aprende], y lo frena [down:stats|sus estadísticas].",
-   "en": "[spd-|Slow] and [atk-|hits soft], with a [hb0|normal hitbox], and it [td-|suffers against enemy types]. Start with [m.start:water-gun|Water Gun], bond [m.group:bonemerang|Bonemerang] (or [m.alt:mud-shot|Mud Shot]); carry [i.best:luckyegg|Lucky Egg]. [up:moves|The moves it learns] lift it, and [down:stats|its stats] hold it back."
+   "es": "[spd-|Lento] y [atk-|pega poco], y [td-|sufre contra los tipos rivales]. Empieza con [m.start:water-gun|Pistola Agua] y vincula [m.group:bonemerang|Huesomerang]; lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Huesomerang], pero lo frenan [down:stats|sus estadísticas].",
+   "en": "[spd-|Slow] and [atk-|hits soft], and it [td-|suffers against enemy types]. Start with [m.start:water-gun|Water Gun] and bond [m.group:bonemerang|Bonemerang]; carry [i.best:luckyegg|Lucky Egg]. [up:best_move|Bonemerang] lifts it, but [down:stats|its stats] hold it back."
   },
   "195": {
    "fp": "104d1525f98d",
@@ -2597,8 +2597,8 @@
   "432": {
    "fp": "b066cc0372b1",
    "bfp": "d2d66550a447",
-   "es": "Es [spd+|rápido], aunque tiene [hb-|hitbox grande]. Empieza con [m.start:tackle|Placaje] y vincula [m.group:hyper-voice|Vozarrón] (o [m.alt:quick-attack|Ataque Rápido]); lleva [i.best:luckyegg|Huevo Suerte]. Lo levanta [up:best_move|Vozarrón], y lo frena [down:moves|los ataques que aprende].",
-   "en": "It is [spd+|fast], though it has a [hb-|big hitbox]. Start with [m.start:tackle|Tackle] and bond [m.group:hyper-voice|Hyper Voice] (or [m.alt:quick-attack|Quick Attack]); carry [i.best:luckyegg|Lucky Egg]. [up:best_move|Hyper Voice] lifts it, and [down:moves|the moves it learns] hold it back."
+   "es": "[spd+|Rápido], pero con [hb-|hitbox grande]. Empieza con [m.start:tackle|Placaje] y vincula [m.group:hyper-voice|Vozarrón] y [m.group:body-slam|Golpe Cuerpo]; lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:speed|su velocidad], y lo bajan [down:moves|los ataques que aprende].",
+   "en": "[spd+|Fast], but with a [hb-|big hitbox]. Start with [m.start:tackle|Tackle] and bond [m.group:hyper-voice|Hyper Voice] and [m.group:body-slam|Body Slam]; carry [i.best:luckyegg|Lucky Egg]. [up:speed|Its speed] lifts it, and [down:moves|the moves it learns] hold it back."
   },
   "433": {
    "fp": "f4bde2ab35c9",
@@ -5237,8 +5237,8 @@
   "903": {
    "fp": "3befe7dcf162",
    "bfp": "b14898bea00b",
-   "es": "[spd+|Rápido] y [atk+|pega fuerte], con [hb0|hitbox normal] y [td+|aguanta bien los tipos rivales]. Empieza con [m.start:karate-chop|Golpe Kárate] y vincula [m.group:aura-sphere|Esfera Aural] y [m.group:sludge|Residuos]; lleva [i.best:luckyegg|Huevo Suerte]. Lo suben [up:late|cómo aguanta las partidas largas] y [up:attack|su daño], y lo frena [down:start_move|su ataque inicial].",
-   "en": "[spd+|Fast] and [atk+|hits hard], with a [hb0|normal hitbox] and [td+|shrugs off enemy types]. Start with [m.start:karate-chop|Karate Chop], bond [m.group:aura-sphere|Aura Sphere] and [m.group:sludge|Sludge]; carry [i.best:luckyegg|Lucky Egg]. [up:late|How it holds up in long runs] and [up:attack|its damage] lift it, and [down:start_move|its start move] holds it back."
+   "es": "[spd+|Rápido] y [atk+|pega fuerte], y [td+|aguanta bien los tipos rivales]. Empieza con [m.start:karate-chop|Golpe Kárate] y vincula [m.group:aura-sphere|Esfera Aural] y [m.group:sludge|Residuos]; lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:attack|su daño], pero lo frena [down:start_move|su ataque inicial].",
+   "en": "[spd+|Fast] and [atk+|hits hard], and it [td+|shrugs off enemy types]. Start with [m.start:karate-chop|Karate Chop] and bond [m.group:aura-sphere|Aura Sphere] and [m.group:sludge|Sludge]; carry [i.best:luckyegg|Lucky Egg]. [up:attack|Its damage] lifts it, but [down:start_move|its start move] holds it back."
   },
   "904": {
    "fp": "e1544071e662",
