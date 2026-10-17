@@ -205,10 +205,8 @@ STR: dict[str, tuple[str, str]] = {
     "ataques_title": ("Ataques · {site}", "Moves · {site}"),
     "ataques_desc": ("Tier list de los {n} ataques de {game}.", "Tier list of the {n} moves in {game}."),
     "ataques_h1": ("Ataques", "Moves"),
-    "ataques_lede": ("1× es un movimiento normal (la mediana de todos). Cuanto más alto el valor, mejor. "
-                     "Los potenciadores muestran además el tiempo que están activos.",
-                     "1× is a normal move (the median of all). The higher the value, the better. "
-                     "Boosts also show how much of the time they are active."),
+    "ataques_lede": ("1× es un ataque normal. Cuanto más alto, mejor.",
+                     "1× is a normal move. The higher, the better."),
     "cat_melee": ("Cuerpo a cuerpo", "Melee"),
     "cat_ranged": ("Distancia", "Ranged"),
     "cat_stat": ("Potenciadores", "Boosts"),
@@ -217,12 +215,6 @@ STR: dict[str, tuple[str, str]] = {
     "mv_typical": ("normal", "typical"),
     "mv_better": ("mejor", "better"),
     "mv_worse": ("peor", "worse"),
-    "ataques_how1": ("Cada tarjeta es un ataque. La animación muestra cómo lo usa un Pokémon de su tipo: el de mejor puesto de ese tipo.",
-                     "Each card is a move. The animation shows how a Pokémon of its type uses it: the best-ranked one of that type."),
-    "ataques_how2": ("El valor compara su daño y su ritmo con un ataque normal. 1× es la mediana; la raya vertical marca ese 1×.",
-                     "The value compares its damage and pace with a normal move. 1× is the median; the vertical line marks that 1×."),
-    "ataques_how3": ("Los grupos van por tier: S es lo mejor. Dentro de cada tier, de mejor a peor.",
-                     "Groups go by tier: S is the best. Within each tier, from best to worst."),
     "mv_search": ("Buscar ataque o tipo…", "Search a move or type…"),
     "mv_none": ("Ningún ataque coincide con la búsqueda.", "No move matches the search."),
     "mv_example": ("Ejemplo: {name} →", "Example: {name} →"),
@@ -253,10 +245,8 @@ STR: dict[str, tuple[str, str]] = {
     "obj_desc": ("Tier list de los objetos de {game} por fase de la partida.",
                  "Tier list of the {game} items by phase of the run."),
     "obj_h1": ("Objetos", "Items"),
-    "obj_lede": ("Solo se lleva uno por partida: los cofres los sueltan y puedes cambiar el que tienes. Esta tier "
-                 "list sale del código del juego, no de partidas simuladas.",
-                 "You carry one per run: chests drop them and you can swap the one you have. This tier list comes from "
-                 "the game's code, not from simulated games."),
+    "obj_lede": ("Solo se lleva uno por partida: los cofres los sueltan y puedes cambiarlo.",
+                 "You carry one per run: chests drop them and you can swap it."),
     "obj_phases_h": ("Tier por fase", "Tier by phase"),
     "obj_table_h": ("Qué hace cada objeto", "What each item does"),
 

@@ -185,21 +185,18 @@ def _phase(L: Lang, idx: int, name: tuple[str, str], span: tuple[str, str]) -> s
             f'<p class="muted small">{escape(_t(span, L))}</p><ul class="ph-list">{"".join(rows)}</ul></section>')
 
 
-def _table(L: Lang) -> str:
-    head = ["Objeto", "Efecto", "Temprano", "Medio", "Tardío", "Por qué"] if not L.en else \
-        ["Item", "Effect", "Early", "Mid", "Late", "Why"]
-    body = []
-    for it in ITEMS:
-        cells = "".join(f'<td class="tier-cell">{_badge(t)}</td>' for t in it["tiers"])
-        body.append(f'<tr><th scope="row"><span class="item-name">{_icon(it["id"])}{escape(_t(it["name"], L))}</span></th><td>{escape(_t(it["effect"], L))}</td>'
-                    f'{cells}<td>{escape(_t(it["reason"], L))}</td></tr>')
-    thead = "".join(f'<th>{escape(h)}</th>' for h in head)
-    return (f'<div class="tablewrap"><table><thead><tr>{thead}</tr></thead>'
-            f'<tbody>{"".join(body)}</tbody></table></div>')
+def _cards(L: Lang) -> str:
+    cards = "".join(
+        f'<li><details class="it-card"><summary>{_icon(it["id"])}'
+        f'<span class="it-txt"><b>{escape(_t(it["name"], L))}</b><span>{escape(_t(it["effect"], L))}</span></span>'
+        f'<i class="it-more" aria-hidden="true"></i></summary>'
+        f'<p>{escape(_t(it["reason"], L))}</p></details></li>'
+        for it in ITEMS)
+    return f'<ul class="it-grid">{cards}</ul>'
 
 
 def items_content(L: Lang, h1: str, lede: str, phases_h: str, table_h: str) -> str:
-    """Contenido de la página Objetos: tres fases con su tier, y la tabla con el efecto y la razón de cada objeto."""
+    """Contenido de la página Objetos: tres fases con su tier, y una tarjeta por objeto con su efecto (la razón, plegada)."""
     phases = "".join(_phase(L, i, name, span) for i, (_, name, span) in enumerate(PHASES))
     return (_symbols()
             + f'<h1>{escape(h1)}</h1>'
@@ -207,5 +204,5 @@ def items_content(L: Lang, h1: str, lede: str, phases_h: str, table_h: str) -> s
             f'<h2>{escape(phases_h)}</h2>'
             f'<div class="ph-grid">{phases}</div>'
             f'<h2>{escape(table_h)}</h2>'
-            f'{_table(L)}'
+            f'{_cards(L)}'
             f'<p class="note small">{escape(_t(EXCLUDED_NOTE, L))}</p>')

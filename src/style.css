@@ -597,9 +597,6 @@ summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
 .mv-tier > h3 { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
 .mv-tier > h3 small { color: var(--ink-2); font: .8rem var(--sans); }
 .mv-section[hidden], .mv-tier[hidden], .mv-card[hidden], .mv-none[hidden] { display: none; }
-.mv-howto { list-style: none; counter-reset: how; display: grid; gap: 10px; max-width: 70ch; margin: 18px 0 24px; padding: 0; }
-.mv-howto li { counter-increment: how; position: relative; padding-left: 34px; font: .9375rem/1.45 var(--sans); color: var(--ink-2); }
-.mv-howto li::before { content: counter(how); position: absolute; left: 0; top: -2px; font: 700 1.1rem/1 var(--pix); color: var(--accent); }
 .mv-finder { max-width: 36rem; margin: 0 0 12px; }
 .mv-none { font: .9375rem var(--sans); color: var(--ink-2); }
 .mv-grid { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(272px, 1fr)); gap: 18px; }
@@ -770,7 +767,9 @@ p.lede { font: 1.1rem/1.55 var(--sans); color: var(--ink-2); max-width: 66ch; ma
   .dm-row { grid-template-columns: 1fr 3.4rem; }
   .dm-name { grid-column: 1 / -1; }
   .fig-demo { --label: 100%; }
-  .gt-row { grid-template-columns: 4.6rem 1fr 3.6rem; }
+  .gt-row { grid-template-columns: 4.6rem minmax(0, 1fr) 4.4rem; }
+  .gt-val { padding-left: 6px; font-size: .8rem; white-space: nowrap; }
+  .gt-axis { margin: 0 4.4rem 0 4.6rem; }
   .rp-row { grid-template-columns: 1fr; }
   .rp-axis { margin-left: 0; }
 }
@@ -972,6 +971,18 @@ h2 { margin: 48px 0 16px; }
 .ph-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 9px 5px; font: .9rem/1.2 var(--sans); background: var(--rule-soft); box-shadow: var(--notch-soft); }
 .item-name { display: inline-flex; align-items: center; gap: 8px; }
 .item-ico { display: block; flex: none; width: 1.5em; height: 1.5em; }
+.it-grid { list-style: none; margin: 8px 0 20px; padding: 0; display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); align-items: start; }
+.it-card { background: var(--bg); box-shadow: var(--notch); }
+.it-card > summary { display: flex; align-items: center; gap: 14px; padding: 12px 14px; list-style: none; cursor: pointer; }
+.it-card > summary::-webkit-details-marker { display: none; }
+.it-card > summary:hover, .it-card[open] > summary { background: var(--rule-soft); }
+.it-card .item-ico { width: 40px; height: 40px; }
+.it-txt { display: grid; gap: 2px; flex: 1; min-width: 0; }
+.it-txt b { font: 600 .95rem/1.2 var(--pix); }
+.it-txt span { font: .875rem/1.35 var(--sans); color: var(--ink-2); }
+.it-more { flex: none; width: 9px; height: 9px; margin: 0 4px 4px; border: solid var(--ink-2); border-width: 0 3px 3px 0; transform: rotate(45deg); transition: transform .15s; }
+.it-card[open] .it-more { transform: rotate(-135deg); margin-bottom: -4px; }
+.it-card p { margin: 0; padding: 4px 14px 14px 68px; font: .875rem/1.45 var(--sans); color: var(--ink-2); }
 .sprites-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 
 /* Colección guardada en este navegador y progreso de gacha */

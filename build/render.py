@@ -417,14 +417,12 @@ def render_ataques(c: Ctx, moves: list[dict], meta: dict, index: list[dict]) -> 
         blocks.append(f'<section id="{cat_id}" class="mv-section"><h2>{icon(icon_name)}{esc(L.t("cat_" + cat_id))}</h2>'
                       f'{"".join(inner)}</section>')
         toc.append(f'<li><a href="#{cat_id}">{icon(icon_name)}{esc(L.t("cat_" + cat_id))}</a></li>')
-    howto = "".join(f"<li>{esc(L.t(k))}</li>" for k in ("ataques_how1", "ataques_how2", "ataques_how3"))
     search_icon = ('<svg class="search-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><circle cx="7" cy="7" '
                    'r="4.6" fill="none" stroke="currentColor" stroke-width="2"/><path d="M10.6 10.6 14.5 14.5" '
                    'stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>')
     content = f"""
 <h1>{esc(L.t("ataques_h1"))}</h1>
 <p class="lede">{esc(L.t("ataques_lede"))}</p>
-<ol class="mv-howto">{howto}</ol>
 <div class="search-field mv-finder">{search_icon}<input id="mv-q" type="search" autocomplete="off" placeholder="{esc(L.t("mv_search"))}" aria-label="{esc(L.t("mv_search"))}"></div>
 <p id="mv-none" class="mv-none" hidden>{esc(L.t("mv_none"))}</p>
 <ul class="toc">{"".join(toc)}</ul>
