@@ -224,6 +224,23 @@ textarea {
 .rankline .ico { width: 24px; height: 24px; margin: 0; color: var(--tier-A); }
 .rankline strong { font: 700 1.9rem/1 var(--mono); }
 .rankline span { color: var(--ink-2); font: .95rem var(--pix); }
+/* Resumen bajo el nombre (build/summaries.py): una línea por frase, con el icono de cada dato delante de su palabra.
+   Lo bueno se subraya en verde y lo malo en rojo, como una barra de vida. */
+.ficha-head:has(.sm) .ficha-sprite { grid-row: span 2; align-self: start; }
+.sm { grid-column: 2; display: grid; gap: 5px; max-width: 64ch; margin: -4px 0 0; font: .9rem/1.5 var(--sans); color: var(--ink-2); }
+.sm-l { display: flex; align-items: flex-start; gap: 9px; margin: 0; }
+.sm-l > span { min-width: 0; }
+.sm-lead { width: 16px; height: 16px; margin: 3px 0 0; color: var(--accent); }
+.sm-t, .sm-d, .sm-n, .sm-m { color: var(--ink); font-weight: 650; }
+.sm-ico, .sm-px { display: inline-block; width: 18px; height: 18px; margin: 0 3px 0 0; vertical-align: -4px; image-rendering: pixelated; }
+.sm-px { width: 14px; height: 14px; margin-right: 4px; vertical-align: -2px; }
+.sm-m { white-space: nowrap; box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--tc, var(--rule)) 70%, transparent); }
+.sm-item { --tc: var(--bd-gold); }
+.sm-t.good, .sm-d.up { box-shadow: inset 0 -3px 0 color-mix(in srgb, var(--tier-C) 75%, transparent); }
+.sm-t.bad, .sm-d.down { box-shadow: inset 0 -3px 0 color-mix(in srgb, var(--tier-S) 70%, transparent); }
+.sm-d i { display: inline-block; width: 0; height: 0; margin: 0 5px 1px 1px; border: 5px solid transparent; vertical-align: 1px; }
+.sm-d.up i { border-bottom-color: var(--tier-C); border-top-width: 0; }
+.sm-d.down i { border-top-color: var(--tier-S); border-bottom-width: 0; }
 
 /* bloques plegables: estadísticas, ataques y ranking */
 .fx-list { display: grid; gap: 14px; margin-top: 28px; }
@@ -1142,6 +1159,8 @@ html { overflow-x: hidden; }
   .facts .type > span, .facts .rg-chip-name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .rankline { margin-top: 10px; }
   .rankline strong { font-size: 1.5rem; }
+  .ficha-head:has(.sm) .ficha-sprite { grid-row: auto; align-self: center; }
+  .sm { grid-column: 1 / -1; margin: 18px 0 0; font-size: .875rem; }
   .fx > summary { padding: 10px 14px; font-size: .95rem; gap: 10px; }
   .fx-body { padding-inline: 14px; }
   .pg { padding-inline: 10px; font-size: .8rem; }

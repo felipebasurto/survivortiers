@@ -353,7 +353,50 @@
   };
   const flagIcons = flags => flagList(flags).map(f => '<i class="ico ico-' + f[1] + '" aria-hidden="true"></i>').join('');
 
-  function hero(p, name, rank, tier) {
+  // Resumen (build/summaries.py, data/summaries-<idioma>.json): tres frases con marcas [clave|texto]. Cada marca dice
+  // qué dato la respalda; aquí solo se le pone su icono. Una línea por frase: perfil, build y por qué ese puesto.
+  const SM_MARK = /\[([^\[\]|]+)\|([^\[\]]+)\]/g;
+  const SM_LEAD = ['heart', 'sword', 'trophy'];
+  const pixSvg = (cls, d) => '<svg class="sm-px ' + cls + '" viewBox="0 0 12 12" aria-hidden="true" focusable="false" shape-rendering="crispEdges"><path fill="currentColor" fill-rule="evenodd" d="' + d + '"/></svg>';
+  // Hitbox: un anillo de píxeles con el cuerpo en medio. Tipos: un escudo.
+  const HITBOX_SVG = pixSvg('sm-hb', 'M4 0h4v1H4zM2 1h2v1H2zM8 1h2v1H8zM1 2h1v2H1zM10 2h1v2h-1zM0 4h1v4H0zM11 4h1v4h-1zM1 8h1v2H1zM10 8h1v2h-1zM2 10h2v1H2zM8 10h2v1H8zM4 11h4v1H4zM5 5h2v2H5z');
+  const SHIELD_SVG = pixSvg('sm-td', 'M1 1h10v5h-1v2H9v1H8v1H7v1H5v-1H4V9H3V8H2V6H1zM3 3v3h1v2h1v1h2V8h1V6h1V3z');
+  const SM_STAT_CARD = { spd: 'spd', hp: 'hp', atk: 'atk' };
+  function summary(text, moves, items, cards) {
+    const byId = new Map(moves.map(m => [m.id, m]));
+    const item = new Map(items.map(m => [m.id, m]));
+    const img = m => '<img class="sm-ico" src="' + iconUrl(m) + '" alt="" width="18" height="18">';
+    const mark = (key, inner) => {
+      const label = esc(inner);
+      const trait = /^(spd|hp|atk|hb|td)(\+|-|--|0)$/.exec(key);
+      if (trait) {
+        const [, stat, sign] = trait;
+        const card = cards[SM_STAT_CARD[stat]];
+        const icon = stat === 'hb' ? HITBOX_SVG : stat === 'td' ? SHIELD_SVG : card ? img(card) : '';
+        const tone = sign === '+' ? ' good' : sign === '0' ? '' : ' bad';
+        return '<b class="sm-t' + tone + '">' + icon + label + '</b>';
+      }
+      const [role, id] = key.split(':');
+      if (role.startsWith('m.') && byId.has(id)) {
+        const m = byId.get(id);
+        return '<span class="sm-m" style="--tc:' + (TYPE_COLOR[m.type] || ITEM_COLOR) + '">' + img(m) + label + '</span>';
+      }
+      if (role === 'i.best' && item.has(id)) return '<span class="sm-m sm-item">' + img(item.get(id)) + label + '</span>';
+      if (role === 'c.first' && cards[id]) return '<span class="sm-m">' + img(cards[id]) + label + '</span>';
+      if (role === 'up' || role === 'down') return '<b class="sm-d ' + role + '"><i aria-hidden="true"></i>' + label + '</b>';
+      return '<b class="sm-n">' + label + '</b>';
+    };
+    const line = s => {
+      let out = '', at = 0;
+      s.replace(SM_MARK, (all, key, inner, i) => { out += esc(s.slice(at, i)) + mark(key, inner); at = i + all.length; return all; });
+      return out + esc(s.slice(at));
+    };
+    const sentences = text.split(/(?<=\.)\s+/).filter(Boolean);
+    return '<div class="sm">' + sentences.map((s, i) => '<p class="sm-l"><i class="ico ico-' + (SM_LEAD[i] || 'sparkle') +
+      ' sm-lead" aria-hidden="true"></i><span>' + line(s) + '</span></p>').join('') + '</div>';
+  }
+
+  function hero(p, name, rank, tier, sum) {
     const scale = Math.max(1, Math.min(5, Math.floor(FICHA_BOX / Math.max(p.w, p.h))));
     const otherName = !EN && p.nameEn !== p.name ? '<small>' + esc(p.nameEn) + '</small>' : '';
     const pills = '<span class="types">' + p.types.map(ty => tpl('tpl-types', 'data-t', ty)).join('') + '</span>';
@@ -370,7 +413,7 @@
       '<div class="fh-main"><h1>' + esc(name) + ' ' + otherName + '<small class="fh-dex">' + esc(t('dex_no', { dex: p.dex })) + '</small></h1>' +
       '<div class="facts">' + pills + rarity + legendary + tpl('tpl-regions', 'data-gen', p.bannerId) + '</div>' +
       '<p class="rankline" title="' + rankTitle + '" aria-label="' + rankTitle + '"><i class="ico ico-trophy" aria-hidden="true"></i><strong>' + rank + '</strong><span>/ ' + TOTAL + '</span></p>' +
-      '</div></header>';
+      '</div>' + (sum || '') + '</header>';
   }
 
   function pager(prev, next) {
@@ -383,7 +426,7 @@
     return '<nav class="pager" aria-label="' + esc(t('pager_aria')) + '">' + (prev ? link(prev, 'prev') : '<span></span>') + (next ? link(next, 'next') : '<span></span>') + '</nav>';
   }
 
-  function render(p, d, range, moveName, prev, next, moves, medians, items, cards) {
+  function render(p, d, range, moveName, prev, next, moves, medians, items, cards, text) {
     const name = EN ? p.nameEn : p.name;
     const [rank, tier] = p.r;
     const back = '<a class="back" href="' + home + 'index.html"><b aria-hidden="true">‹</b>' + esc(t('crumb_home')) + '</a>';
@@ -392,7 +435,7 @@
     const ranking = panel('ranking', 'trophy', t('t_rank'), flagIcons(d[7]),
       flagsHtml(d[7]) + rankBand(p, name) + pillars(d, name) + sim(d, range, moveName) + methods(p, d, name) +
       '<p class="fx-more"><a href="' + home + 'metodo.html">' + esc(t('rank_how')) + ' →</a></p>');
-    root.innerHTML = back + hero(p, name, rank, tier) +
+    root.innerHTML = back + hero(p, name, rank, tier, text ? summary(text, moves, items, cards) : '') +
       build(p, d, moves, items, name, Math.max(1, Math.min(4, Math.floor(56 / Math.max(p.w, p.h)))), cards) +
       '<div class="fx-list">' + stats + learnable + ranking + '</div>' + pager(prev, next);
     const label = EN || p.nameEn === p.name ? name : p.name + ' (' + p.nameEn + ')';
@@ -423,12 +466,14 @@
     return r.json();
   });
   const id = Number(new URLSearchParams(location.search).get('id'));
-  Promise.all([getJSON('pokemon-index.json'), getJSON('species.json'), getJSON('moves.json')]).then(([index, species, moves]) => {
+  // Sin resúmenes la ficha se dibuja igual: el bloque es un extra.
+  const summaries = getJSON('summaries-' + (EN ? 'en' : 'es') + '.json').catch(() => ({}));
+  Promise.all([getJSON('pokemon-index.json'), getJSON('species.json'), getJSON('moves.json'), summaries]).then(([index, species, moves, texts]) => {
     const i = index.findIndex(p => p.dex === id);
     const d = species.d[id];
     if (i < 0 || !d) { missing(); return; }
     const byId = new Map(moves.map(m => [m.id, m]));
     const moveName = mid => { const m = byId.get(mid); return m ? (EN ? m.en.name : m.name) : mid; };
-    render(index[i], d, species.sim, moveName, index[i - 1], index[i + 1], moves, species.statMedian, species.items, species.cards || {});
+    render(index[i], d, species.sim, moveName, index[i - 1], index[i + 1], moves, species.statMedian, species.items, species.cards || {}, texts[id]);
   }).catch(err => { root.textContent = err.message; });
 })();
