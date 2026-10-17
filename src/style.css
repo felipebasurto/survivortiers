@@ -909,6 +909,24 @@ h2 { margin: 48px 0 16px; }
 .item-ico { display: block; flex: none; width: 1.5em; height: 1.5em; }
 .sprites-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 
+/* ---------- pasivas ---------- */
+.pv-order { list-style: none; margin: 0 0 18px; padding: 0; display: flex; flex-wrap: wrap; gap: 10px; }
+.pv-order li { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--bg); box-shadow: var(--notch); font: 600 .95rem var(--pix); }
+.pv-n { display: grid; place-items: center; width: 1.6em; height: 1.6em; background: var(--accent); color: var(--on-accent); font: 700 .9rem var(--pix); }
+.pv-ico { display: block; flex: none; width: 36px; height: 36px; }
+.pv-hand { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); }
+.pv-tile { display: grid; gap: 6px; align-content: start; padding: 12px; background: var(--bg); box-shadow: var(--notch); }
+.pv-tile.t-S { box-shadow: 0 0 0 3px var(--tier-S), var(--notch); }
+.pv-name { font: 700 .95rem var(--pix); }
+.pv-meta { display: flex; align-items: center; gap: 8px; }
+.pv-lift { font: 700 1.05rem var(--pix); }
+.pv-tip { color: var(--ink-2); font: .85rem/1.35 var(--sans); }
+.pv-combos { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-wrap: wrap; gap: 10px; }
+.pv-combo { display: flex; align-items: center; gap: 6px; padding: 8px 10px; background: var(--bg); box-shadow: var(--notch-soft); font: 700 .95rem var(--pix); }
+.pv-plus { color: var(--ink-2); }
+.pv-combo-name { font: 500 .8rem var(--sans); color: var(--ink-2); }
+.pv-except { margin-top: 0; }
+
 /* Colección guardada en este navegador y progreso de gacha */
 .saved { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin: 0 0 18px; font: .9rem/1.4 var(--sans); color: var(--ink-2); }
 .saved:empty { display: none; }

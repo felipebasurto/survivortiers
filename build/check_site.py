@@ -334,7 +334,7 @@ def main() -> int:
 
     # rastreo
     start = [f"{base}{lang}{p}" for lang in LANGS
-             for p in ("", "metodo.html", "ataques.html", "gachas.html", "coleccion.html", "acerca.html",
+             for p in ("", "metodo.html", "ataques.html", "objetos.html", "pasivas.html", "gachas.html", "coleccion.html", "acerca.html",
                        "pokemon/")]
     start.append(base + "404.html")
     seen: dict[str, Page | None] = {}

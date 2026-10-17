@@ -23,6 +23,7 @@ import balls  # noqa: E402
 import charts  # noqa: E402
 import legal  # noqa: E402
 import objetos  # noqa: E402
+import pasivas  # noqa: E402
 import pack  # noqa: E402
 import regions  # noqa: E402
 import share_image  # noqa: E402
@@ -40,6 +41,7 @@ TIERS = ["S", "A", "B", "C", "D"]
 CATEGORIES = [("melee", "cuerpo a cuerpo"), ("ranged", "distancia"), ("stat", "estadística")]  # (id, valor del CSV)
 NAV = [("index", "index.html", "nav_tiers"),
        ("ataques", "ataques.html", "nav_ataques"), ("objetos", "objetos.html", "nav_objetos"),
+       ("pasivas", "pasivas.html", "nav_pasivas"),
        ("gachas", "gachas.html", "nav_gachas"),
        ("coleccion", "coleccion.html", "nav_coleccion"), ("acerca", "acerca.html", "nav_acerca"),
        ("metodo", "metodo.html", "nav_metodo")]
@@ -444,6 +446,14 @@ def render_objetos(c: Ctx, meta: dict) -> str:
                 L.t("obj_desc", game=legal.GAME_NAME), content, meta)
 
 
+def render_pasivas(c: Ctx, meta: dict) -> str:
+    L = c.L
+    content = pasivas.content(L, L.t("pv_h1"), L.t("pv_lede"), L.t("pv_order_h"), L.t("pv_phases_h"),
+                              L.t("pv_items_h"), L.t("pv_except_h"))
+    return page(c, "pasivas", L.t("pv_title", site=legal.SITE_NAME),
+                L.t("pv_desc", game=legal.GAME_NAME), content, meta)
+
+
 GACHA_STARS = (5, 4, 4, 3, 3, 3, 2, 2, 1)  # estrellas de cada banner, del mejor al peor
 
 
@@ -625,6 +635,7 @@ def main() -> int:
         put("index.html", lambda c: render_index(c, index, meta))
         put("ataques.html", lambda c: render_ataques(c, moves, meta, index))
         put("objetos.html", lambda c: render_objetos(c, meta))
+        put("pasivas.html", lambda c: render_pasivas(c, meta))
         put("gachas.html", lambda c: render_gachas(c, gachas, index, meta))
         put("coleccion.html", lambda c: render_coleccion(c, gachas, meta))
         put("metodo.html", lambda c: render_metodo(c, index, full, meta))

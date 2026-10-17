@@ -19,7 +19,7 @@ from i18n import Lang
 
 ROOT = Path(__file__).resolve().parent.parent
 RANKING_SRC = ROOT / "data" / "ranking_definitive.csv"
-PAGES = ["", "ataques.html", "objetos.html", "gachas.html", "coleccion.html", "metodo.html", "acerca.html"]
+PAGES = ["", "ataques.html", "objetos.html", "pasivas.html", "gachas.html", "coleccion.html", "metodo.html", "acerca.html"]
 LANG_PREFIX = {"es": "", "en": "en/"}
 SIM_CAP_S = 900  # tope de la simulación de supervivencia (sim_lede en build/i18n.py)
 
@@ -93,6 +93,7 @@ Base URL: {u}
 - [Tier list (EN)]({u}/en/): all Pokémon by tier, with search and sorting.
 - [Moves (EN)]({u}/en/ataques): attack tier list.
 - [Items (EN)]({u}/en/objetos): item tier list.
+- [Passives (EN)]({u}/en/pasivas): level-up card tier list.
 - [Gacha (EN)]({u}/en/gachas): banners and pull odds.
 - [Collection (EN)]({u}/en/coleccion): collection helper.
 - [Method (EN)]({u}/en/metodo): how the ranking is built, with the numbers.

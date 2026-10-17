@@ -23,6 +23,7 @@ STR: dict[str, tuple[str, str]] = {
     "nav_metodo": ("Método", "Method"),
     "nav_ataques": ("Ataques", "Moves"),
     "nav_objetos": ("Objetos", "Items"),
+    "nav_pasivas": ("Pasivas", "Passives"),
     "nav_gachas": ("Gacha", "Gacha"),
     "nav_coleccion": ("Colección", "Collection"),
     "nav_acerca": ("Info", "About"),
@@ -254,6 +255,18 @@ STR: dict[str, tuple[str, str]] = {
                  "the game's code, not from simulated games."),
     "obj_phases_h": ("Tier por fase", "Tier by phase"),
     "obj_table_h": ("Qué hace cada objeto", "What each item does"),
+
+    # ------------------------------------------------------------ pasivas
+    "pv_title": ("Pasivas · {site}", "Passives · {site}"),
+    "pv_desc": ("Qué carta de nivel coger en {game}, y con qué objeto.",
+                "Which level-up card to take in {game}, and with which item."),
+    "pv_h1": ("Pasivas", "Passives"),
+    "pv_lede": ("Síntesis primero, luego Vigor. La baya si te están pegando.",
+                "Synthesis first, then Vigor. The berry if you are getting hit."),
+    "pv_order_h": ("Orden", "Order"),
+    "pv_phases_h": ("Por fase", "By phase"),
+    "pv_except_h": ("Excepciones", "Exceptions"),
+    "pv_items_h": ("Lo que suma la carta", "What the card adds"),
 
     # ------------------------------------------------------------ gacha
     "gachas_title": ("Gacha · {site}", "Gacha · {site}"),
