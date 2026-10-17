@@ -20,8 +20,10 @@ population median, everything else fixed, on that same point score:
   hitbox, speed, hp, attack  re-simulated with that stat at the median (simulator/counterfactual_bench.py,
                              results/fixed_group/counterfactuals_g2p2.csv, same seeds and flags as the rank).
                              hitbox also sets the size pillar to the median radius.
-  start_move, best_move      that sim median replaced by the median over every start the species can learn
+  start_move                 that sim median replaced by the median over every start the species can learn
                              (results/fixed_group/g2p2/starter_sweep.csv).
+  best_move                  that sim median replaced by its second best start in the same sweep: what the move
+                             itself adds. (Against the median of its own moves it would lift every species.)
   stats, moves, typedef      that sheet pillar at 0.5.
   late                       both late-game ranks at the middle (483.5).
   gate                       published rank minus the ungated rank, for the species a tier gate held back.
@@ -220,7 +222,9 @@ def build() -> dict:
             drivers[factor] = {"places": int(cfr - here), "startS": r2(base_start - s2), "bestS": r2(base_best - b2)}
         cand = statistics.median(sweep[d])
         drivers["start_move"] = {"places": int(model.counterfactual(i, start_s=cand) - here), "startS": r2(base_start - cand)}
-        drivers["best_move"] = {"places": int(model.counterfactual(i, best_s=cand) - here), "bestS": r2(base_best - cand)}
+        runner_up = sorted(sweep[d])[-2] if len(sweep[d]) > 1 else base_best
+        drivers["best_move"] = {"places": int(model.counterfactual(i, best_s=runner_up) - here),
+                                "bestS": r2(base_best - runner_up)}
         for k in ("stats", "moves", "typedef"):
             drivers[k] = {"places": int(model.counterfactual(i, pillars={k: 0.5}) - here)}
         drivers["late"] = {"places": int(model.counterfactual(i, late=True) - here)}
@@ -260,7 +264,11 @@ def fingerprint(rec: dict) -> str:
 
 
 def dump(obj: dict) -> str:
-    return json.dumps(obj, ensure_ascii=False, indent=1, sort_keys=False) + "\n"
+    """One species per line: small, and a diff still shows which species changed."""
+    head = {k: v for k, v in obj.items() if k != "species"}
+    rows = ",\n".join(f" {json.dumps(d)}: {json.dumps(r, ensure_ascii=False, separators=(',', ':'))}"
+                      for d, r in obj["species"].items())
+    return json.dumps(head, ensure_ascii=False)[:-1] + ', "species": {\n' + rows + "\n}}\n"
 
 
 def main() -> int:
