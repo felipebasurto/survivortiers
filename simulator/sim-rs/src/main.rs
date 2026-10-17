@@ -442,7 +442,7 @@ fn sweep(data: &Data, cfg: &Cfg) {
     eprintln!("wrote {long_path} ({} runs)\nwrote {best_path} ({} species)", rows.len(), best.len());
 }
 
-/// tasks <file>: each line "dex,move,item,fill[,buffs][,stop][,heal_below][,lock]".
+/// tasks <file>: each line "dex,move,item,fill[,buffs][,stop][,heal_below][,lock][,mods]".
 /// fill is ';'-separated stat indices (0 atk … 6 mag, 7 xp, 8 heal) or empty.
 /// lock is "index:count;..." (start with that many, and do not take more).
 /// Writes the input columns plus median, mean, bootstrap, p75, p90 and how many runs reached 3/5/10 min.
@@ -497,11 +497,13 @@ fn tasks_cmd(data: &Data, cfg: &Cfg) {
                     sub.buffs = Some(mask);
                 }
             }
-            let s = run_species(data, &tables, mon, start, &sub);
+            // optional 9th column: species overrides for counterfactuals, "r=14.08;spd=105;hp=99;atk=1.17".
+            let modded = c.get(8).filter(|m| !m.is_empty()).map(|m| with_mods(mon, m));
+            let s = run_species(data, &tables, modded.as_ref().unwrap_or(mon), start, &sub);
             let d = done.fetch_add(1, Ordering::Relaxed) + 1;
             if d % 500 == 0 { eprintln!("  {d}/{total}"); }
             format!(
-                "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+                "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
                 c[0],
                 c[1],
                 c[2],
@@ -510,6 +512,7 @@ fn tasks_cmd(data: &Data, cfg: &Cfg) {
                 c.get(5).map(String::as_str).unwrap_or(""),
                 c.get(6).map(String::as_str).unwrap_or(""),
                 c.get(7).map(String::as_str).unwrap_or(""),
+                c.get(8).map(String::as_str).unwrap_or(""),
                 num(s.median_s),
                 num(s.mean_s),
                 num(s.boot_lo),
@@ -524,8 +527,24 @@ fn tasks_cmd(data: &Data, cfg: &Cfg) {
         })
         .collect();
     let path = cfg.out.clone().expect("--out");
-    std::fs::write(&path, format!("dex,move,item,fill,buffs,stop,heal_below,lock,median_s,mean_s,boot_lo,boot_hi,p75_s,p90_s,median_lvl,alive180,alive300,alive600\n{}\n", rows.join("\n"))).unwrap();
+    std::fs::write(&path, format!("dex,move,item,fill,buffs,stop,heal_below,lock,mods,median_s,mean_s,boot_lo,boot_hi,p75_s,p90_s,median_lvl,alive180,alive300,alive600\n{}\n", rows.join("\n"))).unwrap();
     eprintln!("wrote {path}");
+}
+
+fn with_mods(mon: &Mon, mods: &str) -> Mon {
+    let mut m = mon.clone();
+    for kv in mods.split(';').filter(|p| !p.is_empty()) {
+        let (k, v) = kv.split_once('=').unwrap_or_else(|| panic!("mod {kv}"));
+        let v: f64 = v.parse().unwrap_or_else(|_| panic!("mod {kv}"));
+        match k {
+            "r" => m.r = v,
+            "spd" => m.spd = v,
+            "hp" => m.hp = v,
+            "atk" => m.atk = v,
+            _ => panic!("mod {k}"),
+        }
+    }
+    m
 }
 
 fn cfg_clone(c: &Cfg) -> Box<Cfg> {
