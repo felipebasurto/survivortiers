@@ -377,11 +377,8 @@
         return '<b class="sm-t' + tone + '">' + icon + label + '</b>';
       }
       const [role, id] = key.split(':');
-      if (role.startsWith('m.') && byId.has(id)) {
-        const m = byId.get(id);
-        return '<span class="sm-m" style="--tc:' + (TYPE_COLOR[m.type] || ITEM_COLOR) + '">' + img(m) + label + '</span>';
-      }
-      if (role === 'i.best' && item.has(id)) return '<span class="sm-m sm-item">' + img(item.get(id)) + label + '</span>';
+      if (role.startsWith('m.') && byId.has(id)) return '<span class="sm-m">' + img(byId.get(id)) + label + '</span>';
+      if (role === 'i.best' && item.has(id)) return '<span class="sm-m">' + img(item.get(id)) + label + '</span>';
       if (role === 'c.first' && cards[id]) return '<span class="sm-m">' + img(cards[id]) + label + '</span>';
       if (role === 'up' || role === 'down') {
         const icon = id === 'best_move' && byId.has(bestId) ? img(byId.get(bestId)) : '';

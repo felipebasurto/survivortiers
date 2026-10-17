@@ -234,8 +234,7 @@ textarea {
 .sm-t, .sm-d, .sm-n, .sm-m { color: var(--ink); font-weight: 650; }
 .sm-ico, .sm-px { display: inline-block; width: 18px; height: 18px; margin: 0 3px 0 0; vertical-align: -4px; image-rendering: pixelated; }
 .sm-px { width: 14px; height: 14px; margin-right: 4px; vertical-align: -2px; }
-.sm-m { white-space: nowrap; box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--tc, var(--rule)) 70%, transparent); }
-.sm-item { --tc: var(--bd-gold); }
+.sm-m { white-space: nowrap; }
 .sm-t.good, .sm-d.up { box-shadow: inset 0 -3px 0 color-mix(in srgb, var(--tier-C) 75%, transparent); }
 .sm-t.bad, .sm-d.down { box-shadow: inset 0 -3px 0 color-mix(in srgb, var(--tier-S) 70%, transparent); }
 .sm-d i { display: inline-block; width: 0; height: 0; margin: 0 5px 1px 1px; border: 5px solid transparent; vertical-align: 1px; }

@@ -11,7 +11,7 @@ Game sources (JPTER78/pokesurvivor at legal.GAME_COMMIT, read only):
   hitbox   js/core/sprites.js:127-131 bodyRadius = clamp(idle width * 0.22, 5, 26) * PX (PX = 2, sprites.js:14);
            js/entities/player.js:17 this.r = bodyRadius(dex); enemy shots hit at p.r + pl.r (js/systems/combat.js:565)
            and bodies touch at e.r + pl.r (combat.js:663). Exported as body_radius in data/pokedex_export.json.
-  stats    js/data/pokedex.js (G.DEX hp/spd/atk); player.js:29 maxHp = mon.hp, :31 baseSpd = mon.spd, :32 baseAtk = mon.atk.
+  stats    js/data/pokedex.js:9 (G.DEX, one {dex, hp, spd, atk} per line); player.js:29 maxHp = mon.hp, :31 baseSpd = mon.spd, :32 baseAtk = mon.atk.
 
 Drivers. The published order is a weighted geometric mean of percentiles: sheet 45 (pillars stats 45, moves 25,
 type defence 15, size 15), early sim 30 (start move 10, best move 45) and late game 25 (build/make_definitive.py).
