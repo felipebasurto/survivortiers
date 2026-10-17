@@ -26,6 +26,8 @@ import passives  # noqa: E402
 import credits as credits_mod  # noqa: E402
 import legal  # noqa: E402
 import objetos  # noqa: E402
+import summaries  # noqa: E402
+import summary_facts  # noqa: E402
 
 DATA = ROOT / "data"
 SPRITES = ROOT / "sprites"
@@ -395,6 +397,20 @@ def main() -> int:
     except (CatalogError, credits_mod.CreditsError, ValueError, KeyError, OSError) as exc:
         print(f"ERROR de catálogo: {exc}", file=sys.stderr)
         return 1
+    # Los resúmenes de la ficha se validan contra los datos de hoy: un hecho nuevo o una afirmación sin respaldo para el build.
+    facts = summary_facts.build()
+    if summary_facts.dump(facts) != summary_facts.OUT.read_text(encoding="utf8"):
+        print("ERROR de catálogo: data/summary_facts.json no coincide con los datos actuales; "
+              "python3 build/summary_facts.py && python3 build/summaries.py --write", file=sys.stderr)
+        return 1
+    texts = summaries.load()
+    errs, sstats = summaries.check(facts, texts)
+    if errs:
+        for e in errs[:40]:
+            print("  " + e, file=sys.stderr)
+        print(f"ERROR de catálogo: {len(errs)} errores en data/summaries.json; python3 build/summaries.py --write",
+              file=sys.stderr)
+        return 1
     shutil.rmtree(OUT, ignore_errors=True)
     write_json("pokemon.json", entries)
     write_json("moves.json", moves)
@@ -403,10 +419,13 @@ def main() -> int:
     write_json("species.json", species_details(entries, meta["simRange"], meta["simMedianSeconds"],
                                                combos.compute_all(dex_types, {e["dex"]: e["r"]["sim"]["best"]["id"] for e in entries})), public=True)
     write_json("moves.json", moves, public=True)
+    for lang in ("es", "en"):
+        write_json(f"summaries-{lang}.json", summaries.public(texts, lang), public=True)
     write_json("gachas.json", gachas, pretty=True)
     write_json("meta.json", meta, pretty=True)
     print(f"catálogo: {len(entries)} Pokémon, {len(moves)} movimientos, {len(gachas)} banners → {OUT}")
     print("  " + " ".join(f"{t} {n}" for t, n in counts.items()))
+    print(f"  resúmenes: {sstats['texts']} textos, {sstats['claims']} afirmaciones validadas")
     for g in sorted(gachas, key=lambda g: -g["sPlusARate"]):
         print(f"  {g['name']:8s} pool {g['poolSize']:3d}  S+A {g['sCount'] + g['aCount']:2d}  {g['sPlusARate']:5.1f} %"
               f"  (por tirada {g['pullChance']:.1f} %)")

@@ -332,6 +332,17 @@ def main() -> int:
         if not ok:
             err(f"data/species.json: datos incompletos o raros para el Pokémon {d}")
 
+    # resúmenes de la ficha (build/summaries.py): uno por Pokémon e idioma, 2-3 frases
+    for lang in ("es", "en"):
+        try:
+            texts = json.loads(fetch(base + f"data/summaries-{lang}.json")[1])
+        except ValueError:
+            err(f"data/summaries-{lang}.json no se puede leer")
+            continue
+        bad = [d for d in dexes if not isinstance(texts.get(str(d)), str) or not 2 <= texts[str(d)].count(". ") + 1 <= 3]
+        if bad or len(texts) != 966:
+            err(f"data/summaries-{lang}.json: {len(texts)} resúmenes; faltan o están mal {bad[:10]}")
+
     # rastreo
     start = [f"{base}{lang}{p}" for lang in LANGS
              for p in ("", "metodo.html", "ataques.html", "objetos.html", "pasivas.html", "gachas.html", "coleccion.html", "acerca.html",
