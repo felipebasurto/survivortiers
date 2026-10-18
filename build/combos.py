@@ -8,9 +8,15 @@ En el juego no hay bonificación por tipo propio (STAB): el daño es daño del a
 de tipo contra el rival × clima, y los ataques normales nunca son super efectivos.
 
 Qué elige, de los ataques que ofrece el juego a ese Pokémon (POOL.normal + POOL de sus tipos):
-  1. Hueco 1: el mejor ataque de la simulación (`best_move` de data/ranking_definitive.csv), siempre.
+  1. Hueco 1: el mejor ataque de la simulación (`best_move` de data/ranking_definitive.csv). Si ese ataque es Hex
+     y el Pokémon aprende otro de tier más alto en data/move_tierlist_v4.csv, el hueco lo lleva ese (el de más
+     score dentro del mejor tier). En el grupo fijo 2+2 (semillas 1-200, terreno, estados) ese cambio alarga la
+     mediana: Marshadow pasa de 100,850 s con Infortunio + Lengüetazo a 110,425 s con Bola Sombra + Esfera Aural.
+     Los 39 Pokémon cuyo mejor ataque simulado es Hex ganan con ese relevo. Un mejor ataque que no es Hex se queda.
   2. Hueco 2: si hay un compañero de sinergia (Hex con quemadura, veneno o ralentización, en cualquier sentido,
-     o dos ataques dash), ese. Si hay varios, el de más daño. Si no hay, el de más cobertura.
+     o dos ataques dash), ese. Si hay varios, el de más daño. Si no hay, el de más cobertura. El relevo del
+     punto 1 deja a Bola Sombra sin pareja de estado, así que el hueco 2 vuelve a la cobertura (Esfera Aural).
+     Dos dash se quedan: Golpe Aéreo + Ataque Rápido aguanta más que el ataque de tier S.
   3. El resto de huecos: el ataque que más cobertura añade (rivales nuevos en super efectivo y en no resistido). Si
      varios empatan, el de más daño total, que cuenta todos los proyectiles de los ataques de varios disparos o de
      área. Cuando ya no queda cobertura por ganar, rellena con el de más daño que no sea normal (los normales solo
@@ -97,15 +103,34 @@ def _pairs(a: str, b: str, flags: dict[str, tuple[bool, bool, bool]]) -> bool:
     return (ha and sb) or (hb and sa) or (da and db)
 
 
+def _tier_lead(candidates: list[str], rows: dict) -> str:
+    """El de mejor tier en data/move_tierlist_v4.csv y, dentro del tier, el de más score_rel. Empata el id menor."""
+    order = {t: i for i, t in enumerate("SABCD")}
+
+    def key(mid: str) -> tuple:
+        tier = rows[mid]["tier"]
+        return (order.get(tier, 9), -float(rows[mid]["score_rel"] or 0), mid)
+
+    return min(candidates, key=key)
+
+
 def pick_attacks(candidates: list[str], best_move: str, rows: dict, mech: dict, matrix: dict,
                  enemies: list[list[str]], cache: dict, slots: int = ATTACK_SLOTS,
                  flags: dict | None = None) -> list[str]:
     damage = {i: total_damage(rows[i], mech[i]) for i in candidates}
-    chosen = [best_move]
+    # Hex ×1.7 solo cuenta con un estado ya puesto. Llevar Hex y forzar a Lengüetazo (u otro
+    # aplicador flojo) perdió contra el ataque de mejor tier en los 39 Pokémon cuyo mejor
+    # ataque simulado es Hex. Un dash no es Hex, así que sigue llevando el mejor de la simulación.
+    lead = best_move
+    if flags and best_move in flags and flags[best_move][0]:
+        ranked = _tier_lead(candidates, rows)
+        if ranked != best_move:
+            lead = ranked
+    chosen = [lead]
     while len(chosen) < slots:
         # The displayed second attack is the synergy partner when the pool has one. Later slots stay coverage.
         if len(chosen) == 1 and flags:
-            syn = [i for i in candidates if i not in chosen and _pairs(best_move, i, flags)]
+            syn = [i for i in candidates if i not in chosen and _pairs(chosen[0], i, flags)]
             if syn:
                 chosen.append(max(syn, key=lambda i: damage[i]))
                 continue

@@ -325,7 +325,10 @@ def main() -> int:
               and len(e[9]) == 6 and e[9][5] in (0, 1, 2) and all(isinstance(v, int) and 0 <= v <= 100 for v in e[9][:2])
               and 2 <= len(e[9][2]) <= 4 and all(m in move_ids for m in e[9][2]) and e[9][3] in (1, 2, 3)
               and len(e[9][4]) <= 3 and all(m in move_ids for m in e[9][4])
-              and not set(e[9][4]) & set(e[9][2]) and e[9][2][0] == e[4]
+              and not set(e[9][4]) & set(e[9][2])
+              # El primer hueco es el mejor ataque simulado. Si ese ataque es Hex, el selector lo
+              # cambia por uno de tier más alto (build/combos.py) y Hex se queda en el grupo o en los opcionales.
+              and (e[9][2][0] == e[4] or (e[4] == "hex" and "hex" in set(e[9][2]) | set(e[9][4])))
               # cartas a priorizar (build/passives.py): 1-4 ids de carta y cuántas evolucionan un ataque
               and len(e[10]) == 2 and 1 <= len(e[10][0]) <= 4 and all(c in CARD_IDS for c in e[10][0])
               and 0 <= e[10][1] <= len(e[10][0]))

@@ -255,7 +255,7 @@
     }).join('');
   }
 
-  // Build recomendada (build/combos.py): inicio, grupo fijo de dos ataques (el primero, el mejor de la simulación) y dos potenciadores,
+  // Build recomendada (build/combos.py): inicio, grupo fijo de dos ataques y dos potenciadores,
   // opcionales para los huecos que se abren más tarde y los objetos de la tier list. Una tarjeta oscura que se lee sola
   // en una captura: lleva el sprite, el nombre y la marca del sitio.
   const ITEM_COLOR = '#f2ecd8';
@@ -289,7 +289,12 @@
     const attacks = slots.slice(0, slots.length - nBoost), boosts = slots.slice(slots.length - nBoost);
     const start = find(d[2]);
     const alts = altIds.map(find).filter(Boolean);
-    const attackTiles = attacks.map((m, i) => tile(m, '', badgeOf(i === 0 ? 'crown' : String(i + 1), i === 0 ? t('build_best') : t('build_slot', { n: i + 1 })), i)).join('');
+    // La corona es el mejor ataque de la simulación (d[4]). Si Hex cede el primer hueco a un
+    // ataque de tier más alto, ese hueco no lleva la corona.
+    const attackTiles = attacks.map((m, i) => {
+      const crowned = m.id === d[4];
+      return tile(m, '', badgeOf(crowned ? 'crown' : String(i + 1), crowned ? t('build_best') : t('build_slot', { n: i + 1 })), i);
+    }).join('');
     const boostTile = boosts.map((b, i) => tile(b, ' bd-boost', badgeOf('sparkle', t('build_boost')), attacks.length + i)).join('');
     const sprite = '<span class="bd-sprite" style="--tc:' + (TYPE_COLOR[p.types[0]] || '#888') +
       '"><img class="px" src="' + sprites + p.dex + spriteExt + '" width="' + p.w * scale + '" height="' + p.h * scale + '" alt=""></span>';
