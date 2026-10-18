@@ -476,9 +476,9 @@
         : t('bp_none_attack');
       result.innerHTML = '<h2>' + esc(t('bp_result_h')) + '</h2>' +
         '<p class="bp-result-who">' + esc(monName(p)) + ' <small>#' + p.dex + '</small></p>' +
-        '<h3>' + esc(t('bp_group_h')) + '</h3><ul class="bp-chips">' + attacks.map(chipOf).join('') + boosts.map(chipOf).join('') + '</ul>' +
-        '<h3>' + esc(t('bp_item_h')) + '</h3><p class="bp-line">' + (itemObj ? esc(EN ? itemObj.en.name : itemObj.name) : esc(t('bp_item_none'))) + '</p>' +
-        '<h3>' + esc(t('bp_cards_h')) + '</h3><ol class="bp-cardlist">' + cards.map(c => '<li>' + esc(EN ? c.en.name : c.name) + '</li>').join('') + '</ol>' +
+        '<p class="bp-sub">' + esc(t('bp_group_h')) + '</p><ul class="bp-chips">' + attacks.map(chipOf).join('') + boosts.map(chipOf).join('') + '</ul>' +
+        '<p class="bp-sub">' + esc(t('bp_item_h')) + '</p><p class="bp-line">' + (itemObj ? esc(EN ? itemObj.en.name : itemObj.name) : esc(t('bp_item_none'))) + '</p>' +
+        '<p class="bp-sub">' + esc(t('bp_cards_h')) + '</p><ol class="bp-cardlist">' + cards.map(c => '<li>' + esc(EN ? c.en.name : c.name) + '</li>').join('') + '</ol>' +
         '<p class="bp-line">' + esc(coverLine) + '</p>' +
         '<div class="bp-share"><label class="sr" for="bp-link">' + esc(t('bp_link')) + '</label>' +
         '<input id="bp-link" class="bp-link" readonly value="' + esc(link) + '">' +
