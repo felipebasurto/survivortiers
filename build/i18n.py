@@ -302,17 +302,19 @@ STR: dict[str, tuple[str, str]] = {
     "about_sprites_html": (
         '<a href="{url}" rel="noopener">{source}</a>, licencia <a href="{lic_url}" rel="noopener">{lic}</a>.',
         '<a href="{url}" rel="noopener">{source}</a>, license <a href="{lic_url}" rel="noopener">{lic}</a>.'),
-    "about_icons_h": ("Iconos y letra", "Icons and font"),
+    "about_icons_h": ("Iconos y letras", "Icons and fonts"),
     "about_icons_html": (
         'Iconos: <a href="{url}" rel="noopener">{author}</a> ({title}), '
         '<a href="{lic_url}" rel="noopener">{lic}</a>. Glifos de tipo: del juego, licencia MIT.',
         'Icons: <a href="{url}" rel="noopener">{author}</a> ({title}), '
         '<a href="{lic_url}" rel="noopener">{lic}</a>. Type glyphs: from the game, MIT license.'),
     "about_font_html": (
-        'Letra: <a href="https://github.com/eifetx/Pixelify-Sans" rel="noopener">Pixelify Sans</a>, '
-        'SIL OFL 1.1 (<a href="{root}fonts/OFL.txt">licencia</a>).',
-        'Font: <a href="https://github.com/eifetx/Pixelify-Sans" rel="noopener">Pixelify Sans</a>, '
-        'SIL OFL 1.1 (<a href="{root}fonts/OFL.txt">license</a>).'),
+        'Letras: <a href="https://github.com/eifetx/Pixelify-Sans" rel="noopener">Pixelify Sans</a> en títulos y '
+        '<a href="https://rsms.me/inter/" rel="noopener">Inter</a> en el texto y los números, SIL OFL 1.1 '
+        '(<a href="{root}fonts/OFL.txt">Pixelify</a>, <a href="{root}fonts/Inter-OFL.txt">Inter</a>).',
+        'Fonts: <a href="https://github.com/eifetx/Pixelify-Sans" rel="noopener">Pixelify Sans</a> for titles and '
+        '<a href="https://rsms.me/inter/" rel="noopener">Inter</a> for text and numbers, SIL OFL 1.1 '
+        '(<a href="{root}fonts/OFL.txt">Pixelify</a>, <a href="{root}fonts/Inter-OFL.txt">Inter</a>).'),
 
     # ------------------------------------------------------------ 404
     "nf_title": ("Página no encontrada · {site}", "Page not found · {site}"),

@@ -12,7 +12,7 @@ import shutil
 from pathlib import Path
 
 JS_FILES = ("app.js", "ficha.js")
-FONT_FILES = ("PixelifySans.ttf", "OFL.txt")
+FONT_FILES = ("PixelifySans.ttf", "OFL.txt", "Inter.woff2", "Inter-OFL.txt")
 STRING = re.compile(r'"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'')
 ICON = re.compile(r"url\(img/ui/([\w-]+)\.png\)")
 
