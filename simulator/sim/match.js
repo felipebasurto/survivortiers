@@ -3,6 +3,7 @@ const { loadData } = require('./data');
 const {
   BIOMES, xpFor, typeMult, strikeDamage, weatherFactor, weatherRamp, weightedKind,
   keepDistance, inMelee, inBeam, fanAngles, pulseHealer, pulseShield, readStatus,
+  hexMultiplier, applyStatus, tickStatus,
   freshState, currentMove, buffLevel, legalCards, pickCard, offerCards, applyCard, deriveInto,
 } = require('./rules');
 
@@ -117,12 +118,12 @@ function sampleDef(tiers, t, roll) {
   return def;
 }
 
-function moveHasStatus(moves, id) {
+function moveHasStatus(moves, id, apply) {
   const move = moves[id];
   const sources = move.levels.slice();
   if (move.evo) sources.push(move.evo);
   for (const source of sources) {
-    if (readStatus(source).ignored) return true;
+    if (readStatus(source, apply).ignored) return true;
   }
   return false;
 }
@@ -150,13 +151,17 @@ function runMatch(opts) {
   const spawnOn = opts.spawn !== false;
   const weatherOn = opts.weather !== false;
   const bot = opts.bot || 'repulse';
+  // Off by default: the parity run ignores status. On, fired hits inflict burn,
+  // poison and slow and Infortunio (chain) uses the ×hex bonus.
+  const statusOn = !!opts.status;
+  const chainOn = statusOn || !!opts.xkinds;
   const knockFade = 0.0015 ** dt;
   const world = rng(opts.seed);
   const cardRoll = rng((opts.seed + 0xA5A5) >>> 0);
   const tiers = data.tiers;
   const state = freshState();
   const pool = mon.pool || [];
-  let statusIgnored = moveHasStatus(data.moves, mon.start);
+  let statusIgnored = moveHasStatus(data.moves, mon.start, statusOn);
 
   const pl = { x: 0, y: 0, r: mon.r, hp: mon.hp, inv: 0, dirx: 1, diry: 0, react: 0, aim: 0 };
   const enemies = [];
@@ -226,7 +231,8 @@ function runMatch(opts) {
     }
     enemy.hp -= left;
     if (opts.recordHits) hits.push({ amount, id: enemy.id });
-    if (status && status.ignored) statusIgnored = true;
+    if (statusOn) applyStatus(enemy, status);
+    else if (status && status.ignored) statusIgnored = true;
   }
 
   function levelUp(st) {
@@ -266,8 +272,12 @@ function runMatch(opts) {
 
   function cast(st) {
     const move = st.move;
-    const status = readStatus(move);
+    const status = readStatus(move, statusOn);
     if (status.ignored) statusIgnored = true;
+    if (move.kind === 'chain' && chainOn) {
+      castChain(move, st, status);
+      return;
+    }
     const near = nearest(enemies, pl.x, pl.y);
     const aim = near ? Math.atan2(near.y - pl.y, near.x - pl.x) : pl.aim;
     pl.aim = aim;
@@ -314,6 +324,39 @@ function runMatch(opts) {
           dmg: move.dmg, atk: st.atk, type: move.type, status,
         });
       }
+    }
+  }
+
+  // combat.js chain(): first hop within 280 px, then the nearest unhit enemy inside
+  // radius², 15 % less damage each jump. Hex is applied before hit(), so this hit's
+  // own status does not boost itself.
+  function castChain(move, st, status) {
+    const near = nearest(enemies, pl.x, pl.y);
+    if (!near || len(near.x - pl.x, near.y - pl.y) >= 280) return;
+    let cur = near;
+    const done = new Set();
+    let k = 1;
+    const n = Math.max(1, move.count || 1);
+    for (let i = 0; i < n && cur; i++) {
+      done.add(cur.id);
+      const hex = hexMultiplier(move.hex, cur);
+      strike(cur, move.dmg * k * hex, st.atk, move.type, status);
+      k *= 0.85;
+      let best = null;
+      let bd = (move.radius || 0) * (move.radius || 0);
+      const cx = cur.x;
+      const cy = cur.y;
+      for (const enemy of enemies) {
+        if (enemy.hp <= 0 || done.has(enemy.id)) continue;
+        const dx = enemy.x - cx;
+        const dy = enemy.y - cy;
+        const d = dx * dx + dy * dy;
+        if (d < bd) {
+          bd = d;
+          best = enemy;
+        }
+      }
+      cur = best;
     }
   }
 
@@ -513,7 +556,7 @@ function runMatch(opts) {
     while (orbs.length < count) {
       orbs.push({ angle: (orbs.length / count) * Math.PI * 2, inside: Object.create(null) });
     }
-    const status = readStatus(move);
+    const status = readStatus(move, statusOn);
     for (const orb of orbs) {
       orb.angle += (move.speed || 1) * dt;
       const x = pl.x + Math.cos(orb.angle) * move.radius;
@@ -591,6 +634,10 @@ function runMatch(opts) {
       const enemy = enemies[i];
       if (enemy.hp <= 0) continue;
       if (enemy.touch > 0) enemy.touch -= dt;
+      if (statusOn) {
+        tickStatus(enemy, dt, level);
+        if (enemy.hp <= 0) continue;
+      }
       if (enemy.shieldT > 0) {
         enemy.shieldT -= dt;
         if (enemy.shieldT <= 0) enemy.shield = 0;
@@ -622,9 +669,10 @@ function runMatch(opts) {
         if (enemy.fuse <= 0) enemy.hp = 0;
         continue;
       }
+      const spd = statusOn ? enemy.spd * (1 - (enemy.slow || 0)) : enemy.spd;
       const slow = 1;
-      let vx = dx * enemy.spd * slow;
-      let vy = dy * enemy.spd * slow;
+      let vx = dx * spd * slow;
+      let vy = dy * spd * slow;
       const beh = enemy.beh;
       if (beh === 'chase' || beh === 'tank') {
         enemy.x += enemy.kx * dt;
@@ -649,12 +697,12 @@ function runMatch(opts) {
         continue;
       }
       if (beh === 'runner') {
-        const lead = Math.min(1.4, Math.max(0, dist / Math.max(60, enemy.spd)));
+        const lead = Math.min(1.4, Math.max(0, dist / Math.max(60, spd)));
         let tx = pl.x + pl.dirx * st.spd * lead - enemy.x;
         let ty = pl.y + pl.diry * st.spd * lead - enemy.y;
         const mag = len(tx, ty) || 1;
-        vx = (tx / mag) * enemy.spd;
-        vy = (ty / mag) * enemy.spd;
+        vx = (tx / mag) * spd;
+        vy = (ty / mag) * spd;
       }
       if (beh === 'bomber' && dist < enemy.r + pl.r + 26) {
         enemy.fuse = 1;
@@ -681,8 +729,8 @@ function runMatch(opts) {
           vx = 0; vy = 0;
           if (enemy.pt <= 0) { enemy.phase = 'dash'; enemy.pt = 0.42; enemy.cx = dx; enemy.cy = dy; }
         } else {
-          vx = enemy.cx * enemy.spd * 3.4;
-          vy = enemy.cy * enemy.spd * 3.4;
+          vx = enemy.cx * spd * 3.4;
+          vy = enemy.cy * spd * 3.4;
           if (enemy.pt <= 0) { enemy.phase = 'walk'; enemy.pt = 1.1; }
         }
       }
@@ -690,7 +738,7 @@ function runMatch(opts) {
       if (keeps) {
         const range = (enemy.def && enemy.def.range) || 200;
         const hold = range * 0.82;
-        if (dist < hold * 0.75) { vx = -dx * enemy.spd * 0.8; vy = -dy * enemy.spd * 0.8; }
+        if (dist < hold * 0.75) { vx = -dx * spd * 0.8; vy = -dy * spd * 0.8; }
         else if (dist < hold) { vx *= 0.1; vy *= 0.1; }
         enemy.shotCd -= dt;
         if (enemy.shotCd <= 0 && dist < range && enemy.def) {

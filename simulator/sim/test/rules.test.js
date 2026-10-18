@@ -4,6 +4,7 @@ const { loadData } = require('../data');
 const {
   xpFor, typeMult, strikeDamage, inMelee, keepDistance, pickCard, legalCards,
   healAmount, pulseHealer, pulseShield, quantile, freshState, derive, applyCard,
+  hexMultiplier, applyStatus, tickStatus, readStatus, SLOW_SECS, BURN_SECS, POISON_SECS,
 } = require('../rules');
 
 const data = loadData();
@@ -86,10 +87,53 @@ test('a healer restores 7 percent inside 150px and a second shield does not stac
 
 test('burn 1 is a flag and does not become damage', () => {
   const ember = data.moves.ember.levels[0];
-  const status = require('../rules').readStatus(ember);
+  const status = readStatus(ember);
   assert.equal(ember.burn, 1);
   assert.equal(status.burn, 0);
   assert.equal(status.ignored, true);
+});
+
+test('status hits inflict burn, poison and slow, and Hex is ×1.7 only while one is up', () => {
+  const ember = data.moves.ember.levels[0];
+  const hex = data.moves.hex.levels[0];
+  const sludge = data.moves.sludge.levels[0];
+  const lick = data.moves.lick.levels[0];
+  assert.equal(hex.hex, 1.7);
+  const enemy = { hp: 500, max: 500, shield: 0 };
+  assert.equal(hexMultiplier(hex.hex, enemy), 1);
+  applyStatus(enemy, readStatus(ember, true));
+  assert.equal(enemy.burn, 1);
+  assert.equal(enemy.burnT, BURN_SECS);
+  assert.equal(hexMultiplier(hex.hex, enemy), 1.7);
+  applyStatus(enemy, readStatus(sludge, true));
+  assert.equal(enemy.poison, 1);
+  assert.equal(enemy.poisonT, POISON_SECS);
+  applyStatus(enemy, readStatus(lick, true));
+  assert.equal(enemy.slow, 0.4);
+  assert.equal(enemy.slowT, SLOW_SECS);
+  const dt = 1 / 20;
+  const stepUntil = (pred, cap) => {
+    let n = 0;
+    while (!pred() && n < cap) {
+      tickStatus(enemy, dt, 1);
+      n += 1;
+    }
+    return n;
+  };
+  const slowSteps = stepUntil(() => enemy.slow === 0, 80);
+  assert.equal(enemy.slow, 0);
+  assert.ok(slowSteps * dt >= SLOW_SECS - dt);
+  assert.equal(hexMultiplier(hex.hex, enemy), 1.7);
+  const burnSteps = stepUntil(() => enemy.burn === 0, 120);
+  assert.equal(enemy.burn, 0);
+  assert.ok((slowSteps + burnSteps) * dt >= BURN_SECS - dt);
+  assert.ok(enemy.hp < 500);
+  assert.equal(hexMultiplier(hex.hex, enemy), 1.7);
+  stepUntil(() => enemy.poison === 0, 120);
+  assert.equal(enemy.poison, 0);
+  assert.equal(hexMultiplier(hex.hex, enemy), 1);
+  assert.equal(readStatus(ember, true).ignored, false);
+  assert.equal(readStatus(data.moves['flamethrower'].levels[0], true).ignored, true);
 });
 
 test('median of four sorted values is the average of the middle pair', () => {
