@@ -107,6 +107,15 @@
     return out;
   }
 
+  // Cuatro cartas del planificador: las primeras de la lista por prioridad (d[10][0]), y la que evoluciona el ataque
+  // principal (d[10][1]) siempre dentro, en su sitio de la lista.
+  function plannerCards(prio) {
+    const [order, gate] = prio;
+    const top = order.slice(0, PLAN_SLOTS);
+    const picks = gate && !top.includes(gate) ? order.slice(0, PLAN_SLOTS - 1).concat(gate) : top;
+    return order.filter(id => picks.includes(id));
+  }
+
   // Build recomendada de build/combos.py. Su danza es física (patk); si los ataques del grupo son en su mayoría
   // especiales, se cambia por Maquinación y se devuelve el cambio para avisarlo.
   function recommended(dex, species, game) {
@@ -132,7 +141,7 @@
     return {
       group: group.concat(Array(PLAN_SLOTS - group.length).fill(null)),
       item: species.items[0] ? species.items[0].id : null,
-      cards: d[10][0].slice(0, PLAN_SLOTS).concat(Array(PLAN_SLOTS).fill(null)).slice(0, PLAN_SLOTS),
+      cards: plannerCards(d[10]).concat(Array(PLAN_SLOTS).fill(null)).slice(0, PLAN_SLOTS),
       swap,
     };
   }
@@ -177,7 +186,7 @@
   }
 
   const toolsApi = {
-    slugOf, comboMult, weaknessMap, groupWeak, sideOf, poolOf, coverage, boostWarnings, recommended,
+    slugOf, comboMult, weaknessMap, groupWeak, sideOf, poolOf, coverage, boostWarnings, recommended, plannerCards,
     encodeState, decodeState, attackTypesOf, boostsOf, attacksOf, rnd, SUPER, NEUTRAL, PLAN_SLOTS, BOOST_CAP,
   };
 
@@ -422,12 +431,17 @@
 
     function renderCards() {
       const cardList = Object.values(species.cards);
+      const [order, gate] = species.d[String(st.dex)][10];
+      const cardName = id => EN ? species.cards[id].en.name : species.cards[id].name;
       cardsBox.innerHTML = st.cards.map((id, i) =>
         '<label class="bp-card"><span class="bp-slot-n">' + esc(t('bp_card_n', { n: i + 1 })) + '</span>' +
         '<select class="bp-select" data-card="' + i + '"><option value="">' + esc(t('bp_card_none')) + '</option>' +
         cardList.map(c => '<option value="' + c.id.replace('card:', '') + '"' +
           (id === c.id.replace('card:', '') ? ' selected' : '') + '>' + esc(EN ? c.en.name : c.name) + '</option>').join('') +
-        '</select></label>').join('');
+        '</select></label>').join('') +
+        '<p class="tool-rule bp-cardorder">' + esc(t('bp_cards_all')) + ': ' +
+        order.map((id, i) => (i + 1) + '. ' + esc(cardName(id)) + (id === gate ? ' 1×' : '')).join(' · ') + '</p>' +
+        '<p class="tool-rule">' + esc(t('build_card_hint')) + (gate ? ' ' + esc(t('build_card_once')) : '') + '</p>';
     }
 
     function renderMon() {

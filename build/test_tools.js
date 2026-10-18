@@ -146,6 +146,19 @@ check('la categoría de cada movimiento viene del juego (físico o especial)', (
   assert.equal(game.moves['ember'].c, 'special');
 });
 
+check('cartas del planificador: cuatro, en orden de prioridad, y con la que evoluciona el ataque dentro', () => {
+  for (const p of index) {
+    const [order, gate] = species.d[String(p.dex)][10];
+    const picks = tools.plannerCards([order, gate]);
+    assert.equal(picks.length, tools.PLAN_SLOTS, String(p.dex));
+    assert.equal(new Set(picks).size, picks.length, 'repetida en ' + p.dex);
+    const pos = picks.map(id => order.indexOf(id));
+    assert.deepEqual(pos, [...pos].sort((a, b) => a - b), 'fuera de orden en ' + p.dex);
+    if (gate) assert.ok(picks.includes(gate), 'falta la carta que evoluciona en ' + p.dex);
+    assert.deepEqual(tools.recommended(p.dex, species, game).cards, picks, String(p.dex));
+  }
+});
+
 check('la danza de la build recomendada se elige por categoría, sin Danza Espada fija', () => {
   for (const p of index) {
     const rec = tools.recommended(p.dex, species, game);

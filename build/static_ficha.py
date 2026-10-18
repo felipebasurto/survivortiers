@@ -116,23 +116,12 @@ def _card_name(L: Lang, card: dict) -> str:
     return card["en"]["name"] if L.en else card["name"]
 
 
-def card_answer(L: Lang, names: list[str], n_once: int, keep_evolves: bool) -> str:
-    """La misma frase en la FAQ y en el JSON-LD. `n_once` es la carta que se coge una vez y no se repite."""
-    if n_once == 1 and len(names) >= 2:
-        return L.t("faq_a_cards_once", once=names[0], card=_join(L, names[1:]))
+def card_answer(L: Lang, names: list[str], once: str | None) -> str:
+    """La misma frase en la FAQ y en el JSON-LD. `once` es la carta que hace falta una vez para evolucionar el ataque."""
     cards = _join(L, names)
-    if keep_evolves:
-        return L.t("faq_a_cards_evo", cards=cards)
+    if once:
+        return L.t("faq_a_cards_gate", cards=cards, once=once)
     return L.t("faq_a_cards", cards=cards)
-
-
-def _need_id(cards: dict, name: str | None) -> str | None:
-    if not name:
-        return None
-    for cid, card in cards.items():
-        if card["name"] == name:
-            return cid
-    raise KeyError(name)
 
 
 def _faqs(L: Lang, tier: str, rank: int, attacks: str, buffs: str, n_buffs: int, super_pct: int,
@@ -238,15 +227,10 @@ def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, detail: list,
         raise ValueError(f"{entry['dex']}: la tirada no tiene probabilidad")
     pct = L.dec(p_pull * 100, _digits(p_pull * 100))
     banner = L.banner(entry["banner"])
-    card_ids, n_once = detail[10]
+    card_ids, gate = detail[10]
     card_names = [_card_name(L, cards[c]) for c in card_ids]
-    need_ids = []
-    for mid in ids:
-        nid = _need_id(cards, moves[mid].get("needsCard"))
-        if nid:
-            need_ids.append(nid)
-    keep_evolves = n_once == 0 and bool(card_ids) and card_ids[0] in need_ids
-    card_text = card_answer(L, card_names, n_once, keep_evolves) if card_names else ""
+    gate_name = _card_name(L, cards[gate]) if gate else None
+    card_text = card_answer(L, card_names, gate_name)
     faqs = _faqs(L, tier, rank, attacks, buffs, len(buff_ids), int(super_pct), card_text, banner,
                  bool(entry["legendary"]), pct, pulls)
     w, h = entry["sprite"]["w"], entry["sprite"]["h"]
@@ -267,18 +251,18 @@ def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, detail: list,
         f'<li class="is-buff">{esc(_move_name(L, moves, mid))} {damage_badge(L, moves[mid]["damage"])}</li>' if mid in buff_set
         else f'<li>{esc(_move_name(L, moves, mid))} {damage_badge(L, moves[mid]["damage"])}</li>'
         for mid in ids)
-    card_chips = []
-    for i, name in enumerate(card_names):
-        if i < n_once:
-            note = L.t("build_once")
-        elif n_once == 0 and keep_evolves:
-            note = L.t("build_first_evo")
-        elif n_once == 0:
-            note = L.t("build_keep")
-        else:
-            note = L.t("build_then")
-        card_chips.append(f"<li>{esc(name)} <small>{esc(note)}</small></li>")
-    card_list = "".join(card_chips)
+    card_items = []
+    for i, (cid, name) in enumerate(zip(card_ids, card_names), 1):
+        once = f' <small class="bd-gate" title="{esc(L.t("build_card_once"))}">1×</small>' if cid == gate else ""
+        card_items.append(f'<li><b class="bd-n">{i}</b>{esc(name)}{once}</li>')
+    card_top = "".join(card_items[:4])
+    card_more = "".join(card_items[4:])
+    card_block = (
+        f'<p class="bd-hint">{esc(L.t("build_card_hint"))}</p>'
+        f'<ol class="bond bd-prio">{card_top}</ol>'
+        + (f'<details class="bd-more"><summary>{esc(L.t("build_card_more"))}</summary>'
+           f'<ol class="bond bd-prio" start="5">{card_more}</ol></details>' if card_more else "")
+        + (f'<p class="bd-legend">{esc(L.t("build_card_once"))}</p>' if gate else ""))
     stat_rows = "".join(
         f'<tr><th scope="row">{esc(L.t(key))}</th><td class="num">{n}</td></tr>'
         for key, n in zip(STAT_KEYS, stats))
@@ -311,7 +295,7 @@ def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, detail: list,
 <p class="bd-cap">{esc(L.t("build_group"))}</p>
 <ul class="bond">{chips}</ul>
 <p class="bd-cap">{esc(L.t("build_cards"))}</p>
-<ul class="bond">{card_list}</ul>
+{card_block}
 <p>{esc(L.t("sheet_a_build", attacks=attacks, buffs=buffs) if buffs else L.t("sheet_a_build_plain", attacks=attacks))}</p>
 <p class="muted">{esc(L.t("sheet_a_cover", super=L.pcts(int(super_pct)), neutral=L.pcts(int(neutral_pct))))}</p>
 </div>

@@ -308,6 +308,9 @@ def browser_check(base: str, index: list[dict], args, err, notes: list[str]) -> 
                              slots: document.querySelectorAll('#build .bd-slots .bd-tile').length,
                              alts: document.querySelectorAll('#build .bd-alts .bd-tile').length,
                              items: document.querySelectorAll('#build .bd-items .bd-tile').length,
+                             cards: document.querySelectorAll('#build .bd-cards .bd-tile').length,
+                             cardNumbers: [...document.querySelectorAll('#build .bd-cards .bd-tile .bd-badge')].map(b => b.textContent.trim()),
+                             once: document.querySelectorAll('#build .bd-cards .bd-once').length,
                              icons: [...document.querySelectorAll('#build .bd-ico img')].every(i => i.complete && i.naturalWidth > 0),
                              title: (document.querySelector('#build h2') || {}).textContent,
                              overflow: [...document.querySelectorAll('#build, #build *')].some(e => e.getBoundingClientRect().right > innerWidth + 1) },
@@ -321,6 +324,8 @@ def browser_check(base: str, index: list[dict], args, err, notes: list[str]) -> 
                 b = info["build"]
                 if (b["start"], b["slots"]) != (1, 4) or not 2 <= b["alts"] <= 3 or b["items"] != 3 or not b["icons"] or b["title"] != "Build":
                     err(f"{lang}pokemon/?id={d}: la sección Build está incompleta ({b})")
+                if b["cards"] != 8 or b["cardNumbers"] != [str(i) for i in range(1, 9)] or b["once"] != 1:
+                    err(f"{lang}pokemon/?id={d}: las cartas por prioridad no salen 1 a 8 con una marca 1× ({b['cards']}, {b['cardNumbers']}, {b['once']})")
                 if b["overflow"]:
                     err(f"{lang}pokemon/?id={d}: la sección Build se desborda en 390 px de ancho")
                 if info["src"] != f"{info['base']}{d}{info['ext']}" or info["img"] == 0:
@@ -517,9 +522,9 @@ def main() -> int:
               and 2 <= len(e[9][2]) <= 4 and all(m in move_ids for m in e[9][2]) and e[9][3] in (1, 2, 3)
               and len(e[9][4]) <= 3 and all(m in move_ids for m in e[9][4])
               and not set(e[9][4]) & set(e[9][2]) and group_matches(d, e)
-              # cartas que coge el bot (build/passives.py): 1-4 ids y cuántas de las primeras se cogen una sola vez
-              and len(e[10]) == 2 and 1 <= len(e[10][0]) <= 4 and all(c in CARD_IDS for c in e[10][0])
-              and 0 <= e[10][1] <= len(e[10][0])
+              # cartas por prioridad (build/passives.py): las 8 ids, de mejor a peor, y la que evoluciona el ataque o null
+              and len(e[10]) == 2 and sorted(e[10][0]) == sorted(CARD_IDS)
+              and (e[10][1] is None or e[10][1] in CARD_IDS)
               and isinstance(e[11], (int, float)) and e[11] > 0)
         if not ok:
             err(f"data/species.json: datos incompletos o raros para el Pokémon {d}")

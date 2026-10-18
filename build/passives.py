@@ -1,19 +1,14 @@
-"""Cartas que el bot coge de verdad en una partida, para la tarjeta Build, la ficha que se comparte y la FAQ.
+"""Cartas de subida de nivel de cada Pokémon, para la tarjeta Build, el planificador, la ficha estática y la FAQ.
 
-El orden de monedas (data/passive_sim.json) dice qué estadística conviene apilar. No es una lista de
-prioridades para ir turnando: pick_card (simulator/sim-rs/src/engine.rs) hace otra cosa.
+Dos lecturas de data/passive_sim.json:
 
-1. El ataque principal se sube hasta el nivel máximo.
-2. Si ese ataque evoluciona, su carta `needs` se coge una sola vez (`stacks < 1`) y enseguida se evoluciona.
-   El tope de la carta es otro número (Imán 6, Aprendizaje 8, Carrera 8, Reflejos 10, Coraza 12, Potencia 40;
-   Vigor y Síntesis llegan a 250 en la pasada con estado) y no hace que el bot la siga prefiriendo.
-3. Los compañeros no fuerzan su carta: solo evolucionan si esa estadística ya está en 1.
-4. Con un relleno, Danza Espada y Fortaleza van antes, y después se apila solo esa estadística hasta su tope.
-   La mejor del banco de monedas es ese relleno. En 900 s el bot no llega al tope de Vigor ni de Síntesis,
-   así que no pasa a la siguiente del ranking.
-
-Por eso la lista son las primeras cartas de estadística, no cuatro prioridades planas: la de evolución del
-ataque que abre el grupo, una vez, si no es la que se apila; y la que el bot sigue cogiendo.
+- `priority` (la que se muestra): las 8 cartas de estadística en el orden del banco de monedas de cada especie
+  (`order`, la mediana de monedas cuando esa estadística va primero; ver simulator/card_priority.py), de mejor a peor,
+  y aparte la carta `needs` del ataque que abre el grupo, que hace falta una vez para evolucionarlo.
+- `compute` (la que usa el resumen de la ficha): lo que el bot coge en una partida. pick_card
+  (simulator/sim-rs/src/engine.rs) coge la carta de evolución una sola vez y después apila solo la mejor del banco,
+  así que no es una lista de prioridades. Los textos de summaries.json se validan contra esta función: no la cambies
+  sin rehacer los resúmenes.
 """
 from __future__ import annotations
 
@@ -21,18 +16,26 @@ import json
 from pathlib import Path
 
 DATA = Path(__file__).resolve().parent.parent / "data"
+STATS = ("atk", "spd", "hp", "def", "cd", "rgn", "mag", "xp")
 
 
 def load() -> dict:
     return json.loads((DATA / "passive_sim.json").read_text(encoding="utf8"))
 
 
-def compute(dex: int, group_moves: list[str], sim: dict) -> list:
-    """[[ids], cuántas de las primeras se cogen una sola vez].
+def priority(dex: int, group_moves: list[str], sim: dict) -> list:
+    """[[8 ids de carta, de mejor a peor], id de la carta que evoluciona el ataque principal, o None]."""
+    order = sim["order"].get(str(dex))
+    if not order or sorted(order) != sorted(STATS):
+        raise ValueError(f"{dex}: passive_sim.json no tiene las 8 cartas en orden")
+    gate = sim["needs"].get(group_moves[0]) if group_moves else None
+    if gate not in STATS:
+        gate = None
+    return [list(order), gate]
 
-    La última es la estadística que el bot apila (la mejor del banco de monedas). La primera, si hay dos,
-    es la carta de evolución del ataque que abre el grupo, y solo cuando no coincide con la que se apila.
-    """
+
+def compute(dex: int, group_moves: list[str], sim: dict) -> list:
+    """[[ids], cuántas de las primeras se cogen una sola vez]. Solo para summary_facts y los resúmenes."""
     order = sim["order"].get(str(dex), [])
     if not order:
         return [[], 0]

@@ -427,6 +427,22 @@ textarea {
 .bd-tile.item.best .bd-badge, .bd-tile.card.evo .bd-badge { background: var(--bd-gold); }
 .bd-items .bd-tile.item:not(.best) { opacity: .7; }
 .bd-cards .bd-badge { --tc: #c4bbd8; }
+.bd-hint, .bd-legend { margin: 0 0 10px; font: .75rem/1.45 var(--ui); color: var(--bd-ink-2); }
+.bd-hint { margin-bottom: 18px; }
+.bd-legend { margin: 12px 0 0; }
+.bd-once { position: absolute; top: -9px; right: -9px; display: grid; place-items: center; min-width: 20px; height: 20px; padding: 0 4px;
+  background: var(--bd-gold); color: #1b1528; font: 700 .75rem/1 var(--ui); box-shadow: 0 0 0 2px #1b1528; }
+.bd-more { margin: 12px 0 0; }
+.bd-more > summary { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; list-style: none; cursor: pointer;
+  font: 600 .75rem var(--ui); text-transform: uppercase; letter-spacing: .05em; color: var(--bd-ink-2); box-shadow: 0 0 0 2px var(--bd-line); }
+.bd-more > summary::-webkit-details-marker { display: none; }
+.bd-more > summary::before { content: "+"; font-size: 1rem; line-height: 1; color: var(--bd-gold-ink); }
+.bd-more[open] > summary::before { content: "−"; }
+.bd-more > summary:hover { background: var(--bd-hover); }
+.bd-more > .bd-small { margin-top: 12px; }
+.bd-prio li { display: flex; align-items: center; gap: 8px; }
+.bd-prio .bd-n { min-width: 1.4em; font-variant-numeric: tabular-nums; color: var(--bd-gold-ink); }
+.bd-prio .bd-gate { font: 700 .75rem var(--ui); color: var(--bd-gold-ink); }
 .bd-extra { margin: 18px 0 0; }
 .bd-extra > summary { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; list-style: none; cursor: pointer;
   font: 600 .75rem var(--ui); text-transform: uppercase; letter-spacing: .05em; color: var(--bd-ink-2); box-shadow: 0 0 0 2px var(--bd-line); }
