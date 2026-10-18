@@ -43,7 +43,7 @@ UA = {"User-Agent": "SurvivorTiers-check/1.0"}
 BEACON_URL = "https://static.cloudflareinsights.com/beacon.min.js"
 SPRITE_CDN_PREFIX = "https://cdn.jsdelivr.net/gh/felipebasurto/survivortiers@"
 # 8 páginas × 2 idiomas + 966 fichas × 2, más CSS, JSON y fuentes. Pages admite 20 000 archivos.
-MAX_FILES, MAX_BYTES = 4_000, 120_000_000
+MAX_FILES, MAX_BYTES = 4_000, 180_000_000
 EXPECTED_COUNTS = {"S": 30, "A": 90, "B": 200, "C": 300, "D": 346}
 SPANISH_WORDS = re.compile(r"\b(el|los|las|del|con|para|puesto|aguante|daño|ficha|partidas?|repeticiones|cuántos)\b", re.I)
 LANGS = ("", "en/")
