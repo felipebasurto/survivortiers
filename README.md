@@ -15,6 +15,7 @@ Web: https://survivortiers.pages.dev
 | `build/render.py` | Genera `site/` entero: 6 páginas por idioma, la plantilla `pokemon/index.html` de cada idioma, `404.html`, `style.css`, `app.js`, la letra, `data/` y `_headers`. Unos 25 archivos y menos de 2 MB |
 | `build/pack.py` | Empaqueta `src/` en `site/`: iconos dentro del CSS, CSS y JS minificados, JSON copiados |
 | `build/i18n.py` | Todos los textos en español e inglés, validados al importar |
+| `build/theme.py` | Tema claro u oscuro: el script de `<head>` que aplica la elección antes del primer pintado, y su huella sha256 para la CSP de `src/_headers` y `vercel.json` |
 | `build/agents.py` | Archivos para agentes de IA y buscadores: `llms.txt`, `llms-full.txt` (diccionario de datos y método), `robots.txt`, `sitemap.xml`, `data/ranking.csv`, `data/meta.json`, `data/gachas.json` y el JSON-LD `Dataset` de la portada |
 | `build/combos.py` | La build de cada Pokémon: el mejor ataque de la simulación, dos de cobertura, el potenciador y tres ataques opcionales (`species.json`, posición 9). Los objetos recomendados salen de `build/objetos.py` y son los mismos para todos |
 | `build/charts.py` | Gráficos HTML, CSS y SVG (la ficha usa las mismas fórmulas en `src/ficha.js`) |
@@ -41,6 +42,7 @@ python3 build/check_site.py http://127.0.0.1:8765/ --external   # además, enlac
 ### Fichas y sprites
 
 - Cada idioma tiene una sola plantilla de ficha, `/pokemon/?id=25` y `/en/pokemon/?id=25`. `src/ficha.js` la dibuja con `data/pokemon-index.json`, `data/species.json` y `data/moves.json`. Los enlaces viejos `/pokemon/25.html` caen en `404.html` (el hosting la sirve para lo que no existe), y `app.js` los reenvía a la ficha.
+- El script en línea del tema (`build/theme.py`) va permitido por huella sha256 en `script-src` de `src/_headers` y `vercel.json`. Si cambias ese script, `render.py` se niega a generar el sitio hasta que pongas la huella que imprime (`python3 -c "import sys; sys.path.insert(0,'build'); import theme; print(theme.csp_hash())"`).
 - Los sprites salen de `https://cdn.jsdelivr.net/gh/felipebasurto/survivortiers@main/sprites/<n>.png`. Si cambias el repositorio, el usuario o la rama, ajusta `SPRITE_CDN` en `build/legal.py` y el `img-src` de `src/_headers` y `vercel.json` (`check_site.py` comprueba que coincidan). jsDelivr guarda `@main` unas horas: un sprite nuevo tarda en verse.
 
 ## Para agentes de IA

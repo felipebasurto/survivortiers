@@ -28,6 +28,9 @@ STR: dict[str, tuple[str, str]] = {
     "nav_coleccion": ("Colección", "Collection"),
     "nav_acerca": ("Info", "About"),
     "lang_label": ("Idioma", "Language"),
+    "theme_btn": ("Tema claro u oscuro", "Light or dark theme"),
+    "theme_to_dark": ("Cambiar a modo oscuro", "Switch to dark mode"),
+    "theme_to_light": ("Cambiar a modo claro", "Switch to light mode"),
     "sprites_line_html": (
         'Sprites: <a href="{url}" rel="noopener">{source}</a>, <a href="{lic_url}" rel="noopener">{lic}</a>. '
         '<a href="{about}#creditos">Artistas</a>.',
@@ -292,7 +295,6 @@ STR: dict[str, tuple[str, str]] = {
     "col_view": ("Ver", "Show"),
     "col_file": ("O un archivo .json", "Or a .json file"),
     "col_drop": ("Arrastra aquí el .json o pulsa para elegirlo", "Drag the .json here or click to choose it"),
-    "col_reimport": ("Reimportar", "Re-import"),
 
     # ------------------------------------------------------------ acerca
     "about_title": ("Info y aviso legal · {site}", "About and legal notice · {site}"),

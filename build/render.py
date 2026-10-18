@@ -27,6 +27,7 @@ import pasivas  # noqa: E402
 import pack  # noqa: E402
 import regions  # noqa: E402
 import share_image  # noqa: E402
+import theme  # noqa: E402
 import typedata  # noqa: E402
 from i18n import ES, LANGS, TYPE_NAMES, Lang  # noqa: E402
 
@@ -160,6 +161,15 @@ def social_head(c: Ctx, title: str, description: str) -> str:
     return "\n".join(tags)
 
 
+def theme_button(L: Lang) -> str:
+    """Botón de tema de la cabecera. Empieza oculto: sin JavaScript no hay nada que cambiar. app.js lo muestra y pone
+    su etiqueta según el tema activo (data-to-dark / data-to-light)."""
+    return (f'<button class="theme-btn" type="button" id="theme" hidden aria-label="{esc(L.t("theme_btn"))}" '
+            f'title="{esc(L.t("theme_btn"))}" data-to-dark="{esc(L.t("theme_to_dark"))}" '
+            f'data-to-light="{esc(L.t("theme_to_light"))}">'
+            f'<i class="ico ico-sun" aria-hidden="true"></i><i class="ico ico-moon" aria-hidden="true"></i></button>')
+
+
 def page(c: Ctx, page_id: str, title: str, description: str, content: str, meta: dict, extra_head: str = "") -> str:
     L = c.L
     agents_html = (f'<p class="agents">{esc(L.t("agents_label"))} <a href="{c.assets}llms.txt">llms.txt</a> · '
@@ -189,10 +199,10 @@ def page(c: Ctx, page_id: str, title: str, description: str, content: str, meta:
     return BASE.substitute(
         lang=L.code, assets=c.assets, home=c.home, sprites=esc(SPRITES), sprites_alt=esc(legal.SPRITE_ALT), sprites_ext=EXT, asset_v=ASSET_V, page_id=page_id, title=esc(title),
         description=esc(description), alternates=alternates, skip=esc(L.t("skip")),
-        nav_aria=esc(L.t("nav_main")), foot_aria=esc(L.t("nav_foot")), switch=switch, nav=nav, content=content,
-        footer_nav=footer_nav, disclaimer=esc(L.t("disclaimer", game=legal.GAME_NAME)), sprites_line=sprites_line,
-        build_info=esc(build_info.replace("--", "-")), agents=agents_html, extra_head=extra_head,
-        social=social, follow=follow, analytics=analytics)
+        nav_aria=esc(L.t("nav_main")), foot_aria=esc(L.t("nav_foot")), switch=switch, theme=theme_button(L), nav=nav,
+        content=content, footer_nav=footer_nav, disclaimer=esc(L.t("disclaimer", game=legal.GAME_NAME)),
+        sprites_line=sprites_line, build_info=esc(build_info.replace("--", "-")), agents=agents_html,
+        extra_head=extra_head, social=social, follow=follow, analytics=analytics, theme_init=theme.script_tag())
 
 
 def write(rel: str, text: str) -> None:
@@ -526,7 +536,6 @@ def render_coleccion(c: Ctx, gachas: list[dict], meta: dict) -> str:
   </label>
 </div>
 </div>
-<div class="reimport-row"><button class="btn ghost" type="button" id="reimport" hidden>{esc(L.t("col_reimport"))}</button></div>
 <div id="saved" class="saved" aria-live="polite"></div>
 <div id="result" aria-live="polite"></div>
 """
@@ -621,6 +630,10 @@ def main() -> int:
         if not s or not s["artists"] or not s["license"]:
             print(f"ERROR: {p['name']} ({p['dex']}) sin sprite o sin atribución", file=sys.stderr)
             return 1
+    missing = theme.csp_missing(ROOT)
+    if missing:
+        print(f"ERROR: la CSP de {', '.join(missing)} no lleva la huella {theme.csp_hash()} de build/theme.py", file=sys.stderr)
+        return 1
     if SITE.exists():
         for child in SITE.iterdir():
             shutil.rmtree(child) if child.is_dir() else child.unlink()

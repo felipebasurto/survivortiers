@@ -17,11 +17,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import random
 import re
 import sys
 import time
 from collections import Counter, deque
 from html.parser import HTMLParser
+from shutil import which
 from urllib.error import HTTPError, URLError
 from pathlib import Path
 from urllib.parse import parse_qs, urldefrag, urljoin, urlparse
@@ -29,6 +31,12 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 import agents  # noqa: E402
 import legal  # noqa: E402
+import theme  # noqa: E402
+
+try:
+    from playwright.sync_api import Error, sync_playwright
+except ImportError:
+    Error = sync_playwright = None
 
 ROOT = Path(__file__).resolve().parent.parent
 UA = {"User-Agent": "SurvivorTiers-check/1.0"}
@@ -160,6 +168,17 @@ def agent_check(base: str, body_by_url: dict[str, str], err, notes: list[str]) -
     notes.append(f"agentes: llms.txt con {len(local_links)} enlaces, sitemap con {expected} entradas")
 
 
+def launch_chromium(pw):
+    """Chromium de Playwright, o el Chrome del sistema si no está instalado. None si no hay ninguno."""
+    try:
+        return pw.chromium.launch()
+    except Error:
+        exe = which("google-chrome") or which("chromium") or which("chromium-browser")
+        if not exe:
+            return None
+        return pw.chromium.launch(executable_path=exe, args=["--no-sandbox"])
+
+
 def wait_js(page, js: str, timeout_ms: int) -> None:
     """Espera a que la función js (sin argumentos) devuelva true. No usa page.wait_for_function: Playwright evalúa
     sus cadenas con eval, y la CSP de producción (script-src 'self', sin unsafe-eval) lo bloquea. page.evaluate sí."""
@@ -173,28 +192,19 @@ def wait_js(page, js: str, timeout_ms: int) -> None:
 def browser_check(base: str, index: list[dict], args, err, notes: list[str]) -> None:
     """Dibuja la ficha de cada Pokémon en un navegador de verdad: 4 gráficos con texto alternativo, el sprite cargado,
     el nombre correcto y ningún error de consola. También prueba que un enlace viejo acaba en la ficha."""
-    try:
-        from playwright.sync_api import Error, sync_playwright
-    except ImportError:
+    if sync_playwright is None:
         notes.append("fichas en el navegador: omitido (pip install playwright)")
         return
-    import random
-    from shutil import which
-
     by_dex = {p["dex"]: p for p in index}
     dexes = sorted(by_dex)
     rng = random.Random(7)
     sample = dexes if args.all_species else sorted(set(rng.sample(dexes, min(args.species, len(dexes)))) | {dexes[0], dexes[-1]})
     drawn = 0
     with sync_playwright() as pw:
-        try:
-            browser = pw.chromium.launch()
-        except Error:
-            exe = which("google-chrome") or which("chromium") or which("chromium-browser")
-            if not exe:
-                notes.append("fichas en el navegador: omitido (no hay Chromium)")
-                return
-            browser = pw.chromium.launch(executable_path=exe, args=["--no-sandbox"])
+        browser = launch_chromium(pw)
+        if browser is None:
+            notes.append("fichas en el navegador: omitido (no hay Chromium)")
+            return
         page = browser.new_page(viewport={"width": 390, "height": 800})
         problems: list[str] = []
         # el beacon de Cloudflare Web Analytics solo acepta hosts registrados: en local (127.0.0.1) su petición se bloquea
@@ -258,6 +268,96 @@ def browser_check(base: str, index: list[dict], args, err, notes: list[str]) -> 
     notes.append(f"fichas dibujadas en el navegador: {drawn} de {2 * len(dexes)}")
 
 
+THEME_LIGHT, THEME_DARK = "#f6f0dc", "#1b1528"
+THEME_PAGES = ("", "coleccion.html", "pokemon/?id=25", "metodo.html", "ataques.html", "en/", "en/pokemon/?id=25", "en/coleccion.html")
+THEME_STATE_JS = """() => ({
+    theme: document.documentElement.dataset.theme || null,
+    bg: getComputedStyle(document.documentElement).getPropertyValue('--bg').trim(),
+    meta: document.getElementById('theme-color').content,
+    label: document.getElementById('theme').getAttribute('aria-label') })"""
+
+
+def theme_check(base: str, err, notes: list[str]) -> None:
+    """Botón de tema en cada página: cambia el fondo, la barra del navegador y la etiqueta; recuerda la elección tras
+    recargar; sin elección sigue al sistema, también cuando cambia con la página abierta; y el gráfico de la portada
+    y de métodos se repinta al cambiar."""
+    if sync_playwright is None:
+        return
+    with sync_playwright() as pw:
+        browser = launch_chromium(pw)
+        if browser is None:
+            return
+        problems: list[str] = []
+
+        def watch(page) -> None:
+            page.on("pageerror", lambda e: problems.append(str(e)))
+            page.on("console", lambda m: problems.append(m.text)
+                    if m.type == "error" and "cloudflareinsights" not in m.text and "ERR_FAILED" not in m.text else None)
+
+        def expect(page, where: str, theme_value, bg: str) -> dict:
+            st = page.evaluate(THEME_STATE_JS)
+            if st["theme"] != theme_value or st["bg"] != bg or st["meta"] != bg or not st["label"]:
+                err(f"tema en {where}: {st} (se esperaba data-theme={theme_value!r} y fondo {bg})")
+            return st
+
+        try:
+            ctx = browser.new_context(viewport={"width": 390, "height": 800}, color_scheme="light")
+            page = ctx.new_page()
+            watch(page)
+            page.goto(base + "coleccion.html")
+            page.wait_for_selector("#theme:not([hidden])", timeout=8000)
+            first = expect(page, "coleccion (sistema claro)", None, THEME_LIGHT)
+            page.click("#theme")
+            dark = expect(page, "coleccion tras pulsar", "dark", THEME_DARK)
+            if dark["label"] == first["label"]:
+                err("el botón de tema no cambia su etiqueta al cambiar de tema")
+            page.reload()
+            page.wait_for_selector("#theme:not([hidden])", timeout=8000)
+            expect(page, "coleccion tras recargar (oscuro guardado)", "dark", THEME_DARK)
+            page.click("#theme")
+            expect(page, "coleccion vuelta a claro", "light", THEME_LIGHT)
+            page.reload()
+            page.wait_for_selector("#theme:not([hidden])", timeout=8000)
+            expect(page, "coleccion recargada (claro guardado)", "light", THEME_LIGHT)
+            for path in THEME_PAGES:
+                page.goto(base + path)
+                page.wait_for_selector("#theme:not([hidden])", timeout=8000)
+                expect(page, path or "portada", "light", THEME_LIGHT)
+                page.click("#theme")
+                expect(page, f"{path or 'portada'} en oscuro", "dark", THEME_DARK)
+                page.click("#theme")
+                expect(page, f"{path or 'portada'} en claro", "light", THEME_LIGHT)
+            ctx.close()
+
+            ctx = browser.new_context(viewport={"width": 390, "height": 800}, color_scheme="dark")
+            page = ctx.new_page()
+            watch(page)
+            page.goto(base + "coleccion.html")
+            page.wait_for_selector("#theme:not([hidden])", timeout=8000)
+            expect(page, "coleccion (sistema oscuro)", None, THEME_DARK)
+            page.emulate_media(color_scheme="light")
+            wait_js(page, f"() => document.getElementById('theme-color').content === '{THEME_LIGHT}' && "
+                          "document.getElementById('theme').getAttribute('aria-label') === 'Cambiar a modo oscuro'", 4000)
+            expect(page, "coleccion (el sistema pasa a claro)", None, THEME_LIGHT)
+            ctx.close()
+
+            ctx = browser.new_context(viewport={"width": 1280, "height": 860}, color_scheme="light")
+            page = ctx.new_page()
+            watch(page)
+            page.goto(base + "metodo.html")
+            page.wait_for_selector("[data-arena] canvas", state="attached", timeout=8000)
+            page.click("#theme")
+            page.wait_for_timeout(150)
+            page.click("#theme")
+            ctx.close()
+        except (Error, TimeoutError) as e:
+            err(f"comprobación de tema: {str(e).splitlines()[0]}")
+        browser.close()
+    if problems:
+        err(f"errores en el navegador al cambiar de tema: {problems[:2]}")
+    notes.append(f"tema: botón comprobado en {len(THEME_PAGES)} páginas, en claro, en oscuro y siguiendo al sistema")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("base")
@@ -274,6 +374,8 @@ def main() -> int:
     def err(msg: str) -> None:
         errors.append(msg)
 
+    for name in theme.csp_missing(ROOT):
+        err(f"{name}: la CSP no lleva la huella {theme.csp_hash()} del script de tema (build/theme.py)")
     status, body = fetch(base + "data/pokemon-index.json")
     if status != 200:
         print(f"ERROR: no se puede leer {base}data/pokemon-index.json ({status})")
@@ -546,6 +648,7 @@ def main() -> int:
     notes.append(f"páginas rastreadas: {sum(1 for p in seen.values() if p)}; sprites enlazados: {len(sprite_refs)}")
     agent_check(base, body_by_url, err, notes)
     browser_check(base, index, args, err, notes)
+    theme_check(base, err, notes)
 
     if args.external:
         bad_ext = []
