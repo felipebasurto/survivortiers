@@ -331,10 +331,11 @@ def build_meta(entries: list[dict], credits: dict, counts: dict) -> dict:
 
 
 def slim(entries: list[dict]) -> list[dict]:
-    """Lo mínimo para la tier list, el buscador y la colección: r = [puesto, tier, p10, p90, % en su tier]."""
+    """Lo mínimo para la tier list, el buscador y la colección: r = [puesto, tier, p10, p90, % en su tier].
+    bst = suma de stats base: es el campo bst de js/data/pokedex.js del juego para los 966 Pokémon."""
     return [{"dex": e["dex"], "name": e["name"], "nameEn": e["nameEn"], "types": e["types"],
              "rarity": e["rarity"], "legendary": e["legendary"], "bannerId": e["bannerId"], "sh": e["sh"],
-             "w": e["sprite"]["w"], "h": e["sprite"]["h"],
+             "bst": sum(e["stats"]), "w": e["sprite"]["w"], "h": e["sprite"]["h"],
              "r": [e["r"]["rank"], e["r"]["tier"], e["r"]["p10"], e["r"]["p90"], round(100 * e["r"]["pTier"])],
              "v": sort_values(e)}
             for e in entries]
