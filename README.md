@@ -12,6 +12,7 @@ Web: https://survivortiers.pages.dev
 | `sprites/` | Los 966 sprites (SpriteCollab, CC BY-NC 4.0). **No van en `site/`**: las páginas los piden a jsDelivr, que sirve este repositorio (`legal.SPRITE_CDN`). `sprites/shiny/` tiene los 958 sprites shiny (ver `build/shiny_sprites.py`) |
 | `src/` | Estáticos escritos a mano: `style.css`, `app.js` (tier list, colección, vista shiny, demos), `collection.js` (lee el comando de la consola y las filas shiny, sin DOM), `share.js` (codec del enlace `#c=`, v1 y v2), `ficha.js` (dibuja la ficha), `fonts/`, `img/` (iconos de interfaz y créditos) y `_headers` |
 | `build/catalog.py` | Valida y genera `build/out/` (datos intermedios y `public/`, los JSON del navegador). **Falla** si falta artista o licencia de algún sprite, si los conteos por tier no son 30/90/200/300/346 o si los pools de gacha no suman 966 |
+| `build/game_moves.py` | Datos de movimientos copiados del juego en `GAME_REF` (e868b5e): la lista física (`js/data/moves.js:429-431`), los textos de los potenciadores y Maquinación, que aún no tiene puesto. `test_game_moves.py` los compara con el juego si `POKESURVIVOR_DIR` apunta a una copia |
 | `build/render.py` | Genera `site/` entero: 6 páginas por idioma, la plantilla `pokemon/index.html` de cada idioma, `404.html`, `style.css`, `app.js`, la letra, `data/` y `_headers`. Unos 25 archivos y menos de 2 MB |
 | `build/pack.py` | Empaqueta `src/` en `site/`: iconos dentro del CSS, CSS y JS minificados, JSON copiados |
 | `build/i18n.py` | Todos los textos en español e inglés, validados al importar |

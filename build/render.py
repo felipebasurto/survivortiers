@@ -21,6 +21,7 @@ import agents  # noqa: E402
 import balls  # noqa: E402
 import charts  # noqa: E402
 import finder  # noqa: E402
+import game_moves  # noqa: E402
 import gamestats  # noqa: E402
 import landing  # noqa: E402
 import legal  # noqa: E402
@@ -305,7 +306,8 @@ FICHA_KEYS = (
     "rar_1", "rar_2", "rar_3", "rar_4", "rar_5", "t_base", "bs_hp", "bs_atk", "bs_def", "bs_spa", "bs_spd", "bs_spe",
     "bs_total", "bs_alt_item", "bs_s_hp", "bs_s_atk", "bs_s_def", "bs_s_spa", "bs_s_spd", "bs_s_spe",
     "sheet_title", "sheet_desc", "fh_game", "fresh", "t_combat", "cb_pa", "cb_sa", "cb_df", "cb_sd", "cb_kind_phys",
-    "cb_kind_spec", "cb_kind_mix", "cb_note", "cb_src")
+    "cb_kind_spec", "cb_kind_mix", "cb_note", "cb_src",
+    "dmg_physical", "dmg_special", "dmg_status", "dmg_tip_physical", "dmg_tip_special", "dmg_tip_status")
 
 
 def ficha_chrome(L: Lang, meta: dict) -> tuple[str, str]:
@@ -448,6 +450,9 @@ def move_facts(L: Lang, m: dict) -> str:
     if "buff" in m:
         b = m["buff"]
         facts.append(L.t("mv_buff", dur=L.dec(b["dur"], 0), cd=L.dec(b["cd"], 2)))
+        if "stacks" in b:
+            stat = b["statEn"] if L.en else b["stat"]
+            facts.append(L.t("mv_stacks", amt=L.dec(b["amount"] * 100, 0), stat=stat, n=b["stacks"]))
     if not facts:
         return ""
     return '<ul class="mv-facts">' + "".join(f"<li>{esc(f)}</li>" for f in facts) + "</ul>"
@@ -457,16 +462,29 @@ def move_card(L: Lang, m: dict, mon: dict, home: str) -> str:
     name = m["en"]["name"] if L.en else m["name"]
     # Teledirigido y perforante se nombran aparte del proyectil normal: cambian cómo se usa el ataque.
     kind = L.t("mv_kind_" + {"home": "homing", "pierce": "pierce"}.get(move_fx(m), m["kind"]))
-    bars = charts.buff_bars(L, m["score"], m["buff"]) if "buff" in m else charts.move_bars(L, m["score"])
+    if "score" in m:
+        bars = charts.buff_bars(L, m["score"], m["buff"]) if "buff" in m else charts.move_bars(L, m["score"])
+        meter = f'<div class="mv-meter">{bars}</div>'
+    else:
+        meter = f'<p class="mv-pending">{esc(L.t("mv_unranked"))}</p>'
+    note = m.get("note")
+    note_html = f'<p class="mv-desc">{esc(note["en"] if L.en else note["es"])}</p>' if note else ""
     types = TYPE_NAMES["en" if L.en else "es"]
     search = " ".join([m["name"], m["en"]["name"] or "", types[m["type"]], kind]).lower()
     return (f'<li class="mv-card" data-q="{esc(search)}">'
             f'<div class="mv-top">{move_icon_svg(m["icon"])}<div class="mv-title"><h4>{esc(name)}</h4>'
-            f'<div class="mv-tags">{type_pill(L, m["type"])}<span class="mv-kind">{esc(kind)}</span></div></div></div>'
-            f'{move_stage(L, m, mon, home)}<div class="mv-meter">{bars}</div>{move_facts(L, m)}</li>')
+            f'<div class="mv-tags">{type_pill(L, m["type"])}<span class="mv-kind">{esc(kind)}</span>'
+            f'{static_ficha.damage_badge(L, m["damage"])}</div></div></div>{note_html}'
+            f'{move_stage(L, m, mon, home)}{meter}{move_facts(L, m)}</li>')
 
 
-def render_ataques(c: Ctx, moves: list[dict], meta: dict, index: list[dict]) -> str:
+def damage_legend(L: Lang) -> str:
+    items = "".join(f'<li>{static_ficha.damage_badge(L, cls)}<span>{esc(L.t("dmg_tip_" + cls))}</span></li>'
+                    for cls in game_moves.DAMAGE_CLASSES)
+    return f'<ul class="cat-legend" aria-label="{esc(L.t("mv_damage_h"))}">{items}</ul>'
+
+
+def render_ataques(c: Ctx, moves: list[dict], meta: dict, index: list[dict], unranked: list[dict]) -> str:
     L = c.L
     blocks, toc = [], []
     for cat_id, cat_csv in CATEGORIES:
@@ -477,6 +495,10 @@ def render_ataques(c: Ctx, moves: list[dict], meta: dict, index: list[dict]) -> 
                 continue
             items = "".join(move_card(L, m, demo_mon(index, m["type"]), c.home) for m in ms)
             inner.append(f'<div class="mv-tier"><h3>{tier_badge(L, t)} <small>{len(ms)}</small></h3>'
+                         f'<ul class="mv-grid">{items}</ul></div>')
+        if cat_id == "stat" and unranked:
+            items = "".join(move_card(L, m, demo_mon(index, m["type"]), c.home) for m in unranked)
+            inner.append(f'<div class="mv-tier mv-unranked"><h3>{esc(L.t("mv_unranked_h"))} <small>{len(unranked)}</small></h3>'
                          f'<ul class="mv-grid">{items}</ul></div>')
         icon_name = {"melee": "sword", "ranged": "bow", "stat": "sparkle"}[cat_id]
         blocks.append(f'<section id="{cat_id}" class="mv-section"><h2>{icon(icon_name)}{esc(L.t("cat_" + cat_id))}</h2>'
@@ -491,11 +513,12 @@ def render_ataques(c: Ctx, moves: list[dict], meta: dict, index: list[dict]) -> 
 <div class="search-field mv-finder">{search_icon}<input id="mv-q" type="search" autocomplete="off" placeholder="{esc(L.t("mv_search"))}" aria-label="{esc(L.t("mv_search"))}"></div>
 <p id="mv-none" class="mv-none" hidden>{esc(L.t("mv_none"))}</p>
 <ul class="toc">{"".join(toc)}</ul>
+{damage_legend(L)}
 {charts.move_scale(L)}
 {"".join(blocks)}
 """
     return page(c, "ataques", L.t("ataques_title", site=legal.SITE_NAME),
-                L.t("ataques_desc", n=len(moves), game=legal.GAME_NAME), content, meta)
+                L.t("ataques_desc", n=len(moves) + len(unranked), game=legal.GAME_NAME), content, meta)
 
 
 def render_finder(c: Ctx, meta: dict) -> str:
@@ -697,6 +720,7 @@ def main() -> int:
         index = load("public/pokemon-index.json")
         full = load("pokemon.json")
         moves = load("moves.json")
+        unranked = load("moves_unranked.json")
         species = load("public/species.json")
         gachas = load("gachas.json")
         summaries = {L.code: load(f"public/summaries-{L.code}.json") for L in LANGS}
@@ -735,7 +759,7 @@ def main() -> int:
         before, after = ficha_chrome(L, meta)
         put("index.html", lambda c: render_index(c, index, meta))
         put("novedades.html", lambda c: render_novedades(c, meta))
-        put("ataques.html", lambda c: render_ataques(c, moves, meta, index))
+        put("ataques.html", lambda c: render_ataques(c, moves, meta, index, unranked))
         put("objetos.html", lambda c: render_objetos(c, meta))
         put("pasivas.html", lambda c: render_pasivas(c, meta))
         put("gachas.html", lambda c: render_gachas(c, gachas, index, meta))
