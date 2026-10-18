@@ -1843,6 +1843,13 @@
   }
   if (page === 'ataques') initMoves();
 
+  document.addEventListener('click', (e) => {
+    document.querySelectorAll('.nav-group[open]').forEach((d) => { if (!d.contains(e.target)) d.open = false; });
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') document.querySelectorAll('.nav-group[open]').forEach((d) => { d.open = false; });
+  });
+
   if (page === 'index' || page === 'coleccion' || page === 'gachas') {
     getJSON('pokemon-index.json').then(mons => {
       state.mons = mons; indexMons(mons);

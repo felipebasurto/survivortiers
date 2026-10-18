@@ -460,7 +460,7 @@ STR: dict[str, tuple[str, str]] = {
                    "Legal notice, credits and licences for {site}, a {game} tier list."),
     "about_h1": ("Info de {game}", "About {game}"),
     "about_credits_h": ("Créditos", "Credits"),
-    "about_sprites_h": ("Sprites", "Sprites"),
+    "about_sprites_h": ("Artistas de SpriteCollab", "SpriteCollab artists"),
     "about_sprites_html": (
         '<a href="{url}" rel="noopener">{source}</a>, licencia <a href="{lic_url}" rel="noopener">{lic}</a>.',
         '<a href="{url}" rel="noopener">{source}</a>, license <a href="{lic_url}" rel="noopener">{lic}</a>.'),
@@ -626,8 +626,10 @@ STR: dict[str, tuple[str, str]] = {
                   "Our own estimate, not checked against real games."),
 
     # ------------------------------------------------------------ navegación de las herramientas
-    "nav_buscador": ("Tipos", "Types"),
-    "nav_planificador": ("Build", "Build"),
+    "nav_buscador": ("Buscador", "Type finder"),
+    "nav_planificador": ("Planificador", "Build planner"),
+    "nav_tools": ("Herramientas", "Tools"),
+    "nav_guide": ("Guía", "Guide"),
     "guide_finder": ("Buscador por tipos", "Type finder"),
     "guide_planner": ("Planificador de build", "Build planner"),
     "stat_atk": ("Ataque", "Attack"),

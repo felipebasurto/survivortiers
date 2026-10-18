@@ -108,7 +108,9 @@ img.px { image-rendering: pixelated; image-rendering: crisp-edges; }
 main { flex: 1; padding-block: 44px 72px; }
 .foot { border-top: 1px solid var(--rule); color: var(--ink-2); font: .8125rem/1.55 var(--sans); padding-block: 28px 40px; }
 .foot p { max-width: 85ch; margin: 0 0 8px; }
-.foot nav { display: flex; flex-wrap: wrap; gap: 4px 20px; margin-bottom: 14px; }
+.foot nav { display: grid; gap: 10px; margin-bottom: 14px; }
+.foot-group { display: flex; flex-wrap: wrap; gap: 4px 18px; align-items: baseline; }
+.foot-group b { color: var(--ink); font-weight: 700; margin-right: 2px; }
 .foot a { color: var(--ink-2); }
 .foot .disclaimer { color: var(--ink); }
 
@@ -952,6 +954,19 @@ h2 { display: flex; align-items: center; gap: 10px; padding-bottom: 6px; border-
 .nav a { padding: 4px 8px; border-bottom: 0; }
 .nav a:hover { background: var(--rule-soft); }
 .nav a[aria-current="page"] { background: var(--accent); color: var(--on-accent); }
+.nav-group { position: relative; }
+.nav-group > summary { list-style: none; cursor: pointer; padding: 4px 8px; color: var(--ink-2); }
+.nav-group > summary::-webkit-details-marker { display: none; }
+.nav-group > summary::after { content: ""; display: inline-block; margin-left: 8px; vertical-align: .2em; border: 4px solid transparent;
+  border-top: 5px solid currentColor; border-bottom: 0; }
+.nav-group > summary:hover, .nav-group[open] > summary { color: var(--ink); background: var(--rule-soft); }
+.nav-group.is-current > summary { color: var(--ink); box-shadow: inset 0 -3px 0 var(--accent); }
+.nav-group > summary:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.nav-menu { position: absolute; top: calc(100% + 8px); left: 0; z-index: 20; display: grid; gap: 2px; min-width: 15rem; padding: 8px;
+  background: var(--bg); box-shadow: var(--notch); }
+.nav-menu a { display: block; padding: 8px 12px; white-space: nowrap; border: 0; }
+.nav-menu a:hover { background: var(--rule-soft); }
+.nav-menu a[aria-current="page"] { background: var(--accent); color: var(--on-accent); }
 .tools { display: flex; align-items: center; gap: 4px; }
 .lang { display: flex; gap: 4px; margin-left: 10px; font: 600 .75rem var(--ui); }
 .lang a { color: var(--ink); text-decoration: none; padding: 3px 8px; box-shadow: var(--notch-soft); background: var(--bg); }
@@ -1448,10 +1463,16 @@ html { overflow-x: hidden; }
   .lang a { display: grid; place-items: center; min-width: 36px; height: 36px; padding: 0 6px; }
   .follow { display: inline-flex; align-items: center; min-height: 36px; margin: 0; padding: 0 8px; font-size: .7rem; }
   .theme-btn { width: 36px; height: 36px; margin: 0; }
-  .nav { grid-column: 1 / -1; display: flex; flex-wrap: nowrap; gap: 6px; margin: 0 -14px; padding: 4px 14px 2px; overflow-x: auto;
-    overscroll-behavior-x: contain; scrollbar-width: none; font-size: .75rem; letter-spacing: .01em; }
-  .nav::-webkit-scrollbar { display: none; }
-  .nav a { flex: none; display: inline-flex; align-items: center; min-height: 40px; padding: 0 12px; box-shadow: var(--notch-soft); }
+  .nav { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; font-size: .75rem; letter-spacing: .01em; }
+  .nav > a, .nav-group > summary { display: inline-flex; align-items: center; min-height: 40px; padding: 0 12px; box-shadow: var(--notch-soft);
+    background: var(--bg); color: var(--ink); }
+  .nav-group > summary:hover, .nav-group[open] > summary { background: var(--rule-soft); }
+  .nav-group.is-current > summary { box-shadow: var(--notch-soft), inset 0 -3px 0 var(--accent); }
+  .nav-group[open] { flex: 1 1 100%; }
+  .nav-menu { position: static; min-width: 0; padding: 6px 0 2px; box-shadow: none; background: none; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .nav-menu a { display: flex; align-items: center; min-height: 40px; padding: 0 12px; white-space: normal; box-shadow: var(--notch-soft); background: var(--bg); color: var(--ink); }
+  .nav-menu a:hover { background: var(--rule-soft); }
+  .nav-menu a[aria-current="page"] { background: var(--accent); color: var(--on-accent); }
   main { padding-block: 20px 56px; }
   h1 { font-size: 1.9rem; margin-bottom: 16px; }
   p.tagline { font-size: .875rem; margin-bottom: 20px; }
