@@ -73,7 +73,7 @@
       share: 'Compartir', download: 'Descargar imagen',
       otherCollection: 'Colección de otro jugador', backToMine: 'Volver a la mía',
       shareNamePh: 'Nombre', shareNameLabel: 'Nombre en el enlace y la imagen',
-      copiedLink: 'Enlace copiado', shareFail: 'No se ha podido compartir.',
+      copiedLink: 'Enlace copiado', shareFail: 'No se ha podido compartir.', copyLink: 'Copiar enlace', sendLink: 'Enviar enlace',
       imageFail: 'No se ha podido crear la imagen.', badLink: 'Ese enlace no se puede leer.',
       shareTitle: 'Mi colección', collectionWord: 'Colección',
       siteHost: 'survivortiers.pages.dev',
@@ -125,7 +125,7 @@
       share: 'Share', download: 'Download image',
       otherCollection: 'Another player\'s collection', backToMine: 'Back to mine',
       shareNamePh: 'Name', shareNameLabel: 'Name on the link and the image',
-      copiedLink: 'Link copied', shareFail: 'Could not share.',
+      copiedLink: 'Link copied', shareFail: 'Could not share.', copyLink: 'Copy link', sendLink: 'Send link',
       imageFail: 'Could not create the image.', badLink: 'That link could not be read.',
       shareTitle: 'My collection', collectionWord: 'Collection',
       siteHost: 'survivortiers.pages.dev',
@@ -550,14 +550,41 @@
     try { localStorage.removeItem(STORE_KEY); } catch (e) { /* nada que borrar */ }
   }
 
-  function showSaved(on, failed) {
+  // Fila de acciones: una sola para la colección propia, la de otro jugador y los enlaces rotos.
+  // mode: 'own' | 'failed' (sin almacenamiento) | 'guest' | 'broken' | 'forgot' | 'none'
+  function renderSaved(mode, shareName) {
     const el = $('#saved');
-    if (failed) { el.textContent = TEXT.storageOff; return; }
-    if (!on) { el.textContent = ''; return; }
-    const iconBtn = (id, ico, label) => '<button class="col-btn" type="button" id="' + id + '" aria-label="' + esc(label) +
-      '" title="' + esc(label) + '"><i class="ico ' + ico + '" aria-hidden="true"></i></button>';
-    el.innerHTML = '<span class="col-meta">' + esc(TEXT.savedHere) + '</span><span class="col-actions">' +
-      iconBtn('reimport', 'ico-import', TEXT.reimport) + iconBtn('forget', 'ico-trash', TEXT.forget) + '</span>';
+    const guest = mode === 'guest';
+    const input = $('#share-name');
+    input.readOnly = guest;
+    input.value = guest ? (shareName || '') : '';
+    $('.share-name').hidden = guest && !shareName;
+    const colBtn = (id, inner, label, attrs) => '<button class="col-btn" type="button" id="' + id + '"' + (attrs || '') +
+      ' aria-label="' + esc(label) + '" title="' + esc(label) + '">' + inner + '</button>';
+    const share = colBtn('share-toggle', ICO_SHARE, TEXT.share, ' aria-expanded="false" aria-controls="sharebar"');
+    const img = colBtn('share-img', ICO_IMG, TEXT.download, '');
+    const back = colBtn('back-own', ICO_BACK, TEXT.backToMine, '');
+    const reimport = colBtn('reimport', '<i class="ico ico-import" aria-hidden="true"></i>', TEXT.reimport, '');
+    const forget = colBtn('forget', '<i class="ico ico-trash" aria-hidden="true"></i>', TEXT.forget, '');
+    const row = (meta, actions) => '<span class="col-meta' + (guest ? ' guest' : '') + '">' + meta + '</span>' +
+      (actions.length ? '<span class="col-actions">' + actions.join('') + '</span>' : '');
+    const html = {
+      none: '',
+      forgot: '<span class="col-meta">' + esc(TEXT.forgot) + '</span>',
+      own: row(esc(TEXT.savedHere), [share, img, reimport, forget]),
+      failed: row(esc(TEXT.storageOff), [share, img, reimport]),
+      guest: row(ICO_USER + esc(TEXT.otherCollection), [share, img, back]),
+      broken: row('', [back]),
+    };
+    el.innerHTML = html[mode];
+    setSharePanel(false);
+  }
+
+  function setSharePanel(open) {
+    $('#sharebar').hidden = !open;
+    const t = $('#share-toggle');
+    if (t) t.setAttribute('aria-expanded', String(open));
+    $('#share-msg').textContent = '';
   }
 
   // Progreso en cada tarjeta de gacha (página Gacha), si hay una colección guardada.
@@ -578,10 +605,11 @@
 
   // ---------------------------------------------------------------- compartir (enlace en el fragmento, imagen en el navegador)
   const ICO_SHARE = '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false" shape-rendering="crispEdges"><path fill="currentColor" d="M1 6h4v4H1zm10-5h4v4h-4zm0 10h4v4h-4z"/><path d="M5 8h6M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>';
-  const ICO_DOWN = '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false" shape-rendering="crispEdges"><path fill="currentColor" d="M7 1h2v6h3l-4 4-4-4h3zM2 13h12v2H2z"/></svg>';
   const ICO_BACK = '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false" shape-rendering="crispEdges"><path fill="currentColor" d="M8 2 3 8l5 6V10h6V6H8z"/></svg>';
   const ICO_USER = '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false" shape-rendering="crispEdges"><path fill="currentColor" d="M6 1h4v4H6zM3 7h10v7H3z"/></svg>';
   const ICO_TAG = '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false" shape-rendering="crispEdges"><path fill="currentColor" d="M1 7V1h6l8 8-6 6zm3-3h2v2H4z"/></svg>';
+  const ICO_IMG = '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false" shape-rendering="crispEdges"><path fill="currentColor" fill-rule="evenodd" d="M1 1h14v14H1zM2 2v12h12V2z"/><path fill="currentColor" d="M4 12l3-4 2 2 1-1 2 3z"/></svg>';
+  const ICO_COPY = '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false" shape-rendering="crispEdges"><path fill="none" stroke="currentColor" stroke-width="2" d="M6 1h9v9h-2M1 6h9v9H1z"/></svg>';
   const CARD_W = 1200, CARD_H = 630;
   let zenReady = null;
 
@@ -829,7 +857,6 @@
   function shareImage() {
     if (!viewing) return;
     const btn = $('#share-img');
-    const msg = $('#share-msg');
     btn.disabled = true;
     buildShareCanvas(viewing.c, $('#share-name').value).then(canvas => new Promise(resolve => canvas.toBlob(resolve, 'image/png'))).then(blob => {
       if (!blob) throw new Error('png');
@@ -841,48 +868,31 @@
       a.click();
       a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 1500);
-    }).catch(() => { msg.textContent = TEXT.imageFail; }).finally(() => { btn.disabled = false; });
+    }).catch(() => { showError(TEXT.imageFail); }).finally(() => { btn.disabled = false; });
   }
 
   function mountShare() {
     if ($('#sharebar')) return;
+    const mobile = onMobileShare();
+    const label = mobile ? TEXT.sendLink : TEXT.copyLink;
     const bar = document.createElement('div');
     bar.id = 'sharebar';
     bar.className = 'sharebar';
     bar.hidden = true;
     bar.innerHTML =
-      '<div id="guest-banner" class="guest-banner" hidden><p class="guest-flag">' + ICO_USER +
-      '<span>' + esc(TEXT.otherCollection) + '</span></p><button class="btn ghost with-ico" type="button" id="back-own">' +
-      ICO_BACK + esc(TEXT.backToMine) + '</button></div>' +
-      '<div id="share-actions" class="share-actions"><div class="share-name">' + ICO_TAG +
+      '<div class="share-name">' + ICO_TAG +
       '<label class="sr" for="share-name">' + esc(TEXT.shareNameLabel) + '</label>' +
       '<input id="share-name" type="text" maxlength="' + ShareCodec.MAX_CHARS + '" autocomplete="off" spellcheck="false" placeholder="' +
-      esc(TEXT.shareNamePh) + '" aria-label="' + esc(TEXT.shareNameLabel) + '"></div>' +
-      '<button class="btn with-ico" type="button" id="share-link">' + ICO_SHARE + esc(TEXT.share) + '</button>' +
-      '<button class="btn ghost with-ico" type="button" id="share-img">' + ICO_DOWN + esc(TEXT.download) + '</button>' +
-      '<span id="share-msg" class="muted small" role="status" aria-live="polite"></span></div>';
+      esc(TEXT.shareNamePh) + '"></div>' +
+      '<button class="btn small share-go" type="button" id="share-link">' + (mobile ? ICO_SHARE : ICO_COPY) +
+      '<span>' + esc(label) + '</span></button>' +
+      '<span id="share-msg" class="muted small" role="status" aria-live="polite"></span>';
     const result = $('#result');
     result.parentNode.insertBefore(bar, result);
-    $('#back-own').addEventListener('click', () => { location.hash = ''; });
     $('#share-link').addEventListener('click', shareLink);
-    $('#share-img').addEventListener('click', shareImage);
     $('#share-name').addEventListener('keydown', e => {
       if (e.key === 'Enter') { e.preventDefault(); $('#share-link').click(); }
     });
-  }
-
-  function openShare(guest, shareName, enabled) {
-    const bar = $('#sharebar');
-    bar.hidden = false;
-    $('#guest-banner').hidden = !guest;
-    const on = enabled !== false;
-    $('#share-actions').hidden = !on;
-    $('#share-msg').textContent = '';
-    if (!on) return;
-    const input = $('#share-name');
-    input.readOnly = !!guest;
-    input.value = guest ? (shareName || '') : '';
-    $('.share-name').hidden = !!guest;
   }
 
   function initCollection() {
@@ -893,9 +903,8 @@
     const paintOwn = (c, stored) => {
       viewing = { c: c };
       renderCollection(c);
-      showSaved(true, stored === false);
+      renderSaved(stored === false ? 'failed' : 'own');
       showImport(false);
-      openShare(false, '');
     };
     const showView = () => {
       syncLangHash();
@@ -909,17 +918,16 @@
       if (location.hash.startsWith('#c=')) {
         const decoded = hashCollection();
         area.hidden = true;
-        $('#saved').textContent = '';
         if (!decoded) {
           viewing = null;
           showError(TEXT.badLink);
-          openShare(true, '', false);
+          renderSaved('broken');
           return;
         }
         const c = { version: 1, name: '', updated: 0, dex: decoded.dex, shiny: decoded.shiny };
         viewing = { c: c };
         renderCollection(c, { guest: true, shareName: decoded.name });
-        openShare(true, decoded.name, true);
+        renderSaved('guest', decoded.name);
         return;
       }
       const saved = readSaved();
@@ -927,9 +935,8 @@
       else {
         viewing = null;
         $('#result').innerHTML = '';
-        showSaved(false, false);
+        renderSaved('none');
         showImport(true);
-        $('#sharebar').hidden = true;
       }
     };
     window.addEventListener('hashchange', showView);
@@ -940,12 +947,17 @@
         clearSaved();
         viewing = null;
         $('#result').innerHTML = '';
-        $('#saved').textContent = TEXT.forgot;
+        renderSaved('forgot');
         showImport(true);
-        $('#sharebar').hidden = true;
       } else if (btn.id === 'reimport') {
         showImport(true);
         area.scrollIntoView({ block: 'start' });
+      } else if (btn.id === 'share-toggle') {
+        setSharePanel($('#sharebar').hidden);
+      } else if (btn.id === 'share-img') {
+        shareImage();
+      } else if (btn.id === 'back-own') {
+        location.hash = '';
       }
     });
     const run = text => {
