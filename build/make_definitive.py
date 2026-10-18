@@ -333,7 +333,8 @@ def main() -> None:
         dex_types = {p["dex"]: p["types"] for p in json.loads((ROOT / "data" / "pokedex_export.json").read_text(encoding="utf8"))}
         groups = combos.compute_all(dex_types, {int(r["dex"]): r["best_move"] for r in out_rows})
         for row in out_rows:
-            attacks = groups[int(row["dex"])]["moves"][: combos.ATTACK_SLOTS]
+            group = groups[int(row["dex"])]
+            attacks = group["moves"][: len(group["moves"]) - group["nBoost"]]
             row["move_pair"] = " + ".join(attacks)
     lines = [COMMENT, HEADER]
     cols = HEADER.split(",")

@@ -396,17 +396,124 @@ struct Spec {
     buffs: u8,
 }
 
-/// Status applier + Hex, both lead orders, plus the three strongest appliers as
-/// 2 appliers + Hex + Swords Dance. Capped so a species adds a handful of games,
-/// not the full pool cross product.
-fn synergy_specs(data: &Data, mon: &Mon) -> Vec<Spec> {
+/// How many of a species' best attacks are crossed as plain pairs.
+/// Solo-sweep order and the move-tier list (`data/move_tierlist_v4.csv`) both count;
+/// a move takes the better of the two ranks. Six is enough to cover the attacks
+/// that actually win a fixed group (Shadow Ball and Aura Sphere sit here for Marshadow)
+/// without the full pool cross product.
+const PAIR_TOP: usize = 6;
+
+fn attack_list(data: &Data, mon: &Mon) -> Vec<usize> {
     let mut atk: Vec<usize> = mon.pool.iter().copied().filter(|&ix| castable(&data.moves[ix])).collect();
     if !atk.contains(&mon.start) && castable(&data.moves[mon.start]) {
         atk.push(mon.start);
     }
+    atk
+}
+
+fn ensure_partners() {
+    if PARTNERS.get().is_some() {
+        return;
+    }
+    for p in ["results/fixed_group/solo_sweep.csv", "simulator/results/fixed_group/solo_sweep.csv"] {
+        if std::path::Path::new(p).exists() {
+            let _ = PARTNERS.set(read_partners(p));
+            return;
+        }
+    }
+}
+
+/// move id -> score_rel from the v4 move tier list. Empty if the file is not next to the sim.
+fn tier_scores() -> &'static HashMap<String, f64> {
+    static SCORES: OnceLock<HashMap<String, f64>> = OnceLock::new();
+    SCORES.get_or_init(|| {
+        let mut m = HashMap::new();
+        for p in ["../data/move_tierlist_v4.csv", "data/move_tierlist_v4.csv"] {
+            let Ok(text) = std::fs::read_to_string(p) else { continue };
+            for line in text.lines().filter(|l| !l.is_empty() && !l.starts_with("category,")) {
+                let cols = csv_fields(line);
+                // category,tier,rank,move_id,name,type,kind,score_rel,...
+                if cols.len() > 7 {
+                    if let Ok(score) = cols[7].parse::<f64>() {
+                        m.insert(cols[3].clone(), score);
+                    }
+                }
+            }
+            break;
+        }
+        m
+    })
+}
+
+fn csv_fields(line: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut cur = String::new();
+    let mut in_quotes = false;
+    for c in line.chars() {
+        match c {
+            '"' => in_quotes = !in_quotes,
+            ',' if !in_quotes => out.push(std::mem::take(&mut cur)),
+            _ => cur.push(c),
+        }
+    }
+    out.push(cur);
+    out
+}
+
+/// Best attacks for the plain-pair search. Rank is the better of the species' solo
+/// sweep order and the global move-tier order, so a kind the solo sweep skipped (Hex)
+/// still enters when its tier is high.
+fn top_attacks(data: &Data, mon: &Mon, atk: &[usize]) -> Vec<usize> {
+    ensure_partners();
+    let solo: Vec<usize> = PARTNERS
+        .get()
+        .and_then(|p| p.get(&mon.dex))
+        .map(|list| list.iter().filter_map(|id| data.move_ix.get(id.as_str()).copied()).collect())
+        .unwrap_or_default();
+    let scores = tier_scores();
+    let mut by_tier = atk.to_vec();
+    by_tier.sort_by(|&a, &b| {
+        let sa = scores.get(&data.moves[a].id).copied().unwrap_or(f64::NEG_INFINITY);
+        let sb = scores.get(&data.moves[b].id).copied().unwrap_or(f64::NEG_INFINITY);
+        sb.partial_cmp(&sa).unwrap_or(std::cmp::Ordering::Equal).then(data.moves[a].id.cmp(&data.moves[b].id))
+    });
+    let solo_pos = |ix: usize| solo.iter().position(|&p| p == ix).unwrap_or(10_000);
+    let tier_pos = |ix: usize| by_tier.iter().position(|&p| p == ix).unwrap_or(10_000);
+    let mut ranked = atk.to_vec();
+    ranked.sort_by(|&a, &b| {
+        solo_pos(a).min(tier_pos(a)).cmp(&solo_pos(b).min(tier_pos(b))).then(data.moves[a].id.cmp(&data.moves[b].id))
+    });
+    ranked.truncate(PAIR_TOP);
+    ranked
+}
+
+fn dedup_specs(specs: Vec<Spec>) -> Vec<Spec> {
+    let mut seen = std::collections::HashSet::new();
+    let mut out = Vec::new();
+    for s in specs {
+        if seen.insert((s.start, s.comps.clone(), s.buffs)) {
+            out.push(s);
+        }
+    }
+    out
+}
+
+/// Every fixed group worth scoring for a species that has a synergy relation
+/// (Hex with burn/poison/slow, or two dashes).
+///
+/// Status + Hex, both leads, and the three strongest appliers as two appliers + Hex
+/// + Swords Dance, as before. Plus every ordered pair among the top `PAIR_TOP`
+/// attacks with Swords Dance and Harden — the same 2+2 shape as the published
+/// rank. Plus every ordered pair of dashes, even when Quick Attack is outside
+/// that top six (a dash pair can beat a higher-tier lead by tens of seconds).
+/// The winner is whichever group has the higher median, then the higher mean.
+/// A synergy partner is only the recommendation when it actually wins that comparison.
+fn synergy_specs(data: &Data, mon: &Mon) -> Vec<Spec> {
+    let atk = attack_list(data, mon);
+    let linked = atk.iter().any(|&a| atk.iter().any(|&b| a != b && pairs_with(data, a, b)));
     let pay: Vec<usize> = atk.iter().copied().filter(|&ix| is_payoff(&data.moves[ix].levels[0])).collect();
     let mut app: Vec<usize> = atk.iter().copied().filter(|&ix| is_applier(&data.moves[ix].levels[0])).collect();
-    if pay.is_empty() || app.is_empty() {
+    if !linked && (pay.is_empty() || app.is_empty()) {
         return vec![];
     }
     app.sort_by(|&a, &b| {
@@ -416,23 +523,48 @@ fn synergy_specs(data: &Data, mon: &Mon) -> Vec<Spec> {
             .then(data.moves[a].id.cmp(&data.moves[b].id))
     });
     let mut out = Vec::new();
-    for &p in &pay {
-        for &a in &app {
-            out.push(Spec { start: p, comps: vec![a], buffs: 3 });
-            out.push(Spec { start: a, comps: vec![p], buffs: 3 });
+    if !pay.is_empty() && !app.is_empty() {
+        for &p in &pay {
+            for &a in &app {
+                if p == a {
+                    continue;
+                }
+                out.push(Spec { start: p, comps: vec![a], buffs: 3 });
+                out.push(Spec { start: a, comps: vec![p], buffs: 3 });
+            }
         }
-    }
-    let trio = 3.min(app.len());
-    for i in 0..trio {
-        for j in (i + 1)..trio {
-            let (a, b) = (app[i], app[j]);
-            for &p in &pay {
-                out.push(Spec { start: p, comps: vec![a, b], buffs: 1 });
-                out.push(Spec { start: a, comps: vec![p, b], buffs: 1 });
+        let trio = 3.min(app.len());
+        for i in 0..trio {
+            for j in (i + 1)..trio {
+                let (a, b) = (app[i], app[j]);
+                for &p in &pay {
+                    out.push(Spec { start: p, comps: vec![a, b], buffs: 1 });
+                    out.push(Spec { start: a, comps: vec![p, b], buffs: 1 });
+                }
             }
         }
     }
-    out
+    // Plain pairs, both leads. The bond waits on the rift, so the lead is most of the
+    // median and the partner is the tie-break. Both orders are scored.
+    let top = top_attacks(data, mon, &atk);
+    for &a in &top {
+        for &b in &top {
+            if a != b {
+                out.push(Spec { start: a, comps: vec![b], buffs: 3 });
+            }
+        }
+    }
+    // Dash invuln is its own relation. Score every ordered dash pair, not only the
+    // ones that also land in the top six (Jumpluff, Honchkrow, Rowlet, Dartrix).
+    let dashes: Vec<usize> = atk.iter().copied().filter(|&ix| data.moves[ix].levels[0].xk == 5).collect();
+    for &a in &dashes {
+        for &b in &dashes {
+            if a != b {
+                out.push(Spec { start: a, comps: vec![b], buffs: 3 });
+            }
+        }
+    }
+    dedup_specs(out)
 }
 
 fn group_name(data: &Data, start: usize, comps: &[usize], buffs: u8, cfg: &Cfg) -> String {

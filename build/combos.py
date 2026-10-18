@@ -8,9 +8,14 @@ En el juego no hay bonificación por tipo propio (STAB): el daño es daño del a
 de tipo contra el rival × clima, y los ataques normales nunca son super efectivos.
 
 Qué elige, de los ataques que ofrece el juego a ese Pokémon (POOL.normal + POOL de sus tipos):
-  1. Hueco 1: el mejor ataque de la simulación (`best_move` de data/ranking_definitive.csv), siempre.
-  2. Hueco 2: si hay un compañero de sinergia (Hex con quemadura, veneno o ralentización, en cualquier sentido,
-     o dos ataques dash), ese. Si hay varios, el de más daño. Si no hay, el de más cobertura.
+  1. Si la búsqueda de grupo fijo tiene una fila para esa especie
+     (`simulator/results/fixed_group/group_search.csv`), los ataques del grupo con mejor mediana
+     (y, si empatan, mejor media). Ahí entran Hex con quemadura, veneno o ralentización, las
+     parejas de los mejores ataques y las parejas de dos dashes, y gana el que más aguanta.
+     No se fuerza un compañero.
+  2. Si no hay búsqueda, hueco 1 es el mejor ataque de la simulación (`best_move`). Si ese ataque
+     tiene un compañero de sinergia (Hex con estado, o dos dashes), el hueco 2 es ese compañero;
+     si no, el de más cobertura.
   3. El resto de huecos: el ataque que más cobertura añade (rivales nuevos en super efectivo y en no resistido). Si
      varios empatan, el de más daño total, que cuenta todos los proyectiles de los ataques de varios disparos o de
      área. Cuando ya no queda cobertura por ganar, rellena con el de más daño que no sea normal (los normales solo
@@ -78,6 +83,12 @@ def _coverage(matrix: dict, types: list[str], enemies: list[list[str]], cache: d
     return cache[key]
 
 
+# Buffs the fixed group can hold. Anything else in a searched group name is an attack.
+BUFF_IDS = frozenset({"dragon-dance", "swords-dance", "harden", "agility"})
+# Written by `pokesim synergy` (seeds 1-200, 900 s, terrain, status, rift bond).
+SEARCH_CSV = DATA.parent / "simulator" / "results" / "fixed_group" / "group_search.csv"
+
+
 def _synergy_flags() -> dict[str, tuple[bool, bool, bool]]:
     """move id -> (hex > 1, applies burn/poison/slow, dash). Level 1 of v3, same fields the sim pairs on."""
     raw = json.loads((DATA.parent / "simulator" / "v3" / "v3_data.json").read_text(encoding="utf8"))
@@ -97,14 +108,40 @@ def _pairs(a: str, b: str, flags: dict[str, tuple[bool, bool, bool]]) -> bool:
     return (ha and sb) or (hb and sa) or (da and db)
 
 
+def _search_picks() -> dict[int, tuple[list[str], bool]]:
+    """dex -> (attack ids, whether the winning group also bonds Harden).
+
+    The sim already compared status+Hex, dash pairs and the top attack pairs. This only reads that result.
+    A group with Harden is the published 2+2 shape. A group without it is two appliers + Hex + Swords Dance.
+    """
+    if not SEARCH_CSV.exists():
+        return {}
+    best: dict[int, tuple] = {}
+    with SEARCH_CSV.open(encoding="utf8", newline="") as f:
+        for row in csv.DictReader(line for line in f if not line.startswith("#")):
+            dex = int(row["dex"])
+            group = row["group"]
+            key = (-float(row["median_s"]), -float(row["mean_s"]), group)
+            parts = group.split("+")
+            attacks = [part for part in parts if part not in BUFF_IDS]
+            if len(attacks) < 2:
+                continue
+            cur = best.get(dex)
+            if cur is None or key < cur[0]:
+                best[dex] = (key, attacks, "harden" in parts or "agility" in parts)
+    return {dex: (pair[1], pair[2]) for dex, pair in best.items()}
+
+
 def pick_attacks(candidates: list[str], best_move: str, rows: dict, mech: dict, matrix: dict,
                  enemies: list[list[str]], cache: dict, slots: int = ATTACK_SLOTS,
-                 flags: dict | None = None) -> list[str]:
+                 preset: list[str] | None = None, flags: dict | None = None) -> list[str]:
     damage = {i: total_damage(rows[i], mech[i]) for i in candidates}
-    chosen = [best_move]
+    chosen = [m for m in (preset or [best_move]) if m in damage or m == best_move]
+    if not chosen:
+        chosen = [best_move]
     while len(chosen) < slots:
-        # The displayed second attack is the synergy partner when the pool has one. Later slots stay coverage.
-        if len(chosen) == 1 and flags:
+        # Without a searched group, the second attack stays the synergy partner when the pool has one.
+        if preset is None and len(chosen) == 1 and flags:
             syn = [i for i in candidates if i not in chosen and _pairs(best_move, i, flags)]
             if syn:
                 chosen.append(max(syn, key=lambda i: damage[i]))
@@ -138,6 +175,7 @@ def compute_all(types_by_dex: dict[int, list[str]], best_move_by_dex: dict[int, 
     """Devuelve {dex: {"moves": [ids de los ataques + potenciador], "alts": [ids opcionales], "types", "super": %,
     "neutral": %}}."""
     pool, mech, matrix, rows = _load()
+    picks = _search_picks()
     flags = _synergy_flags()
     boost = lambda mid: float(rows[mid]["score_rel"] or 0)
     everyone = list(types_by_dex.values())
@@ -153,12 +191,24 @@ def compute_all(types_by_dex: dict[int, list[str]], best_move_by_dex: dict[int, 
         if best not in attacks and best in rows:
             # el ataque inicial propio de la especie (p. ej. Confusión de Psyduck) no está en POOL, pero lo lleva desde el inicio
             attacks.append(best)
+        preset, with_harden = picks.get(dex, ([], True))
+        preset = [m for m in preset if m in rows]
+        for move in preset:
+            if move not in attacks:
+                attacks.append(move)
         if best not in attacks:
             raise ValueError(f"el mejor ataque de la simulación ({best}) no está entre los que aprende {dex}")
-        ranked = pick_attacks(attacks, best, rows, mech, matrix, everyone, cache, ATTACK_SLOTS + ALT_SLOTS, flags)
-        trio, alts = ranked[:ATTACK_SLOTS], ranked[ATTACK_SLOTS:]
+        # The search names every attack it bonded. Later slots stay coverage.
+        # A species the search did not score keeps the synergy partner, as before.
+        searched = len(preset) >= 2
+        n_atk = len(preset) if searched else ATTACK_SLOTS
+        ranked = pick_attacks(attacks, best, rows, mech, matrix, everyone, cache, n_atk + ALT_SLOTS,
+                              preset if searched else None, None if searched else flags)
+        trio, alts = ranked[:n_atk], ranked[n_atk:]
         atk_buff = next((b for b in BUFFS[0] if b in buffs), None)
-        boosts = [b for b in (atk_buff, BUFFS[1]) if b in buffs] or ([max(buffs, key=boost)] if buffs else [])
+        # 2+2 keeps Harden. The three-attack Hex group the search can still pick does not.
+        want = (atk_buff, BUFFS[1]) if with_harden or not searched else (atk_buff,)
+        boosts = [b for b in want if b in buffs] or ([max(buffs, key=boost)] if buffs else [])
         group = trio + boosts
         super_hits, neutral_hits = _coverage(matrix, [rows[i]["type"] for i in trio], everyone, cache)
         n = len(everyone)
