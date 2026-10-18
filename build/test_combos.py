@@ -35,6 +35,11 @@ class SearchPicks(unittest.TestCase):
         self.assertEqual(self.attacks(189), ["aerial-ace", "quick-attack"])
         self.assertEqual(self.attacks(430), ["aerial-ace", "quick-attack"])
 
+    def test_gengar_has_no_melee(self):
+        attacks = self.attacks(94)
+        self.assertNotIn("body-slam", attacks)
+        self.assertTrue(all(move not in combos._MELEE for move in attacks))
+
     def test_species_outside_the_search_keeps_its_best_move(self):
         self.assertEqual(self.attacks(647)[0], "aura-sphere")
 

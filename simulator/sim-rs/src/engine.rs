@@ -84,6 +84,8 @@ pub struct Ext {
     pub buffs: u8,
     /// use Dragon Dance instead of Swords Dance as the atk buff
     pub dd: bool,
+    /// use Nasty Plot (Maquinación, satk) instead of Swords Dance. Published ranks leave this off.
+    pub np: bool,
     /// use Agility (speed) instead of Harden as the second buff
     pub agi: bool,
     /// held item (items.js): atk, spd, cd multipliers, flat reduction, regen frac/s, xp mult, life orb
@@ -207,6 +209,8 @@ pub struct RunResult {
     pub hp: f64,
     pub max_hp: f64,
     pub hp_frac: f64,
+    /// Sum of hit amounts after type, guard and crit, before the shield. DoT is not included.
+    pub dealt: f64,
 }
 
 /// End-of-run Pokémonedas. game.js:295-301.
@@ -512,6 +516,9 @@ struct Derived<'a> {
     cd_mul: f64,
     regen: f64,
     melee: f64,
+    /// 1 + stacks * amount for the physical and special buffs. 1 when that buff is down.
+    patk: f64,
+    satk: f64,
 }
 
 // ---------------------------------------------------------------- entities
@@ -584,6 +591,13 @@ struct Enemy {
     boss: bool,
     /// rift legendary (rift.js spawnLegend). Also constructed with boss=true in the game.
     legend: bool,
+    /// stats.js guard of this enemy's Defense and Sp. Def. 1 when a path forgot to stamp them.
+    g_phys: f64,
+    g_spec: f64,
+    /// 1 physical, 2 special. The side this enemy hits with (stats.js sideOf).
+    cat: u8,
+    /// Recent damage taken, bosses only (enemy.js RD_TAU = 6).
+    rd: f64,
 }
 
 /// What one hit applies to an enemy: the move's slow, burn and poison values (applySlow,
@@ -611,6 +625,8 @@ struct Shot {
     homing: f64,
     st: Status,
     knock: f64,
+    /// Move category stamped at cast: 0 none, 1 physical, 2 special.
+    cat: u8,
 }
 
 struct Boom {
@@ -629,6 +645,7 @@ struct Boom {
     ty: u8,
     st: Status,
     knock: f64,
+    cat: u8,
 }
 
 struct Orb {
@@ -647,6 +664,7 @@ struct EShot {
     life: f64,
     dmg: f64,
     ty: u8,
+    cat: u8,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -667,6 +685,7 @@ struct Hazard {
     t: f64,
     dmg: f64,
     ty: u8,
+    cat: u8,
 }
 
 struct Player {
@@ -717,8 +736,23 @@ pub fn hex_multiplier(hex: f64, burn: f64, poison: f64, slow: f64) -> f64 {
     }
 }
 
+/// stats.js:21. `def || 75`, then clamp((75 / max(5, def))^0.35, 0.78, 1.25).
+fn guard<M: MathFns>(math: &M, def: f64) -> f64 {
+    let base = if def.is_nan() || def == 0.0 { 75.0 } else { def };
+    let d = base.max(5.0);
+    math.pow(75.0 / d, 0.35).clamp(0.78, 1.25)
+}
+
+fn taken_of(e: &Enemy, cat: u8) -> f64 {
+    match cat {
+        1 => e.g_phys,
+        2 => e.g_spec,
+        _ => 1.0,
+    }
+}
+
 /// Applies one hit and what it inflicts (`st`, all zero unless `Opts::status`).
-fn strike(e: &mut Enemy, dmg: f64, atk: f64, ty: u8, tm: &[Vec<f64>], w: &Option<Weather>, st: Status) {
+fn strike(e: &mut Enemy, dmg: f64, atk: f64, ty: u8, tm: &[Vec<f64>], w: &Option<Weather>, st: Status, cat: u8) {
     if e.hp <= 0.0 {
         return;
     }
@@ -735,7 +769,8 @@ fn strike(e: &mut Enemy, dmg: f64, atk: f64, ty: u8, tm: &[Vec<f64>], w: &Option
         e.poison_t = POISON_SECS;
     }
     let mult = type_mult(tm, ty, e.combo);
-    let amount = dmg * atk * mult * weather_factor(w, ty);
+    // combat.js hit: typeK * Stats.taken(enemy, move cat).
+    let amount = dmg * atk * mult * weather_factor(w, ty) * taken_of(e, cat);
     let mut left = amount;
     if e.shield > 0.0 {
         let used = jmin(e.shield, left);
@@ -751,6 +786,10 @@ fn hurt_dot(e: &mut Enemy, amount: f64) {
         return;
     }
     let d = jmax(1.0, js_round(amount));
+    // enemy.js hurt: bosses add the rounded hit before the shield takes it.
+    if e.boss {
+        e.rd += d;
+    }
     let mut left = d;
     if e.shield > 0.0 {
         let used = jmin(e.shield, d);
@@ -767,6 +806,9 @@ fn hurt_dot(e: &mut Enemy, amount: f64) {
 /// shield did not absorb the whole hit and the enemy is not a boss. Returns the pre-round amount for Shell Bell.
 fn raw_hurt(e: &mut Enemy, amount: f64, knock: f64, dx: f64, dy: f64) {
     let d = jmax(1.0, js_round(amount));
+    if e.boss {
+        e.rd += d;
+    }
     if e.shield > 0.0 {
         let a = jmin(e.shield, d);
         e.shield -= a;
@@ -802,9 +844,10 @@ fn hit_one(
     dy: f64,
     crit_chance: f64,
     crit_rng: &mut Rng,
+    cat: u8,
 ) -> f64 {
     if !faithful {
-        strike(e, dmg, atk, ty, tm, w, st);
+        strike(e, dmg, atk, ty, tm, w, st, cat);
         return 0.0;
     }
     if e.hp <= 0.0 {
@@ -822,7 +865,7 @@ fn hit_one(
         e.poison = jmin(POISON_MAX, e.poison + st.poison);
         e.poison_t = POISON_SECS;
     }
-    let mut amount = dmg * atk * type_mult(tm, ty, e.combo) * weather_factor(w, ty);
+    let mut amount = dmg * atk * type_mult(tm, ty, e.combo) * weather_factor(w, ty) * taken_of(e, cat);
     if crit_chance > 0.0 && crit_rng.next() < crit_chance {
         amount *= 1.5;
     }
@@ -847,7 +890,10 @@ fn pulse_healer<M: MathFns>(math: &M, hx: f64, hy: f64, enemies: &mut [Enemy], a
             continue;
         }
         if len(e.x - hx, e.y - hy) <= 150.0 {
-            e.hp = jmin(e.max, e.hp + e.max * heal_fraction(math, atk, base_atk));
+            let heal = e.max * heal_fraction(math, atk, base_atk);
+            // enemy.js healAround: a boss heals at most BOSS_HEAL_S * (rd / RD_TAU).
+            let add = if e.boss { heal.min(e.rd / 6.0 * 0.4) } else { heal };
+            e.hp = jmin(e.max, e.hp + add);
         }
     }
 }
@@ -866,13 +912,16 @@ fn pulse_shield(sx: f64, sy: f64, enemies: &mut [Enemy], near: &mut Vec<(f64, us
         if given >= 6 {
             break;
         }
+        // enemy.js castShields: the nearest 6, and a skipped boss still occupies a slot.
+        // Only a boss with shield_t > 2 is skipped. A normal enemy refreshes 35%.
+        given += 1;
         let e = &mut enemies[i];
-        if e.shield_t > 0.0 {
+        if e.boss && e.shield_t > 2.0 {
             continue;
         }
-        e.shield = 0.35 * e.max;
+        let s = if e.boss { (e.max * 0.35).min(e.rd / 6.0 * 1.2) } else { 0.35 * e.max };
+        e.shield = e.shield.max(s);
         e.shield_t = 8.0;
-        given += 1;
     }
 }
 
@@ -1270,6 +1319,10 @@ fn special_enemy(
         poison_tick: 0.0,
         boss,
         legend,
+        g_phys: 1.0,
+        g_spec: 1.0,
+        cat: 1,
+        rd: 0.0,
     }
 }
 
@@ -1369,6 +1422,11 @@ struct Match<'a, M: MathFns> {
     xp_n: u32,
     /// Baya Zidra taken this run (no max in levelup.js).
     heal_n: u32,
+    /// Player's Defense and Sp. Def guards (stats.js), computed once at match start.
+    g_phys: f64,
+    g_spec: f64,
+    /// Damage dealt this run, for the ranking score.
+    dealt: f64,
 }
 
 fn xp_for<M: MathFns>(math: &M, level: u32) -> f64 {
@@ -1440,8 +1498,17 @@ impl<'a, M: MathFns> Match<'a, M> {
         let s = &self.state;
         let mut atk_buff = 0.0;
         let mut def_buff = 0.0;
+        let mut patk = 1.0;
+        let mut satk = 1.0;
         if s.sd > 0 && s.sd_t > 0.0 {
-            atk_buff = s.sd_stacks * self.buff_level(self.atk_buff, s.sd).amount;
+            let lvl = self.buff_level(self.atk_buff, s.sd);
+            let bonus = s.sd_stacks * lvl.amount;
+            // moves.js: Swords Dance and Dragon Dance are patk; Nasty Plot is satk.
+            match lvl.buff {
+                5 => patk = 1.0 + bonus,
+                6 => satk = 1.0 + bonus,
+                _ => atk_buff = bonus,
+            }
         }
         if s.hd > 0 && s.hd_t > 0.0 {
             def_buff = s.hd_stacks * self.buff_level(self.def_buff, s.hd).amount;
@@ -1463,6 +1530,8 @@ impl<'a, M: MathFns> Match<'a, M> {
         let st = &mut self.st;
         st.max_hp = self.mon.hp + 20.0 * s.cards[Stat::Hp as usize] as f64;
         st.atk = self.mon.atk * self.tables.atk[s.cards[Stat::Pow as usize] as usize] * (1.0 + atk_buff) * it.atk;
+        st.patk = patk;
+        st.satk = satk;
         st.spd = spd * it.spd * spd_buff;
         // levelup.js:19 clamps each Coraza with Math.min(0.7, dmgReduce + 0.06). The vest is already
         // inside dmgReduce when it was equipped first (items.js:35). player.js:96 then caps at 0.8
@@ -1514,12 +1583,35 @@ impl<'a, M: MathFns> Match<'a, M> {
         weather_factor(&self.weather, ty)
     }
 
-    fn hurt(&mut self, amount: f64, atk_ty: u8) {
+    /// player.js atkFor. Fit and the side buff stay off `st.atk` so each companion uses its own cat.
+    fn atk_for(&self, cat: u8) -> f64 {
+        let fit = if cat == 0 || self.mon.pa.is_nan() {
+            1.0
+        } else if cat == 2 {
+            self.mon.sa / self.mon.atk
+        } else {
+            self.mon.pa / self.mon.atk
+        };
+        let side = match cat {
+            1 => self.st.patk,
+            2 => self.st.satk,
+            _ => 1.0,
+        };
+        self.st.atk * fit * side
+    }
+
+    fn hurt(&mut self, amount: f64, atk_ty: u8, cat: u8) {
         if self.pl.inv > 0.0 || self.pl.hp <= 0.0 {
             return;
         }
+        // player.js:245. taken(player, enemy cat) before the type chart. No cat → ×1.
+        let g = match cat {
+            1 => self.g_phys,
+            2 => self.g_spec,
+            _ => 1.0,
+        };
         let mult = type_mult(&self.data.tmult, atk_ty, self.mon.combo);
-        let dmg = amount * mult * self.wx(atk_ty) * (1.0 - self.st.red) * self.st.melee;
+        let dmg = amount * g * mult * self.wx(atk_ty) * (1.0 - self.st.red) * self.st.melee;
         // dodge 0 skips the multiply so the parity path stays bit-exact.
         let dmg = if self.opts.ext.dodge > 0.0 { dmg * (1.0 - self.opts.ext.dodge) } else { dmg };
         self.pl.hp -= dmg;
@@ -2003,7 +2095,7 @@ impl<'a, M: MathFns> Match<'a, M> {
         };
         self.pl.aim = aim;
         let tm = &self.data.tmult;
-        let atk = self.st.atk;
+        let atk = self.atk_for(mv.cat);
         match mv.kind {
             Kind::Melee => {
                 let (px, py) = (self.pl.x, self.pl.y);
@@ -2017,10 +2109,11 @@ impl<'a, M: MathFns> Match<'a, M> {
                     for e in self.enemies.iter_mut() {
                         if in_melee(math, px, py, aim, mv.arc, mv.radius, e.x, e.y, e.r) {
                             let (dx, dy) = (e.x - px, e.y - py);
-                            dealt += hit_one(faithful, e, mv.dmg, atk, mv.ty, tm, weather, st, if faithful { knock } else { 0.0 }, dx, dy, chance, &mut rng);
+                            dealt += hit_one(faithful, e, mv.dmg, atk, mv.ty, tm, weather, st, if faithful { knock } else { 0.0 }, dx, dy, chance, &mut rng, mv.cat);
                         }
                     }
                 }
+                self.dealt += dealt;
                 note_bell(&mut self.bell, self.opts.ext.item.bell, dealt);
             }
             Kind::Beam => {
@@ -2033,10 +2126,11 @@ impl<'a, M: MathFns> Match<'a, M> {
                     let weather = &self.weather;
                     for e in self.enemies.iter_mut() {
                         if in_beam(math, px, py, aim, mv.radius, mv.width, e.x, e.y, e.r) {
-                            dealt += hit_one(faithful, e, mv.dmg, atk, mv.ty, tm, weather, st, 0.0, aim.cos(), aim.sin(), chance, &mut rng);
+                            dealt += hit_one(faithful, e, mv.dmg, atk, mv.ty, tm, weather, st, 0.0, aim.cos(), aim.sin(), chance, &mut rng, mv.cat);
                         }
                     }
                 }
+                self.dealt += dealt;
                 note_bell(&mut self.bell, self.opts.ext.item.bell, dealt);
             }
             Kind::Orbit => {
@@ -2087,6 +2181,7 @@ impl<'a, M: MathFns> Match<'a, M> {
                         atk,
                         ty: mv.ty,
                         knock: or(mv.knock, 0.0),
+                        cat: mv.cat,
                     });
                 }
                 self.angles = angles;
@@ -2108,7 +2203,7 @@ impl<'a, M: MathFns> Match<'a, M> {
     }
 
     fn push_shot(&mut self, angle: f64, mv: &MoveLvl) {
-        let (x, y, atk) = (self.pl.x, self.pl.y, self.st.atk);
+        let (x, y, atk) = (self.pl.x, self.pl.y, self.atk_for(mv.cat));
         self.push_shot_at(x, y, angle, mv, mv.speed, mv.life, atk);
     }
 
@@ -2133,6 +2228,7 @@ impl<'a, M: MathFns> Match<'a, M> {
             homing: or(mv.homing, 0.0),
             st,
             knock: or(mv.knock, 0.0),
+            cat: mv.cat,
         });
         if self.shots.len() > 80 {
             self.shots.remove(0);
@@ -2159,15 +2255,16 @@ impl<'a, M: MathFns> Match<'a, M> {
             for e in self.enemies.iter_mut() {
                 if e.hp > 0.0 && len(e.x - x, e.y - y) <= r + e.r {
                     let (dx, dy) = (e.x - x, e.y - y);
-                    dealt += hit_one(faithful, e, dmg, atk, mv.ty, tm, weather, st, knock, dx, dy, chance, &mut rng);
+                    dealt += hit_one(faithful, e, dmg, atk, mv.ty, tm, weather, st, knock, dx, dy, chance, &mut rng, mv.cat);
                 }
             }
         }
-        note_bell(&mut self.bell, self.opts.ext.item.bell, dealt);
+        self.dealt += dealt;
+                note_bell(&mut self.bell, self.opts.ext.item.bell, dealt);
     }
 
     fn cast_x(&mut self, mv: &'a MoveLvl, aim: f64, st: Status) -> bool {
-        let atk = self.st.atk;
+        let atk = self.atk_for(mv.cat);
         let (px, py) = (self.pl.x, self.pl.y);
         let count = or(mv.count, 1.0).floor().max(1.0);
         match mv.xk {
@@ -2235,7 +2332,7 @@ impl<'a, M: MathFns> Match<'a, M> {
                         let tm = &self.data.tmult;
                         let e = &mut self.enemies[i];
                         let (dx, dy) = (e.x - px, e.y - py);
-                        dealt += hit_one(faithful, e, mv.dmg * k * hex, atk, mv.ty, tm, weather, st, knock, dx, dy, chance, &mut rng);
+                        dealt += hit_one(faithful, e, mv.dmg * k * hex, atk, mv.ty, tm, weather, st, knock, dx, dy, chance, &mut rng, mv.cat);
                     }
                     k *= 0.85;
                     let (cx, cy) = (self.enemies[i].x, self.enemies[i].y);
@@ -2253,6 +2350,7 @@ impl<'a, M: MathFns> Match<'a, M> {
                     }
                     cur = best;
                 }
+                self.dealt += dealt;
                 note_bell(&mut self.bell, self.opts.ext.item.bell, dealt);
             }
             // aura(): everything in the circle; drain heals at most 6 per cast
@@ -2269,13 +2367,14 @@ impl<'a, M: MathFns> Match<'a, M> {
                     for e in self.enemies.iter_mut() {
                         if e.hp > 0.0 && len(e.x - px, e.y - py) <= mv.radius + e.r {
                             let (dx, dy) = (e.x - px, e.y - py);
-                            dealt += hit_one(faithful, e, mv.dmg, atk, mv.ty, tm, weather, st, knock, dx, dy, chance, &mut rng);
+                            dealt += hit_one(faithful, e, mv.dmg, atk, mv.ty, tm, weather, st, knock, dx, dy, chance, &mut rng, mv.cat);
                             if mv.drain.is_finite() {
                                 healed += mv.drain;
                             }
                         }
                     }
                 }
+                self.dealt += dealt;
                 note_bell(&mut self.bell, self.opts.ext.item.bell, dealt);
                 if healed > 0.0 {
                     self.pl.hp = jmin(self.st.max_hp, self.pl.hp + jmin(healed, 6.0));
@@ -2323,10 +2422,11 @@ impl<'a, M: MathFns> Match<'a, M> {
                         let (qx, qy) = (px + vx * tt - e.x, py + vy * tt - e.y);
                         if qx * qx + qy * qy <= (w / 2.0 + e.r) * (w / 2.0 + e.r) {
                             let (dx, dy) = (e.x - px, e.y - py);
-                            dealt += hit_one(faithful, e, mv.dmg, atk, mv.ty, tm, weather, st, knock, dx, dy, chance, &mut rng);
+                            dealt += hit_one(faithful, e, mv.dmg, atk, mv.ty, tm, weather, st, knock, dx, dy, chance, &mut rng, mv.cat);
                         }
                     }
                 }
+                self.dealt += dealt;
                 note_bell(&mut self.bell, self.opts.ext.item.bell, dealt);
             }
             // mines(): armed after 0.35 s, burst when stepped on (half damage when they expire); 4 + 2n at most
@@ -2566,6 +2666,9 @@ impl<'a, M: MathFns> Match<'a, M> {
         let mut e = special_enemy(self.seq, dex as u16, px, py - LEGEND_GAP, rad, combo, ty0, xp, beh, spd, dmg, hp, shot_cd, shot, ai, def, true, water, fire, true, true);
         e.sand_safe = mon.types.iter().any(|&t| t == T_ROCK || t == T_GROUND || t == T_STEEL);
         e.snow_safe = mon.types.contains(&T_ICE);
+        e.cat = if mon.sa > mon.pa { 2 } else { 1 };
+        e.g_phys = guard(self.math, mon.df);
+        e.g_spec = guard(self.math, mon.sd);
         self.seq += 1;
         self.enemies.push(e);
     }
@@ -2718,6 +2821,9 @@ impl<'a, M: MathFns> Match<'a, M> {
         );
         e.sand_safe = mon.types.iter().any(|&t| t == T_ROCK || t == T_GROUND || t == T_STEEL);
         e.snow_safe = mon.types.contains(&T_ICE);
+        e.cat = if mon.sa > mon.pa { 2 } else { 1 };
+        e.g_phys = guard(self.math, mon.df);
+        e.g_spec = guard(self.math, mon.sd);
         self.seq += 1;
         self.enemies.push(e);
         true
@@ -2805,10 +2911,10 @@ impl<'a, M: MathFns> Match<'a, M> {
                 if len(dx, dy) < rad {
                     shot.hit.push(e.id);
                     shot.left -= 1.0;
-                    let (sd, sa, sty, sst, sk, svx, svy) = (shot.dmg, shot.atk, shot.ty, shot.st, if faithful { shot.knock } else { 0.0 }, shot.vx, shot.vy);
+                    let (sd, sa, sty, sst, sk, svx, svy, scat) = (shot.dmg, shot.atk, shot.ty, shot.st, if faithful { shot.knock } else { 0.0 }, shot.vx, shot.vy, shot.cat);
                     {
                         let mut rng = crit_rng.borrow_mut();
-                        dealt += hit_one(faithful, e, sd, sa, sty, tm, weather, sst, sk, svx, svy, chance, &mut rng);
+                        dealt += hit_one(faithful, e, sd, sa, sty, tm, weather, sst, sk, svx, svy, chance, &mut rng, scat);
                     }
                     if shot.left <= 0.0 {
                         break;
@@ -2843,15 +2949,16 @@ impl<'a, M: MathFns> Match<'a, M> {
                 }
                 if len(e.x - x, e.y - y) < b.r + e.r {
                     b.hit.push(e.id);
-                    let (bd, ba, bt, bst, bk) = (b.dmg, b.atk, b.ty, b.st, if faithful { b.knock } else { 0.0 });
+                    let (bd, ba, bt, bst, bk, bcat) = (b.dmg, b.atk, b.ty, b.st, if faithful { b.knock } else { 0.0 }, b.cat);
                     let (dx, dy) = (e.x - x, e.y - y);
                     {
                         let mut rng = crit_rng.borrow_mut();
-                        dealt += hit_one(faithful, e, bd, ba, bt, tm, weather, bst, bk, dx, dy, chance, &mut rng);
+                        dealt += hit_one(faithful, e, bd, ba, bt, tm, weather, bst, bk, dx, dy, chance, &mut rng, bcat);
                     }
                 }
             }
         }
+        self.dealt += dealt;
         note_bell(&mut self.bell, bell_on, dealt);
         self.step_orbs();
     }
@@ -2881,7 +2988,8 @@ impl<'a, M: MathFns> Match<'a, M> {
         let rehit = jmax(0.12, mv.cd);
         let now = self.t;
         let bell_on = self.opts.ext.item.bell;
-        let (plx, ply, atk, dt) = (self.pl.x, self.pl.y, self.st.atk, self.dt);
+        let (plx, ply, dt) = (self.pl.x, self.pl.y, self.dt);
+        let atk = self.atk_for(mv.cat);
         let mut dealt = 0.0;
         {
             let mut rng = self.crit_rng.borrow_mut();
@@ -2900,7 +3008,7 @@ impl<'a, M: MathFns> Match<'a, M> {
                         if overlap {
                             if !has(&orb.inside, e.id) {
                                 orb.inside.push(e.id);
-                                dealt += hit_one(false, e, mv.dmg, atk, mv.ty, tm, weather, st, 0.0, 0.0, 0.0, 0.0, &mut rng);
+                                dealt += hit_one(false, e, mv.dmg, atk, mv.ty, tm, weather, st, 0.0, 0.0, 0.0, 0.0, &mut rng, mv.cat);
                             }
                         } else if let Some(k) = orb.inside.iter().position(|&id| id == e.id) {
                             orb.inside.swap_remove(k);
@@ -2914,12 +3022,13 @@ impl<'a, M: MathFns> Match<'a, M> {
                                 orb.log.push((e.id, now));
                             }
                             let (dx, dy) = (e.x - x, e.y - y);
-                            dealt += hit_one(true, e, mv.dmg, atk, mv.ty, tm, weather, st, knock, dx, dy, chance, &mut rng);
+                            dealt += hit_one(true, e, mv.dmg, atk, mv.ty, tm, weather, st, knock, dx, dy, chance, &mut rng, mv.cat);
                         }
                     }
                 }
             }
         }
+        self.dealt += dealt;
         note_bell(&mut self.bell, bell_on, dealt);
     }
 
@@ -3021,7 +3130,35 @@ impl<'a, M: MathFns> Match<'a, M> {
 
     // ------------------------------------------------ spawning
 
-    fn sample_def(&mut self) -> Cand {
+    fn support_full(&self) -> [bool; 3] {
+        let mut n = [0u8; 3];
+        for e in &self.enemies {
+            if e.hp <= 0.0 {
+                continue;
+            }
+            let i = match e.beh {
+                Beh::Healer => 0,
+                Beh::Shielder => 1,
+                Beh::Summoner => 2,
+                _ => continue,
+            };
+            n[i] = n[i].saturating_add(1);
+        }
+        [n[0] >= 3, n[1] >= 3, n[2] >= 3]
+    }
+
+    fn support_ix(beh: Beh) -> Option<usize> {
+        match beh {
+            Beh::Healer => Some(0),
+            Beh::Shielder => Some(1),
+            Beh::Summoner => Some(2),
+            _ => None,
+        }
+    }
+
+    // spawner.js:82. Re-pick from the same tier when that support type is full.
+    // None means the remainder was empty: the caller returns before spawn_n advances.
+    fn sample_def(&mut self) -> Option<Cand> {
         let t = self.t;
         let tiers = &self.data.tiers;
         let mut total = 0.0;
@@ -3046,18 +3183,28 @@ impl<'a, M: MathFns> Match<'a, M> {
             }
         }
         let cands = &tiers[tier].cands;
-        let picked = &cands[(self.world.next() * cands.len() as f64).floor() as usize];
-        let mut c = picked.clone();
+        let mut idx = (self.world.next() * cands.len() as f64).floor() as usize;
+        if let Some(slot) = Self::support_ix(cands[idx].def.beh) {
+            let full = self.support_full();
+            if full[slot] {
+                let rest: Vec<usize> = (0..cands.len()).filter(|&i| Self::support_ix(cands[i].def.beh).map(|s| full[s]).unwrap_or(false) == false).collect();
+                if rest.is_empty() {
+                    return None;
+                }
+                idx = rest[(self.world.next() * rest.len() as f64).floor() as usize];
+            }
+        }
+        let mut c = cands[idx].clone();
         if matches!(c.def.beh, Beh::Chase | Beh::Charger | Beh::Tank) && self.world.next() < 1.0 / 7.0 {
             c.def.beh = Beh::Runner;
             c.def.spd = js_round(c.def.spd * 1.6);
             c.def.hp = js_round(c.def.hp * 0.7);
         }
-        c
+        Some(c)
     }
 
     fn roll_spawn(&mut self, angle: Option<f64>) {
-        let cand = self.sample_def();
+        let Some(cand) = self.sample_def() else { return };
         let ai_seed = ((self.opts.seed as u64 + 1) * 1000003 + self.spawn_n as u64) as u32;
         let mut ai = Rng::new(ai_seed);
         self.spawn_n += 1;
@@ -3077,6 +3224,11 @@ impl<'a, M: MathFns> Match<'a, M> {
         let def = cand.def;
         let mut x = self.pl.x + self.math.cos(aim) * dd;
         let mut y = self.pl.y + self.math.sin(aim) * dd * 0.9;
+        // stats.js guard, after the position cos/sin. Parity does not use terrain, so these
+        // two pows sit here even if a later terrain retry abandons the spawn.
+        let g_phys = guard(self.math, cand.df);
+        let g_spec = guard(self.math, cand.sd);
+        let cat = if cand.sa > cand.pa { 2 } else { 1 };
         if let Some(t) = &mut self.terrain {
             if !cand.fly {
                 let mut tries = 1;
@@ -3149,6 +3301,10 @@ impl<'a, M: MathFns> Match<'a, M> {
             poison_tick: 0.0,
             boss: false,
             legend: false,
+            g_phys,
+            g_spec,
+            cat,
+            rd: 0.0,
         };
         self.seq += 1;
         e.shot = or(e.def.shot_dmg, 10.0) * (e.dmg / or(e.def.dmg, 1.0));
@@ -3302,6 +3458,10 @@ impl<'a, M: MathFns> Match<'a, M> {
             if e.touch > 0.0 {
                 e.touch -= dt;
             }
+            // enemy.js update: recent boss damage decays before DoT. libm, not the traced pow.
+            if e.boss && e.rd > 0.0 {
+                e.rd *= libm::exp(-dt / 6.0);
+            }
             if e.slow_t > 0.0 {
                 e.slow_t -= dt;
                 if e.slow_t <= 0.0 {
@@ -3325,7 +3485,9 @@ impl<'a, M: MathFns> Match<'a, M> {
                 e.poison_tick -= dt;
                 if e.poison_tick <= 0.0 {
                     e.poison_tick = POISON_TICK;
-                    hurt_dot(e, e.max * 0.012 * e.poison + 1.0);
+                    // enemy.js pctHp: above 60_000 the percent base grows with sqrt.
+                    let base = if e.max <= 60000.0 { e.max } else { 60000.0 * (e.max / 60000.0).sqrt() };
+                    hurt_dot(e, base * 0.012 * e.poison + 1.0);
                 }
                 if e.poison_t <= 0.0 {
                     e.poison = 0.0;
@@ -3442,12 +3604,12 @@ impl<'a, M: MathFns> Match<'a, M> {
                 let gap = len(gx, gy);
                 if gap <= rad {
                     e.touch = TOUCH;
-                    let (dmg, ty) = (e.dmg, e.ty0);
+                    let (dmg, ty, cat) = (e.dmg, e.ty0, e.cat);
                     let nx = gx / or(gap, 1.0);
                     let ny = gy / or(gap, 1.0);
                     e.kx += nx * 150.0;
                     e.ky += ny * 150.0;
-                    self.hurt(dmg, ty);
+                    self.hurt(dmg, ty, cat);
                     self.helmet_on(i);
                 }
                 continue;
@@ -3474,6 +3636,7 @@ impl<'a, M: MathFns> Match<'a, M> {
                     t: 0.0,
                     dmg: e.dmg * 1.4,
                     ty: e.ty0,
+                    cat: e.cat,
                 };
                 self.hazards.push(hz);
                 continue;
@@ -3494,9 +3657,10 @@ impl<'a, M: MathFns> Match<'a, M> {
                             w: 0.0,
                             delay: 1.05,
                             t: 0.0,
-                            dmg: e.dmg * 1.2,
-                            ty: e.ty0,
-                        };
+                    dmg: e.dmg * 1.2,
+                    ty: e.ty0,
+                    cat: e.cat,
+                };
                         self.hazards.push(hz);
                         continue;
                     }
@@ -3545,7 +3709,7 @@ impl<'a, M: MathFns> Match<'a, M> {
                 e.shot_cd -= dt;
                 if e.shot_cd <= 0.0 && dist < range {
                     e.shot_cd = or(e.def.shot_cd, 2.0);
-                    let (ex, ey, shot, ty) = (e.x, e.y, e.shot, e.ty0);
+                    let (ex, ey, shot, ty, ecat) = (e.x, e.y, e.shot, e.ty0, e.cat);
                     let shoot = |spread: f64, n: usize, k: f64, out: &mut Vec<EShot>| {
                         let base = math.atan2(dy, dx);
                         for j in 0..n {
@@ -3559,6 +3723,7 @@ impl<'a, M: MathFns> Match<'a, M> {
                                 life: 2.4,
                                 dmg: shot * k,
                                 ty,
+                                cat: ecat,
                             });
                         }
                     };
@@ -3582,6 +3747,7 @@ impl<'a, M: MathFns> Match<'a, M> {
                                 t: 0.0,
                                 dmg: shot * 1.05,
                                 ty,
+                                cat: ecat,
                             });
                         }
                         Beh::Zoner => {
@@ -3601,6 +3767,7 @@ impl<'a, M: MathFns> Match<'a, M> {
                                     t: 0.0,
                                     dmg: shot * 0.95,
                                     ty,
+                                    cat: ecat,
                                 });
                             }
                         }
@@ -3643,12 +3810,12 @@ impl<'a, M: MathFns> Match<'a, M> {
             let gap = len(gx, gy);
             if gap <= rad {
                 e.touch = TOUCH;
-                let (dmg, ty) = (e.dmg, e.ty0);
+                let (dmg, ty, cat) = (e.dmg, e.ty0, e.cat);
                 let nx = gx / or(gap, 1.0);
                 let ny = gy / or(gap, 1.0);
                 e.kx += nx * 150.0;
                 e.ky += ny * 150.0;
-                self.hurt(dmg, ty);
+                self.hurt(dmg, ty, cat);
                 self.helmet_on(i);
             }
         }
@@ -3682,8 +3849,8 @@ impl<'a, M: MathFns> Match<'a, M> {
                 }
             }
             if len(s.x - self.pl.x, s.y - self.pl.y) < s.r + self.pl.r {
-                let (dmg, ty) = (s.dmg, s.ty);
-                self.hurt(dmg, ty);
+                let (dmg, ty, cat) = (s.dmg, s.ty, s.cat);
+                self.hurt(dmg, ty, cat);
                 self.e_shots.remove(i);
             }
         }
@@ -3707,9 +3874,9 @@ impl<'a, M: MathFns> Match<'a, M> {
                 let along = px * ca + py * sa;
                 along >= -pl.r && along <= h.len + pl.r && (-px * sa + py * ca).abs() <= h.w / 2.0 + pl.r * 0.6
             };
-            let (dmg, ty) = (h.dmg, h.ty);
+            let (dmg, ty, cat) = (h.dmg, h.ty, h.cat);
             if inside {
-                self.hurt(dmg, ty);
+                self.hurt(dmg, ty, cat);
             }
             self.hazards.remove(i);
         }
@@ -3729,6 +3896,9 @@ pub fn run_match<M: MathFns>(
     let dt = DT;
     let max_time = opts.seconds;
     let knock_fade = math.pow(0.0015, dt);
+    // stats.js guard of the player's defenses, before xp_for, so the parity pow order matches match.js.
+    let g_phys = guard(math, mon.df);
+    let g_spec = guard(math, mon.sd);
     let start_move = &data.moves[start];
     let mut world = Rng::new(opts.seed);
     let card_roll = Rng::new(opts.seed.wrapping_add(0xA5A5));
@@ -3748,7 +3918,7 @@ pub fn run_match<M: MathFns>(
         has_sd: if opts.ext.buffs > 0 { opts.ext.buffs & 1 != 0 } else { mon.pool.contains(&data.swords_dance) },
         has_hd: if opts.ext.buffs > 0 { opts.ext.buffs & 2 != 0 } else { mon.pool.contains(&data.harden) },
         def_buff: if opts.ext.agi { data.agility } else { data.harden },
-        atk_buff: if opts.ext.dd { data.dragon_dance } else { data.swords_dance },
+        atk_buff: if opts.ext.np { data.nasty_plot } else if opts.ext.dd { data.dragon_dance } else { data.swords_dance },
         comps: opts.ext.companions.iter().map(|&c| (c, 1usize, 0.0)).collect(),
         // Seeded false. player.js applies the melee cut to activeGroup() only, and a companion
         // is not in that group until the rift bond lands. Evolving a bonded move into melee sets it.
@@ -3783,7 +3953,8 @@ pub fn run_match<M: MathFns>(
         boss_idx: 0,
         patch_at: (f64::NAN, f64::NAN, 9.0),
         status_ignored: move_has_status(start_move, opts.status, opts.ext.xkinds),
-        pl: Player { x: 0.0, y: 0.0, r: mon.r, hp: mon.hp, inv: 0.0, dirx: 1.0, diry: 0.0, react: 0.0, aim: 0.0 },
+        // sprites.js playerRadius: collision radius is at most 18. Sprite shrink below 18 is not modelled.
+        pl: Player { x: 0.0, y: 0.0, r: mon.r.min(18.0), hp: mon.hp, inv: 0.0, dirx: 1.0, diry: 0.0, react: 0.0, aim: 0.0 },
         enemies: Vec::with_capacity(72),
         shots: Vec::with_capacity(96),
         booms: Vec::new(),
@@ -3816,6 +3987,8 @@ pub fn run_match<M: MathFns>(
             cd_mul: 1.0,
             regen: 0.0,
             melee: 1.0,
+            patk: 1.0,
+            satk: 1.0,
         },
         stat_dirty: true,
         stat_snow: 1.0,
@@ -3841,6 +4014,9 @@ pub fn run_match<M: MathFns>(
         crit_rng: RefCell::new(Rng::new(opts.seed.wrapping_add(0xC217))),
         xp_n: 0,
         heal_n: 0,
+        g_phys,
+        g_spec,
+        dealt: 0.0,
     };
     m.need = xp_for(math, 1);
     if !opts.ext.locks.is_empty() {
@@ -4011,6 +4187,7 @@ pub fn run_match<M: MathFns>(
         hp: m.pl.hp,
         max_hp: m.st.max_hp,
         hp_frac: if capped { m.pl.hp / m.st.max_hp } else { 0.0 },
+        dealt: m.dealt,
     }
 }
 

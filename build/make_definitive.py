@@ -65,6 +65,8 @@ COMMENT = (
     "rank_v4_max es el final con la tienda de estadisticas al maximo, no esta apertura. "
     "best_move y best_median_s son el barrido en solitario del motor actual "
     "(terreno, estado y tipos extra, seeds 1-200, 900 s), no el grupo fijo. "
+    "El puesto de la sim pondera mediana de tiempo x dano infligido x (1 + bajas); "
+    "un combate que sobrevive sin pegar vale 0. Las columnas en segundos no cambian. "
     "2000 sorteos, seed 20261014. Cifras de la sim: estimacion."
 )
 CUTS = (("S", 30), ("A", 90), ("B", 200), ("C", 300), ("D", 346))
@@ -105,11 +107,26 @@ def late_ranks_for(v4m: np.ndarray, v4f: np.ndarray, weight: float) -> np.ndarra
     return ranks_of(score)
 
 
+def row_metric(row: dict, score_key: str, fallback: str) -> float:
+    raw = row.get(score_key)
+    if raw not in (None, ""):
+        return float(raw)
+    return float(row[fallback])
+
+
 def winner_by_dex(sweep: list[dict]) -> dict[int, dict]:
     best: dict[int, dict] = {}
     for row in sweep:
         dex = int(row["dex"])
-        key = (-float(row["median_s"]), -float(row["mean_s"]), row["start"])
+        # Gengar never keeps Golpe Cuerpo or any other melee move.
+        if dex == 94 and row.get("kind") == "melee":
+            continue
+        key = (
+            -row_metric(row, "median_score", "median_s"),
+            -row_metric(row, "mean_score", "mean_s"),
+            -float(row["median_s"]),
+            row["start"],
+        )
         cur = best.get(dex)
         if cur is None or key < cur[0]:
             best[dex] = (key, row)
@@ -169,22 +186,33 @@ def repertoire_opening(sweep_path: Path) -> dict[int, dict]:
 
 
 def apply_repertoire(base: list[dict], start_s, slo, shi, opening: dict[int, dict]):
-    """Replace the solo starter with the Repertorio expectation. Returns the solo seconds."""
+    """Replace the solo starter with the Repertorio expectation.
+
+    The arrays that feed the rank use the composite score when the sweep has one.
+    The returned display array stays in seconds.
+    """
     noshop = start_s.copy()
+    display = start_s.copy()
     for i, row in enumerate(base):
         op = opening[int(row["dex"])]
-        start_s[i] = float(op["median"])
-        slo[i] = min(float(op["lo"]), start_s[i])
-        shi[i] = max(float(op["hi"]), start_s[i])
+        display[i] = float(op["median"])
+        if "rank" in op:
+            start_s[i] = float(op["rank"])
+            slo[i] = min(float(op["rankLo"]), start_s[i])
+            shi[i] = max(float(op["rankHi"]), start_s[i])
+        else:
+            start_s[i] = float(op["median"])
+            slo[i] = min(float(op["lo"]), start_s[i])
+            shi[i] = max(float(op["hi"]), start_s[i])
         row["melee_locked"] = "1" if op["meleeLocked"] else "0"
         row["repertoire_bans"] = "|".join(op["banned"])
-    return noshop
+    return noshop, display
 
 
 def sim_arrays(base: list[dict], starts: dict[int, dict], winners: dict[int, dict], sweep_moves: dict, use_stored_best: bool, share_interval: bool = True):
-    start_s = np.array([float(starts[int(r["dex"])]["median_s"]) for r in base])
-    slo = np.array([float(starts[int(r["dex"])]["boot_lo"]) for r in base])
-    shi = np.array([float(starts[int(r["dex"])]["boot_hi"]) for r in base])
+    start_s = np.array([row_metric(starts[int(r["dex"])], "median_score", "median_s") for r in base])
+    slo = np.array([row_metric(starts[int(r["dex"])], "score_lo", "boot_lo") for r in base])
+    shi = np.array([row_metric(starts[int(r["dex"])], "score_hi", "boot_hi") for r in base])
     best_s = np.empty(N)
     blo = np.empty(N)
     bhi = np.empty(N)
@@ -202,11 +230,12 @@ def sim_arrays(base: list[dict], starts: dict[int, dict], winners: dict[int, dic
             if rec is None:
                 blo[i], bhi[i] = slo[i], shi[i]
             else:
-                blo[i], bhi[i] = float(rec["boot_lo"]), float(rec["boot_hi"])
+                blo[i], bhi[i] = row_metric(rec, "score_lo", "boot_lo"), row_metric(rec, "score_hi", "boot_hi")
+                best_s[i] = row_metric(rec, "median_score", "median_s")
         else:
             win = winners[dex]
-            best_s[i] = float(win["median_s"])
-            blo[i], bhi[i] = float(win["boot_lo"]), float(win["boot_hi"])
+            best_s[i] = row_metric(win, "median_score", "median_s")
+            blo[i], bhi[i] = row_metric(win, "score_lo", "boot_lo"), row_metric(win, "score_hi", "boot_hi")
             best_move.append(win["start"])
             best_text.append(win["median_s"])
         # Same move id only shares an interval when both numbers come from one protocol.
@@ -269,7 +298,7 @@ def main() -> None:
     opening = repertoire_opening(args.sweep)
     if set(opening) != {int(r["dex"]) for r in base}:
         raise SystemExit("repertoire opening does not cover the same 966 species")
-    noshop = apply_repertoire(base, start_s, slo, shi, opening)
+    noshop, start_display = apply_repertoire(base, start_s, slo, shi, opening)
     sheet = np.array([int(r["rank_sheet"]) for r in base], dtype=float)
     v4m = np.array([int(r["rank_v4_max"]) for r in base], dtype=float)
     v4f = np.array([int(r["rank_v4_fresh"]) for r in base], dtype=float)
@@ -309,8 +338,7 @@ def main() -> None:
             "rank_p90": str(int(round(float(p90[i])))),
             "p_tier": fmt_prob(float(np.mean((fr[:, i] >= lo) & (fr[:, i] <= hi)))),
             "p_S": fmt_prob(float(p_s[i])),
-            "start_median_s": starts[dex]["median_s"] if abs(start_s[i] - float(starts[dex]["median_s"])) < 1e-9
-            else fmt_seconds(float(start_s[i])),
+            "start_median_s": fmt_seconds(float(start_display[i])),
             "start_noshop_s": starts[dex]["median_s"],
             "rank_sim_noshop": str(int(rnoshop[i])),
             "best_move": best_move[i],

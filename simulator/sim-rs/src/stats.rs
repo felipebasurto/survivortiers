@@ -60,6 +60,12 @@ pub struct Summary {
     pub n_cap: usize,
     pub mean_hp_frac: Option<f64>,
     pub status_ignored: bool,
+    /// Median of time * dealt * (1 + kills). Zero damage scores 0.
+    pub median_score: f64,
+    pub mean_score: f64,
+    pub score_lo: f64,
+    pub score_hi: f64,
+    pub median_dealt: f64,
 }
 
 /// `runs` must be in seed order (1..N), as runSpecies produces them.
@@ -77,6 +83,15 @@ pub fn summarize(runs: &[RunResult]) -> Summary {
     sort(&mut kpm);
     sort(&mut levels);
     let (boot_lo, boot_hi) = bootstrap_median(&times, 400);
+    let mut scores: Vec<f64> = runs.iter().map(run_score).collect();
+    let mut dealt: Vec<f64> = runs.iter().map(|r| r.dealt).collect();
+    sort(&mut scores);
+    sort(&mut dealt);
+    let (score_lo, score_hi) = bootstrap_median(&scores, 400);
+    let mut score_sum = 0.0;
+    for s in &scores {
+        score_sum += s;
+    }
     let capped: Vec<&RunResult> = runs.iter().filter(|r| r.capped).collect();
     let mut sum = 0.0;
     for t in &times {
@@ -111,7 +126,17 @@ pub fn summarize(runs: &[RunResult]) -> Summary {
         n_cap: capped.len(),
         mean_hp_frac,
         status_ignored: runs.iter().any(|r| r.status_ignored),
+        median_score: quantile(&scores, 0.5),
+        mean_score: score_sum / scores.len() as f64,
+        score_lo,
+        score_hi,
+        median_dealt: quantile(&dealt, 0.5),
     }
+}
+
+/// Survival without damage is worth nothing. `dealt` is the post-guard, pre-shield total.
+pub fn run_score(r: &RunResult) -> f64 {
+    r.time * r.dealt * (1.0 + r.kills as f64)
 }
 
 /// `num()` from the JS writers: round to 3 decimals, shortest round-trip text.

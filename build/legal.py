@@ -25,7 +25,9 @@ GAME_REPO_URL = "https://github.com/JPTER78/pokesurvivor"
 # LICENSE del juego en main: MIT hasta b297089 (14 oct 2026); el código posterior es PolyForm Noncommercial 1.0.0.
 GAME_LICENSE_URL = GAME_REPO_URL + "/blob/main/LICENSE"
 REPO_URL = "https://github.com/felipebasurto/survivortiers"
-GAME_COMMIT = "a9b21f0"
+# Full upstream commit: e868b5eb3cd55499cd41de543ee032b48a344e71 (18 Oct 2026).
+# The site prints the first 7 characters, matching the previous pin style.
+GAME_COMMIT = "e868b5e"
 GAME_AUTHOR = "JPTER78"
 
 # URL pública del sitio, para los enlaces absolutos de llms.txt, llms-full.txt y sitemap.xml (build/agents.py).

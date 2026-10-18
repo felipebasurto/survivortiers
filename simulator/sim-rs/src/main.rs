@@ -55,6 +55,7 @@ struct Cfg {
     out: Option<String>,
     group: u8,
     dd: bool,
+    np: bool,
     agi: bool,
     xkinds: bool,
     legacy: bool,
@@ -83,7 +84,7 @@ struct Cfg {
 }
 
 fn parse(args: &[String]) -> Cfg {
-    let mut c = Cfg { seeds: 200, seconds: 900.0, bot: Bot::Repulse, cards: true, terrain: false, status: false, out: None, group: 0, dd: false, agi: false, xkinds: false, legacy: false, item: "none".into(), fill: vec![], buffs: None, comps: None, swap: false, crit: 0.0, full_cards: false, stop: 0, heal_below: 0.0, dodge: 0.0, locks: vec![], synergy: false, no_synergy: false, rest: vec![] };
+    let mut c = Cfg { seeds: 200, seconds: 900.0, bot: Bot::Repulse, cards: true, terrain: false, status: false, out: None, group: 0, dd: false, np: false, agi: false, xkinds: false, legacy: false, item: "none".into(), fill: vec![], buffs: None, comps: None, swap: false, crit: 0.0, full_cards: false, stop: 0, heal_below: 0.0, dodge: 0.0, locks: vec![], synergy: false, no_synergy: false, rest: vec![] };
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
@@ -118,6 +119,7 @@ fn parse(args: &[String]) -> Cfg {
                 PARTNERS.set(read_partners(&args[i])).ok();
             }
             "--dd" => c.dd = true,
+            "--np" => c.np = true,
             "--agi" => c.agi = true,
             "--xkinds" => c.xkinds = true,
             "--swap" => c.swap = true,
@@ -186,7 +188,9 @@ fn read_partners(path: &str) -> HashMap<u32, Vec<String>> {
         let c: Vec<&str> = l.split(',').collect();
         let n = c.len();
         // dex,name,start,kind,n,median_s,... (name may hold no commas in this data)
-        rows.push((c[0].parse().unwrap(), c[2].to_string(), c[3].to_string(), c[5].parse().unwrap()));
+        let time: f64 = c[5].parse().unwrap();
+        let score = c.get(16).and_then(|s| s.parse().ok()).unwrap_or(time);
+        rows.push((c[0].parse().unwrap(), c[2].to_string(), c[3].to_string(), score));
         let _ = n;
     }
     rows.sort_by(|a, b| a.0.cmp(&b.0).then(b.3.partial_cmp(&a.3).unwrap()).then(a.1.cmp(&b.1)));
@@ -231,6 +235,10 @@ fn partner_pool(data: &Data, mon: &Mon, start: usize) -> Vec<usize> {
                 return false;
             }
             let m = &data.moves[ix];
+            // Gengar never bonds Golpe Cuerpo or any other melee move.
+            if mon.dex == 94 && m.kind == Kind::Melee {
+                return false;
+            }
             if m.kind == Kind::Orbit {
                 return false;
             }
@@ -267,6 +275,7 @@ fn ext_for(data: &Data, mon: &Mon, start: usize, cfg: &Cfg) -> Ext {
         companions,
         buffs: cfg.buffs.unwrap_or(match cfg.group { 2 => 3, 3 => 1, _ => 0 }),
         dd: cfg.dd,
+        np: cfg.np,
         agi: cfg.agi,
         item,
         fill: cfg.fill.clone(),
@@ -413,7 +422,10 @@ struct Spec {
 const PAIR_TOP: usize = 6;
 
 fn attack_list(data: &Data, mon: &Mon) -> Vec<usize> {
-    let mut atk: Vec<usize> = mon.pool.iter().copied().filter(|&ix| castable(&data.moves[ix])).collect();
+    let mut atk: Vec<usize> = mon.pool.iter().copied().filter(|&ix| {
+        let m = &data.moves[ix];
+        castable(m) && !(mon.dex == 94 && m.kind == Kind::Melee)
+    }).collect();
     if !atk.contains(&mon.start) && castable(&data.moves[mon.start]) {
         atk.push(mon.start);
     }
@@ -582,7 +594,8 @@ fn group_name(data: &Data, start: usize, comps: &[usize], buffs: u8, cfg: &Cfg) 
         parts.push(data.moves[c].id.clone());
     }
     if buffs & 1 != 0 {
-        parts.push((if cfg.dd { "dragon-dance" } else { "swords-dance" }).to_string());
+        let buff = if cfg.np { "nasty-plot" } else if cfg.dd { "dragon-dance" } else { "swords-dance" };
+        parts.push(buff.to_string());
     }
     if buffs & 2 != 0 {
         parts.push((if cfg.agi { "agility" } else { "harden" }).to_string());
@@ -639,14 +652,14 @@ fn sweep(data: &Data, cfg: &Cfg) {
     std::fs::create_dir_all(&out_dir).unwrap();
     let mut long = format!(
         "# barrido: todos los movimientos simulados del pool como inicial. seeds=1-{} seconds={} bot={}\n\
-         dex,name,start,kind,n,median_s,mean_s,boot_lo,boot_hi,p10_s,p90_s,median_kills,median_lvl,status_ignored,group\n",
+         dex,name,start,kind,n,median_s,mean_s,boot_lo,boot_hi,p10_s,p90_s,median_kills,median_lvl,status_ignored,group,median_dealt,median_score,mean_score,score_lo,score_hi\n",
         cfg.seeds, cfg.seconds, bot_name(cfg.bot)
     );
     for r in &rows {
         let s = &r.s;
         writeln!(
             long,
-            "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+            "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
             r.mon.dex,
             csv_escape(&r.mon.name),
             mv(r),
@@ -661,7 +674,8 @@ fn sweep(data: &Data, cfg: &Cfg) {
             num(s.median_kills),
             num(s.median_lvl),
             s.status_ignored as u8,
-            row_group(data, r, cfg)
+            row_group(data, r, cfg),
+            score_tail(s)
         )
         .unwrap();
     }
@@ -678,30 +692,25 @@ fn sweep(data: &Data, cfg: &Cfg) {
     let mut best: Vec<(&Row, usize, Option<&Row>)> = groups
         .iter_mut()
         .map(|g| {
-            g.sort_by(|a, b| {
-                cmp_desc(a.s.median_s, b.s.median_s)
-                    .then(cmp_desc(a.s.mean_s, b.s.mean_s))
-                    .then_with(|| mv(a).cmp(mv(b)))
-            });
+            if g[0].mon.dex == 94 {
+                g.retain(|r| data.moves[r.start].kind != Kind::Melee);
+            }
+            g.sort_by(|a, b| cmp_run(&a.s, &b.s).then_with(|| mv(a).cmp(mv(b))));
             (g[0], g.len(), g.get(1).copied())
         })
         .collect();
-    best.sort_by(|a, b| {
-        cmp_desc(a.0.s.median_s, b.0.s.median_s)
-            .then(cmp_desc(a.0.s.mean_s, b.0.s.mean_s))
-            .then(a.0.mon.dex.cmp(&b.0.mon.dex))
-    });
+    best.sort_by(|a, b| cmp_run(&a.0.s, &b.0.s).then(a.0.mon.dex.cmp(&b.0.mon.dex)));
     let old = read_old_rank("sim/out/rank_200.csv");
     let mut text = format!(
         "# mejor movimiento inicial por especie. seeds=1-{} seconds={} bot={}\n\
-         rank,dex,name,best_start,best_kind,median_s,mean_s,boot_lo,boot_hi,p10_s,p90_s,median_kills,median_lvl,status_ignored,n_candidates,alt_start,alt_median_s,rank_old_200,group\n",
+         rank,dex,name,best_start,best_kind,median_s,mean_s,boot_lo,boot_hi,p10_s,p90_s,median_kills,median_lvl,status_ignored,n_candidates,alt_start,alt_median_s,rank_old_200,group,median_dealt,median_score,mean_score,score_lo,score_hi\n",
         cfg.seeds, cfg.seconds, bot_name(cfg.bot)
     );
     for (i, (r, n, alt)) in best.iter().enumerate() {
         let s = &r.s;
         writeln!(
             text,
-            "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+            "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
             i + 1,
             r.mon.dex,
             csv_escape(&r.mon.name),
@@ -720,7 +729,8 @@ fn sweep(data: &Data, cfg: &Cfg) {
             alt.map(mv).unwrap_or(""),
             alt.map(|a| num(a.s.median_s)).unwrap_or_default(),
             old.get(&r.mon.dex).map(|x| x.to_string()).unwrap_or_default(),
-            row_group(data, r, cfg)
+            row_group(data, r, cfg),
+            score_tail(&s)
         )
         .unwrap();
     }
@@ -776,6 +786,7 @@ fn tasks_cmd(data: &Data, cfg: &Cfg) {
                         match x {
                             "sd" => mask |= 1,
                             "dd" => { mask |= 1; sub.dd = true; }
+                            "np" => { mask |= 1; sub.np = true; }
                             "hd" => mask |= 2,
                             "agi" => { mask |= 2; sub.agi = true; }
                             _ => panic!("buff {x}"),
@@ -790,7 +801,7 @@ fn tasks_cmd(data: &Data, cfg: &Cfg) {
             let d = done.fetch_add(1, Ordering::Relaxed) + 1;
             if d % 500 == 0 { eprintln!("  {d}/{total}"); }
             format!(
-                "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+                "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
                 c[0],
                 c[1],
                 c[2],
@@ -813,12 +824,13 @@ fn tasks_cmd(data: &Data, cfg: &Cfg) {
                 num(s.median_kills),
                 num(s.median_bosses),
                 num(s.median_kpm),
-                num(s.median_coins)
+                num(s.median_coins),
+                score_tail(&s)
             )
         })
         .collect();
     let path = cfg.out.clone().expect("--out");
-    std::fs::write(&path, format!("dex,move,item,fill,buffs,stop,heal_below,lock,mods,median_s,mean_s,boot_lo,boot_hi,p75_s,p90_s,median_lvl,alive180,alive300,alive600,median_kills,median_bosses,median_kpm,median_coins\n{}\n", rows.join("\n"))).unwrap();
+    std::fs::write(&path, format!("dex,move,item,fill,buffs,stop,heal_below,lock,mods,median_s,mean_s,boot_lo,boot_hi,p75_s,p90_s,median_lvl,alive180,alive300,alive600,median_kills,median_bosses,median_kpm,median_coins,median_dealt,median_score,mean_score,score_lo,score_hi\n{}\n", rows.join("\n"))).unwrap();
     eprintln!("wrote {path}");
 }
 
@@ -839,7 +851,17 @@ fn with_mods(mon: &Mon, mods: &str) -> Mon {
 }
 
 fn cfg_clone(c: &Cfg) -> Box<Cfg> {
-    Box::new(Cfg { seeds: c.seeds, seconds: c.seconds, bot: c.bot, cards: c.cards, terrain: c.terrain, status: c.status, out: None, group: c.group, dd: c.dd, agi: c.agi, xkinds: c.xkinds, legacy: c.legacy, item: c.item.clone(), fill: c.fill.clone(), buffs: c.buffs, comps: c.comps.clone(), swap: c.swap, crit: c.crit, full_cards: c.full_cards, stop: c.stop, heal_below: c.heal_below, dodge: c.dodge, locks: c.locks.clone(), synergy: c.synergy, no_synergy: c.no_synergy, rest: vec![] })
+    Box::new(Cfg { seeds: c.seeds, seconds: c.seconds, bot: c.bot, cards: c.cards, terrain: c.terrain, status: c.status, out: None, group: c.group, dd: c.dd, np: c.np, agi: c.agi, xkinds: c.xkinds, legacy: c.legacy, item: c.item.clone(), fill: c.fill.clone(), buffs: c.buffs, comps: c.comps.clone(), swap: c.swap, crit: c.crit, full_cards: c.full_cards, stop: c.stop, heal_below: c.heal_below, dodge: c.dodge, locks: c.locks.clone(), synergy: c.synergy, no_synergy: c.no_synergy, rest: vec![] })
+}
+
+fn cmp_run(a: &Summary, b: &Summary) -> std::cmp::Ordering {
+    cmp_desc(a.median_score, b.median_score)
+        .then(cmp_desc(a.mean_score, b.mean_score))
+        .then(cmp_desc(a.median_s, b.median_s))
+}
+
+fn score_tail(s: &Summary) -> String {
+    format!("{},{},{},{},{}", num(s.median_dealt), num(s.median_score), num(s.mean_score), num(s.score_lo), num(s.score_hi))
 }
 
 fn synergy_cmd(data: &Data, cfg: &Cfg) {
@@ -857,7 +879,7 @@ fn synergy_cmd(data: &Data, cfg: &Cfg) {
         cfg.group
     );
     let mut rows = run_jobs(data, jobs, cfg);
-    rows.sort_by(|a, b| a.mon.dex.cmp(&b.mon.dex).then(cmp_desc(a.s.median_s, b.s.median_s)).then(cmp_desc(a.s.mean_s, b.s.mean_s)));
+    rows.sort_by(|a, b| a.mon.dex.cmp(&b.mon.dex).then(cmp_run(&a.s, &b.s)));
     let path = cfg.out.clone().expect("--out");
     if let Some(dir) = std::path::Path::new(&path).parent() {
         if !dir.as_os_str().is_empty() {
@@ -865,13 +887,13 @@ fn synergy_cmd(data: &Data, cfg: &Cfg) {
         }
     }
     let mut text = String::from(
-        "dex,name,group,median_s,mean_s,boot_lo,boot_hi,p10_s,p90_s,median_kills,median_lvl,status_ignored\n",
+        "dex,name,group,median_s,mean_s,boot_lo,boot_hi,p10_s,p90_s,median_kills,median_lvl,status_ignored,median_dealt,median_score,mean_score,score_lo,score_hi\n",
     );
     for r in &rows {
         let s = &r.s;
         writeln!(
             text,
-            "{},{},{},{},{},{},{},{},{},{},{},{}",
+            "{},{},{},{},{},{},{},{},{},{},{},{},{}",
             r.mon.dex,
             csv_escape(&r.mon.name),
             row_group(data, r, cfg),
@@ -883,7 +905,8 @@ fn synergy_cmd(data: &Data, cfg: &Cfg) {
             num(s.p90_s),
             num(s.median_kills),
             num(s.median_lvl),
-            s.status_ignored as u8
+            s.status_ignored as u8,
+            score_tail(s)
         )
         .unwrap();
     }
@@ -896,8 +919,7 @@ fn rank(data: &Data, cfg: &Cfg) {
     eprintln!("rank: {} species x {} seeds, {} threads", tasks.len(), cfg.seeds, rayon::current_num_threads());
     let mut rows = run_tasks(data, tasks, cfg);
     rows.sort_by(|a, b| {
-        cmp_desc(a.s.median_s, b.s.median_s)
-            .then(cmp_desc(a.s.mean_s, b.s.mean_s))
+        cmp_run(&a.s, &b.s)
             .then(cmp_desc(a.s.mean_hp_frac.unwrap_or(0.0), b.s.mean_hp_frac.unwrap_or(0.0)))
             .then(a.mon.dex.cmp(&b.mon.dex))
     });
@@ -905,14 +927,14 @@ fn rank(data: &Data, cfg: &Cfg) {
     let note = if cfg.swap { format!("{note}, cambio de hueco al 35% de la recarga") } else { note.to_string() };
     let mut text = format!(
         "# step={} seeds=1-{} seconds={} bot={} sin mejoras permanentes, {}, controlador compartido{}\n\
-         dex,name,n,median_s,mean_s,boot_lo,boot_hi,p10_s,p90_s,median_kills,median_lvl,n_cap,mean_hp_frac,status_ignored\n",
+         dex,name,n,median_s,mean_s,boot_lo,boot_hi,p10_s,p90_s,median_kills,median_lvl,n_cap,mean_hp_frac,status_ignored,median_dealt,median_score,mean_score,score_lo,score_hi\n",
         DT, cfg.seeds, cfg.seconds, bot_name(cfg.bot), group_label(cfg), note
     );
     for r in &rows {
         let s = &r.s;
         writeln!(
             text,
-            "{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+            "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
             r.mon.dex,
             csv_escape(&r.mon.name),
             s.n,
@@ -926,7 +948,8 @@ fn rank(data: &Data, cfg: &Cfg) {
             num(s.median_lvl),
             s.n_cap,
             s.mean_hp_frac.map(num).unwrap_or_default(),
-            s.status_ignored as u8
+            s.status_ignored as u8,
+            score_tail(s)
         )
         .unwrap();
     }

@@ -84,7 +84,11 @@ def _coverage(matrix: dict, types: list[str], enemies: list[list[str]], cache: d
 
 
 # Buffs the fixed group can hold. Anything else in a searched group name is an attack.
-BUFF_IDS = frozenset({"dragon-dance", "swords-dance", "harden", "agility"})
+BUFF_IDS = frozenset({"dragon-dance", "swords-dance", "harden", "agility", "nasty-plot"})
+# Gengar (dex 94) never keeps a melee move. Golpe Cuerpo is body-slam.
+_MELEE = frozenset({
+    "bite", "body-slam", "bug-bite", "karate-chop", "lick", "metal-claw", "tackle", "vine-whip", "wing-attack",
+})
 # Written by `pokesim synergy` (seeds 1-200, 900 s, terrain, status, rift bond).
 SEARCH_CSV = DATA.parent / "simulator" / "results" / "fixed_group" / "group_search.csv"
 
@@ -121,9 +125,13 @@ def _search_picks() -> dict[int, tuple[list[str], bool]]:
         for row in csv.DictReader(line for line in f if not line.startswith("#")):
             dex = int(row["dex"])
             group = row["group"]
-            key = (-float(row["median_s"]), -float(row["mean_s"]), group)
+            score = row["median_score"] if row.get("median_score") not in (None, "") else row["median_s"]
+            mean = row["mean_score"] if row.get("mean_score") not in (None, "") else row["mean_s"]
+            key = (-float(score), -float(mean), -float(row["median_s"]), group)
             parts = group.split("+")
             attacks = [part for part in parts if part not in BUFF_IDS]
+            if dex == 94 and any(part in _MELEE for part in attacks):
+                continue
             if len(attacks) < 2:
                 continue
             cur = best.get(dex)
@@ -185,14 +193,14 @@ def compute_all(types_by_dex: dict[int, list[str]], best_move_by_dex: dict[int, 
         ids = set(pool["normal"])
         for t in types:
             ids.update(pool.get(t, []))
-        attacks = sorted(i for i in ids if mech[i]["kind"] != "buff")
+        attacks = sorted(i for i in ids if mech[i]["kind"] != "buff" and not (dex == 94 and i in _MELEE))
         buffs = sorted(i for i in ids if mech[i]["kind"] == "buff")
         best = best_move_by_dex[dex]
         if best not in attacks and best in rows:
             # el ataque inicial propio de la especie (p. ej. Confusión de Psyduck) no está en POOL, pero lo lleva desde el inicio
             attacks.append(best)
         preset, with_harden = picks.get(dex, ([], True))
-        preset = [m for m in preset if m in rows]
+        preset = [m for m in preset if m in rows and not (dex == 94 and m in _MELEE)]
         for move in preset:
             if move not in attacks:
                 attacks.append(move)

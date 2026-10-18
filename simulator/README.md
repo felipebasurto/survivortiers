@@ -116,7 +116,20 @@ evolution rows match the game's own `evolve()`.
 `--legacy-group` restores the old behaviour (bonded from t=0, no rifts, bosses, heal orbs or extra kinds). Default runs
 (no `--group`) are unchanged and still pass `parity.js`; the JS engine does not have group mode.
 
-Known bias (estimates): the bot does not dodge, so sustain (Synthesis `rgn`, Vigor `hp`, Leftovers) still looks strong. A check that ignores half of each combat hit (`--dodge 0.5`) lengthens runs and does not move Power or Reflexes ahead of Synthesis. The pasivas page ranks cards by the game's coin reward (game.js:295-301, coinMul 1) and takes Baya Zidra only at or below 70% HP.
+Physical and special split, from PokéSurvivor `e868b5eb3cd55499cd41de543ee032b48a344e71` (18 Oct 2026). Both engines use the same formulas; `parity.js` still passes.
+
+- `stats.js:17-43`. `guard(def) = clamp((75 / max(5, def || 75))^0.35, 0.78, 1.25)`. Damage taken is `guard(sd)` for a special hit and `guard(df)` for a physical one. `sideOf` is special when `sa > pa`, otherwise physical. `fit` is that side's multiplier over `atk` (`atk` is still `max(pa, sa)`). On-side moves hit as hard as before this commit. Pure damage and traps skip the guard.
+- `moves.js`. Non-buff moves have `cat` physical or special. Danza Espada and Danza Dragón buff `patk` only. Maquinación (`nasty-plot`) buffs `satk` (0.13, 5 stacks, 7 s) and is a normal-pool move. Published groups still bond Danza Espada (Felipe's rule). `--np` swaps it for Maquinación; that variant is reported, not published.
+- `player.js` `atkFor` and `combat.js` hits. Outgoing damage is `atk * fit(mon, cat) * (1 + the matching side buff)`, then `typeK * guard(enemy)`. Incoming combat damage, including hazards, is multiplied by the player's guard before the type chart. Weather chip and lava are not combat hits.
+- `enemy.js`. Enemies strike with `sideOf`. A boss heal is at most `0.4 * rd / 6` and a boss shield at most `1.2 * rd / 6` (one shield while `shieldT > 2`). Poison percent HP uses `maxHp` up to 60,000 and `60000 * sqrt(maxHp / 60000)` above that. Normal enemies and the 900 s bosses stay under that line.
+- `spawner.js:82`. At most 3 alive healers, shielders and summoners. A full type is re-rolled from the same tier; an empty remainder spawns nothing and does not advance the spawn counter.
+- `sprites.js` `playerRadius`. Collision radius is `min(18, body radius)`. Idle-frame heights are not in this repo, so the extra shrink below 18 is not applied. Enemy radii are unchanged.
+
+Not modelled, because the published run stops at 900 s with a fixed group: Judgment's soft speed cap, touch ramp and legendary pace (`judgment.js:46-48,379`), and the weighted card draw (`levelup.js` `pickWeighted`, on-side moves twice as likely, still at most two buffs). The sim does not invent those.
+
+The ranking score of a run is `time * damage dealt * (1 + kills)`. Damage dealt is the post-type, post-guard, post-crit amount before the shield, and it does not include burn or poison damage over time (the game does not add those to `dmgDealt`). A run that survives without dealing damage scores 0. Displayed medians stay in seconds. Order, bootstrap jitter and the sim piece of the ensemble use the score.
+
+Known bias (estimates): the bot does not dodge, so sustain (Synthesis `rgn`, Vigor `hp`, Leftovers) still looks strong. Melee stays penalised (incoming ×0.75 while a melee move is in the active group, `player.js:238`) because the sim overrates it. Gengar never bonds Golpe Cuerpo or any other melee move. A check that ignores half of each combat hit (`--dodge 0.5`) lengthens runs and does not move Power or Reflexes ahead of Synthesis. The pasivas page ranks cards by the game's coin reward (game.js:295-301, coinMul 1) and takes Baya Zidra only at or below 70% HP.
 build/passives.py keeps at most one of `rgn`/`hp` in the Build card. The rift walk is time-at-current-speed, not pathing.
 Boss and legendary hit radius ×2 stands in for sprite bossScale when the idle anchor is the default (enemy.js:15–22, sprites.js:127–130); huge sprites would be closer to ×1. Boss personalities other
 than ranged/charger/chase are collapsed. The arena is fought in open space at the map position (no Distortion World
