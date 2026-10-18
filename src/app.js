@@ -1783,6 +1783,21 @@
     nav.scrollLeft += r.left - n.left - (n.width - r.width) / 2;
   }
 
+  // Aviso del ranking: se muestra hasta que alguien lo cierra; la marca va en localStorage y cambia con la actualización.
+  const PATCH_KEY = 'survivortiers.novedades.20261018';
+  function initPatchNote() {
+    const note = $('#patch-note');
+    if (!note) return;
+    let closed = false;
+    try { closed = localStorage.getItem(PATCH_KEY) === '1'; } catch (e) { /* sin almacenamiento: el aviso vuelve en cada visita */ }
+    if (closed) return;
+    note.hidden = false;
+    $('#patch-note-close', note).addEventListener('click', () => {
+      note.hidden = true;
+      try { localStorage.setItem(PATCH_KEY, '1'); } catch (e) { /* sin almacenamiento: no queda guardado */ }
+    });
+  }
+
   // ---------------------------------------------------------------- arranque
   // Si el CDN de sprites falla, cada imagen prueba una vez el mismo archivo en la copia de respaldo.
   if (spritesAlt && sprites) {
@@ -1798,6 +1813,7 @@
     if (old) { location.replace((old[1] || '') + '/pokemon/?id=' + old[2]); return; }
   }
   initTheme();
+  initPatchNote();
   centerNav();
   initReveal();
   initDemo();

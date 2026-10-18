@@ -20,7 +20,7 @@ from i18n import EN, ES, TYPE_NAMES, Lang
 
 ROOT = Path(__file__).resolve().parent.parent
 RANKING_SRC = ROOT / "data" / "ranking_definitive.csv"
-PAGES = ["", "ataques.html", "objetos.html", "pasivas.html", "gachas.html", "coleccion.html", "metodo.html", "acerca.html"]
+PAGES = ["", "novedades.html", "ataques.html", "objetos.html", "pasivas.html", "gachas.html", "coleccion.html", "metodo.html", "acerca.html"]
 LANG_PREFIX = {"es": "", "en": "en/"}
 SIM_CAP_S = 900  # tope de la simulación de supervivencia (sim_lede en build/i18n.py)
 
@@ -116,6 +116,7 @@ Base URL: {u}
 - [Best legendaries (EN)]({_page_url(True, 'legendary')}): every legendary by rank.
 - [Best passives (EN)]({_page_url(True, 'passives')}): level-up cards ranked by coin reward, with the Sitrus Berry rule.
 - Best Pokémon by type (EN), one page per type: {_type_links(True)}.
+- [What's new (EN)]({u}/en/novedades): the October 18, 2026 update: physical and special moves, bosses, Arceus' Judgment and the controller.
 - [Moves (EN)]({u}/en/ataques): attack tier list.
 - [Items (EN)]({u}/en/objetos): item tier list.
 - [Gacha (EN)]({u}/en/gachas): banners and pull odds.
