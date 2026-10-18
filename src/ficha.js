@@ -303,11 +303,19 @@
       '"><img class="px" src="' + sprites + p.dex + spriteExt + '" width="' + p.w * scale + '" height="' + p.h * scale + '" alt=""></span>';
     const altTiles = alts.map((m, i) => tile(m, ' sm', '', i)).join('');
     const itemTiles = items.map((m, i) => tile(m, ' sm item' + (i === 0 ? ' best' : ''), i === 0 ? badgeOf('crown', t('build_best_item')) : '', i)).join('');
-    // Cartas de subida de nivel en orden de prioridad (build/passives.py): primero las que evolucionan un ataque del grupo.
-    const [cardIds, nEvo] = d[10] || [[], 0];
+    // Primeras cartas del bot (build/passives.py): la de evolución del ataque principal, una vez, y la que luego apila.
+    const [cardIds, nOnce] = d[10] || [[], 0];
+    const needNames = new Set(slots.map(m => (EN ? m.en.needsCard : m.needsCard)).filter(Boolean));
     const cardTiles = cardIds.map(id => cards[id]).filter(Boolean)
-      .map((m, i) => tile(m, ' sm card' + (i < nEvo ? ' evo' : ''),
-        badgeOf(String(i + 1), i < nEvo ? t('build_card_evo') : t('build_card_n', { n: i + 1 })), i)).join('');
+      .map((m, i) => {
+        const once = i < nOnce;
+        const evolves = needNames.has(EN ? m.en.name : m.name);
+        const label = once ? t('build_card_once')
+          : evolves ? t('build_card_keep_evo')
+          : nOnce > 0 ? t('build_card_keep')
+          : t('build_card_only');
+        return tile(m, ' sm card' + (once ? ' evo' : ''), badgeOf(once ? '1×' : '→', label), i);
+      }).join('');
     const extra = '<details class="bd-extra"><summary>' + esc(t('build_more')) + '</summary><div class="bd-extra-body">' +
       group('build_alt', altTiles, 'bd-alts') +
       '<div class="bd-meters">' + meter(t('build_super'), superPct, 'bd-super') + meter(t('build_neutral'), neutralPct, 'bd-neutral') + '</div>' +

@@ -444,7 +444,7 @@ def main() -> int:
               and 2 <= len(e[9][2]) <= 4 and all(m in move_ids for m in e[9][2]) and e[9][3] in (1, 2, 3)
               and len(e[9][4]) <= 3 and all(m in move_ids for m in e[9][4])
               and not set(e[9][4]) & set(e[9][2]) and group_matches(d, e)
-              # cartas a priorizar (build/passives.py): 1-4 ids de carta y cuántas evolucionan un ataque
+              # cartas que coge el bot (build/passives.py): 1-4 ids y cuántas de las primeras se cogen una sola vez
               and len(e[10]) == 2 and 1 <= len(e[10][0]) <= 4 and all(c in CARD_IDS for c in e[10][0])
               and 0 <= e[10][1] <= len(e[10][0])
               and isinstance(e[11], (int, float)) and e[11] > 0)

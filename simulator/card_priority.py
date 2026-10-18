@@ -90,7 +90,8 @@ def write_order(csv_path: Path, json_path: Path) -> dict[str, int]:
         "then median survival, then mean. Coins = round(floor(time/5)+floor(kills*0.25)+bosses*80+picked). "
         "Zidra is taken at <=70% HP in every run. "
         f"First picks: {picks}. needs: evolution card per move. "
-        "build/passives.py keeps at most one sustain card (rgn/hp) among the stat picks. Estimates."
+        "The page shows the lead attack's evolution card once when it is not this fill, then the fill "
+        "the policy stacks (build/passives.py). Estimates."
     )
     doc = {"note": note, "needs": prev["needs"], "order": {d: fresh[d] for d in sorted(fresh, key=int)}}
     json_path.write_text(json.dumps(doc, ensure_ascii=False, separators=(",", ":")) + "\n", encoding="utf8")
