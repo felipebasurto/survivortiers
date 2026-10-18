@@ -43,7 +43,7 @@ python3 build/check_site.py http://127.0.0.1:8765/ --external   # además, enlac
 
 ### Fichas y sprites
 
-- Cada idioma tiene una sola plantilla de ficha, `/pokemon/?id=25` y `/en/pokemon/?id=25`. `src/ficha.js` la dibuja con `data/pokemon-index.json`, `data/species.json` y `data/moves.json`. Los enlaces viejos `/pokemon/25.html` caen en `404.html` (el hosting la sirve para lo que no existe), y `app.js` los reenvía a la ficha.
+- Cada Pokémon tiene una página HTML en `/pokemon/150-mewtwo/` y `/en/pokemon/150-mewtwo/` (número de Pokédex y el nombre inglés en ASCII). El HTML ya trae título, tier, puesto, grupo vinculado, estadísticas, cómo conseguirlo y las preguntas. `src/ficha.js` sustituye el bloque `#ficha` por la ficha interactiva cuando hay JavaScript. `/pokemon/?id=150` sigue funcionando: esa plantilla redirige a la URL estática. Los enlaces viejos `/pokemon/25.html` caen en `404.html` y `app.js` los manda a `?id=25`, que sigue el mismo camino.
 - El script en línea del tema (`build/theme.py`) va permitido por huella sha256 en `script-src` de `src/_headers` y `vercel.json`. Si cambias ese script, `render.py` se niega a generar el sitio hasta que pongas la huella que imprime (`python3 -c "import sys; sys.path.insert(0,'build'); import theme; print(theme.csp_hash())"`).
 - Los sprites salen de `https://cdn.jsdelivr.net/gh/felipebasurto/survivortiers@main/sprites/<n>.png`. Si cambias el repositorio, el usuario o la rama, ajusta `SPRITE_CDN` en `build/legal.py` y el `img-src` de `src/_headers` y `vercel.json` (`check_site.py` comprueba que coincidan). jsDelivr guarda `@main` unas horas: un sprite nuevo tarda en verse.
 
@@ -54,7 +54,7 @@ El sitio es estático y no tiene API: los datos son JSON y CSV en `/data/`, sin 
 - `/llms.txt`: índice del sitio y de los datos, con enlaces absolutos.
 - `/llms-full.txt`: qué significa cada campo, las unidades, el método completo y ejemplos (`curl`, `jq`).
 - `/data/ranking.csv` es el ranking tal cual lo genera `make_definitive.py` (sin la línea de comentario), y `/data/meta.json` tiene los pesos, los tiers y los requisitos de entrada.
-- Las fichas (`/pokemon/?id=N`) se dibujan con JavaScript; para un agente son más útiles los JSON.
+- Las fichas son HTML estático (`/pokemon/150-mewtwo/`, `/en/pokemon/150-mewtwo/`). Para tablas siguen siendo más útiles los JSON.
 
 `build/check_site.py` comprueba que estos archivos existan, que los enlaces de `llms.txt` respondan, que el sitemap tenga una entrada por página y que cada página enlace los archivos. La URL base de los enlaces absolutos está en `build/legal.py` (`SITE_URL`, o la variable de entorno `SITE_URL`).
 

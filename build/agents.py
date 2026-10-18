@@ -2,7 +2,7 @@
 
 - llms.txt: índice del sitio y de los datos, con enlaces absolutos (formato de llmstxt.org).
 - llms-full.txt: diccionario de datos, unidades, método y ejemplos. Es la explicación que hace falta para usar bien los JSON.
-- robots.txt y sitemap.xml: las páginas en los dos idiomas (las fichas no, van por JSON).
+- robots.txt y sitemap.xml: las páginas en los dos idiomas, incluidas las fichas estáticas /pokemon/<n>-<nombre>/.
 - data/ranking.csv, data/meta.json y data/gachas.json: los datos que se describen (el CSV es el ranking tal cual sale de
   make_definitive.py, sin la línea de comentario).
 - JSON-LD Dataset en la portada (dataset_jsonld), para buscadores y agentes que leen el HTML.
@@ -71,7 +71,7 @@ def llms_txt(meta: dict) -> str:
 
 > Unofficial fan tier list for {legal.GAME_NAME}, a survivor-style Pokémon game by {legal.GAME_AUTHOR}. It ranks all {meta['total']} Pokémon in five tiers (S, A, B, C, D) from a simulation of a bot playing the game, a stat, move and type model, and a late-game formula. It is not official and not affiliated with Nintendo, Creatures, GAME FREAK, The Pokémon Company or the game's author.
 
-The site is static. Pages are in Spanish at `/` and in English at `/en/`. There is no API key, login or rate limit. Pokémon sheets (`/en/pokemon/?id=25`) are drawn with JavaScript, so read the data files below instead of the HTML. Field definitions, units and the method are in [llms-full.txt]({u}/llms-full.txt).
+The site is static. Pages are in Spanish at `/` and in English at `/en/`. There is no API key, login or rate limit. Each Pokémon has its own HTML page, for example [Mewtwo]({u}/pokemon/150-mewtwo/) and [Mewtwo (EN)]({u}/en/pokemon/150-mewtwo/). Field definitions, units and the method are in [llms-full.txt]({u}/llms-full.txt). The data files below are the best source for tables.
 
 Base URL: {u}
 
@@ -249,11 +249,11 @@ def robots_txt() -> str:
     return f"User-agent: *\nAllow: /\n\nSitemap: {legal.SITE_URL}/sitemap.xml\n"
 
 
-def sitemap_xml(meta: dict) -> str:
+def sitemap_xml(meta: dict, sheets: list[str] | None = None) -> str:
     """Una entrada por página y por idioma, cada una con sus alternativas hreflang (es, en) y x-default (es).
-    Las fichas (pokemon/?id=N) no van: se dibujan con JavaScript y sus datos están en data/*.json."""
+    sheets son rutas como pokemon/150-mewtwo/ (con barra final)."""
     lastmod = meta["generatedAt"][:10]
-    pages = PAGES
+    pages = [*PAGES, *(sheets or [])]
     out = ['<?xml version="1.0" encoding="UTF-8"?>',
            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">']
     for page in pages:
@@ -266,7 +266,7 @@ def sitemap_xml(meta: dict) -> str:
     return "\n".join(out) + "\n"
 
 
-def write_all(site: Path, meta: dict, gachas: list[dict]) -> int:
+def write_all(site: Path, meta: dict, gachas: list[dict], sheets: list[str] | None = None) -> int:
     """Escribe los archivos para agentes en site/ y devuelve cuántos son."""
     data = site / "data"
     data.mkdir(parents=True, exist_ok=True)
@@ -274,7 +274,7 @@ def write_all(site: Path, meta: dict, gachas: list[dict]) -> int:
         site / "llms.txt": llms_txt(meta),
         site / "llms-full.txt": llms_full_txt(meta),
         site / "robots.txt": robots_txt(),
-        site / "sitemap.xml": sitemap_xml(meta),
+        site / "sitemap.xml": sitemap_xml(meta, sheets),
         data / "ranking.csv": _ranking_csv(),
         data / "meta.json": json.dumps(meta, ensure_ascii=False, indent=1) + "\n",
         data / "gachas.json": json.dumps(gachas, ensure_ascii=False, separators=(",", ":")) + "\n",

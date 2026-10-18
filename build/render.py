@@ -1,7 +1,6 @@
 """Genera site/ entero (español en la raíz, inglés en /en/) a partir de build/out/, que escribe build/catalog.py, y de
-src/. site/ queda en unos 25 archivos: seis páginas por idioma, la plantilla única de ficha de cada idioma
-(pokemon/index.html, que dibuja src/ficha.js con ?id=), la página 404, el CSS y el JS empaquetados, la letra y tres JSON.
-Los sprites no van en site/: se piden a legal.SPRITE_BASE (WebP, ver legal.py).
+src/. Cada Pokémon tiene una página HTML estática en /pokemon/<n>-<nombre>/ y /en/pokemon/<n>-<nombre>/.
+pokemon/index.html sigue siendo la plantilla de ?id=, que redirige a esa URL. Los sprites no van en site/.
 
     python3 build/catalog.py && python3 build/render.py
 """
@@ -27,9 +26,11 @@ import pasivas  # noqa: E402
 import pack  # noqa: E402
 import regions  # noqa: E402
 import share_image  # noqa: E402
+import static_ficha  # noqa: E402
 import theme  # noqa: E402
 import typedata  # noqa: E402
 from i18n import ES, LANGS, TYPE_NAMES, Lang  # noqa: E402
+from slugs import species_path  # noqa: E402
 
 SITE = ROOT / "site"
 OUT = ROOT / "build" / "out"
@@ -114,13 +115,17 @@ LOAD_EAGER = 'fetchpriority="high"'
 LOAD_LAZY = 'loading="lazy" decoding="async"'
 
 
+def mon_href(c: Ctx, p: dict) -> str:
+    return f"{c.home}pokemon/{species_path(p['dex'], p['nameEn'])}/"
+
+
 def mon_card(c: Ctx, p: dict, eager: bool = False) -> str:
     L = c.L
     rank, tier = p["r"][:2]
     w, h = p["w"] * SCALE_LIST, p["h"] * SCALE_LIST
     name = L.mon(p)
     title = L.t("card_title", name=name, dex=p["dex"], rank=rank, tier=tier)
-    return (f'<a class="mon" href="{c.home}pokemon/?id={p["dex"]}" data-dex="{p["dex"]}" '
+    return (f'<a class="mon" href="{mon_href(c, p)}" data-dex="{p["dex"]}" '
             f'title="{esc(title)}">'
             f'<span class="sp"><img class="px" src="{SPRITES}{p["dex"]}{EXT}" width="{w}" height="{h}" alt="" '
             f'{LOAD_EAGER if eager else LOAD_LAZY}></span>'
@@ -170,7 +175,8 @@ def theme_button(L: Lang) -> str:
             f'<i class="ico ico-sun" aria-hidden="true"></i><i class="ico ico-moon" aria-hidden="true"></i></button>')
 
 
-def page(c: Ctx, page_id: str, title: str, description: str, content: str, meta: dict, extra_head: str = "") -> str:
+def page(c: Ctx, page_id: str, title: str, description: str, content: str, meta: dict, extra_head: str = "",
+         head_links: str | None = None) -> str:
     L = c.L
     agents_html = (f'<p class="agents">{esc(L.t("agents_label"))} <a href="{c.assets}llms.txt">llms.txt</a> · '
               f'<a href="{c.assets}llms-full.txt">llms-full.txt</a> · '
@@ -195,7 +201,7 @@ def page(c: Ctx, page_id: str, title: str, description: str, content: str, meta:
             f'<a href="{c.other if code != L.code else "#"}" lang="{code}" hreflang="{code}"'
             f'{current if code == L.code else ""}>{code.upper()}</a>' for code in ("es", "en"))
         switch = f'<nav class="lang" aria-label="{esc(L.t("lang_label"))}">{links}</nav>'
-        alternates = f'<link rel="alternate" hreflang="{other}" href="{c.other}">'
+        alternates = head_links if head_links is not None else f'<link rel="alternate" hreflang="{other}" href="{c.other}">'
     return BASE.substitute(
         lang=L.code, assets=c.assets, home=c.home, sprites=esc(SPRITES), sprites_alt=esc(legal.SPRITE_ALT), sprites_ext=EXT, asset_v=ASSET_V, page_id=page_id, title=esc(title),
         description=esc(description), alternates=alternates, skip=esc(L.t("skip")),
@@ -281,12 +287,12 @@ FICHA_KEYS = (
     "median", "m_sheet", "m_simStart", "m_simBest", "m_lateMax", "m_lateFresh", "methods_final", "methods_alt",
     "methods_alt_item", "sim_start", "sim_best", "sim_median", "sim_alt", "sim_gain", "sim_noshop",
     "rar_1", "rar_2", "rar_3", "rar_4", "rar_5", "t_base", "bs_hp", "bs_atk", "bs_def", "bs_spa", "bs_spd", "bs_spe",
-    "bs_total", "bs_alt_item", "bs_s_hp", "bs_s_atk", "bs_s_def", "bs_s_spa", "bs_s_spd", "bs_s_spe")
+    "bs_total", "bs_alt_item", "bs_s_hp", "bs_s_atk", "bs_s_def", "bs_s_spa", "bs_s_spd", "bs_s_spe",
+    "sheet_title", "sheet_desc")
 
 
-def render_ficha(c: Ctx, index: list[dict], meta: dict) -> str:
-    """Plantilla única de ficha: la estructura y los textos salen de aquí y src/ficha.js pone los datos del ?id=."""
-    L = c.L
+def ficha_chrome(L: Lang) -> tuple[str, str]:
+    """Piezas que la ficha interactiva necesita y que no dependen del Pokémon: símbolos, plantillas e i18n."""
     strings = {k: L.t_raw(k).replace("{site}", legal.SITE_NAME).replace("{game}", legal.GAME_NAME)
                .replace("{total}", str(charts.TOTAL)) for k in FICHA_KEYS}
     blob = json.dumps({"en": L.en, "s": strings}, ensure_ascii=False).replace("</", "<\\/")
@@ -294,15 +300,40 @@ def render_ficha(c: Ctx, index: list[dict], meta: dict) -> str:
     badges = "".join(
         f'<span data-gen="{gen}">{regions.badge(L, SPRITES, gen, L.banner(name), {}, small=True)}</span>'
         for gen, name in BANNER_NAMES.items())
+    before = balls.defs()
+    after = (f'<template id="tpl-types">{pills}</template>'
+             f'<template id="tpl-regions">{badges}</template>'
+             f'<script type="application/json" id="i18n">{blob}</script>')
+    return before, after
+
+
+def render_ficha(c: Ctx, index: list[dict], meta: dict) -> str:
+    """Plantilla de /pokemon/?id=. Sin el número no hay ficha; con ?id= el JS redirige a la página estática."""
+    L = c.L
+    before, after = ficha_chrome(L)
+    slugs = {str(p["dex"]): species_path(p["dex"], p["nameEn"]) for p in index}
+    blob = json.dumps(slugs, separators=(",", ":")).replace("</", "<\\/")
     content = f"""
-{balls.defs()}
+{before}
 <article id="ficha"><noscript><p>{esc(L.t("noscript_ficha"))}</p></noscript></article>
-<template id="tpl-types">{pills}</template>
-<template id="tpl-regions">{badges}</template>
-<script type="application/json" id="i18n">{blob}</script>
+{after}
+<script type="application/json" id="slugs">{blob}</script>
 """
     return page(c, "ficha", legal.SITE_NAME,
-                L.t("index_desc", n=meta["total"], game=legal.GAME_NAME), content, meta)
+                L.t("index_desc", n=meta["total"], game=legal.GAME_NAME), content, meta,
+                extra_head='<meta name="robots" content="noindex">')
+
+
+def render_species(c: Ctx, entry: dict, detail: list, moves: dict, prev: dict | None, nxt: dict | None,
+                   odds: tuple[float, int], before: str, after: str, meta: dict) -> str:
+    L = c.L
+    html, ld = static_ficha.build(L, c.home, SPRITES, EXT, entry, detail, moves, prev, nxt, odds)
+    name = L.mon(entry)
+    title = L.t("sheet_title", name=name, game=legal.GAME_NAME)
+    desc = L.t("sheet_desc", name=name, game=legal.GAME_NAME, tier=entry["r"]["tier"],
+               rank=entry["r"]["rank"], total=charts.TOTAL)
+    return page(c, "ficha", title, desc, before + html + after, meta, extra_head=ld,
+                head_links=static_ficha.alternates(species_path(entry["dex"], entry["nameEn"])))
 
 
 # Cada tipo de movimiento del juego se dibuja con uno de estos patrones (la animación de la tarjeta).
@@ -379,7 +410,7 @@ def move_stage(L: Lang, m: dict, mon: dict, home: str) -> str:
         svg = f'<svg class="mv-beams" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">{links}</svg>'
     orb = '<i class="mv-orb"></i>' if fx in ("home", "pierce") else ""
     return (f'<div class="mv-stage fx-{fx}" aria-hidden="true"><i class="mv-arc"></i>{particles}{ray}{svg}{orb}{foes}{hero}</div>'
-            f'<a class="mv-ex" href="{home}pokemon/?id={mon["dex"]}">{esc(L.t("mv_example", name=name))}</a>')
+            f'<a class="mv-ex" href="{home}pokemon/{species_path(mon["dex"], mon["nameEn"])}/">{esc(L.t("mv_example", name=name))}</a>')
 
 
 def move_facts(L: Lang, m: dict) -> str:
@@ -468,7 +499,7 @@ def gacha_card(c: Ctx, i: int, g: dict, last: int, by_banner: dict[int, list[dic
     name = L.banner(g["name"])
     best = sorted(by_banner[g["gen"]], key=lambda p: p["r"][0])[:3]
     pulls = "".join(
-        f'<a class="gc-mon" href="{c.home}pokemon/?id={p["dex"]}" title="{esc(L.mon(p))}">'
+        f'<a class="gc-mon" href="{mon_href(c, p)}" title="{esc(L.mon(p))}">'
         f'<img class="px" src="{SPRITES}{p["dex"]}{EXT}" width="{p["w"] * k}" height="{p["h"] * k}" '
         f'alt="{esc(L.mon(p))}" loading="lazy" decoding="async"></a>'
         for p in best for k in [max(1, min(4, 56 // max(p["w"], p["h"])))])
@@ -620,6 +651,7 @@ def main() -> int:
         index = load("public/pokemon-index.json")
         full = load("pokemon.json")
         moves = load("moves.json")
+        species = load("public/species.json")
         gachas = load("gachas.json")
     except RenderError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
@@ -638,10 +670,15 @@ def main() -> int:
         for child in SITE.iterdir():
             shutil.rmtree(child) if child.is_dir() else child.unlink()
     ASSET_V = pack.build(SRC, SITE, OUT / "public")
+    ordered = sorted(full, key=lambda e: e["dex"])
+    moves_by = {m["id"]: m for m in moves}
+    odds = static_ficha.odds_table(full)
+    sheet_paths = [f"pokemon/{species_path(e['dex'], e['nameEn'])}/" for e in ordered]
     for L in LANGS:
         def put(rel: str, build) -> None:
             write(f"{L.prefix}{rel}", build(Ctx.of(L, rel)))
 
+        before, after = ficha_chrome(L)
         put("index.html", lambda c: render_index(c, index, meta))
         put("ataques.html", lambda c: render_ataques(c, moves, meta, index))
         put("objetos.html", lambda c: render_objetos(c, meta))
@@ -651,9 +688,16 @@ def main() -> int:
         put("metodo.html", lambda c: render_metodo(c, index, full, meta))
         put("acerca.html", lambda c: render_acerca(c, meta))
         put("pokemon/index.html", lambda c: render_ficha(c, index, meta))
+        for i, entry in enumerate(ordered):
+            prev = ordered[i - 1] if i else None
+            nxt = ordered[i + 1] if i + 1 < len(ordered) else None
+            detail = species["d"][str(entry["dex"])]
+            rel = f"pokemon/{species_path(entry['dex'], entry['nameEn'])}/index.html"
+            put(rel, lambda c, e=entry, d=detail, pv=prev, nx=nxt, b=before, a=after:
+                render_species(c, e, d, moves_by, pv, nx, odds[e["dex"]], b, a, meta))
     write("404.html", render_404(meta))
     share_image.save(SITE / "og.png")
-    agents.write_all(SITE, meta, gachas)
+    agents.write_all(SITE, meta, gachas, sheet_paths)
     files = [f for f in SITE.rglob("*") if f.is_file()]
     size = sum(f.stat().st_size for f in files)
     print(f"render: {len(files)} archivos, {size / 1e6:.2f} MB → {SITE}")
