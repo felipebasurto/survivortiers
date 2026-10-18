@@ -64,6 +64,11 @@ STR: dict[str, tuple[str, str]] = {
     "no_match": ("Ningún Pokémon coincide. Prueba con otro nombre o tipo.",
                  "No Pokémon match. Try another name or type."),
     "noscript": ("El buscador necesita JavaScript.", "Search needs JavaScript."),
+    "value_html": (
+        'La única tier list de PokéSurvivor hecha simulando partidas, no con fórmulas de stats. Todo es abierto: '
+        'código, simulador y datos en <a href="{repo}" rel="noopener">GitHub</a>, para que cualquiera lo compruebe.',
+        'The only PokéSurvivor tier list built by simulating runs, not stat formulas. Everything is open: code, '
+        'simulator and data on <a href="{repo}" rel="noopener">GitHub</a>, so anyone can check it.'),
     "card_title": ("{name} · nº {dex} · puesto {rank} · tier {tier}",
                    "{name} · no. {dex} · rank {rank} · tier {tier}"),
 
