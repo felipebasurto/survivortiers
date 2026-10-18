@@ -30,6 +30,8 @@ const TOUCH: f64 = 0.55;
 pub enum Bot {
     Repulse,
     Line,
+    /// Orbit the nearest enemy at the move's keep distance. Not the parity bot.
+    Kite,
 }
 
 struct Terr {
@@ -102,8 +104,12 @@ pub struct Ext {
     pub full_cards: bool,
     /// fill priority applies only while that stat is below this count. 0 = no extra limit.
     pub stop: u32,
-    /// take Baya Zidra only while hp/maxHp is at or below this. 0 = whenever it is preferred.
+    /// take Baya Zidra only while hp/maxHp is at or below this. 0 = only when the fill list prefers it.
+    /// Above 0, the berry is taken ahead of stat cards whenever the offer lands and HP is that low.
     pub heal_below: f64,
+    /// Fraction of a combat hit ignored (contact and shots). 0 leaves `hurt` unchanged. Lava and weather
+    /// chip are not dodged. A stand-in for a player who sidesteps, not a change to the parity bot.
+    pub dodge: f64,
     /// (stat index, count): start the run with that many and do not take more. 7 = Aprendizaje.
     pub locks: Vec<(u8, u32)>,
 }
@@ -191,12 +197,26 @@ pub fn take_trace() -> Vec<Frame> {
 pub struct RunResult {
     pub time: f64,
     pub kills: u32,
+    /// enemy.js:910, `e.boss && !e.judge`. Rift legends are bosses (rift.js spawnLegend passes boss=true).
+    pub bosses: u32,
+    /// game.js:301 with coinMul 1 (no Fortuna perk, upgrades.js:41).
+    pub coins: f64,
     pub level: u32,
     pub capped: bool,
     pub status_ignored: bool,
     pub hp: f64,
     pub max_hp: f64,
     pub hp_frac: f64,
+}
+
+/// End-of-run Pokémonedas. game.js:295-301.
+/// `picked` is coins already on the player (boss shower 10×5, enemy.js:174; legend shower 10×8, enemy.js:191).
+/// Golden, thieves, rescues and duplicate shinies are not in this sim, so they add nothing here.
+pub fn run_coins(time: f64, kills: u32, bosses: u32, picked: f64) -> f64 {
+    let tiempo = (time / 5.0).floor();
+    let derrotados = (kills as f64 * 0.25).floor();
+    let jefes = bosses as f64 * 80.0;
+    js_round(tiempo + derrotados + jefes + picked)
 }
 
 // ---------------------------------------------------------------- weather
@@ -1306,6 +1326,10 @@ struct Match<'a, M: MathFns> {
     acc: f64,
     surge: f64,
     kills: u32,
+    /// bosses died this run (enemy.js:910). Includes rift legends, which spawn as bosses.
+    bosses: u32,
+    /// coins picked up. Boss shower and legend shower only.
+    picked: f64,
     xp: f64,
     level: u32,
     need: f64,
@@ -1496,6 +1520,8 @@ impl<'a, M: MathFns> Match<'a, M> {
         }
         let mult = type_mult(&self.data.tmult, atk_ty, self.mon.combo);
         let dmg = amount * mult * self.wx(atk_ty) * (1.0 - self.st.red) * self.st.melee;
+        // dodge 0 skips the multiply so the parity path stays bit-exact.
+        let dmg = if self.opts.ext.dodge > 0.0 { dmg * (1.0 - self.opts.ext.dodge) } else { dmg };
         self.pl.hp -= dmg;
         self.pl.inv = INV;
         self.sash();
@@ -1742,6 +1768,13 @@ impl<'a, M: MathFns> Match<'a, M> {
                 return Card::Evo2(i as u8);
             }
         }
+        // Baya Zidra is a heal on the spot (levelup.js:27), not a stat. Take it only while missing HP.
+        if self.opts.ext.heal_below > 0.0 && has(Card::Heal) {
+            let frac = if self.st.max_hp > 0.0 { self.pl.hp / self.st.max_hp } else { 1.0 };
+            if frac <= self.opts.ext.heal_below {
+                return Card::Heal;
+            }
+        }
         if !self.opts.ext.fill.is_empty() {
             for c in [Card::Sd, Card::Hd] {
                 if has(c) {
@@ -1878,6 +1911,16 @@ impl<'a, M: MathFns> Match<'a, M> {
             let boss_drop = (self.opts.ext.bosses && self.enemies[i].boss) || (self.opts.ext.rift && self.enemies[i].legend);
             if boss_drop || (self.opts.ext.bosses && self.fx.next() < 0.012) {
                 self.pl.hp = jmin(self.st.max_hp, self.pl.hp + self.st.max_hp * 0.3);
+            }
+            // enemy.js die(): a boss that is not Judgment drops 10 coins of 5 (line 174).
+            // A rift legend is constructed as a boss (rift.js spawnLegend) and also drops 10 of 8 (line 191).
+            // The bot is assumed to pick them up, the same way it picks heal orbs.
+            if self.enemies[i].boss {
+                self.bosses += 1;
+                self.picked += 50.0;
+            }
+            if self.enemies[i].legend {
+                self.picked += 80.0;
             }
             self.enemies.remove(i);
             self.kills += 1;
@@ -2912,6 +2955,13 @@ impl<'a, M: MathFns> Match<'a, M> {
                     fx -= (dx / dist) * w;
                     fy -= (dy / dist) * w;
                 }
+            } else if self.opts.bot == Bot::Kite {
+                let gap = dist - e.r - pl.r;
+                if gap < 240.0 {
+                    let w = 1.0 / jmax(8.0, gap);
+                    fx -= (dx / dist) * w;
+                    fy -= (dy / dist) * w;
+                }
             }
         }
         let Some(n) = near else {
@@ -2935,6 +2985,17 @@ impl<'a, M: MathFns> Match<'a, M> {
                 fx = 0.0;
                 fy = 0.0;
             }
+        } else if self.opts.bot == Bot::Kite {
+            // Hold the attack's range and strafe. Contact is no longer the way the bot plays.
+            if gap < keep {
+                fx -= dx / dist;
+                fy -= dy / dist;
+            } else if gap > keep + 28.0 {
+                fx += dx / dist * 0.35;
+                fy += dy / dist * 0.35;
+            }
+            fx += -dy / dist;
+            fy += dx / dist;
         } else if gap > keep {
             fx += dx / dist;
             fy += dy / dist;
@@ -3733,6 +3794,8 @@ pub fn run_match<M: MathFns>(
         acc: 0.0,
         surge,
         kills: 0,
+        bosses: 0,
+        picked: 0.0,
         xp: 0.0,
         level: 1,
         need: 0.0,
@@ -3936,15 +3999,31 @@ pub fn run_match<M: MathFns>(
 
     m.stats();
     let capped = m.pl.hp > 0.0;
+    let time = if capped { max_time } else { m.t };
     RunResult {
-        time: if capped { max_time } else { m.t },
+        time,
         kills: m.kills,
+        bosses: m.bosses,
+        coins: run_coins(time, m.kills, m.bosses, m.picked),
         level: m.level,
         capped,
         status_ignored: m.status_ignored,
         hp: m.pl.hp,
         max_hp: m.st.max_hp,
         hp_frac: if capped { m.pl.hp / m.st.max_hp } else { 0.0 },
+    }
+}
+
+#[cfg(test)]
+mod coin_tests {
+    use super::run_coins;
+
+    #[test]
+    fn coins_follow_game_js_end_run() {
+        // 100.4 s, 10 kills, 1 boss, 50 picked: floor(100.4/5)=20, floor(2.5)=2, 80, +50.
+        assert_eq!(run_coins(100.4, 10, 1, 50.0), 152.0);
+        // A rift legend is a boss and also drops the legend shower: 50 + 80 picked.
+        assert_eq!(run_coins(180.0, 40, 1, 130.0), 36.0 + 10.0 + 80.0 + 130.0);
     }
 }
 
