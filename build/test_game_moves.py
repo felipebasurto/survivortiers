@@ -2,8 +2,8 @@
 
     python3 -m unittest build/test_game_moves.py
 
-Con POKESURVIVOR_DIR apuntando a una copia del repositorio del juego, también compara la lista física con
-js/data/moves.js. Sin esa variable, esa comparación se salta.
+Con POKESURVIVOR_DIR apuntando a una copia del repositorio del juego, también compara la lista física de
+data/game_stats.json con js/data/moves.js. Sin esa variable, esa comparación se salta.
 """
 from __future__ import annotations
 
@@ -31,8 +31,8 @@ def _ranked_ids() -> dict[str, str]:
 
 
 class DamageClassTests(unittest.TestCase):
-    def test_physical_list_is_unique_and_complete(self):
-        self.assertEqual(len(game_moves.PHYSICAL), 24)
+    def test_physical_list_is_complete(self):
+        self.assertEqual(len(game_moves.physical_ids()), 24)
 
     def test_every_ranked_move_gets_a_class(self):
         for mid, kind in _ranked_ids().items():
@@ -50,13 +50,13 @@ class DamageClassTests(unittest.TestCase):
 
     def test_physical_ids_are_all_known_moves(self):
         known = set(_ranked_ids()) | {u["id"] for u in game_moves.UNRANKED}
-        self.assertEqual(sorted(game_moves.PHYSICAL - known), [])
+        self.assertEqual(sorted(game_moves.physical_ids() - known), [])
 
     @unittest.skipUnless(os.environ.get("POKESURVIVOR_DIR"), "POKESURVIVOR_DIR no está definido")
     def test_physical_list_matches_game_source(self):
         text = (Path(os.environ["POKESURVIVOR_DIR"]) / "js" / "data" / "moves.js").read_text(encoding="utf8")
         block = re.search(r"PHYSICAL = new Set\(\[(.*?)\]\)", text, re.S).group(1)
-        self.assertEqual(set(re.findall(r"'([^']+)'", block)), set(game_moves.PHYSICAL))
+        self.assertEqual(set(re.findall(r"'([^']+)'", block)), set(game_moves.physical_ids()))
 
 
 class UnrankedTests(unittest.TestCase):

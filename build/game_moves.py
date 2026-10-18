@@ -1,27 +1,29 @@
 """Datos de movimientos que vienen del juego (JPTER78/pokesurvivor) y no del análisis de ataques.
 
-Todo lo de aquí está copiado a mano del commit GAME_REF. Si el juego cambia, cambia esto; test_game_moves.py
-comprueba que las listas cuadren con los datos del build.
+La categoría física o especial sale de data/game_stats.json (build/export_game_stats.js, commit GAME_REF), que
+la lee de js/data/moves.js:429-435. Los textos y el potenciador sin puesto sí están copiados a mano de ese commit.
 """
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 GAME_REF = "e868b5e"
 
-# js/data/moves.js:429-431 (PHYSICAL). Es la lista completa de ataques físicos. Cualquier otro ataque que hace daño
-# es especial (moves.js:435). Los potenciadores (kind buff) no hacen daño: son de estado.
-PHYSICAL = frozenset({
-    "tackle", "quick-attack", "vine-whip", "razor-leaf", "wing-attack", "body-slam", "poison-sting", "bulldoze",
-    "bug-bite", "string-shot", "rock-throw", "rock-slide", "karate-chop", "lick", "metal-claw", "bite",
-    "bonemerang", "psycho-cut", "spikes", "toxic-spikes", "meteor-mash", "substitute", "aerial-ace", "flame-wheel",
-})
+_GAME_STATS = json.loads((Path(__file__).resolve().parent.parent / "data" / "game_stats.json").read_text(encoding="utf8"))
 
 DAMAGE_CLASSES = ("physical", "special", "status")
 
 
 def damage_class(move_id: str, kind: str) -> str:
+    """Los potenciadores (kind buff) no hacen daño: son de estado. El resto es físico o especial, según el juego."""
     if kind == "buff":
         return "status"
-    return "physical" if move_id in PHYSICAL else "special"
+    return "physical" if _GAME_STATS["moves"][move_id]["cat"] == "physical" else "special"
+
+
+def physical_ids() -> frozenset[str]:
+    return frozenset(mid for mid, m in _GAME_STATS["moves"].items() if m["cat"] == "physical")
 
 
 # Textos de los potenciadores de la tier list. Cada uno es una pareja (es, en). El límite de dos potenciadores es

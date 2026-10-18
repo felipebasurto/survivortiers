@@ -25,10 +25,16 @@ Web: https://survivortiers.pages.dev
 | `build/move_tierlist_v4.py` | Regenera `data/move_tierlist_v4.csv` (necesita el análisis y una copia del juego) |
 | `build/shiny_sprites.py` | Deriva qué especies pueden ser shiny (`data/shiny_species.json`) desde los metadatos de sprites del juego, en un commit fijo, y recorta sus sprites shiny a `sprites/shiny/`. Sin argumentos comprueba el repositorio del juego en caché; `--fetch` lo descarga |
 | `build/landing.py` | Las 22 páginas de consulta por idioma (mejores Pokémon, iniciales, legendarios, uno por tipo y pasivas), generadas solo desde los datos del build. Ver «Páginas de consulta» |
+| `build/export_game_stats.js` | Lee `js/data/moves.js`, `pokedex.js` y `lang-en.js` de una copia del juego (`node build/export_game_stats.js /ruta/al/juego`) y escribe `data/game_stats.json`: ataques con su categoría física o especial, potenciadores y pa/sa, df/sd de cada Pokémon, y el commit |
+| `build/gamestats.py` | Carga `data/game_stats.json`, `data/move_icons.json` y `data/type_matrix.json`. Da el orden de potenciadores, la categoría de cada ataque y el lado fuerte de cada Pokémon (`side_of`) |
+| `build/toolpages.py` | Rutas de las herramientas en cada idioma (`buscador-tipos/`, `planificador-build/`), sus enlaces y los datos del navegador (`#i18n`) |
+| `build/finder.py`, `build/planner.py` | Páginas de Buscador por tipos y Planificador de build. La lógica está en `src/tools.js` (sin dependencias, con exports para pruebas) |
+| `build/repertorio.py` | Aviso de la mejora Repertorio (1.500 Pokémonedas), que aparece en las iniciales, la ficha y la página de método |
 | `build/dupcheck.py` | Similitud (Jaccard sobre trozos de 5 palabras del texto visible) entre las fichas de un idioma |
 | `build/indexnow.py` | Avisa a IndexNow de las URL de `sitemap.xml`. Se ejecuta a mano después de cada deploy |
 | `build/check_site.py` | Comprobaciones de aceptación sobre un sitio servido |
 | `console/coleccion.js`, `coleccion.en.js` | Comando que el jugador pega en la consola del juego. Exporta cada shiny con su origen y fecha en `shinyInfo` (`{dex: [origen, día]}`; origen 0 salvaje, 1 gacha, 2 desconocido). El JSON antiguo sin `shinyInfo` sigue valiendo, con origen desconocido |
+| `build/test_tools.js`, `build/test_tools.py` | Pruebas de la lógica de las herramientas (cobertura contra `combos.py` en los 966 Pokémon, codec de la URL, avisos de potenciadores). `python3 -m unittest build/test_tools.py` las ejecuta |
 | `build/test_share.js`, `build/test_collection.js` | Pruebas del codec del enlace (v1 y v2) y del lector del comando. `python3 -m unittest build/test_share.py build/test_collection.py` las ejecuta |
 
 ## Uso
@@ -68,6 +74,7 @@ El sitio es estático y no tiene API: los datos son JSON y CSV en `/data/`, sin 
 2. Si cambia el juego: actualiza `data/pokedex_export.json`, `data/CREDITS.md` y `data/GAME_LICENSE.txt`, y el commit en `build/legal.py` (`GAME_COMMIT`).
 3. `python3 build/move_tierlist_v4.py --game /ruta/al/juego` para los ataques.
 4. Rehaz los resúmenes de las fichas que cambiaron (ver «Resúmenes de la ficha»).
+5. Si cambian los movimientos o los Pokémon del juego: `node build/export_game_stats.js /ruta/al/juego` regenera `data/game_stats.json`.
 5. `python3 build/catalog.py && python3 build/render.py && python3 build/check_site.py …`.
 
 Si cambian los tamaños de tier (`TIER_CUTS`) o los conteos esperados, ajusta `build/catalog.py`.

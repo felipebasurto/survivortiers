@@ -16,6 +16,7 @@ from pathlib import Path
 
 import landing
 import legal
+import toolpages
 from i18n import EN, ES, TYPE_NAMES, Lang
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -122,6 +123,8 @@ Base URL: {u}
 - [Collection (EN)]({u}/en/coleccion): collection helper.
 - [Method (EN)]({u}/en/metodo): how the ranking is built, with the numbers.
 - [About (EN)]({u}/en/acerca): fan-site notice, sprite credits and licences.
+- [Type finder (EN)]({u}/en/type-finder/): pick one or two types and see which Pokémon have them, with their weaknesses.
+- [Build planner (EN)]({u}/en/build-planner/): the bonded group, item and cards of a Pokémon, with a shareable link.
 - [Sitemap]({u}/sitemap.xml)
 
 ## Optional
@@ -287,7 +290,7 @@ def sitemap_xml(meta: dict, sheets: list[str] | None = None, landing_pairs: list
     Las rutas son sin prefijo de idioma: sheets como pokemon/150-mewtwo/ y landing_pairs como (es, en) de cada
     página de consulta, con barra final. Las páginas fijas del menú comparten nombre en los dos idiomas."""
     lastmod = meta["generatedAt"][:10]
-    pairs = [(p, p) for p in [*PAGES, *(sheets or [])]] + list(landing_pairs or [])
+    pairs = [(p, p) for p in [*PAGES, *(sheets or [])]] + list(landing_pairs or []) + toolpages.pairs()
     out = ['<?xml version="1.0" encoding="UTF-8"?>',
            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">']
     for es_path, en_path in pairs:

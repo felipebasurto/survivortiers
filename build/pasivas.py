@@ -11,6 +11,8 @@ import re
 from html import escape
 from pathlib import Path
 
+import gamestats
+import toolpages
 from i18n import Lang, NBSP
 
 DATA = Path(__file__).resolve().parent.parent / "data"
@@ -84,16 +86,14 @@ EXCEPTIONS = [
 EXCEPTION_MOVES = sorted({m for row in EXCEPTIONS for m in row["moves"]})
 
 # Qué cartas salen al subir de nivel. levelup.js:58-59: los movimientos de su lado fuerte pesan el doble al elegir
-# (y los empatados y los potenciadores, que no tienen lado, también). levelup.js:47-49 y :56: con dos potenciadores
-# de cualquier tipo, la oferta deja de sacar potenciadores.
-OFFERS = [
-    ("Al subir de nivel, los ataques de tu lado fuerte salen el doble de veces que los demás. Tu lado fuerte es el "
-     "físico o el especial, el que tenga más ataque. Los empatados y los potenciadores también cuentan doble.",
-     "On level-up, attacks on your strong side come up twice as often as the rest. Your strong side is physical or "
-     "special, whichever has more attack. Ties and boosts count double too."),
-    ("Con dos potenciadores de cualquier tipo, ya no salen más.",
-     "With two boosts of any kind, no more come up."),
-]
+# (y los empatados y los potenciadores, que no tienen lado, también). El tope de dos potenciadores ya lo explica
+# la sección de potenciadores (levelup.js:47-49 y :56).
+OFFER = (
+    "Al subir de nivel, los ataques de tu lado fuerte salen el doble de veces que los demás. Tu lado fuerte es el "
+    "físico o el especial, el que tenga más ataque. Los empatados y los potenciadores también cuentan doble.",
+    "On level-up, attacks on your strong side come up twice as often as the rest. Your strong side is physical or "
+    "special, whichever has more attack. Ties and boosts count double too.",
+)
 
 ORDER_NOTE = ("Excepción: una carta que evoluciona tu ataque va siempre primera.",
               "Exception: a card that evolves your move always goes first.")
@@ -216,9 +216,8 @@ def _rest(L: Lang) -> str:
 
 
 def _offers(L: Lang) -> str:
-    items = "".join(f'<li class="pv-why">{escape(_t(line, L))}</li>' for line in OFFERS)
     return (f'<section class="pv-box pv-offers"><h2>{escape(L.t("pv_offers_h"))}</h2>'
-            f'<ul class="pv-offer-list">{items}</ul></section>')
+            f'<p class="pv-why">{escape(_t(OFFER, L))}</p></section>')
 
 
 def _zidra(L: Lang) -> str:
@@ -272,6 +271,57 @@ def _method(L: Lang, home: str) -> str:
             f'<p><a href="{home}metodo.html">{escape(L.t("pv_method_link"))} →</a></p></div></details>')
 
 
+# Los potenciadores y su tope vienen de data/game_stats.json (commit e868b5e). Tope de dos potenciadores:
+# js/systems/levelup.js:46-56. Danza Espada y Danza Dragón comparten la casilla de ataque físico (patk) y Maquinación
+# la de especial (satk): js/entities/player.js:42-50 y :99-102, y js/systems/combat.js:201-202.
+NUM_HEAD = ("pv_buff_th_cd", "pv_buff_th_dur", "pv_buff_th_max")
+BOOST_LABEL = {"patk": "pv_buff_cat_phys", "satk": "pv_buff_cat_spec", "spd": "pv_buff_stat_spd",
+               "def": "pv_buff_stat_def", "regen": "pv_buff_stat_regen"}
+
+
+def _amount(value: float, stat: str, L: Lang, digits: int) -> str:
+    if stat == "regen":
+        return f"+{L.dec(value, digits)} HP/s"
+    return f"+{L.dec(value * 100, 0)}{'' if L.en else NBSP}%"
+
+
+def _boost_rows(L: Lang) -> str:
+    rows = []
+    for mid in gamestats.BOOST_ORDER:
+        m = gamestats.move(mid)
+        b = m["buff"]
+        name = m["en"] if L.en else m["name"]
+        digits = 1 if b["stat"] == "regen" else 0
+        per = _amount(b["amount"], b["stat"], L, digits)
+        top = _amount(b["amount"] * b["stacks"], b["stat"], L, digits)
+        rows.append(
+            f'<tr><th scope="row">{escape(name)}</th>'
+            f'<td>{escape(L.t(BOOST_LABEL[b["stat"]]))} {escape(per)}</td>'
+            f'<td class="num">{L.dec(b["cd"], 2)}{NBSP if not L.en else " "}s</td>'
+            f'<td class="num">{b["dur"]}{NBSP if not L.en else " "}s</td>'
+            f'<td class="num">{escape(top)}</td></tr>')
+    return "".join(rows)
+
+
+def _boosts(L: Lang, home: str) -> str:
+    cells = []
+    for k in ("pv_buff_th_boost", "pv_buff_th_stat", "pv_buff_th_cd", "pv_buff_th_dur", "pv_buff_th_max"):
+        cls = ' class="num"' if k in NUM_HEAD else ""
+        cells.append(f'<th scope="col"{cls}>{escape(L.t(k))}</th>')
+    head = "".join(cells)
+    rules = "".join(f"<li>{escape(L.t(k))}</li>" for k in ("pv_buff_r1", "pv_buff_r2", "pv_buff_r3"))
+    return (f'<section class="pv-boosts" id="potenciadores" aria-labelledby="pv-boosts-h">'
+            f'<h2 id="pv-boosts-h">{escape(L.t("pv_buff_h"))}</h2>'
+            f'<p class="pv-lede-sm">{escape(L.t("pv_buff_lede"))}</p>'
+            f'<div class="pv-tablewrap"><table class="pv-buffs"><thead><tr>{head}</tr></thead>'
+            f'<tbody>{_boost_rows(L)}</tbody></table></div>'
+            f'<p class="pv-cap">{escape(L.t("pv_buff_cap_note", commit=gamestats.COMMIT))}</p>'
+            f'<ul class="pv-rules">{rules}</ul>'
+            f'<p class="pv-rec">{escape(L.t("pv_buff_rec"))}</p>'
+            f'<p class="pv-link"><a href="{home}{toolpages.folder(L, "planner")}">'
+            f'{escape(L.t("pv_buff_link"))} →</a></p></section>')
+
+
 def content(L: Lang, home: str) -> str:
     return (_symbols()
             + '<div class="pv">'
@@ -281,5 +331,6 @@ def content(L: Lang, home: str) -> str:
             + _top(L) + _zidra(L) + _rest(L) + _combos(L) + _offers(L)
             + '</div>'
             + f'<section class="pv-styles-sec">{_styles(L)}</section>'
+            + _boosts(L, home)
             + _method(L, home)
             + '</div>')

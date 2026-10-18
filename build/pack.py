@@ -11,7 +11,7 @@ import re
 import shutil
 from pathlib import Path
 
-JS_FILES = ("share.js", "collection.js", "app.js", "ficha.js")
+JS_FILES = ("share.js", "collection.js", "app.js", "ficha.js", "tools.js")
 FONT_FILES = ("PixelifySans.ttf", "OFL.txt", "ZenKakuGothicNew-400.woff2", "ZenKakuGothicNew-500.woff2",
               "ZenKakuGothicNew-700.woff2", "ZenKakuGothicNew-OFL.txt")
 STRING = re.compile(r'"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'')
