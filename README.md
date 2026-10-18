@@ -82,6 +82,6 @@ Las tres líneas bajo el nombre de cada ficha (perfil, build y por qué ese pues
 
 - Código de este sitio: ver el repositorio. Código adaptado del juego (colores y glifos de tipo): MIT, © 2026 JPTER78 (aviso en `data/GAME_LICENSE.txt` y en la página Acerca).
 - Sprites: SpriteCollab, CC BY-NC 4.0 (uso no comercial). Por eso el sitio no puede llevar anuncios, donaciones ni ninguna monetización.
-- Letras: Pixelify Sans (títulos y tiers) e Inter (texto y números), SIL OFL 1.1. Inter va recortada en `src/fonts/Inter.woff2`; las licencias están en `src/fonts/`.
+- Letras: Pixelify Sans (títulos y tiers) y Zen Kaku Gothic New (texto y números), SIL OFL 1.1. Zen Kaku Gothic New va recortada a latino en `src/fonts/ZenKakuGothicNew-400.woff2`, `ZenKakuGothicNew-500.woff2` y `ZenKakuGothicNew-700.woff2`; las licencias están en `src/fonts/`.
 - Pokémon y sus nombres son marcas de Nintendo, Creatures Inc., GAME FREAK y The Pokémon Company; el sitio es de fans y no está afiliado.
 - El texto legal lo ha redactado el autor del sitio, no un abogado.

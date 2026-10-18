@@ -310,11 +310,11 @@ STR: dict[str, tuple[str, str]] = {
         '<a href="{lic_url}" rel="noopener">{lic}</a>. Type glyphs: from the game, MIT license.'),
     "about_font_html": (
         'Letras: <a href="https://github.com/eifetx/Pixelify-Sans" rel="noopener">Pixelify Sans</a> en títulos y '
-        '<a href="https://rsms.me/inter/" rel="noopener">Inter</a> en el texto y los números, SIL OFL 1.1 '
-        '(<a href="{root}fonts/OFL.txt">Pixelify</a>, <a href="{root}fonts/Inter-OFL.txt">Inter</a>).',
+        '<a href="https://github.com/googlefonts/zen-kakugothic" rel="noopener">Zen Kaku Gothic New</a> en el texto y los números, SIL OFL 1.1 '
+        '(<a href="{root}fonts/OFL.txt">Pixelify</a>, <a href="{root}fonts/ZenKakuGothicNew-OFL.txt">Zen Kaku Gothic New</a>).',
         'Fonts: <a href="https://github.com/eifetx/Pixelify-Sans" rel="noopener">Pixelify Sans</a> for titles and '
-        '<a href="https://rsms.me/inter/" rel="noopener">Inter</a> for text and numbers, SIL OFL 1.1 '
-        '(<a href="{root}fonts/OFL.txt">Pixelify</a>, <a href="{root}fonts/Inter-OFL.txt">Inter</a>).'),
+        '<a href="https://github.com/googlefonts/zen-kakugothic" rel="noopener">Zen Kaku Gothic New</a> for text and numbers, SIL OFL 1.1 '
+        '(<a href="{root}fonts/OFL.txt">Pixelify</a>, <a href="{root}fonts/ZenKakuGothicNew-OFL.txt">Zen Kaku Gothic New</a>).'),
 
     # ------------------------------------------------------------ 404
     "nf_title": ("Página no encontrada · {site}", "Page not found · {site}"),

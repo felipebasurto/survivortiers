@@ -822,7 +822,7 @@
       ctx.fillStyle = color.ink; ctx.fillRect(6, 6, 52, 6);
       ctx.fillStyle = color.hp; ctx.fillRect(7, 7, Math.max(0, Math.round(hero.hp / 100 * 50)), 4);
       if (over > 0) {
-        ctx.fillStyle = color.ink; ctx.font = '600 15px Inter, system-ui, sans-serif'; ctx.textAlign = 'center';
+        ctx.fillStyle = color.ink; ctx.font = '600 15px "Zen Kaku Gothic New", system-ui, sans-serif'; ctx.textAlign = 'center';
         ctx.fillText(TEXT.over, W / 2, H / 2);
       }
       tEl.textContent = Math.floor(t);

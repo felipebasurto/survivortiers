@@ -1,12 +1,18 @@
 /* SurvivorTiers, sitio de fans. Estilo pixel art con los principios de Tufte en los gráficos: gris por defecto, un
    solo acento, etiquetas directas. Pixelify Sans (OFL) solo en la marca, los títulos grandes y las letras de tier.
-   Inter (OFL), autoalojada y recortada, lleva el texto, las etiquetas y los números, con cifras de ancho fijo.
+   Zen Kaku Gothic New (OFL), autoalojada y recortada a latino, lleva el texto, las etiquetas y los números.
    Iconos de interfaz de Kenney (CC0) y glifos de tipo de PokéSurvivor (MIT, © 2026 JPTER78). Todo se sirve desde este sitio. */
 @font-face {
   font-family: "Pixelify Sans"; src: url(fonts/PixelifySans.ttf) format("truetype"); font-weight: 400 700; font-display: swap;
 }
 @font-face {
-  font-family: "Inter"; src: url(fonts/Inter.woff2) format("woff2"); font-weight: 400 700; font-style: normal; font-display: swap;
+  font-family: "Zen Kaku Gothic New"; src: url(fonts/ZenKakuGothicNew-400.woff2) format("woff2"); font-weight: 400; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Zen Kaku Gothic New"; src: url(fonts/ZenKakuGothicNew-500.woff2) format("woff2"); font-weight: 500 600; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Zen Kaku Gothic New"; src: url(fonts/ZenKakuGothicNew-700.woff2) format("woff2"); font-weight: 700; font-style: normal; font-display: swap;
 }
 :root {
   --bg: #f6f0dc;
@@ -24,7 +30,7 @@
   --tier-S: #ff5c5c; --tier-A: #ff9f43; --tier-B: #ffd93d; --tier-C: #6bcb77; --tier-D: #4d96ff; --tier-ink: #1b1528;
   --stat-0: #ef5350; --stat-1: #ff9f43; --stat-2: #ffd54a; --stat-3: #9ccc65; --stat-4: #42a5f5;
   --pix: "Pixelify Sans", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
-  --ui: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --ui: "Zen Kaku Gothic New", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --sans: var(--ui);
   --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --label: 13rem;
@@ -427,7 +433,7 @@ textarea {
   .bd-small .bd-tile.item.best, .bd-tile.card.evo { box-shadow: 0 0 0 2px var(--bd-gold); }
 }
 .bd-meters { display: grid; gap: 8px; margin-top: 20px; }
-.bd-meter { display: grid; grid-template-columns: minmax(0, 11rem) 1fr 3.4rem; align-items: center; gap: 12px; font: .8125rem var(--ui); color: var(--bd-ink-2); }
+.bd-meter { display: grid; grid-template-columns: minmax(0, 11rem) 1fr 6.2ch; align-items: center; gap: 12px; font: .8125rem var(--ui); color: var(--bd-ink-2); }
 .bd-track { display: block; height: 8px; background: var(--bd-line); overflow: hidden; }
 .bd-track b { display: block; height: 100%; background: var(--bd-gold); }
 .bd-neutral .bd-track b { background: #6bcb77; }
@@ -458,7 +464,7 @@ textarea {
   .bd-small .bd-tile.sm { width: 72px; padding-inline: 1px; }
   .bd-small .bd-tile.item.best { width: 84px; }
   .bd-tile.sm .bd-nm { font-size: .75rem; }
-  .bd-meter { grid-template-columns: 1fr 3.4rem; row-gap: 4px; }
+  .bd-meter { grid-template-columns: 1fr 6.2ch; row-gap: 4px; }
   .bd-meter > span { grid-column: 1 / -1; }
   .bd-meter .bd-track { grid-column: 1; }
 }
@@ -506,7 +512,7 @@ textarea {
 
 /* estadísticas base: barra sobre 255, color por tramo (bajo = rojo, alto = azul) y línea de la mediana */
 .bs-list { max-width: 40rem; }
-.bs-row { display: grid; grid-template-columns: var(--label) 1fr 3.2rem; align-items: center; gap: 0 14px; margin: 6px 0; }
+.bs-row { display: grid; grid-template-columns: var(--label) 1fr 4.2ch; align-items: center; gap: 0 14px; margin: 6px 0; }
 .bs-name { font: .875rem/1.25 var(--sans); }
 .bs-track { position: relative; display: block; height: 14px; background: var(--rule-soft); }
 .bs-fill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--stat-2); }
@@ -587,7 +593,7 @@ textarea {
 .gt-row.t-B { --bf: var(--tier-B); }
 .gt-row.t-C { --bf: var(--tier-C); }
 .gt-row.t-D { --bf: var(--tier-D); }
-.gt-val { font: 600 .95rem var(--ui); padding-left: 10px; }
+.gt-val { font: 600 .95rem var(--ui); padding-left: 10px; text-align: right; }
 .gt-axis { display: flex; justify-content: space-between; margin: 0 5.5rem 0 var(--label); border-top: 1px solid var(--rule); padding-top: 3px; font: .6875rem var(--sans); color: var(--ink-2); }
 .fig-ribbon .fig-body { overflow-x: auto; }
 .rib { display: block; width: 100%; min-width: 540px; height: auto; overflow: hidden; }
@@ -603,7 +609,7 @@ textarea {
 .dm-presets { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 14px; font: .8125rem var(--sans); color: var(--ink-2); }
 .chip-btn { font: 600 .8125rem var(--sans); color: var(--ink); background: transparent; border: 1px solid var(--ink-2); padding: 3px 14px; cursor: pointer; }
 .chip-btn:hover, .chip-btn[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
-.dm-row { display: grid; grid-template-columns: 13rem 1fr 3.4rem; gap: 12px; align-items: center; padding: 5px 0; font: .875rem var(--sans); }
+.dm-row { display: grid; grid-template-columns: 13rem 1fr 4.8ch; gap: 12px; align-items: center; padding: 5px 0; font: .875rem var(--sans); }
 .dm-row output { font: 600 .95rem var(--ui); text-align: right; font-variant-numeric: tabular-nums; }
 input[type="range"] { width: 100%; accent-color: var(--accent); }
 .dm-out { margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--rule); }
@@ -773,7 +779,7 @@ p.lede { font: 1.1rem/1.55 var(--sans); color: var(--ink-2); max-width: 66ch; ma
 .met-steps p { grid-column: 2; margin: 4px 0 0; color: var(--ink-2); font-size: .95rem; }
 .dm-name small { display: block; font: .75rem/1.2 var(--sans); color: var(--ink-2); }
 .dm-how { margin: 14px 0 0; font: .875rem/1.5 var(--sans); color: var(--ink-2); }
-/* Pixelify confunde dígitos (5 y S, 8 y $). Los valores van en Inter, con cifras de ancho fijo. */
+/* Pixelify confunde dígitos (5 y S, 8 y $). Los valores van en Zen Kaku Gothic New. */
 .lp-val, .mt-val, .bar-val, .gt-val, .mb-val, .dm-row output, .wb-seg b, .ar-hud b, .rp-ctl output,
 .mon .rk, .tier-head .n, .mv-tier > h3 small {
   font-family: var(--ui); font-weight: 600; font-variant-numeric: tabular-nums lining-nums;
@@ -786,7 +792,7 @@ p.lede { font: 1.1rem/1.55 var(--sans); color: var(--ink-2); max-width: 66ch; ma
 
 @media (max-width: 720px) {
   :root { --label: 100%; }
-  .mb-row { grid-template-columns: 1fr 3.2rem; padding-bottom: 8px; }
+  .mb-row { grid-template-columns: 1fr 5.5ch; padding-bottom: 8px; }
   .mb-name { grid-column: 1 / -1; }
   .mb-track { grid-row: 2; }
   main { padding-block: 28px 56px; }
@@ -958,7 +964,7 @@ th { font-family: var(--ui); text-transform: uppercase; letter-spacing: .03em; f
 
 /* ---------- ataques ---------- */
 .mb { display: grid; gap: 2px; max-width: 560px; }
-.mb-row { display: grid; grid-template-columns: 11.5rem 1fr 3.4rem; align-items: center; gap: 0 10px; padding: 3px 0; }
+.mb-row { display: grid; grid-template-columns: 11.5rem 1fr 5.5ch; align-items: center; gap: 0 10px; padding: 3px 0; }
 .mb-name { font: .8125rem var(--ui); color: var(--ink-2); text-transform: uppercase; letter-spacing: .02em; }
 .mb-track { position: relative; height: 1.6rem; }
 .mb-track::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: 2px solid var(--rule-soft); }
@@ -1111,7 +1117,7 @@ tr.top th, tr.top td { background: var(--rule-soft); }
 .k-bar.hot { background-image: repeating-linear-gradient(90deg, var(--accent) 0 6px, transparent 6px 8px); }
 .k-tick { width: 2px; height: 18px; background: var(--ink); }
 @media (max-width: 720px) {
-  .mb-row { grid-template-columns: 1fr 3.2rem; padding-bottom: 10px; }
+  .mb-row { grid-template-columns: 1fr 5.5ch; padding-bottom: 10px; }
   .mb-name { grid-column: 1 / -1; }
   .mb-track { grid-row: 2; }
 }
@@ -1175,10 +1181,15 @@ html { overflow-x: hidden; }
   .foot nav a { display: inline-block; padding-block: 10px; }
   .fig, .mb { max-width: 100%; }
 }
-/* El atajo font anula las cifras tabulares heredadas: se reafirman al final, después de todos los atajos. */
-.rankline strong, .rankline span, .mon .rk, .tier-head .n, .bs-val, .bs-total b,
-.lp-val, .mt-val, .bar-val, .gt-val, .mb-val, .dm-row output, .wb-seg b, .ar-hud b,
-.rp-ctl output, .fx-n, .n, .bd-meter strong, .bd-badge, .pv-n, .pv-lift, .rd-lab .rd-v,
-.fh-dex, td.num, th.num, .stat b, .mv-tier > h3 small {
-  font-variant-numeric: tabular-nums lining-nums;
+/* Zen Kaku Gothic New no trae cifras tabulares: el 1 es más estrecho que el 8.
+   El puesto y el conteo van en una celda de ancho fijo, alineados a la derecha, para que 1 y 966 ocupen el mismo hueco. */
+.rankline strong, .mon .rk, .tier-head .n {
+  display: inline-block;
+  min-width: 3.25ch;
+  text-align: right;
+  font-variant-numeric: normal;
+}
+.tier-head .n { min-width: 4ch; }
+.bs-val, .bs-total b, .bd-meter strong, .mb-val, .dm-row output, .gt-val, td.num, th.num {
+  font-variant-numeric: normal;
 }
