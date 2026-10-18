@@ -84,8 +84,8 @@ COMBOS = [
      "why": ("Recupera un 1,5% de tu vida máxima por segundo.",
              "Recovers 1.5% of your max HP per second.")},
     {"item": "leftovers", "item_name": ("Restos", "Leftovers"), "card": "hp", "lift": "+3%",
-     "why": ("Lo mismo, y escala con tu vida máxima.",
-             "The same, and it scales with your max HP.")},
+     "why": ("Igual que con Síntesis: el 1,5% de tu vida máxima por segundo.",
+             "Same as with Synthesis: 1.5% of your max HP per second.")},
     {"item": "assaultvest", "item_name": ("Chaleco", "Assault Vest"), "card": "def", "lift": "0",
      "why": ("Chaleco y Coraza comparten el tope del 70% de reducción: no alarga nada.",
              "Vest and Armor share the 70% reduction cap, so it adds no time.")},
@@ -93,8 +93,8 @@ COMBOS = [
      "why": ("Ya sube el daño un 40%. Reflejos solo acorta la recarga, y cogerla antes deja fuera una carta de vida.",
              "Already adds 40% damage. Reflexes only shortens cooldown, and taking it first crowds out an HP card.")},
     {"item": "quickclaw", "item_name": ("Garra", "Quick Claw"), "card": "cd", "lift": "0",
-     "why": ("Ya baja un 20% la recarga, así que Reflejos no suma tiempo.",
-             "Already cuts cooldown 20%, so Reflexes adds no time.")},
+     "why": ("Con la garra puesta, Reflejos no suma: ya baja un 20% la recarga.",
+             "With the claw on, Reflexes adds nothing: it already cuts cooldown 20%.")},
 ]
 COMBO_HEAD = (("Objeto", "Item"), ("Carta", "Card"), ("Suma", "Adds"), ("Por qué", "Why"))
 
