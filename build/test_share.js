@@ -8,8 +8,8 @@ const codec = require('../src/share.js');
 const same = (got, exp) => assert.deepStrictEqual(got, exp);
 const uniqSorted = list => [...new Set(list.filter(n => Number.isInteger(n) && n > 0))].sort((a, b) => a - b);
 
-function round({ dex, shiny, gacha = null, name = '', view = 'normal' }) {
-  const payload = codec.encodeCollection({ dex, shiny, gacha, name, view });
+function round({ dex, shiny, gacha = null, unknown = [], name = '', view = 'normal' }) {
+  const payload = codec.encodeCollection({ dex, shiny, gacha, unknown, name, view });
   assert.match(payload, /^[\w-]+$/);
   assert.ok(!payload.includes('+') && !payload.includes('/') && !payload.includes('='));
   const back = codec.decodeCollection(payload);
@@ -21,11 +21,15 @@ function round({ dex, shiny, gacha = null, name = '', view = 'normal' }) {
   same(back.view, view);
   if (gacha === null) {
     same(back.gacha, null);
+    same(back.unknown, null);
     same(back.wild, null);
   } else {
-    const g = uniqSorted(gacha).filter(id => uniqSorted(shiny).includes(id));
+    const stars = uniqSorted(shiny);
+    const g = uniqSorted(gacha).filter(id => stars.includes(id));
+    const u = uniqSorted(unknown).filter(id => stars.includes(id) && !g.includes(id));
     same(back.gacha, g);
-    same(back.wild, uniqSorted(shiny).filter(id => !g.includes(id)));
+    same(back.unknown, u);
+    same(back.wild, stars.filter(id => !g.includes(id) && !u.includes(id)));
   }
   same(codec.decodeCollection(payload), back);
   return payload;
@@ -39,6 +43,8 @@ round({ dex: [25, 6, 150], shiny: [25], gacha: null, name: 'José', view: 'shiny
 round({ dex: [4, 7, 1], shiny: [7], gacha: [7], name: 'Felipe', view: 'shiny' });
 round({ dex: [386, 1, 151], shiny: [], gacha: [], name: 'a'.repeat(40) });
 round({ dex: [5], shiny: [9], gacha: [], name: '' });
+round({ dex: [4, 7, 9], shiny: [4, 7, 9], gacha: [7], unknown: [4, 9, 2], name: 'mix' });
+round({ dex: [4, 7], shiny: [4, 7], gacha: [], unknown: [4, 7], view: 'shiny' });
 assert.equal(codec.cleanName('a'.repeat(40)).length, 24);
 
 const v1Ana = 'AQNBbmETABIAAAIAAAAAAAAAAAAAAAAAAIAQAAACAAAAAAAAAAAAAAAAAAAA';
@@ -46,8 +52,8 @@ const v1Empty = 'AQAAAA';
 const v1Accent = 'AQhKb3PDqSDDkQIACAIAAg';
 
 const legacy = codec.decodeCollection(v1Ana);
-same(legacy, { version: 1, name: 'Ana', view: 'normal', dex: [1, 4, 25, 151], shiny: [4, 25], gacha: null, wild: null });
-same(codec.decodeCollection(v1Empty), { version: 1, name: '', view: 'normal', dex: [], shiny: [], gacha: null, wild: null });
+same(legacy, { version: 1, name: 'Ana', view: 'normal', dex: [1, 4, 25, 151], shiny: [4, 25], gacha: null, unknown: null, wild: null });
+same(codec.decodeCollection(v1Empty), { version: 1, name: '', view: 'normal', dex: [], shiny: [], gacha: null, unknown: null, wild: null });
 same(codec.decodeCollection(v1Accent).name, 'José Ñ');
 same(codec.decodeCollection(v1Accent).dex, [3, 9]);
 
@@ -67,6 +73,12 @@ const notSubset = Buffer.from(codec.encodeCollection({ dex: [4], shiny: [4], gac
 const bitsAt = notSubset.length - 1;
 notSubset[bitsAt] = notSubset[bitsAt] | 0x08;
 assert.equal(codec.decodeCollection(notSubset.toString('base64url')), null, 'gacha bit without shiny');
+const crafted = bytes => Buffer.from(bytes).toString('base64url');
+same(codec.decodeCollection(crafted([2, 6, 0, 1, 0, 0x10, 0x30, 0x10, 0x20])).unknown, [5]);
+same(codec.decodeCollection(crafted([2, 6, 0, 1, 0, 0x10, 0x30, 0x10, 0x20])).wild, []);
+assert.equal(codec.decodeCollection(crafted([2, 6, 0, 1, 0, 0x10, 0x10, 0x10, 0x10])), null, 'unknown overlaps gacha');
+assert.equal(codec.decodeCollection(crafted([2, 6, 0, 1, 0, 0x10, 0x10, 0x10, 0x20])), null, 'unknown without shiny');
+assert.equal(codec.decodeCollection(crafted([2, 4, 0, 1, 0, 0x10, 0x10, 0x10])), null, 'unknown bit without origin bit');
 assert.equal(codec.decodeCollection(raw.subarray(0, raw.length - 1).toString('base64url')), null, 'truncated');
 assert.equal(codec.decodeCollection(Buffer.concat([raw, Buffer.from([0])]).toString('base64url')), null, 'extra byte');
 

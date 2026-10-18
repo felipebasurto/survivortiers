@@ -107,12 +107,14 @@ assert.equal(ok(JSON.stringify(enSave)).info[6].from, 'gacha');
 
 const linked = Collection.fromLink({ version: 2, name: 'Ana', dex: [1, 25, 151], shiny: [25, 151], gacha: [151] });
 assert.deepStrictEqual(Collection.shinyCounts(linked), { total: 2, wild: 1, gacha: 1, unknown: 0 });
-assert.deepStrictEqual(Collection.gachaForLink(linked), [151]);
+const mixedLink = Collection.fromLink({ version: 2, dex: [4, 25, 151], shiny: [4, 25, 151], gacha: [151], unknown: [4] });
+assert.deepStrictEqual(Collection.shinyCounts(mixedLink), { total: 3, wild: 1, gacha: 1, unknown: 1 });
+assert.deepStrictEqual(Collection.originForLink(imported), { gacha: [151], unknown: [4] });
+assert.deepStrictEqual(Collection.originForLink(mixedLink), { gacha: [151], unknown: [4] });
 const linkedOld = Collection.fromLink({ version: 1, name: '', dex: [25], shiny: [25], gacha: null });
-assert.deepStrictEqual(Collection.gachaForLink(linkedOld), null);
-assert.deepStrictEqual(Collection.gachaForLink(sample), null, 'a shiny without origin hides the origin');
-assert.deepStrictEqual(Collection.gachaForLink(imported), null);
-assert.deepStrictEqual(Collection.gachaForLink(ok(JSON.stringify({ dex: [1], shiny: [1, 2], shinyInfo: { 1: [0, 1], 2: [1, 2] } }))), [2]);
-assert.deepStrictEqual(Collection.gachaForLink(ok('{"dex":[],"shiny":[]}')), []);
+assert.deepStrictEqual(Collection.originForLink(linkedOld), { gacha: [], unknown: [25] });
+assert.deepStrictEqual(Collection.originForLink(sample), { gacha: [7, 151], unknown: [1] }, 'a shiny without origin is unknown');
+assert.deepStrictEqual(Collection.originForLink(ok(JSON.stringify({ dex: [1], shiny: [1, 2], shinyInfo: { 1: [0, 1], 2: [1, 2] } }))), { gacha: [2], unknown: [] });
+assert.deepStrictEqual(Collection.originForLink(ok('{"dex":[],"shiny":[]}')), { gacha: [], unknown: [] });
 
 console.log('collection ok');

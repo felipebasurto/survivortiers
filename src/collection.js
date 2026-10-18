@@ -74,15 +74,21 @@ const Collection = (() => {
     const info = {};
     if (link.gacha) {
       const gacha = new Set(link.gacha);
-      link.shiny.forEach(dex => { info[dex] = { from: gacha.has(dex) ? 'gacha' : 'wild', day: null }; });
+      const unknown = new Set(link.unknown || []);
+      link.shiny.forEach(dex => {
+        const from = gacha.has(dex) ? 'gacha' : unknown.has(dex) ? null : 'wild';
+        info[dex] = { from: from, day: null };
+      });
     }
     return { version: link.version, name: link.name, updated: 0, dex: link.dex, shiny: link.shiny, info };
   }
 
-  /* Los shiny de gacha que viajan en el enlace, o null si algún shiny no tiene origen conocido. */
-  function gachaForLink(c) {
-    const known = c.shiny.every(dex => originOf(c, dex) === 'wild' || originOf(c, dex) === 'gacha');
-    return known ? c.shiny.filter(dex => originOf(c, dex) === 'gacha') : null;
+  /* Origen de cada shiny para el enlace: los de gacha y los de origen desconocido; el resto son salvajes. */
+  function originForLink(c) {
+    return {
+      gacha: c.shiny.filter(dex => originOf(c, dex) === 'gacha'),
+      unknown: c.shiny.filter(dex => originOf(c, dex) !== 'wild' && originOf(c, dex) !== 'gacha'),
+    };
   }
 
   /* Filas de la vista shiny. sort: 'new' (más reciente primero; sin fecha al final, por nº) o 'dex'.
@@ -100,6 +106,6 @@ const Collection = (() => {
     });
   }
 
-  return { parse, shinyCounts, shinyRows, originOf, fromLink, gachaForLink, REASONS, MAX_DAY };
+  return { parse, shinyCounts, shinyRows, originOf, fromLink, originForLink, REASONS, MAX_DAY };
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = Collection;

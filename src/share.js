@@ -2,18 +2,18 @@
    El nombre solo viaja en el enlace; no se guarda en localStorage.
    v1 (enlaces viejos, solo se leen): versión 1, longitud del nombre, nombre UTF-8, uint16 LE con los bytes de cada
    bitset, bitset de dex poseídos, bitset de shiny.
-   v2: versión 2, banderas (bit 0: vista shiny; bit 1: se conoce el origen de todos los shiny), longitud del nombre,
-   nombre UTF-8, uint16 LE con los bytes de cada bitset, bitset de dex, bitset de shiny y, solo si el origen se conoce,
-   bitset de los shiny que vienen de gacha. Los shiny sin ese bit son salvajes: así viajan los contadores «cazados» y
-   «gacha» sin campos extra. La fecha de captura no viaja.
-   Encodes a collection into the URL fragment (#c=). Version 2 adds a flags byte (bit 0 shiny view, bit 1 origin known)
-   and a bitset of the shinies that came from gacha; the rest of the shinies are wild. Version 1 links still decode. */
+   v2: versión 2, banderas (bit 0: vista shiny; bit 1: hay bitset de gacha; bit 2: hay bitset de origen desconocido),
+   longitud del nombre, nombre UTF-8, uint16 LE con los bytes de cada bitset: dex, shiny y, según las banderas, gacha y
+   desconocido. Los shiny que no están en ninguno de los dos son salvajes. La fecha de captura no viaja.
+   Encodes a collection into the URL fragment (#c=). Version 2 adds flags (bit 0 shiny view, bit 1 gacha set, bit 2
+   unknown-origin set); the shinies in neither set are wild. Version 1 links still decode. */
 const ShareCodec = (() => {
   'use strict';
   const VERSION = 2;
   const VERSION_1 = 1;
   const FLAG_SHINY_VIEW = 1;
   const FLAG_ORIGIN = 2;
+  const FLAG_UNKNOWN = 4;
   const MAX_CHARS = 24;
   const MAX_NAME_BYTES = 96;
   const MAX_BYTES = 512;
@@ -84,20 +84,23 @@ const ShareCodec = (() => {
     return [...name].length > MAX_CHARS ? null : name;
   }
 
-  /* dex: Pokémon poseídos. shiny: los que tienen shiny. gacha: los shiny que salieron de gacha, o null si no se sabe
-     de dónde sale cada shiny. view: 'normal' o 'shiny' (la vista en la que se compartió). */
-  function encodeCollection({ dex, shiny, gacha = null, name = '', view = 'normal' } = {}) {
+  /* dex: Pokémon poseídos. shiny: los que tienen shiny. gacha: los shiny que salieron de gacha, o null si el origen no
+     viaja. unknown: shiny de origen desconocido; los que no están en gacha ni aquí son salvajes. view: 'normal' o 'shiny'. */
+  function encodeCollection({ dex, shiny, gacha = null, unknown = [], name = '', view = 'normal' } = {}) {
     const owned = idsOf(dex);
     const stars = idsOf(shiny);
     const originKnown = Array.isArray(gacha);
     const gachaIds = originKnown ? idsOf(gacha).filter(id => stars.includes(id)) : [];
+    const gachaSet = new Set(gachaIds);
+    const unknownIds = originKnown ? idsOf(unknown).filter(id => stars.includes(id) && !gachaSet.has(id)) : [];
     const label = cleanName(name);
     const labelBytes = new TextEncoder().encode(label);
     const maxId = Math.max(0, owned.length ? owned[owned.length - 1] : 0, stars.length ? stars[stars.length - 1] : 0);
     const nbytes = maxId === 0 ? 0 : (maxId >> 3) + 1;
-    const sets = [writeBits(owned, nbytes), writeBits(stars, nbytes)];
-    if (originKnown) sets.push(writeBits(gachaIds, nbytes));
-    const flags = (view === 'shiny' ? FLAG_SHINY_VIEW : 0) | (originKnown ? FLAG_ORIGIN : 0);
+    const sets = [owned, stars];
+    if (originKnown) sets.push(gachaIds);
+    if (unknownIds.length) sets.push(unknownIds);
+    const flags = (view === 'shiny' ? FLAG_SHINY_VIEW : 0) | (originKnown ? FLAG_ORIGIN : 0) | (unknownIds.length ? FLAG_UNKNOWN : 0);
     const out = new Uint8Array(3 + labelBytes.length + 2 + nbytes * sets.length);
     out[0] = VERSION;
     out[1] = flags;
@@ -106,7 +109,7 @@ const ShareCodec = (() => {
     const at = 3 + labelBytes.length;
     out[at] = nbytes & 255;
     out[at + 1] = (nbytes >> 8) & 255;
-    sets.forEach((set, i) => out.set(set, at + 2 + i * nbytes));
+    sets.forEach((ids, i) => out.set(writeBits(ids, nbytes), at + 2 + i * nbytes));
     return b64urlEncode(out);
   }
 
@@ -128,14 +131,16 @@ const ShareCodec = (() => {
       dex: readBits(bytes.subarray(body, body + nbytes)),
       shiny: readBits(bytes.subarray(body + nbytes)),
       gacha: null,
+      unknown: null,
       wild: null,
     };
   }
 
   function decodeV2(bytes) {
-    const flags = bytes[1];
-    if (flags & ~(FLAG_SHINY_VIEW | FLAG_ORIGIN)) return null;
     if (bytes.length < 5) return null;
+    const flags = bytes[1];
+    if (flags & ~(FLAG_SHINY_VIEW | FLAG_ORIGIN | FLAG_UNKNOWN)) return null;
+    if ((flags & FLAG_UNKNOWN) && !(flags & FLAG_ORIGIN)) return null;
     const nameLen = bytes[2];
     const name = decodeName(bytes, 3, nameLen);
     if (name === null) return null;
@@ -144,13 +149,21 @@ const ShareCodec = (() => {
     const nbytes = bytes[at] | (bytes[at + 1] << 8);
     if (nbytes > MAX_BYTES) return null;
     const originKnown = !!(flags & FLAG_ORIGIN);
-    const sets = originKnown ? 3 : 2;
+    const hasUnknown = !!(flags & FLAG_UNKNOWN);
+    const count = 2 + (originKnown ? 1 : 0) + (hasUnknown ? 1 : 0);
     const body = at + 2;
-    if (bytes.length !== body + nbytes * sets) return null;
-    const dex = readBits(bytes.subarray(body, body + nbytes));
-    const shiny = readBits(bytes.subarray(body + nbytes, body + 2 * nbytes));
-    const gacha = originKnown ? readBits(bytes.subarray(body + 2 * nbytes)) : null;
-    if (gacha && gacha.some(id => !new Set(shiny).has(id))) return null;
+    if (bytes.length !== body + nbytes * count) return null;
+    const sets = [];
+    for (let i = 0; i < count; i++) sets.push(readBits(bytes.subarray(body + i * nbytes, body + (i + 1) * nbytes)));
+    const dex = sets[0];
+    const shiny = sets[1];
+    const gacha = originKnown ? sets[2] : null;
+    const unknown = originKnown ? (hasUnknown ? sets[count - 1] : []) : null;
+    const starSet = new Set(shiny);
+    const gachaSet = new Set(gacha || []);
+    const unknownSet = new Set(unknown || []);
+    if (gacha && gacha.some(id => !starSet.has(id))) return null;
+    if (unknown && unknown.some(id => !starSet.has(id) || gachaSet.has(id))) return null;
     return {
       version: VERSION,
       name,
@@ -158,7 +171,8 @@ const ShareCodec = (() => {
       dex,
       shiny,
       gacha,
-      wild: gacha ? shiny.filter(id => !gacha.includes(id)) : null,
+      unknown,
+      wild: gacha ? shiny.filter(id => !gachaSet.has(id) && !unknownSet.has(id)) : null,
     };
   }
 
