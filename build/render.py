@@ -293,7 +293,7 @@ def render_index(c: Ctx, pokemon: list[dict], meta: dict) -> str:
 FICHA_KEYS = (
     "crumb_home", "legendary", "stars_alt", "sprite_alt", "ficha_title", "ficha_desc", "flag_status", "flag_melee",
     "flag_capped", "flag_types", "pager_aria", "dex_no", "tier", "f_missing", "t_band", "t_pillars", "t_methods", "t_sim",
-    "band_rank", "band_range", "band_alt", "t_learn", "learn_start", "t_build", "build_start", "build_best", "build_boost", "build_alt", "build_items", "build_cards", "build_card_once", "build_card_keep", "build_card_only", "build_card_keep_evo", "build_super", "build_neutral",
+    "band_rank", "band_range", "band_alt", "t_learn", "learn_start", "t_build", "build_start", "build_best", "build_boost", "build_alt", "build_items", "build_cards", "build_card_hint", "build_card_n", "build_card_once", "build_card_more", "build_super", "build_neutral",
     "build_share", "build_copied", "build_slot", "build_brand", "build_group", "build_best_item", "build_more",
     "t_rank", "rank_how", "ficha_rank", "pill_stats", "pill_moves", "pill_typedef", "pill_size", "pillars_alt_item",
     "median", "m_sheet", "m_simStart", "m_simBest", "m_lateMax", "m_lateFresh", "methods_final", "methods_alt",

@@ -303,19 +303,22 @@
       '"><img class="px" src="' + sprites + p.dex + spriteExt + '" width="' + p.w * scale + '" height="' + p.h * scale + '" alt=""></span>';
     const altTiles = alts.map((m, i) => tile(m, ' sm', '', i)).join('');
     const itemTiles = items.map((m, i) => tile(m, ' sm item' + (i === 0 ? ' best' : ''), i === 0 ? badgeOf('crown', t('build_best_item')) : '', i)).join('');
-    // Primeras cartas del bot (build/passives.py): la de evolución del ataque principal, una vez, y la que luego apila.
-    const [cardIds, nOnce] = d[10] || [[], 0];
-    const needNames = new Set(slots.map(m => (EN ? m.en.needsCard : m.needsCard)).filter(Boolean));
-    const cardTiles = cardIds.map(id => cards[id]).filter(Boolean)
-      .map((m, i) => {
-        const once = i < nOnce;
-        const evolves = needNames.has(EN ? m.en.name : m.name);
-        const label = once ? t('build_card_once')
-          : evolves ? t('build_card_keep_evo')
-          : nOnce > 0 ? t('build_card_keep')
-          : t('build_card_only');
-        return tile(m, ' sm card' + (once ? ' evo' : ''), badgeOf(once ? '1×' : '→', label), i);
-      }).join('');
+    // Cartas por prioridad (build/passives.py): las ocho del banco de monedas de esta especie, de mejor a peor. La que
+    // evoluciona el ataque principal (d[10][1]) hace falta una vez, esté donde esté en la lista.
+    const [cardIds, gateId] = d[10] || [[], null];
+    const cardTile = (id, i) => {
+      const m = cards[id];
+      if (!m) return '';
+      const gateMark = id === gateId ? '<b class="bd-once" title="' + esc(t('build_card_once')) + '">1×</b>' : '';
+      return tile(m, ' sm card' + (id === gateId ? ' evo' : ''), badgeOf(String(i + 1), t('build_card_n', { n: i + 1 })) + gateMark, i);
+    };
+    const cardTop = cardIds.slice(0, 4).map((id, i) => cardTile(id, i)).join('');
+    const cardMore = cardIds.slice(4).map((id, i) => cardTile(id, i + 4)).join('');
+    const cardRow = cardIds.length ? '<div class="bd-group bd-cards-g">' + capOf('build_cards') +
+      '<p class="bd-hint">' + esc(t('build_card_hint')) + '</p>' +
+      '<ul class="bd-small bd-cards">' + cardTop + '</ul>' +
+      (cardMore ? '<details class="bd-more"><summary>' + esc(t('build_card_more')) + '</summary><ul class="bd-small bd-cards">' + cardMore + '</ul></details>' : '') +
+      (gateId ? '<p class="bd-legend">' + esc(t('build_card_once')) + '</p>' : '') + '</div>' : '';
     const extra = '<details class="bd-extra"><summary>' + esc(t('build_more')) + '</summary><div class="bd-extra-body">' +
       group('build_alt', altTiles, 'bd-alts') +
       '<div class="bd-meters">' + meter(t('build_super'), superPct, 'bd-super') + meter(t('build_neutral'), neutralPct, 'bd-neutral') + '</div>' +
@@ -327,7 +330,7 @@
       '<div class="bd-flow"><div class="bd-start">' + capOf('build_start') + '<ul>' +
       (start ? tile(start, ' bd-startmove', '', 0) : '') + '</ul></div><i class="ico ico-arrow bd-arrow" aria-hidden="true"></i>' +
       '<div class="bd-bond">' + capOf('build_group', LINK_SVG) + '<ol class="bd-slots">' + attackTiles + boostTile + '</ol></div></div>' +
-      '<div class="bd-gear">' + group('build_items', itemTiles, 'bd-items') + group('build_cards', cardTiles, 'bd-cards') + '</div>' +
+      '<div class="bd-gear">' + group('build_items', itemTiles, 'bd-items') + cardRow + '</div>' +
       extra + '<p class="bd-brand">' + esc(t('build_brand')) + '</p></div></section>';
   }
 
