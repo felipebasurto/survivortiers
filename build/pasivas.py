@@ -83,6 +83,18 @@ EXCEPTIONS = [
 ]
 EXCEPTION_MOVES = sorted({m for row in EXCEPTIONS for m in row["moves"]})
 
+# Qué cartas salen al subir de nivel. levelup.js:58-59: los movimientos de su lado fuerte pesan el doble al elegir
+# (y los empatados y los potenciadores, que no tienen lado, también). levelup.js:47-49 y :56: con dos potenciadores
+# de cualquier tipo, la oferta deja de sacar potenciadores.
+OFFERS = [
+    ("Al subir de nivel, los ataques de tu lado fuerte salen el doble de veces que los demás. Tu lado fuerte es el "
+     "físico o el especial, el que tenga más ataque. Los empatados y los potenciadores también cuentan doble.",
+     "On level-up, attacks on your strong side come up twice as often as the rest. Your strong side is physical or "
+     "special, whichever has more attack. Ties and boosts count double too."),
+    ("Con dos potenciadores de cualquier tipo, ya no salen más.",
+     "With two boosts of any kind, no more come up."),
+]
+
 ORDER_NOTE = ("Excepción: una carta que evoluciona tu ataque va siempre primera.",
               "Exception: a card that evolves your move always goes first.")
 
@@ -203,6 +215,12 @@ def _rest(L: Lang) -> str:
             f'<span>{escape(_t(ORDER_NOTE, L))}</span></p></section>')
 
 
+def _offers(L: Lang) -> str:
+    items = "".join(f'<li class="pv-why">{escape(_t(line, L))}</li>' for line in OFFERS)
+    return (f'<section class="pv-box pv-offers"><h2>{escape(L.t("pv_offers_h"))}</h2>'
+            f'<ul class="pv-offer-list">{items}</ul></section>')
+
+
 def _zidra(L: Lang) -> str:
     return (f'<section class="pv-box pv-zidra">'
             f'<h2>{escape(_t(ZIDRA["name"], L))}</h2>'
@@ -260,7 +278,7 @@ def content(L: Lang, home: str) -> str:
             + f'<h1>{escape(L.t("pv_h1"))}</h1>'
             + f'<p class="lede">{escape(L.t("pv_lede"))}</p>'
             + '<div class="pv-main">'
-            + _top(L) + _zidra(L) + _rest(L) + _combos(L)
+            + _top(L) + _zidra(L) + _rest(L) + _combos(L) + _offers(L)
             + '</div>'
             + f'<section class="pv-styles-sec">{_styles(L)}</section>'
             + _method(L, home)
