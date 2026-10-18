@@ -84,7 +84,13 @@ Group mode also models, from the game source (`js/` in JPTER78/pokesurvivor):
     `--no-synergy` restores the old partner sort (Hex/status or two dashes first, then solo order)
     and skips the extra groups.
     The melee damage cut (×0.75, player.js:238) applies only while a melee move is in the active group: the starter
-    always, a companion only after that bond. Orbit stays out of the bonded group (one shared orb list).
+    always, a companion only after that bond. On the ranking path the cut applies only while an enemy is inside that
+    swing, so a ranged lead does not collect it from kite range. A bonded melee companion also pulls the bot in to
+    the melee keep (repulse stays off until that gap) and, on the last 90px of the close, takes one contact hit per
+    touch cadence. Casts outside the arc still spend the cooldown and hit nothing. Orbit stays out of the bonded group (one shared orb list).
+    Gengar (dex 94) is not offered a melee move. Every searched group holds Swords Dance. The fourth slot is Harden
+    or a third attack, and the higher median (then mean) wins. A melee group is published only when its bootstrap
+    floor is strictly above the best ranged group's median.
   - Dash invulnerability is `max(invuln, 0.3)` (systems/combat.js:311). Lava sets invuln to 0 and then hurts
     (entities/player.js:352). Cooldown cuts shorten the dash's own cooldown.
   - `--swap` is a second slot at level 1. Switching clamps that slot's timers to 35% of base cd and ignores cdMul
