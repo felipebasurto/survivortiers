@@ -22,6 +22,7 @@ STR: dict[str, tuple[str, str]] = {
     "nav_main": ("Principal", "Main"),
     "nav_foot": ("Pie", "Footer"),
     "nav_tiers": ("Tiers", "Tiers"),
+    "nav_novedades": ("Novedades", "Updates"),
     "nav_metodo": ("Método", "Method"),
     "nav_ataques": ("Ataques", "Moves"),
     "nav_objetos": ("Objetos", "Items"),
