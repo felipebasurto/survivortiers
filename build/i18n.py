@@ -593,6 +593,169 @@ STR: dict[str, tuple[str, str]] = {
     "met_lim_3": ("El bot juega peor el cuerpo a cuerpo.", "The bot plays melee worse."),
     "met_lim_4": ("Estimación propia, sin contrastar con partidas reales.",
                   "Our own estimate, not checked against real games."),
+
+    # ------------------------------------------------------------ navegación de las herramientas
+    "nav_buscador": ("Tipos", "Types"),
+    "nav_planificador": ("Build", "Build"),
+    "guide_finder": ("Buscador por tipos", "Type finder"),
+    "guide_planner": ("Planificador de build", "Build planner"),
+    "stat_atk": ("Ataque", "Attack"),
+    "stat_spd": ("Velocidad", "Speed"),
+    "stat_def": ("Defensa", "Defense"),
+    "stat_regen": ("Regeneración", "Regeneration"),
+    "tool_noscript": ("Esta herramienta necesita JavaScript.", "This tool needs JavaScript."),
+    "tool_load": ("Cargando datos…", "Loading data…"),
+    "tool_fail": ("No se pudieron cargar los datos. Recarga la página.", "The data did not load. Reload the page."),
+
+    # ------------------------------------------------------------ aviso del Repertorio
+    "rep_title": ("Antes de comprar el Repertorio", "Before you buy Repertoire"),
+    "rep_b1": ("Te da un segundo ataque, pero no lo eliges: el juego saca uno al azar de los movimientos que puede aprender tu Pokémon.",
+               "It gives you a second attack, but you don't pick it: the game rolls one at random from the moves your Pokémon can learn."),
+    "rep_b2": ("Nunca sale un potenciador ni un movimiento que hayas vetado con Veto.",
+               "It never gives you a boost or a move you banned with Veto."),
+    "rep_b3": ("Cuesta 1.500 Pokémonedas, es solo de ese Pokémon y no se puede deshacer. Si el ataque que sale no te sirve, te lo quedas.",
+               "It costs 1,500 coins, belongs only to that Pokémon and can't be undone. If the attack you get is bad, you keep it."),
+
+    # ------------------------------------------------------------ potenciadores (pasivas)
+    "pv_buff_h": ("Potenciadores: el tope de dos y la categoría", "Boosts: the two-boost cap and the category"),
+    "pv_buff_lede": ("Un potenciador no hace daño: sube una estadística mientras está activo. Con dos potenciadores en el grupo, "
+                     "las cartas de subida de nivel ya no ofrecen potenciadores nuevos. Las mejoras de los que ya tienes siguen saliendo.",
+                     "A boost does no damage: it raises one stat while it is active. With two boosts in the group, level-up cards "
+                     "stop offering new boosts. Upgrades for the boosts you already have still show up."),
+    "pv_buff_th_boost": ("Potenciador", "Boost"),
+    "pv_buff_th_stat": ("Sube", "Raises"),
+    "pv_buff_th_cd": ("Recarga", "Cooldown"),
+    "pv_buff_th_dur": ("Dura", "Lasts"),
+    "pv_buff_th_max": ("Máximo", "Maximum"),
+    "pv_buff_cat_phys": ("ataque físico", "physical attack"),
+    "pv_buff_cat_spec": ("ataque especial", "special attack"),
+    "pv_buff_stat_spd": ("velocidad", "speed"),
+    "pv_buff_stat_def": ("defensa", "defense"),
+    "pv_buff_stat_regen": ("regeneración", "regeneration"),
+    "pv_buff_r1": ("Cada potenciador dura 7 s (Acua Aro, 8 s). Si vuelve a salir antes de que acabe, el tiempo empieza de nuevo.",
+                   "Each boost lasts 7 s (Aqua Ring, 8 s). If it fires again before it ends, the timer starts over."),
+    "pv_buff_r2": ("Danza Espada y Danza Dragón son de ataque físico y comparten casilla. Comparten el contador de acumulaciones, "
+                   "y el porcentaje por acumulación lo pone la última que se lanza: no se suman. Nunca lleves las dos.",
+                   "Swords Dance and Dragon Dance are physical attack boosts and share a slot. They share the stack counter, "
+                   "and the amount per stack is set by the last one to fire: they don't add up. Never take both."),
+    "pv_buff_r3": ("Maquinación es la de ataque especial, con su propia casilla. En un grupo mixto puedes llevar una danza física y "
+                   "Maquinación, y cada una sube su lado.",
+                   "Maquinación is the special attack boost, with its own slot. In a mixed group you can take a physical dance and "
+                   "Maquinación, and each one raises its side."),
+    "pv_buff_rec": ("Nuestra recomendación: Danza Espada si tu Pokémon pega más con ataques físicos, y Maquinación si pega más con "
+                    "especiales. Así no acabas con una danza que no sube nada.",
+                    "Our recommendation: Swords Dance if your Pokémon hits harder with physical moves, and Maquinación if it hits "
+                    "harder with special ones. That way you don't end up with a dance that raises nothing."),
+    "pv_buff_link": ("Arma tu grupo en el planificador de build", "Build your group in the build planner"),
+    "pv_buff_cap_note": ("Valores del juego en el commit {commit}.", "Values from the game at commit {commit}."),
+
+    # ------------------------------------------------------------ buscador por tipos
+    "tf_title": ("Buscador por tipos de {game} · {site}", "Type finder for {game} · {site}"),
+    "tf_desc": ("Qué Pokémon de {game} tienen cada combinación de tipos, a qué tipos son débiles y cuánto pega cada uno con físicos y especiales.",
+                "Which {game} Pokémon have each type combination, which types they are weak to, and how hard each one hits with physical and special moves."),
+    "tf_h1": ("Buscador por tipos", "Type finder"),
+    "tf_lede": ("Elige uno o dos tipos. Te digo qué Pokémon los tienen y qué ataques les pegan fuerte.",
+                "Pick one or two types. See which Pokémon have them and which attacks hit them hardest."),
+    "tf_pick_h": ("Tipos", "Types"),
+    "tf_rule": ("Con un tipo salen todos los que lo tienen. Con dos, solo los que tienen exactamente esos dos.",
+                "With one type you get every Pokémon that has it. With two, only the ones with exactly those two."),
+    "tf_clear": ("Quitar tipos", "Clear types"),
+    "tf_start": ("Elige un tipo para ver sus debilidades.", "Pick a type to see its weaknesses."),
+    "tf_weak_h": ("Debilidades", "Weaknesses"),
+    "tf_g_x24": ("Doble debilidad", "Double weakness"),
+    "tf_g_weak": ("Débil", "Weak"),
+    "tf_g_res": ("Resiste", "Resists"),
+    "tf_g_imm": ("Inmune", "Immune"),
+    "tf_none": ("Ni debilidades ni resistencias.", "No weaknesses or resistances."),
+    "tf_count": ("{n} Pokémon", "{n} Pokémon"),
+    "tf_empty": ("Ningún Pokémon tiene esa combinación.", "No Pokémon has that combination."),
+    "tf_card_pa": ("Físico ×{v}", "Physical ×{v}"),
+    "tf_card_sa": ("Especial ×{v}", "Special ×{v}"),
+    "tf_card_double": ("Doble debilidad: {types}", "Double weakness: {types}"),
+    "tf_stats_note": ("pa y sa son el multiplicador de sus ataques físicos y especiales, sacado de sus estadísticas base. "
+                      "Para el juego, su lado fuerte es el mayor de los dos.",
+                      "pa and sa are the multipliers for its physical and special attacks, taken from its base stats. "
+                      "For the game, its strong side is the higher of the two."),
+    "tf_table_h": ("Tabla de tipos", "Type chart"),
+    "tf_table_lede": ("Con un solo tipo: qué tipos le pegan fuerte y a cuáles resiste. Son los multiplicadores del juego.",
+                      "One type at a time: which types hit it hard and which it resists. These are the game's multipliers."),
+    "tf_col_type": ("Tipo", "Type"),
+    "tf_col_weak": ("Débil a", "Weak to"),
+    "tf_col_res": ("Resiste a", "Resists"),
+    "tf_col_imm": ("Inmune a", "Immune to"),
+    "tf_how_h": ("Cómo se calcula", "How it is calculated"),
+    "tf_how": ("El juego suaviza la tabla de tipos: super efectivo es ×1,6 (no ×2), poco efectivo ×0,6 (no ×0,5) e inmune "
+               "×0,3 (no ×0). Con dos tipos los multiplicadores se multiplican y el total se queda entre ×0,3 y ×2,4. "
+               "Por eso una doble debilidad vale ×2,4 y no más.",
+               "The game softens the type chart: super effective is ×1.6 (not ×2), not very effective ×0.6 (not ×0.5), "
+               "and immune ×0.3 (not ×0). With two types the multipliers multiply, and the total stays between ×0.3 and "
+               "×2.4. That is why a double weakness is ×2.4 and no more."),
+    "tf_source": ("Tabla: <a href=\"{url}\" rel=\"noopener\">js/data/types.js</a> del juego. pa y sa: "
+                  "<a href=\"{stats}\" rel=\"noopener\">js/data/pokedex.js</a>. Commit {sha}.",
+                  "Chart: <a href=\"{url}\" rel=\"noopener\">js/data/types.js</a> in the game. pa and sa: "
+                  "<a href=\"{stats}\" rel=\"noopener\">js/data/pokedex.js</a>. Commit {sha}."),
+
+    # ------------------------------------------------------------ planificador de build
+    "bp_title": ("Planificador de build de {game} · {site}", "Build planner for {game} · {site}"),
+    "bp_desc": ("Arma el grupo vinculado, el objeto y las cartas de un Pokémon de {game}. Empieza con su build recomendada "
+                "y comparte el enlace.",
+                "Build the bonded group, item and cards for a {game} Pokémon. Starts from its recommended build and shares as a link."),
+    "bp_h1": ("Planificador de build", "Build planner"),
+    "bp_lede": ("Elige un Pokémon. Empieza con su build recomendada: cambia lo que quieras y copia el enlace.",
+                "Pick a Pokémon. It starts on its recommended build: change anything you like and copy the link."),
+    "bp_pick_h": ("Pokémon", "Pokémon"),
+    "bp_pick_ph": ("Nombre o número", "Name or number"),
+    "bp_side": ("Pega más con: {side}", "Hits harder with: {side}"),
+    "bp_group_h": ("Grupo vinculado", "Bonded group"),
+    "bp_group_note": ("Hasta 4 movimientos de su grupo: los normales y los de sus tipos.",
+                      "Up to 4 moves from its pool: normal moves and moves of its types."),
+    "bp_slot": ("Hueco {n}", "Slot {n}"),
+    "bp_pick_move": ("Elige un movimiento", "Pick a move"),
+    "bp_cat_phys": ("Físico", "Physical"),
+    "bp_cat_spec": ("Especial", "Special"),
+    "bp_cat_boost": ("Potenciador", "Boost"),
+    "bp_cat_phys_adj": ("físicos", "physical"),
+    "bp_cat_spec_adj": ("especiales", "special"),
+    "bp_boost_count": ("Potenciadores: {n} de 2", "Boosts: {n} of 2"),
+    "bp_boost_max": ("Máximo 2 potenciadores. Quita uno para cambiarlo.", "Max 2 boosts. Remove one to change it."),
+    "bp_mismatch_none": ("{boost} solo sube ataques {cat}, y este grupo no tiene ninguno.",
+                         "{boost} only raises {cat} attacks, and this group has none."),
+    "bp_mismatch_some": ("{boost} solo sube {n} de tus {total} ataques.", "{boost} only raises {n} of your {total} attacks."),
+    "bp_both": ("Danza Espada y Danza Dragón comparten la casilla de ataque físico: no suman, y solo cuenta la última que se lanza. "
+                "No las lleves juntas.",
+                "Swords Dance and Dragon Dance share the physical attack slot: they don't add up, and only the last one to fire "
+                "counts. Don't take both."),
+    "bp_swapped": ("Su build recomendada tenía {from}, pero la mayoría de sus ataques son especiales: la cambiamos por Maquinación. "
+                   "La build de la ficha se simuló antes del reparto físico y especial.",
+                   "Its recommended build had {from}, but most of its attacks are special: we swapped in "
+                   "Maquinación. The build on its sheet was simulated before the physical and special split."),
+    "bp_item_h": ("Objeto", "Item"),
+    "bp_item_none": ("Sin objeto", "No item"),
+    "bp_item_best": ("Recomendado", "Recommended"),
+    "bp_cards_h": ("Cartas, en orden", "Cards, in order"),
+    "bp_cards_note": ("Por orden de prioridad, sin repetir. Cómo se ordenan, en Pasivas.",
+                      "In priority order, no repeats. How they are ranked is on Passives."),
+    "bp_card_n": ("{n}.ª carta", "Card {n}"),
+    "bp_card_none": ("—", "—"),
+    "bp_result_h": ("Tu build", "Your build"),
+    "bp_cover": ("Super efectivo contra el {super} de los Pokémon. Al menos neutral contra el {neutral}.",
+                 "Super effective against {super} of Pokémon. At least neutral against {neutral}."),
+    "bp_none_attack": ("Sin ataques elegidos.", "No attacks picked."),
+    "bp_link": ("Enlace de esta build", "Link to this build"),
+    "bp_copy": ("Copiar enlace", "Copy link"),
+    "bp_copied": ("Enlace copiado", "Link copied"),
+    "bp_reset": ("Restaurar la recomendada", "Restore recommended"),
+    "bp_rank": ("Puesto {rank} de {total} · tier {tier}", "Rank {rank} of {total} · tier {tier}"),
+    "bp_open_sheet": ("Ver su ficha", "See its sheet"),
+    "bp_boost_guide": ("Cómo funcionan los potenciadores", "How boosts work"),
+    "bp_how": ("Cada ataque es físico o especial, según la lista de movimientos del juego. Danza Espada y Danza Dragón suben "
+               "los físicos; Maquinación, los especiales. Con dos potenciadores llegas al tope.",
+               "Each attack is physical or special, according to the game's move list. Swords Dance and Dragon Dance raise "
+               "physical attacks; Maquinación raises special ones. Two boosts is the cap."),
+    "bp_source": ("Movimientos: <a href=\"{url}\" rel=\"noopener\">js/data/moves.js</a>. pa y sa: "
+                  "<a href=\"{stats}\" rel=\"noopener\">js/data/pokedex.js</a>. Commit {sha}.",
+                  "Moves: <a href=\"{url}\" rel=\"noopener\">js/data/moves.js</a> in the game. pa and sa: "
+                  "<a href=\"{stats}\" rel=\"noopener\">js/data/pokedex.js</a>. Commit {sha}."),
 }
 
 TYPE_NAMES = {

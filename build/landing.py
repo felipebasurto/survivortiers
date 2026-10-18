@@ -12,6 +12,7 @@ from html import escape
 
 import legal
 import pasivas
+import repertorio
 import static_ficha
 from i18n import EN, ES, TYPE_NAMES, Lang
 from slugs import slugify, species_path
@@ -219,8 +220,9 @@ def build(L: Lang, page: Page, index: list[dict], by_dex: dict[int, dict], detai
             lede = L.t("lp_type_lede", type=tname, top=top, n=len(members), s=s)
             desc = L.t("lp_type_desc", type=tname, top=top)
         body = f'<section class="ql-list"><h2>{escape(top_h)}</h2>{_list_html(L, home, rows)}</section>'
+    rep = repertorio.box(L) if page.key == "starters" else ""
     content = (f'<div class="ql"><h1>{escape(h1)}</h1>'
-               f'<p class="ql-lede">{escape(lede)}</p><p class="ql-note">{escape(note)}</p>'
+               f'<p class="ql-lede">{escape(lede)}</p><p class="ql-note">{escape(note)}</p>{rep}'
                f'<p class="fresh">{escape(legal.freshness_text(L, meta))}</p>'
                f'{body}{guides_nav(L, home, types=types, skip=page.key)}</div>')
     return Built(title=title, desc=desc, h1=h1, content=content, jsonld=_jsonld(L, page, title, desc, rows, meta),
