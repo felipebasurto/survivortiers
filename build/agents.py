@@ -14,8 +14,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import landing
 import legal
-from i18n import Lang
+from i18n import EN, ES, TYPE_NAMES, Lang
 
 ROOT = Path(__file__).resolve().parent.parent
 RANKING_SRC = ROOT / "data" / "ranking_definitive.csv"
@@ -52,7 +53,7 @@ def dataset_jsonld(L: Lang, meta: dict) -> str:
         "@context": "https://schema.org",
         "@type": "Dataset",
         "name": L.t("dataset_name", game=legal.GAME_NAME),
-        "description": L.t("index_desc", n=meta["total"], game=legal.GAME_NAME),
+        "description": L.t("index_desc", n=meta["total"], **legal.method_counts(L, meta)),
         "url": base,
         "inLanguage": "en" if L.en else "es",
         "isAccessibleForFree": True,
@@ -65,13 +66,32 @@ def dataset_jsonld(L: Lang, meta: dict) -> str:
     return f'<script type="application/ld+json">\n{text}\n</script>'
 
 
+def _weight(meta: dict, key: str) -> int:
+    return next(p["weight"] for p in meta["method"]["pieces"] if p["key"] == key)
+
+
+def _page_url(en: bool, key: str) -> str:
+    return landing.url(EN if en else ES, landing.page_for(key))
+
+
+def _type_links(en: bool) -> str:
+    names = TYPE_NAMES["en" if en else "es"]
+    return ", ".join(f"[{names[t]}]({_page_url(en, f'type:{t}')})" for t in landing.TYPE_KEYS)
+
+
 def llms_txt(meta: dict) -> str:
     u = legal.SITE_URL
+    counts = legal.method_counts(EN, meta)
+    es_counts = legal.method_counts(ES, meta)
+    pieces = (f"sheet percentiles of stats, moves, type defence and size ({_weight(meta, 'sheet')} %), "
+              f"the simulation ({_weight(meta, 'sim')} %) and a late-game formula ({_weight(meta, 'late')} %)")
     return f"""# {legal.SITE_NAME}
 
-> Unofficial fan tier list for {legal.GAME_NAME}, a survivor-style Pokémon game by {legal.GAME_AUTHOR}. It ranks all {meta['total']} Pokémon in five tiers (S, A, B, C, D) from a simulation of a bot playing the game, a stat, move and type model, and a late-game formula. It is not official and not affiliated with Nintendo, Creatures, GAME FREAK, The Pokémon Company or the game's author.
+> Unofficial fan tier list for {legal.GAME_NAME}, a survivor-style Pokémon game by {legal.GAME_AUTHOR}. It ranks all {meta['total']} Pokémon in five tiers (S, A, B, C, D). The rank is built by simulating runs: a bot plays {counts['sims']} simulated games per Pokémon, combined with {pieces}. The whole calculation is repeated {counts['reps']} times and the median rank is published. The code, the simulator and the data are open source on GitHub. It is not official and not affiliated with Nintendo, Creatures, GAME FREAK, The Pokémon Company or the game's author.
 
-The site is static. Pages are in Spanish at `/` and in English at `/en/`. There is no API key, login or rate limit. Each Pokémon has its own HTML page, for example [Mewtwo]({u}/pokemon/150-mewtwo/) and [Mewtwo (EN)]({u}/en/pokemon/150-mewtwo/). Field definitions, units and the method are in [llms-full.txt]({u}/llms-full.txt). The data files below are the best source for tables.
+Resumen en español: tier list no oficial de {legal.GAME_NAME}. Los {meta['total']} Pokémon en tiers S a D, con un ranking hecho simulando {es_counts['sims']} partidas por Pokémon y repitiendo el cálculo {es_counts['reps']} veces. Código y datos abiertos en GitHub.
+
+The site is static. Pages are in Spanish at `/` and in English at `/en/`. There is no API key, login or rate limit. Each Pokémon has its own HTML page, for example [Mewtwo]({u}/en/pokemon/150-mewtwo/). Field definitions, units and the method are in [llms-full.txt]({u}/llms-full.txt). The data files below are the best source for tables.
 
 Base URL: {u}
 
@@ -91,9 +111,13 @@ Base URL: {u}
 ## Pages
 
 - [Tier list (EN)]({u}/en/): all Pokémon by tier, with search and sorting.
+- [Best Pokémon (EN)]({_page_url(True, 'best')}): the top 30, tier S, in order.
+- [Best starters (EN)]({_page_url(True, 'starters')}): the starting picks that last longest in the simulated opening.
+- [Best legendaries (EN)]({_page_url(True, 'legendary')}): every legendary by rank.
+- [Best passives (EN)]({_page_url(True, 'passives')}): level-up cards ranked by coin reward, with the Sitrus Berry rule.
+- Best Pokémon by type (EN), one page per type: {_type_links(True)}.
 - [Moves (EN)]({u}/en/ataques): attack tier list.
 - [Items (EN)]({u}/en/objetos): item tier list.
-- [Passives (EN)]({u}/en/pasivas): level-up cards ranked by coin reward, with the Sitrus Berry rule.
 - [Gacha (EN)]({u}/en/gachas): banners and pull odds.
 - [Collection (EN)]({u}/en/coleccion): collection helper.
 - [Method (EN)]({u}/en/metodo): how the ranking is built, with the numbers.
@@ -102,8 +126,9 @@ Base URL: {u}
 
 ## Optional
 
-- [Tier list (ES)]({u}/): the same site in Spanish.
+- [Tier list (ES)]({u}/): the same site in Spanish, with [Mejores Pokémon]({_page_url(False, 'best')}), [Mejores iniciales]({_page_url(False, 'starters')}), [Mejores legendarios]({_page_url(False, 'legendary')}) and [Mejores pasivas]({_page_url(False, 'passives')}), and per-type pages: {_type_links(False)}.
 - [Source repository](https://github.com/felipebasurto/survivortiers): the generator that builds these files.
+- [Game repository](https://github.com/JPTER78/pokesurvivor): PokéSurvivor, at commit {meta['gameCommit']}, the commit the data was built from.
 """
 
 
@@ -223,6 +248,12 @@ def llms_full_txt(meta: dict) -> str:
         "",
         "Version, generation time, game commit, tier cut-offs, tier counts, stability per tier, the method weights and gates (`method`), method agreement, the seconds scale, the number of species capped by stats, sprite credits and sprite licence.",
         "",
+        "## Query pages",
+        "",
+        "Lists built from the same data as the tier list, one per question. Each page repeats its list as an ItemList in JSON-LD. English paths; the Spanish path is the same page under `/`.",
+        "",
+        *[f"- {p.key}: {u}/en/{p.en} (ES: {u}/{p.es})" for p in landing.pages()],
+        "",
         "## Sprites",
         "",
         f"Sprites are not in the data files. They are served as WebP from jsDelivr: `https://cdn.jsdelivr.net/gh/felipebasurto/survivortiers@main/sprites/<dex>.webp`. Each one is credited to its artist; the list is in `data/meta.json` (`credits`) and on the About page. Licence: {meta['spriteLicense']['name']} ({meta['spriteLicense']['url']}), from {meta['spriteLicense']['source']} ({meta['spriteLicense']['sourceUrl']}). Non-commercial use with attribution only.",
@@ -249,21 +280,26 @@ def robots_txt() -> str:
     return f"User-agent: *\nAllow: /\n\nSitemap: {legal.SITE_URL}/sitemap.xml\n"
 
 
-def sitemap_xml(meta: dict, sheets: list[str] | None = None) -> str:
+def sitemap_xml(meta: dict, sheets: list[str] | None = None, landing_pairs: list[tuple[str, str]] | None = None) -> str:
     """Una entrada por página y por idioma, cada una con sus alternativas hreflang (es, en) y x-default (es).
-    sheets son rutas como pokemon/150-mewtwo/ (con barra final)."""
+    Las rutas son sin prefijo de idioma: sheets como pokemon/150-mewtwo/ y landing_pairs como (es, en) de cada
+    página de consulta, con barra final. Las páginas fijas del menú comparten nombre en los dos idiomas."""
     lastmod = meta["generatedAt"][:10]
-    pages = [*PAGES, *(sheets or [])]
+    pairs = [(p, p) for p in [*PAGES, *(sheets or [])]] + list(landing_pairs or [])
     out = ['<?xml version="1.0" encoding="UTF-8"?>',
            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">']
-    for page in pages:
-        alts = "".join(f'<xhtml:link rel="alternate" hreflang="{lang}" href="{_url(prefix + page)}"/>'
-                       for lang, prefix in LANG_PREFIX.items())
-        alts += f'<xhtml:link rel="alternate" hreflang="x-default" href="{_url(page)}"/>'
-        for prefix in LANG_PREFIX.values():
-            out.append(f"  <url><loc>{_url(prefix + page)}</loc><lastmod>{lastmod}</lastmod>{alts}</url>")
+    for es_path, en_path in pairs:
+        alts = (f'<xhtml:link rel="alternate" hreflang="es" href="{_url(es_path)}"/>'
+                f'<xhtml:link rel="alternate" hreflang="en" href="{_url(LANG_PREFIX["en"] + en_path)}"/>'
+                f'<xhtml:link rel="alternate" hreflang="x-default" href="{_url(es_path)}"/>')
+        out.append(f"  <url><loc>{_url(es_path)}</loc><lastmod>{lastmod}</lastmod>{alts}</url>")
+        out.append(f"  <url><loc>{_url(LANG_PREFIX['en'] + en_path)}</loc><lastmod>{lastmod}</lastmod>{alts}</url>")
     out.append("</urlset>")
     return "\n".join(out) + "\n"
+
+
+def landing_pairs() -> list[tuple[str, str]]:
+    return [(p.es, p.en) for p in landing.pages()]
 
 
 def write_all(site: Path, meta: dict, gachas: list[dict], sheets: list[str] | None = None) -> int:
@@ -274,7 +310,7 @@ def write_all(site: Path, meta: dict, gachas: list[dict], sheets: list[str] | No
         site / "llms.txt": llms_txt(meta),
         site / "llms-full.txt": llms_full_txt(meta),
         site / "robots.txt": robots_txt(),
-        site / "sitemap.xml": sitemap_xml(meta, sheets),
+        site / "sitemap.xml": sitemap_xml(meta, sheets, landing_pairs()),
         data / "ranking.csv": _ranking_csv(),
         data / "meta.json": json.dumps(meta, ensure_ascii=False, indent=1) + "\n",
         data / "gachas.json": json.dumps(gachas, ensure_ascii=False, separators=(",", ":")) + "\n",

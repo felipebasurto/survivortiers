@@ -419,9 +419,10 @@
       '<div class="ficha-sprite" style="--tc:' + (TYPE_COLOR[p.types[0]] || '#888') + ';--tc2:' + (TYPE_COLOR[p.types[1] || p.types[0]] || '#888') + '">' +
       '<img class="px" src="' + sprites + p.dex + spriteExt + '" width="' + p.w * scale + '" height="' + p.h * scale + '" alt="' + esc(t('sprite_alt', { name })) + '">' +
       '<span class="tier-badge medal ' + tier + '" title="' + esc(t('tier', { t: tier })) + '">' + tier + '</span></div>' +
-      '<div class="fh-main"><h1>' + esc(name) + ' ' + otherName + '<small class="fh-dex">' + esc(t('dex_no', { dex: p.dex })) + '</small></h1>' +
+      '<div class="fh-main"><h1>' + esc(name) + ' <span class="fh-game">' + esc(t('fh_game')) + '</span> ' + otherName + '<small class="fh-dex">' + esc(t('dex_no', { dex: p.dex })) + '</small></h1>' +
       '<div class="facts">' + pills + rarity + legendary + tpl('tpl-regions', 'data-gen', p.bannerId) + '</div>' +
       '<p class="rankline" title="' + rankTitle + '" aria-label="' + rankTitle + '"><i class="ico ico-trophy" aria-hidden="true"></i><strong>' + rank + '</strong><span>/ ' + TOTAL + '</span></p>' +
+      '<p class="fresh">' + esc(t('fresh')) + '</p>' +
       '</div>' + (sum || '') + '</header>';
   }
 

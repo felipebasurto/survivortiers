@@ -10,6 +10,8 @@ import re
 from dataclasses import dataclass
 
 NBSP = "\u00a0"
+GAME_NAME = "PokéSurvivor"
+SITE_NAME = "SurvivorTiers"
 
 STR: dict[str, tuple[str, str]] = {
     # ------------------------------------------------------------ base
@@ -45,8 +47,17 @@ STR: dict[str, tuple[str, str]] = {
 
     # ------------------------------------------------------------ portada
     "index_title": ("{site} · Tier list de {game}", "{site} · {game} tier list"),
-    "index_desc": ("Tier list no oficial de los {n} Pokémon de {game}.",
-                   "Unofficial tier list of the {n} Pokémon in {game}."),
+    "index_desc": ("Tier list de los {n} Pokémon de {game}, hecha simulando {sims} partidas por Pokémon. Código y datos abiertos en GitHub.",
+                   "Tier list of the {n} Pokémon in {game}, built by simulating {sims} games per Pokémon. Code and data open on GitHub."),
+    "fresh": ("Datos del juego: commit {sha} · actualizado {date}", "Game data: commit {sha} · updated {date}"),
+    "guides_h": ("Más listas", "More lists"),
+    "guides_types": ("Por tipo", "By type"),
+    "guide_best": ("Mejores Pokémon", "Best Pokémon"),
+    "guide_starters": ("Mejores iniciales", "Best starters"),
+    "guide_legendary": ("Legendarios", "Legendaries"),
+    "guide_passives": ("Mejores pasivas", "Best passives"),
+    "guide_tierlist": ("Tier list completa", "Full tier list"),
+    "fh_game": ("en {game}", "in {game}"),
     "dataset_name": ("Ranking no oficial de los Pokémon de {game}", "Unofficial ranking of the Pokémon in {game}"),
     "agents_label": ("Para agentes de IA y datos:", "For AI agents and data:"),
     "index_h1": ("Tier list de {game}", "{game} tier list"),
@@ -65,10 +76,10 @@ STR: dict[str, tuple[str, str]] = {
                  "No Pokémon match. Try another name or type."),
     "noscript": ("El buscador necesita JavaScript.", "Search needs JavaScript."),
     "value_html": (
-        'La única tier list de PokéSurvivor hecha simulando partidas, no con fórmulas de stats. Todo es abierto: '
-        'código, simulador y datos en <a href="{repo}" rel="noopener">GitHub</a>, para que cualquiera lo compruebe.',
-        'The only PokéSurvivor tier list built by simulating runs, not stat formulas. Everything is open: code, '
-        'simulator and data on <a href="{repo}" rel="noopener">GitHub</a>, so anyone can check it.'),
+        'Tier list de {game} hecha simulando {sims} partidas por Pokémon, no solo con fórmulas de stats. Código, simulador '
+        'y datos abiertos en <a href="{repo}" rel="noopener">GitHub</a>, para que cualquiera lo compruebe.',
+        'Tier list of {game} built by simulating {sims} games per Pokémon, not from stat formulas alone. Code, simulator '
+        'and data open on <a href="{repo}" rel="noopener">GitHub</a>, so anyone can check it.'),
     "card_title": ("{name} · nº {dex} · puesto {rank} · tier {tier}",
                    "{name} · no. {dex} · rank {rank} · tier {tier}"),
 
@@ -82,7 +93,7 @@ STR: dict[str, tuple[str, str]] = {
     "rar_5": ("Legendaria", "Legendary"),
     "stars_alt": ("{n} de 5 estrellas", "{n} of 5 stars"),
     "sprite_alt": ("Sprite de {name}", "Sprite of {name}"),
-    "ficha_title": ("{name} · tier {tier} · {site}", "{name} · tier {tier} · {site}"),
+    "ficha_title": ("{name} en {game} · tier {tier} · {site}", "{name} in {game} · tier {tier} · {site}"),
     "ficha_desc": ("{label}: tier {tier}, puesto {rank} de {total} en {game}.",
                    "{label}: tier {tier}, rank {rank} of {total} in {game}."),
     "sheet_title": ("{name} en {game}: tier, build y cómo conseguirlo",
@@ -258,12 +269,57 @@ STR: dict[str, tuple[str, str]] = {
     "sim_noshop": ("Sin Repertorio ni Veto, solo con {name}, la simulación aguanta {s} s.",
                    "With no Repertoire and no Veto, {name} alone lasts {s} s in the simulation."),
 
+    # ------------------------------------------------------------ listas de consulta (landing.py)
+    "lp_top_h": ("Ranking", "Ranking"),
+    "lp_note": ("Cada puesto sale de {sims} partidas simuladas por Pokémon y {reps} repeticiones del cálculo. "
+                "Cómo se calcula, en Método.",
+                "Each rank comes from {sims} simulated games per Pokémon and {reps} repeats of the calculation. "
+                "How it is calculated, on Method."),
+    "lp_start_move": ("Ataque inicial: {move}", "Starting move: {move}"),
+    "lp_best_title": ("Mejores Pokémon de {game} · {site}", "Best Pokémon in {game} · {site}"),
+    "lp_best_h1": ("Mejores Pokémon de {game}", "Best Pokémon in {game}"),
+    "lp_best_desc": ("Los {n} mejores Pokémon de {game} según la tier list simulada: {top}.",
+                     "The {n} best Pokémon in {game} by the simulated tier list: {top}."),
+    "lp_best_lede": ("Los mejores Pokémon de {game} son {top}. Los {n} primeros forman el tier S.",
+                     "The best Pokémon in {game} are {top}. The first {n} make up tier S."),
+    "lp_start_title": ("Mejores iniciales de {game} · {site}", "Best starters in {game} · {site}"),
+    "lp_start_h1": ("Mejores iniciales de {game}", "Best starters in {game}"),
+    "lp_start_desc": ("Los iniciales de {game} que más aguantan en la apertura con Repertorio: {top}.",
+                      "The starters in {game} that last longest in the Repertoire opening: {top}."),
+    "lp_start_lede": ("Los iniciales que más aguantan en la apertura de {game} son {top}.",
+                      "The starters that last longest in the {game} opening are {top}."),
+    "lp_start_note": ("Apertura: el ataque inicial con Repertorio (un segundo ataque al azar) y Veto (se bloquean los tres "
+                      "que más bajan la media). Puesto por esa apertura, no por el final de la partida.",
+                      "Opening: the starting move with Repertoire (a random second move) and Veto (the three moves that pull "
+                      "the average down are banned). Rank by that opening, not the late game."),
+    "lp_leg_title": ("Legendarios de {game} · {site}", "Legendaries in {game} · {site}"),
+    "lp_leg_h1": ("Legendarios de {game}", "Legendaries in {game}"),
+    "lp_leg_desc": ("Los {n} legendarios de {game} por puesto en la tier list simulada: {top}.",
+                    "The {n} legendaries in {game} by rank in the simulated tier list: {top}."),
+    "lp_leg_lede": ("Los legendarios de {game} por puesto son {top}. Hay {n} en total y {s} están en el tier S.",
+                    "The legendaries in {game} by rank are {top}. There are {n} in total and {s} are in tier S."),
+    "lp_type_title": ("Mejores Pokémon de tipo {type} en {game} · {site}", "Best {type} Pokémon in {game} · {site}"),
+    "lp_type_h1": ("Mejores Pokémon de tipo {type} en {game}", "Best {type} Pokémon in {game}"),
+    "lp_type_desc": ("Los mejores Pokémon de tipo {type} en {game}: {top}.",
+                     "The best {type} Pokémon in {game}: {top}."),
+    "lp_type_lede": ("Los mejores Pokémon de tipo {type} en {game} son {top}. De los {n} de ese tipo, {s} están en el tier S.",
+                     "The best {type} Pokémon in {game} are {top}. Of the {n} of that type, {s} are in tier S."),
+    "lp_pas_title": ("Mejores pasivas de {game} · {site}", "Best passives in {game} · {site}"),
+    "lp_pas_h1": ("Mejores pasivas de {game}", "Best passives in {game}"),
+    "lp_pas_desc": ("Las cartas de nivel de {game} que más monedas dan: {top}.",
+                    "The level-up cards in {game} that earn the most coins: {top}."),
+    "lp_pas_lede": ("En {game}, la carta que más monedas da es {best}. Después: {next}. Las demás no suben las monedas.",
+                    "In {game}, the card that earns the most coins is {best}. Then: {next}. The rest do not raise coins."),
+    "lp_pas_note": ("Monedas: subida al priorizar la carta. La tabla completa, con la baya Zidra y las combinaciones con objetos, está en Pasivas.",
+                    "Coins: the rise from prioritizing the card. The full table, with the Sitrus Berry and item combinations, is on Passives."),
+    "lp_pas_link": ("Tabla completa en Pasivas", "Full table on Passives"),
+
     # ------------------------------------------------------------ ataques
-    "ataques_title": ("Ataques · {site}", "Moves · {site}"),
+    "ataques_title": ("Ataques de {game} · {site}", "Moves in {game} · {site}"),
     "ataques_desc": ("Tier list de los {n} ataques de {game}.", "Tier list of the {n} moves in {game}."),
-    "ataques_h1": ("Ataques", "Moves"),
-    "ataques_lede": ("1× es un ataque normal. Cuanto más alto, mejor.",
-                     "1× is a normal move. The higher, the better."),
+    "ataques_h1": ("Ataques de {game}", "Moves in {game}"),
+    "ataques_lede": ("Tier list de los ataques de {game}. 1× es un ataque normal; cuanto más alto, mejor.",
+                     "Tier list of the moves in {game}. 1× is a normal move; the higher, the better."),
     "cat_melee": ("Cuerpo a cuerpo", "Melee"),
     "cat_ranged": ("Distancia", "Ranged"),
     "cat_stat": ("Potenciadores", "Boosts"),
@@ -298,21 +354,21 @@ STR: dict[str, tuple[str, str]] = {
     "odds_title": ("Probabilidad por rareza", "Odds by rarity"),
 
     # ------------------------------------------------------------ objetos
-    "obj_title": ("Objetos · {site}", "Items · {site}"),
+    "obj_title": ("Objetos de {game} · {site}", "Items in {game} · {site}"),
     "obj_desc": ("Tier list de los objetos de {game} por fase de la partida.",
                  "Tier list of the {game} items by phase of the run."),
-    "obj_h1": ("Objetos", "Items"),
-    "obj_lede": ("Solo se lleva uno por partida: los cofres los sueltan y puedes cambiarlo.",
-                 "You carry one per run: chests drop them and you can swap it."),
+    "obj_h1": ("Objetos de {game}", "Items in {game}"),
+    "obj_lede": ("En {game} solo se lleva uno por partida: los cofres los sueltan y puedes cambiarlo.",
+                 "In {game} you carry one per run: chests drop them and you can swap it."),
     "obj_phases_h": ("Tier por fase", "Tier by phase"),
     "obj_table_h": ("Qué hace cada objeto", "What each item does"),
 
     # ------------------------------------------------------------ pasivas
-    "pv_title": ("Pasivas · {site}", "Passives · {site}"),
+    "pv_title": ("Pasivas de {game} · {site}", "Passives in {game} · {site}"),
     "pv_desc": ("Qué carta de nivel coger en {game}, en orden, y cuándo la baya Zidra.",
                 "Which level-up card to take in {game}, in order, and when to take the Sitrus Berry."),
-    "pv_h1": ("Pasivas", "Passives"),
-    "pv_lede": ("Cartas de nivel ordenadas por las monedas que dan.", "Level-up cards, ranked by the coins they earn."),
+    "pv_h1": ("Pasivas de {game}", "Passives in {game}"),
+    "pv_lede": ("Cartas de nivel de {game} ordenadas por las monedas que dan.", "Level-up cards in {game}, ranked by the coins they earn."),
     "pv_rank_h": ("Orden", "Order"),
     "pv_rank_note": ("Monedas: subida al priorizar la carta. Aguante y bajas/min: cómo cambia la partida.",
                      "Coins: the rise from prioritizing the card. Survival and kills/min: how the run changes."),
@@ -327,10 +383,10 @@ STR: dict[str, tuple[str, str]] = {
     "pv_method_link": ("Método completo", "Full method"),
 
     # ------------------------------------------------------------ gacha
-    "gachas_title": ("Gacha · {site}", "Gacha · {site}"),
+    "gachas_title": ("Gacha de {game} · {site}", "Gacha for {game} · {site}"),
     "gachas_desc": ("Qué banner de gacha de {game} da más Pokémon top.",
                     "Which {game} gacha banner gives the most top Pokémon."),
-    "gachas_h1": ("Gacha", "Gacha"),
+    "gachas_h1": ("Gacha de {game}", "Gacha for {game}"),
     "g_yours": ("Tu colección dice dónde tirar.", "Your collection says where to pull."),
     "g_one_in": ("1 de cada {n} es top", "1 in {n} is top"),
     "g_best": ("Mejor banner", "Best banner"),
@@ -338,9 +394,9 @@ STR: dict[str, tuple[str, str]] = {
     "g_pulls": ("Mejores Pokémon de {name}", "Best Pokémon in {name}"),
 
     # ------------------------------------------------------------ colección
-    "col_title": ("Mi colección · {site}", "My collection · {site}"),
+    "col_title": ("Mi colección de {game} · {site}", "My {game} collection · {site}"),
     "col_desc": ("Mira tu colección de {game} por tier.", "See your {game} collection by tier."),
-    "col_h1": ("Mi colección", "My collection"),
+    "col_h1": ("Mi colección de {game}", "My {game} collection"),
     "col_step1_html": ("<strong>Abre el juego</strong> con tu cuenta. El modo invitado no guarda nada.",
                        "<strong>Open the game</strong> signed in. Guest mode saves nothing."),
     "col_step2_html": ("<strong>Pega esto en la consola</strong> (F12). Si te lo pide, escribe "
@@ -357,9 +413,10 @@ STR: dict[str, tuple[str, str]] = {
     "col_drop": ("Arrastra aquí el .json o pulsa para elegirlo", "Drag the .json here or click to choose it"),
 
     # ------------------------------------------------------------ acerca
-    "about_title": ("Info y aviso legal · {site}", "About and legal notice · {site}"),
-    "about_desc": ("Aviso legal y créditos de {site}.", "Legal notice and credits for {site}."),
-    "about_h1": ("Info", "About"),
+    "about_title": ("Info y aviso legal de {game} · {site}", "About and legal notice for {game} · {site}"),
+    "about_desc": ("Aviso legal, créditos y licencias de {site}, tier list de {game}.",
+                   "Legal notice, credits and licences for {site}, a {game} tier list."),
+    "about_h1": ("Info de {game}", "About {game}"),
     "about_credits_h": ("Créditos", "Credits"),
     "about_sprites_h": ("Sprites", "Sprites"),
     "about_sprites_html": (
@@ -380,19 +437,20 @@ STR: dict[str, tuple[str, str]] = {
         '(<a href="{root}fonts/OFL.txt">Pixelify</a>, <a href="{root}fonts/ZenKakuGothicNew-OFL.txt">Zen Kaku Gothic New</a>).'),
 
     # ------------------------------------------------------------ 404
-    "nf_title": ("Página no encontrada · {site}", "Page not found · {site}"),
+    "nf_title": ("Página no encontrada · {game} · {site}", "Page not found · {game} · {site}"),
     "nf_h1": ("Página no encontrada", "Page not found"),
     "nf_p_html": ('<a href="/index.html">Volver a la tier list</a> · <a href="/en/index.html">Back to the tier list</a>',
                   '<a href="/en/index.html">Back to the tier list</a> · <a href="/index.html">Volver a la tier list</a>'),
 
     # ------------------------------------------------------------ método
-    "met_title": ("Método · {site}", "Method · {site}"),
-    "met_desc": ("Cómo se calcula el ranking de {site}.", "How the {site} ranking is calculated."),
-    "met_h1": ("Método", "Method"),
-    "met_lede": ("Cada Pokémon recibe un puesto del 1 al 966 y un tier. El puesto mezcla su ficha, cómo juega "
+    "met_title": ("Método del ranking de {game} · {site}", "Ranking method for {game} · {site}"),
+    "met_desc": ("Cómo se calcula el ranking de {game}: {sims} partidas simuladas por Pokémon, repetidas {reps} veces.",
+                 "How the {game} ranking is calculated: {sims} simulated games per Pokémon, repeated {reps} times."),
+    "met_h1": ("Método del ranking de {game}", "Ranking method for {game}"),
+    "met_lede": ("Cada Pokémon de {game} recibe un puesto del 1 al 966 y un tier. El puesto mezcla su ficha, cómo juega "
                  "en partidas simuladas y cómo rinde al final de la partida. Como una sola cifra puede engañar, "
                  "el cálculo se repite 2.000 veces.",
-                 "Each Pokémon gets a rank from 1 to 966 and a tier. The rank mixes its sheet, how it plays in "
+                 "Each Pokémon in {game} gets a rank from 1 to 966 and a tier. The rank mixes its sheet, how it plays in "
                  "simulated games and how it performs late in the game. Since one number can mislead, the "
                  "calculation is repeated 2,000 times."),
     "met_steps_aria": ("Pasos del cálculo", "Calculation steps"),
@@ -568,7 +626,7 @@ class Lang:
         return "en/" if self.en else ""
 
     def t(self, key: str, **kw) -> str:
-        return STR[key][self.idx].format(**kw)
+        return STR[key][self.idx].format(**{"game": GAME_NAME, "site": SITE_NAME, **kw})
 
     def t_raw(self, key: str) -> str:
         """El texto con sus marcadores sin rellenar, para las plantillas que se completan en el navegador."""
