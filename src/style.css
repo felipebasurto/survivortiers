@@ -1087,6 +1087,32 @@ h2 { margin: 48px 0 16px; }
 /* Colección guardada en este navegador y progreso de gacha */
 .saved { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin: 0 0 18px; font: .9rem/1.4 var(--sans); color: var(--ink-2); }
 .saved:empty { display: none; }
+.sharebar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0 0 18px; }
+.sharebar[hidden] { display: none; }
+.guest-banner { flex: 1 1 100%; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px;
+  margin: 0; padding: 12px 14px; background: var(--accent); color: var(--on-accent); box-shadow: var(--notch); }
+.guest-banner[hidden] { display: none; }
+.guest-flag { display: inline-flex; align-items: center; gap: 8px; margin: 0; font: 700 1.15rem/1.2 var(--pix); text-transform: uppercase; }
+.guest-flag svg { width: 22px; height: 22px; display: block; flex: none; }
+.guest-banner .btn.ghost { background: var(--bg); color: var(--ink); }
+.share-actions { flex: 1 1 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.share-actions[hidden] { display: none; }
+.share-name { display: flex; align-items: center; gap: 8px; flex: 1 1 12rem; max-width: 18rem; margin: 2px; padding: 0 12px;
+  background: var(--bg); color: var(--ink-2); box-shadow: var(--notch); }
+.share-name[hidden] { display: none; }
+.share-name svg { width: 16px; height: 16px; display: block; flex: none; }
+.share-name input { width: 100%; margin: 0; padding: 9px 0; border: 0; box-shadow: none; background: transparent; color: var(--ink);
+  font: 1rem var(--pix); }
+.share-name input::placeholder { color: var(--ink-2); opacity: .75; }
+.share-name input:read-only { color: var(--ink-2); }
+.btn.with-ico { display: inline-flex; align-items: center; gap: 8px; }
+.btn.with-ico svg { width: 16px; height: 16px; display: block; flex: none; }
+#share-msg:empty { display: none; }
+.guest-name { margin: 0 0 8px; font: 700 1.4rem var(--pix); }
+@media (max-width: 720px) {
+  .share-name { flex-basis: 100%; max-width: none; }
+  .guest-banner { align-items: flex-start; }
+}
 /* Importar: zona para arrastrar el .json, y el botón de reimportar cuando ya hay una colección */
 .drop { flex: 1 1 16rem; max-width: 28rem; display: grid; gap: 10px; padding: 16px; cursor: pointer; text-align: center;
   font: .9rem/1.4 var(--sans); color: var(--ink-2); border: 2px dashed var(--ink-2); background: var(--bg);

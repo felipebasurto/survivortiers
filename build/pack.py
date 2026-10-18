@@ -1,5 +1,5 @@
-"""Empaqueta los recursos de src/ en site/: un style.css (con los iconos dentro, minificado), un app.js (app.js + ficha.js,
-sin comentarios ni sangrías), la letra, los JSON del navegador y _headers. Solo biblioteca estándar.
+"""Empaqueta los recursos de src/ en site/: un style.css (con los iconos dentro, minificado), un app.js (share.js +
+app.js + ficha.js, sin comentarios ni sangrías), la letra, los JSON del navegador y _headers. Solo biblioteca estándar.
 
 Los minificadores son conservadores a propósito: solo quitan lo que no puede cambiar el significado. El CSS se puede
 comparar con el original regla a regla (cssText en el navegador) y el JS se comprueba con node --check."""
@@ -11,8 +11,9 @@ import re
 import shutil
 from pathlib import Path
 
-JS_FILES = ("app.js", "ficha.js")
-FONT_FILES = ("PixelifySans.ttf", "OFL.txt", "ZenKakuGothicNew-400.woff2", "ZenKakuGothicNew-500.woff2", "ZenKakuGothicNew-700.woff2", "ZenKakuGothicNew-OFL.txt")
+JS_FILES = ("share.js", "app.js", "ficha.js")
+FONT_FILES = ("PixelifySans.ttf", "OFL.txt", "ZenKakuGothicNew-400.woff2", "ZenKakuGothicNew-500.woff2",
+              "ZenKakuGothicNew-700.woff2", "ZenKakuGothicNew-OFL.txt")
 STRING = re.compile(r'"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'')
 ICON = re.compile(r"url\(img/ui/([\w-]+)\.png\)")
 
