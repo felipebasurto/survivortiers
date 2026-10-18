@@ -9,8 +9,8 @@ Web: https://survivortiers.pages.dev
 | Ruta | Qué hay |
 | --- | --- |
 | `data/` | Entradas: ranking definitivo (`ranking_definitive.csv`), `pokedex_export.json`, nombres y textos de ataques en inglés (`species_names_en.csv`, `lang_en_moves.json`), `CREDITS.md` y licencia del juego (copiados del commit `a9b21f0`), y `move_tierlist_v4.csv` |
-| `sprites/` | Los 966 sprites (SpriteCollab, CC BY-NC 4.0). **No van en `site/`**: las páginas los piden a jsDelivr, que sirve este repositorio (`legal.SPRITE_CDN`) |
-| `src/` | Estáticos escritos a mano: `style.css`, `app.js` (tier list, colección, demos), `ficha.js` (dibuja la ficha), `fonts/`, `img/` (iconos de interfaz y créditos) y `_headers` |
+| `sprites/` | Los 966 sprites (SpriteCollab, CC BY-NC 4.0). **No van en `site/`**: las páginas los piden a jsDelivr, que sirve este repositorio (`legal.SPRITE_CDN`). `sprites/shiny/` tiene los 958 sprites shiny (ver `build/shiny_sprites.py`) |
+| `src/` | Estáticos escritos a mano: `style.css`, `app.js` (tier list, colección, vista shiny, demos), `collection.js` (lee el comando de la consola y las filas shiny, sin DOM), `share.js` (codec del enlace `#c=`, v1 y v2), `ficha.js` (dibuja la ficha), `fonts/`, `img/` (iconos de interfaz y créditos) y `_headers` |
 | `build/catalog.py` | Valida y genera `build/out/` (datos intermedios y `public/`, los JSON del navegador). **Falla** si falta artista o licencia de algún sprite, si los conteos por tier no son 30/90/200/300/346 o si los pools de gacha no suman 966 |
 | `build/render.py` | Genera `site/` entero: 6 páginas por idioma, la plantilla `pokemon/index.html` de cada idioma, `404.html`, `style.css`, `app.js`, la letra, `data/` y `_headers`. Unos 25 archivos y menos de 2 MB |
 | `build/pack.py` | Empaqueta `src/` en `site/`: iconos dentro del CSS, CSS y JS minificados, JSON copiados |
@@ -22,8 +22,10 @@ Web: https://survivortiers.pages.dev
 | `build/regions.py` | Insignias de región de la página Gacha (SVG propio y sprites de los legendarios de portada) |
 | `build/serve.py` | Servidor local con el mismo comportamiento que el hosting: 404.html con estado 404 y `/_sprites/` |
 | `build/move_tierlist_v4.py` | Regenera `data/move_tierlist_v4.csv` (necesita el análisis y una copia del juego) |
+| `build/shiny_sprites.py` | Deriva qué especies pueden ser shiny (`data/shiny_species.json`) desde los metadatos de sprites del juego, en un commit fijo, y recorta sus sprites shiny a `sprites/shiny/`. Sin argumentos comprueba el repositorio del juego en caché; `--fetch` lo descarga |
 | `build/check_site.py` | Comprobaciones de aceptación sobre un sitio servido |
-| `console/coleccion.js`, `coleccion.en.js` | Comando que el jugador pega en la consola del juego |
+| `console/coleccion.js`, `coleccion.en.js` | Comando que el jugador pega en la consola del juego. Exporta cada shiny con su origen y fecha en `shinyInfo` (`{dex: [origen, día]}`; origen 0 salvaje, 1 gacha, 2 desconocido). El JSON antiguo sin `shinyInfo` sigue valiendo, con origen desconocido |
+| `build/test_share.js`, `build/test_collection.js` | Pruebas del codec del enlace (v1 y v2) y del lector del comando. `python3 -m unittest build/test_share.py build/test_collection.py` las ejecuta |
 
 ## Uso
 
