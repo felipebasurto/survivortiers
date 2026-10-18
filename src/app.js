@@ -1,9 +1,11 @@
 /* SurvivorTiers · JS sin dependencias: buscador, orden, colección, progreso de gacha y las demos de la página Método.
-   No hace peticiones salvo a los JSON del propio sitio. Solo guarda en localStorage la colección que importas
-   (clave survivortiers.coleccion), y se puede borrar desde la página. No usa cookies.
+   No hace peticiones salvo a los JSON y los sprites del propio sitio. Solo guarda en localStorage la colección que
+   importas (clave survivortiers.coleccion), y se puede borrar desde la página. Compartir la pone en el fragmento
+   de la URL (#c=); abrir ese enlace no escribe en localStorage ni llama al juego. No usa cookies.
    SurvivorTiers · dependency-free JS: search, sorting, collection, gacha progress and the Method page demos. It only
-   requests this site's own JSON files and stores only the collection you import, in localStorage (key
-   survivortiers.coleccion), which you can delete from the page. No cookies. */
+   requests this site's own JSON files and sprites, and stores only the collection you import, in localStorage (key
+   survivortiers.coleccion), which you can delete from the page. Sharing puts it in the URL fragment (#c=); opening
+   that link does not write localStorage or call the game. No cookies. */
 (() => {
   'use strict';
   const html = document.documentElement;
@@ -70,6 +72,13 @@
       planDone: 'Ya tienes todos los Pokémon de los banners.',
       colBanner: 'Banner', colMissing: 'Te faltan', colNew: 'Nuevo por tirada', colPulls: 'Tiradas para completarlo',
       pullHere: 'Tira aquí', complete: 'Completo',
+      share: 'Compartir', download: 'Descargar imagen',
+      otherCollection: 'Colección de otro jugador', backToMine: 'Volver a la mía',
+      shareNamePh: 'Nombre', shareNameLabel: 'Nombre en el enlace y la imagen',
+      copiedLink: 'Enlace copiado', shareFail: 'No se ha podido compartir.',
+      imageFail: 'No se ha podido crear la imagen.', badLink: 'Ese enlace no se puede leer.',
+      shareTitle: 'Mi colección', collectionWord: 'Colección',
+      siteHost: 'survivortiers.pages.dev',
     },
     en: {
       loadFail: n => 'Could not load ' + n,
@@ -117,6 +126,13 @@
       planDone: 'You already have every Pokémon in the banners.',
       colBanner: 'Banner', colMissing: 'Missing', colNew: 'New per pull', colPulls: 'Pulls to complete',
       pullHere: 'Pull here', complete: 'Complete',
+      share: 'Share', download: 'Download image',
+      otherCollection: 'Another player\'s collection', backToMine: 'Back to mine',
+      shareNamePh: 'Name', shareNameLabel: 'Name on the link and the image',
+      copiedLink: 'Link copied', shareFail: 'Could not share.',
+      imageFail: 'Could not create the image.', badLink: 'That link could not be read.',
+      shareTitle: 'My collection', collectionWord: 'Collection',
+      siteHost: 'survivortiers.pages.dev',
     },
   }[EN ? 'en' : 'es'];
 
@@ -335,20 +351,26 @@
     return { version: o.version, name: String(o.name || ''), updated: +o.updated || 0, dex: ints(o.dex), shiny: ints(o.shiny) };
   }
 
-  function renderCollection(c) {
+  function tierRows(owned) {
+    return TIERS.map(t => {
+      const all = state.mons.filter(p => p.r[1] === t);
+      return { t, have: all.filter(p => owned.has(p.dex)).length, n: all.length };
+    });
+  }
+
+  function renderCollection(c, opts) {
+    const guest = !!(opts && opts.guest);
+    const shareName = (opts && opts.shareName) || '';
     const owned = new Set(c.dex);
     const known = state.mons.filter(p => owned.has(p.dex));
     const unknown = c.dex.length - known.length;
     const total = state.mons.length;
-    const rows = TIERS.map(t => {
-      const all = state.mons.filter(p => p.r[1] === t);
-      return { t, have: all.filter(p => owned.has(p.dex)).length, n: all.length };
-    });
+    const rows = tierRows(owned);
     const when = c.updated ? new Date(c.updated).toLocaleString(TEXT.locale, { dateStyle: 'long', timeStyle: 'short' }) : TEXT.noDate;
     const table = '<div class="tablewrap"><table><thead><tr><th>' + TEXT.tierWord + '</th><th class="num">' + TEXT.have + '</th><th>' + TEXT.progress +
       '</th></tr></thead><tbody>' +
       rows.map(r => '<tr><th scope="row"><span class="tier-badge ' + r.t + '">' + r.t + '</span></th><td class="num">' + TEXT.haveOf(r.have, r.n) +
-        '</td><td><span class="bar"><i style="width:' + (100 * r.have / r.n).toFixed(1) + '%;--bf:var(--tier-' + r.t + ')"></i></span></td></tr>').join('') + '</tbody></table></div>';
+        '</td><td><span class="bar"><i style="width:' + (r.n ? (100 * r.have / r.n).toFixed(1) : 0) + '%;--bf:var(--tier-' + r.t + ')"></i></span></td></tr>').join('') + '</tbody></table></div>';
     const shinySet = new Set(c.shiny);
     const groups = TIERS.map(t => {
       const mine = state.mons.filter(p => p.r[1] === t && owned.has(p.dex)).sort((a, b) => a.r[0] - b.r[0]);
@@ -360,12 +382,15 @@
     const missing = missingTop.length
       ? '<h3>' + TEXT.missingSA(missingTop.length) + '</h3><div class="grid">' + missingTop.map(p => card(p, 'miss')).join('') + '</div>'
       : '<p><strong>' + TEXT.allSA + '</strong></p>';
-    $('#result').innerHTML =
-      '<h2>' + (c.name ? TEXT.collectionOf(esc(c.name)) : TEXT.yourCollection) + '</h2>' +
+    const dateStat = guest ? '' : '<div class="stat"><b class="stat-small">' + esc(when) + '</b><span>' + TEXT.lastSave + '</span></div>';
+    const heading = guest
+      ? (shareName ? '<h2>' + esc(shareName) + '</h2>' : '')
+      : '<h2>' + (c.name ? TEXT.collectionOf(esc(c.name)) : TEXT.yourCollection) + '</h2>';
+    $('#result').innerHTML = heading +
       '<div class="stats"><div class="stat"><b>' + known.length + ' / ' + total + '</b><span>' +
       TEXT.dexStat(known.length, total, (100 * known.length / total).toFixed(1)) + '</span></div>' +
       '<div class="stat"><b>' + c.shiny.length + '</b><span>' + TEXT.shinyStat + '</span></div>' +
-      '<div class="stat"><b class="stat-small">' + esc(when) + '</b><span>' + TEXT.lastSave + '</span></div></div>' +
+      dateStat + '</div>' +
       (unknown ? '<p class="muted small">' + TEXT.unknown(unknown) + '</p>' : '') +
       planHtml(owned) +
       '<h3>' + TEXT.byTier + '</h3>' + table + groups + missing;
@@ -506,6 +531,8 @@
 
   // ---------------------------------------------------------------- guardado en este navegador
   const STORE_KEY = 'survivortiers.coleccion';
+  let viewing = null;
+  let pendingOwn = null;
 
   function readSaved() {
     try {
@@ -550,28 +577,383 @@
     $('#result').innerHTML = '<div class="err" role="alert">' + esc(msg) + '</div>';
   }
 
+  // ---------------------------------------------------------------- compartir (enlace en el fragmento, imagen en el navegador)
+  const ICO_SHARE = '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false" shape-rendering="crispEdges"><path fill="currentColor" d="M1 6h4v4H1zm10-5h4v4h-4zm0 10h4v4h-4z"/><path d="M5 8h6M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>';
+  const ICO_DOWN = '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false" shape-rendering="crispEdges"><path fill="currentColor" d="M7 1h2v6h3l-4 4-4-4h3zM2 13h12v2H2z"/></svg>';
+  const ICO_BACK = '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false" shape-rendering="crispEdges"><path fill="currentColor" d="M8 2 3 8l5 6V10h6V6H8z"/></svg>';
+  const ICO_USER = '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false" shape-rendering="crispEdges"><path fill="currentColor" d="M6 1h4v4H6zM3 7h10v7H3z"/></svg>';
+  const ICO_TAG = '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false" shape-rendering="crispEdges"><path fill="currentColor" d="M1 7V1h6l8 8-6 6zm3-3h2v2H4z"/></svg>';
+  const CARD_W = 1200, CARD_H = 630;
+  let zenReady = null;
+
+  function hashCollection() {
+    let raw = location.hash.slice(3);
+    if (!raw) return null;
+    try { raw = decodeURIComponent(raw); } catch (e) { return null; }
+    return ShareCodec.decodeCollection(raw);
+  }
+
+  function syncLangHash() {
+    const hash = location.hash.startsWith('#c=') ? location.hash : '';
+    $$('.lang a').forEach(a => {
+      if (a.getAttribute('aria-current') === 'page') return;
+      const href = a.getAttribute('href');
+      if (!href || href === '#') return;
+      if (!a.dataset.bare) a.dataset.bare = href.split('#')[0];
+      a.setAttribute('href', a.dataset.bare + hash);
+    });
+  }
+
+  function shareUrl() {
+    if (!viewing) return '';
+    const name = $('#share-name') ? $('#share-name').value : '';
+    return location.origin + location.pathname + location.search + '#c=' +
+      ShareCodec.encodeCollection(viewing.c.dex, viewing.c.shiny, name);
+  }
+
+  function onMobileShare() {
+    return !!(navigator.share && (matchMedia('(pointer: coarse)').matches ||
+      (navigator.maxTouchPoints > 0 && matchMedia('(max-width: 820px)').matches)));
+  }
+
+  function shareLink() {
+    const url = shareUrl();
+    if (!url) return;
+    const msg = $('#share-msg');
+    if (onMobileShare()) {
+      navigator.share({ title: TEXT.shareTitle, url }).then(() => {}, err => {
+        if (err && err.name === 'AbortError') return;
+        msg.textContent = TEXT.shareFail;
+      });
+      return;
+    }
+    const done = ok => { msg.textContent = ok ? TEXT.copiedLink : TEXT.copyFail; };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(() => done(true), () => done(false));
+    else done(false);
+  }
+
+  function themeColors() {
+    const s = getComputedStyle(document.documentElement);
+    const g = name => s.getPropertyValue(name).trim();
+    const tier = {};
+    TIERS.forEach(t => { tier[t] = g('--tier-' + t); });
+    return { bg: g('--bg'), ink: g('--ink'), ink2: g('--ink-2'), accent: g('--accent'), on: g('--on-accent'),
+      soft: g('--rule-soft'), tierInk: g('--tier-ink'), tier };
+  }
+
+  function fitText(ctx, text, max, size, weight, family) {
+    let s = size;
+    while (s > 18) {
+      ctx.font = weight + ' ' + s + 'px ' + family;
+      if (ctx.measureText(text).width <= max) return s;
+      s -= 2;
+    }
+    return s;
+  }
+
+  function sparkle(ctx, x, y, color) {
+    ctx.fillStyle = color;
+    const rows = ['000010000', '000111000', '001111100', '111111111', '011111110', '001111100', '011000110', '110000011'];
+    rows.forEach((row, dy) => {
+      for (let dx = 0; dx < row.length; dx++) if (row[dx] === '1') ctx.fillRect(x + dx * 2, y + dy * 2, 2, 2);
+    });
+  }
+
+  function loadZen() {
+    if (!zenReady) {
+      zenReady = Promise.all([
+        document.fonts.load('400 20px "Zen Kaku Gothic New"'),
+        document.fonts.load('700 20px "Zen Kaku Gothic New"'),
+        document.fonts.load('700 64px "Pixelify Sans"'),
+      ]).catch(() => {});
+    }
+    return zenReady;
+  }
+
+  function loadSprite(dex) {
+    return new Promise(resolve => {
+      const img = new Image();
+      const src = sprites + dex + spriteExt;
+      let absolute = null;
+      try { absolute = new URL(src, location.href); } catch (e) { absolute = null; }
+      if (absolute && absolute.origin !== location.origin) img.crossOrigin = 'anonymous';
+      img.onload = () => resolve(img.naturalWidth ? img : null);
+      img.onerror = () => resolve(null);
+      img.src = src;
+    });
+  }
+
+  function showcase(c) {
+    const owned = new Set(c.dex);
+    const out = [];
+    TIERS.forEach(t => {
+      state.mons.filter(p => p.r[1] === t && owned.has(p.dex)).sort((a, b) => a.r[0] - b.r[0]).forEach(p => {
+        if (out.length < 6) out.push(p);
+      });
+    });
+    return out;
+  }
+
+  function paintCard(ctx, colors, info, images) {
+    const W = CARD_W, H = CARD_H;
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = colors.ink;
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = colors.bg;
+    ctx.fillRect(10, 10, W - 20, H - 20);
+    ctx.fillStyle = colors.accent;
+    ctx.fillRect(10, 10, W - 20, 8);
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(18, 26, W - 36, H - 44);
+    ctx.clip();
+    ctx.globalAlpha = 0.055;
+    ctx.strokeStyle = colors.ink;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let x = 24; x < W; x += 24) { ctx.moveTo(x + 0.5, 26); ctx.lineTo(x + 0.5, H); }
+    for (let y = 32; y < H; y += 24) { ctx.moveTo(18, y + 0.5); ctx.lineTo(W, y + 0.5); }
+    ctx.stroke();
+    ctx.restore();
+
+    const left = 48;
+    ctx.textBaseline = 'top';
+    ctx.textAlign = 'left';
+    ctx.font = '700 52px "Pixelify Sans"';
+    ctx.fillStyle = colors.accent;
+    ctx.fillText('Survivor', left, 40);
+    ctx.fillStyle = colors.ink;
+    ctx.fillText('Tiers', left + ctx.measureText('Survivor').width, 40);
+    ctx.font = '700 26px "Pixelify Sans"';
+    ctx.fillStyle = colors.ink2;
+    ctx.textAlign = 'right';
+    ctx.fillText(TEXT.collectionWord.toUpperCase(), W - 48, 54);
+    ctx.textAlign = 'left';
+
+    let y = 118;
+    if (info.name) {
+      const size = fitText(ctx, info.name, 680, 34, '700', '"Pixelify Sans"');
+      ctx.font = '700 ' + size + 'px "Pixelify Sans"';
+      ctx.fillStyle = colors.ink;
+      ctx.fillText(info.name, left, y);
+      y += size + 14;
+    }
+    ctx.font = '700 84px "Pixelify Sans"';
+    ctx.fillStyle = colors.ink;
+    const num = String(info.known);
+    ctx.fillText(num, left, y);
+    const numW = ctx.measureText(num).width;
+    ctx.font = '700 32px "Pixelify Sans"';
+    ctx.fillStyle = colors.ink2;
+    ctx.fillText('/ ' + info.total, left + numW + 14, y + 44);
+    const labelY = y + 92;
+    ctx.font = '400 20px "Zen Kaku Gothic New", sans-serif';
+    ctx.fillStyle = colors.ink2;
+    ctx.fillText(TEXT.dexStat(), left, labelY);
+    const shinyX = 500;
+    sparkle(ctx, shinyX, y + 36, colors.accent);
+    ctx.font = '700 42px "Pixelify Sans"';
+    ctx.fillStyle = colors.ink;
+    ctx.fillText(String(info.shiny), shinyX + 28, y + 28);
+    ctx.font = '400 18px "Zen Kaku Gothic New", sans-serif';
+    ctx.fillStyle = colors.ink2;
+    ctx.fillText(TEXT.shinyStat, shinyX + 28, y + 78);
+
+    y = labelY + 44;
+    info.rows.forEach(r => {
+      ctx.fillStyle = colors.tier[r.t];
+      ctx.fillRect(left, y, 36, 36);
+      ctx.fillStyle = colors.tierInk;
+      ctx.font = '700 22px "Pixelify Sans"';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(r.t, left + 18, y + 19);
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      const barX = left + 48, barW = 400, barY = y + 11;
+      ctx.fillStyle = colors.soft;
+      ctx.fillRect(barX, barY, barW, 14);
+      const fill = r.n ? Math.round(barW * r.have / r.n) : 0;
+      ctx.fillStyle = colors.tier[r.t];
+      for (let i = 0; i < fill; i += 8) ctx.fillRect(barX + i, barY, Math.min(6, fill - i), 14);
+      ctx.font = '700 20px "Zen Kaku Gothic New", sans-serif';
+      ctx.fillStyle = colors.ink;
+      ctx.fillText(TEXT.haveOf(r.have, r.n), barX + barW + 14, y + 7);
+      y += 46;
+    });
+
+    const cell = 116, gap = 14;
+    const cols = images.length > 3 ? 3 : Math.max(images.length, 1);
+    const gridW = images.length ? cols * cell + (cols - 1) * gap : 0;
+    const originX = W - 48 - gridW;
+    images.forEach((item, i) => {
+      const x = originX + (i % cols) * (cell + gap);
+      const sy = 128 + Math.floor(i / cols) * (cell + gap);
+      ctx.fillStyle = colors.tier[item.tier];
+      ctx.fillRect(x, sy, cell, cell);
+      ctx.fillStyle = colors.bg;
+      ctx.fillRect(x + 5, sy + 5, cell - 10, cell - 10);
+      if (!item.img) return;
+      const box = cell - 20;
+      const scale = Math.min(box / item.img.width, box / item.img.height);
+      const w = Math.max(1, Math.round(item.img.width * scale));
+      const h = Math.max(1, Math.round(item.img.height * scale));
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(item.img, Math.round(x + (cell - w) / 2), Math.round(sy + (cell - h) / 2), w, h);
+      ctx.imageSmoothingEnabled = true;
+    });
+
+    ctx.font = '400 16px "Zen Kaku Gothic New", sans-serif';
+    ctx.fillStyle = colors.ink2;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText(TEXT.siteHost, left, H - 28);
+  }
+
+  async function buildShareCanvas(c, shareName) {
+    await loadZen();
+    const owned = new Set(c.dex);
+    const known = state.mons.filter(p => owned.has(p.dex)).length;
+    const picks = showcase(c);
+    const loaded = await Promise.all(picks.map(p => loadSprite(p.dex)));
+    const images = picks.map((p, i) => ({ tier: p.r[1], img: loaded[i] })).filter(item => item.img);
+    const canvas = document.createElement('canvas');
+    canvas.width = CARD_W;
+    canvas.height = CARD_H;
+    paintCard(canvas.getContext('2d'), themeColors(), {
+      known: known, total: state.mons.length, shiny: c.shiny.length,
+      name: ShareCodec.cleanName(shareName), rows: tierRows(owned),
+    }, images);
+    return canvas;
+  }
+
+  function shareImage() {
+    if (!viewing) return;
+    const btn = $('#share-img');
+    const msg = $('#share-msg');
+    btn.disabled = true;
+    buildShareCanvas(viewing.c, $('#share-name').value).then(canvas => new Promise(resolve => canvas.toBlob(resolve, 'image/png'))).then(blob => {
+      if (!blob) throw new Error('png');
+      const a = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      a.href = url;
+      a.download = 'survivortiers-collection.png';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1500);
+    }).catch(() => { msg.textContent = TEXT.imageFail; }).finally(() => { btn.disabled = false; });
+  }
+
+  function mountShare() {
+    if ($('#sharebar')) return;
+    const bar = document.createElement('div');
+    bar.id = 'sharebar';
+    bar.className = 'sharebar';
+    bar.hidden = true;
+    bar.innerHTML =
+      '<div id="guest-banner" class="guest-banner" hidden><p class="guest-flag">' + ICO_USER +
+      '<span>' + esc(TEXT.otherCollection) + '</span></p><button class="btn ghost with-ico" type="button" id="back-own">' +
+      ICO_BACK + esc(TEXT.backToMine) + '</button></div>' +
+      '<div id="share-actions" class="share-actions"><div class="share-name">' + ICO_TAG +
+      '<label class="sr" for="share-name">' + esc(TEXT.shareNameLabel) + '</label>' +
+      '<input id="share-name" type="text" maxlength="' + ShareCodec.MAX_CHARS + '" autocomplete="off" spellcheck="false" placeholder="' +
+      esc(TEXT.shareNamePh) + '" aria-label="' + esc(TEXT.shareNameLabel) + '"></div>' +
+      '<button class="btn with-ico" type="button" id="share-link">' + ICO_SHARE + esc(TEXT.share) + '</button>' +
+      '<button class="btn ghost with-ico" type="button" id="share-img">' + ICO_DOWN + esc(TEXT.download) + '</button>' +
+      '<span id="share-msg" class="muted small" role="status" aria-live="polite"></span></div>';
+    const row = document.querySelector('.reimport-row');
+    row.parentNode.insertBefore(bar, row);
+    $('#back-own').addEventListener('click', () => { location.hash = ''; });
+    $('#share-link').addEventListener('click', shareLink);
+    $('#share-img').addEventListener('click', shareImage);
+    $('#share-name').addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); $('#share-link').click(); }
+    });
+  }
+
+  function openShare(guest, shareName, enabled) {
+    const bar = $('#sharebar');
+    bar.hidden = false;
+    $('#guest-banner').hidden = !guest;
+    const on = enabled !== false;
+    $('#share-actions').hidden = !on;
+    $('#share-msg').textContent = '';
+    if (!on) return;
+    const input = $('#share-name');
+    input.readOnly = !!guest;
+    input.value = guest ? (shareName || '') : '';
+    $('.share-name').hidden = !!guest;
+  }
+
   function initCollection() {
     const area = $('#import-area'), again = $('#reimport'), drop = $('#drop'), fileIn = $('#file');
     // Con una colección importada, el paso a paso y el área de pegado se ocultan: sólo queda «Reimportar».
     const showImport = on => { area.hidden = !on; again.hidden = on; };
-    const saved = readSaved();
-    if (saved) { renderCollection(saved.c); showSaved(saved.savedAt, false); showImport(false); }
-    else showImport(true);
+    mountShare();
+    const paintOwn = (c, stored, savedAt) => {
+      viewing = { c: c };
+      renderCollection(c);
+      if (stored === false) showSaved(0, true);
+      else showSaved(savedAt, false);
+      showImport(false);
+      openShare(false, '');
+    };
+    const showView = () => {
+      syncLangHash();
+      if (pendingOwn && !location.hash.startsWith('#c=')) {
+        const job = pendingOwn;
+        pendingOwn = null;
+        paintOwn(job.c, job.stored, job.savedAt);
+        return;
+      }
+      pendingOwn = null;
+      if (location.hash.startsWith('#c=')) {
+        const decoded = hashCollection();
+        area.hidden = true;
+        again.hidden = true;
+        $('#saved').textContent = '';
+        if (!decoded) {
+          viewing = null;
+          showError(TEXT.badLink);
+          openShare(true, '', false);
+          return;
+        }
+        const c = { version: 1, name: '', updated: 0, dex: decoded.dex, shiny: decoded.shiny };
+        viewing = { c: c };
+        renderCollection(c, { guest: true, shareName: decoded.name });
+        openShare(true, decoded.name, true);
+        return;
+      }
+      const saved = readSaved();
+      if (saved) paintOwn(saved.c, true, saved.savedAt);
+      else {
+        viewing = null;
+        $('#result').innerHTML = '';
+        showSaved(0, false);
+        showImport(true);
+        $('#sharebar').hidden = true;
+      }
+    };
+    window.addEventListener('hashchange', showView);
     $('#saved').addEventListener('click', e => {
       if (e.target.id !== 'forget') return;
       clearSaved();
+      viewing = null;
       $('#result').innerHTML = '';
       $('#saved').textContent = TEXT.forgot;
       showImport(true);
+      $('#sharebar').hidden = true;
     });
     again.addEventListener('click', () => { showImport(true); area.scrollIntoView({ block: 'start' }); });
     const run = text => {
       try {
         const c = parseCollection(text);
         const stored = writeSaved(c);
-        renderCollection(c);
-        showSaved(stored ? Date.now() : 0, !stored);
-        showImport(false);
+        if (location.hash) {
+          pendingOwn = { c: c, stored: stored, savedAt: Date.now() };
+          location.hash = '';
+        } else paintOwn(c, stored, Date.now());
       } catch (e) {
         if (e instanceof ImportError) showError(e.message); else throw e;
       }
@@ -609,6 +991,7 @@
       if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(() => done(true), () => done(false));
       else done(false);
     });
+    showView();
   }
 
   // ---------------------------------------------------------------- gráficos
