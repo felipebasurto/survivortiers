@@ -35,7 +35,8 @@
       pct: v => v + NBSP + '%',
       notJson: 'Eso no es JSON. Copia el resultado entero, de la { a la }.',
       notCollection: 'Eso no es una colección.',
-      missingKeys: 'Faltan «dex» o «shiny». Usa el JSON del comando de esta página.',
+      missingKeys: 'Faltan «dex» o «shiny». Copia el JSON que devuelve el comando de esta página.',
+      badShinyInfo: 'El bloque «shinyInfo» no tiene el formato del comando. Vuelve a copiar el comando de esta página.',
       pasteFirst: 'Pega primero el resultado del comando.',
       tooBig: 'El archivo es demasiado grande.',
       copied: 'Copiado',
@@ -87,7 +88,8 @@
       pct: v => v + '%',
       notJson: 'That is not JSON. Copy the whole result, from { to }.',
       notCollection: 'That is not a collection.',
-      missingKeys: 'Missing "dex" or "shiny". Use the JSON from this page\'s command.',
+      missingKeys: 'Missing "dex" or "shiny". Copy the JSON that this page\'s command returns.',
+      badShinyInfo: '"shinyInfo" is not in the command\'s format. Copy this page\'s command again.',
       pasteFirst: 'Paste the command result first.',
       tooBig: 'The file is too large.',
       copied: 'Copied',
@@ -336,17 +338,6 @@
   }
 
   // ---------------------------------------------------------------- colección
-  class ImportError extends Error {}
-
-  function parseCollection(text) {
-    let o;
-    try { o = JSON.parse(text.trim()); } catch (e) { throw new ImportError(TEXT.notJson); }
-    if (typeof o === 'string') { try { o = JSON.parse(o); } catch (e) { throw new ImportError(TEXT.notCollection); } }
-    if (!o || typeof o !== 'object' || !Array.isArray(o.dex) || !Array.isArray(o.shiny)) throw new ImportError(TEXT.missingKeys);
-    const ints = a => [...new Set(a.map(Number).filter(n => Number.isInteger(n) && n > 0))];
-    return { version: o.version, name: String(o.name || ''), updated: +o.updated || 0, dex: ints(o.dex), shiny: ints(o.shiny) };
-  }
-
   function tierRows(owned) {
     return TIERS.map(t => {
       const all = state.mons.filter(p => p.r[1] === t);
@@ -635,7 +626,7 @@
     if (!viewing) return '';
     const name = $('#share-name') ? $('#share-name').value : '';
     return location.origin + location.pathname + location.search + '#c=' +
-      ShareCodec.encodeCollection(viewing.c.dex, viewing.c.shiny, name);
+      ShareCodec.encodeCollection({ dex: viewing.c.dex, shiny: viewing.c.shiny, gacha: Collection.gachaForLink(viewing.c), name: name });
   }
 
   function onMobileShare() {
@@ -924,7 +915,7 @@
           renderSaved('broken');
           return;
         }
-        const c = { version: 1, name: '', updated: 0, dex: decoded.dex, shiny: decoded.shiny };
+        const c = Collection.fromLink(decoded);
         viewing = { c: c };
         renderCollection(c, { guest: true, shareName: decoded.name });
         renderSaved('guest', decoded.name);
@@ -961,16 +952,13 @@
       }
     });
     const run = text => {
-      try {
-        const c = parseCollection(text);
-        const stored = writeSaved(c);
-        if (location.hash) {
-          pendingOwn = { c: c, stored: stored };
-          location.hash = '';
-        } else paintOwn(c, stored);
-      } catch (e) {
-        if (e instanceof ImportError) showError(e.message); else throw e;
-      }
+      const r = Collection.parse(text);
+      if (!r.ok) { showError(TEXT[r.reason]); return; }
+      const stored = writeSaved(r.c);
+      if (location.hash) {
+        pendingOwn = { c: r.c, stored: stored };
+        location.hash = '';
+      } else paintOwn(r.c, stored);
     };
     const loadFile = f => {
       if (f.size > 2e6) { showError(TEXT.tooBig); return; }
