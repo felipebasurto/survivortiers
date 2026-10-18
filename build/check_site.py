@@ -35,6 +35,7 @@ import combos  # noqa: E402
 import indexnow  # noqa: E402
 import landing  # noqa: E402
 import legal  # noqa: E402
+import toolpages  # noqa: E402
 import theme  # noqa: E402
 from i18n import EN, ES  # noqa: E402
 
@@ -146,7 +147,7 @@ def agent_check(base: str, body_by_url: dict[str, str], err, notes: list[str], n
         err(f"data/ranking.csv: {len(rows) - 1} filas, se esperaban 966 y sin líneas de comentario")
 
     # sitemap: una entrada por página de menú, por ficha, por página de consulta y por idioma
-    expected = (len(agents.PAGES) + n_sheets + len(landing.pages())) * len(agents.LANG_PREFIX)
+    expected = (len(agents.PAGES) + n_sheets + len(landing.pages()) + len(toolpages.FOLDERS)) * len(agents.LANG_PREFIX)
     sitemap = fetch(base + "sitemap.xml")[1].decode("utf8", "replace")
     if sitemap.count("<url>") != expected:
         err(f"sitemap.xml: {sitemap.count('<url>')} entradas, se esperaban {expected}")

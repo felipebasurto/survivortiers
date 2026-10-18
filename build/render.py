@@ -20,15 +20,20 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import agents  # noqa: E402
 import balls  # noqa: E402
 import charts  # noqa: E402
+import finder  # noqa: E402
+import gamestats  # noqa: E402
 import landing  # noqa: E402
 import legal  # noqa: E402
 import objetos  # noqa: E402
 import pasivas  # noqa: E402
 import pack  # noqa: E402
+import planner  # noqa: E402
 import regions  # noqa: E402
+import repertorio  # noqa: E402
 import share_image  # noqa: E402
 import static_ficha  # noqa: E402
 import theme  # noqa: E402
+import toolpages  # noqa: E402
 import typedata  # noqa: E402
 from i18n import EN, ES, LANGS, TYPE_NAMES, Lang  # noqa: E402
 from slugs import species_path  # noqa: E402
@@ -46,6 +51,7 @@ NAV = [("index", "index.html", "nav_tiers"),
        ("ataques", "ataques.html", "nav_ataques"), ("objetos", "objetos.html", "nav_objetos"),
        ("pasivas", "pasivas.html", "nav_pasivas"),
        ("gachas", "gachas.html", "nav_gachas"),
+       ("buscador", "@finder", "nav_buscador"), ("planificador", "@planner", "nav_planificador"),
        ("coleccion", "coleccion.html", "nav_coleccion"), ("acerca", "acerca.html", "nav_acerca"),
        ("metodo", "metodo.html", "nav_metodo")]
 SORT_KEYS = ("rank", "name", "dex", "atk", "pa", "sa", "hp", "spd", "df", "sd", "ehp", "rad", "td", "mv", "st",
@@ -191,8 +197,9 @@ def page(c: Ctx, page_id: str, title: str, description: str, content: str, meta:
                  f"data-cf-beacon='{{\"token\": \"{legal.WEB_ANALYTICS_TOKEN}\"}}'></script>")
     current = ' aria-current="page"'
     nav = "\n".join(
-        f'      <a href="{c.home}{href}"{current if pid == page_id else ""}>{esc(L.t(key))}</a>' for pid, href, key in NAV)
-    footer_nav = "\n".join(f'      <a href="{c.home}{href}">{esc(L.t(key))}</a>' for _, href, key in NAV)
+        f'      <a href="{c.home}{toolpages.target(L, href)}"{current if pid == page_id else ""}>{esc(L.t(key))}</a>'
+        for pid, href, key in NAV)
+    footer_nav = "\n".join(f'      <a href="{c.home}{toolpages.target(L, href)}">{esc(L.t(key))}</a>' for _, href, key in NAV)
     lic = meta["spriteLicense"]
     sprites_line = L.t("sprites_line_html", url=esc(lic["sourceUrl"]), source=esc(lic["source"]),
                        lic_url=esc(lic["url"]), lic=esc(lic["name"]), about=f"{c.home}acerca.html")
@@ -292,6 +299,7 @@ FICHA_KEYS = (
     "t_rank", "rank_how", "ficha_rank", "pill_stats", "pill_moves", "pill_typedef", "pill_size", "pillars_alt_item",
     "median", "m_sheet", "m_simStart", "m_simBest", "m_lateMax", "m_lateFresh", "methods_final", "methods_alt",
     "methods_alt_item", "sim_start", "sim_best", "sim_median", "sim_alt", "sim_gain", "sim_noshop",
+    "rep_title", "rep_b1", "rep_b2", "rep_b3",
     "rar_1", "rar_2", "rar_3", "rar_4", "rar_5", "t_base", "bs_hp", "bs_atk", "bs_def", "bs_spa", "bs_spd", "bs_spe",
     "bs_total", "bs_alt_item", "bs_s_hp", "bs_s_atk", "bs_s_def", "bs_s_spa", "bs_s_spd", "bs_s_spe",
     "sheet_title", "sheet_desc", "fh_game", "fresh", "t_combat", "cb_pa", "cb_sa", "cb_df", "cb_sd", "cb_kind_phys",
@@ -488,6 +496,18 @@ def render_ataques(c: Ctx, moves: list[dict], meta: dict, index: list[dict]) -> 
                 L.t("ataques_desc", n=len(moves), game=legal.GAME_NAME), content, meta)
 
 
+def render_finder(c: Ctx, meta: dict) -> str:
+    L = c.L
+    return page(c, "buscador", L.t("tf_title", game=legal.GAME_NAME, site=legal.SITE_NAME),
+                L.t("tf_desc", game=legal.GAME_NAME), finder.content(L), meta)
+
+
+def render_planner(c: Ctx, meta: dict) -> str:
+    L = c.L
+    return page(c, "planificador", L.t("bp_title", game=legal.GAME_NAME, site=legal.SITE_NAME),
+                L.t("bp_desc", game=legal.GAME_NAME), planner.content(L), meta)
+
+
 def render_objetos(c: Ctx, meta: dict) -> str:
     L = c.L
     content = objetos.items_content(L, L.t("obj_h1"), L.t("obj_lede"), L.t("obj_phases_h"), L.t("obj_table_h"))
@@ -607,6 +627,7 @@ def render_metodo(c: Ctx, index: list[dict], full: list[dict], meta: dict) -> st
 <p class="lede">{esc(L.t("met_lede"))}</p>
 {charts.pipeline(L)}
 {charts.method_steps(L, m["pieces"], meta["tierCuts"], m["gates"])}
+{repertorio.box(L)}
 {charts.walk(L, walkers, meta["tierCuts"], m["pieces"])}
 {charts.weights(L, m["pieces"])}
 {charts.weights_pillars(L, m["pillars"])}
@@ -711,6 +732,10 @@ def main() -> int:
         put("gachas.html", lambda c: render_gachas(c, gachas, index, meta))
         put("coleccion.html", lambda c: render_coleccion(c, gachas, meta))
         put("metodo.html", lambda c: render_metodo(c, index, full, meta))
+        for key, render_tool in (("finder", render_finder), ("planner", render_planner)):
+            rel = toolpages.rel(L, key)
+            c = Ctx.of(L, rel, twin=toolpages.twin(L, key))
+            write(f"{L.prefix}{rel}", render_tool(c, meta))
         put("acerca.html", lambda c: render_acerca(c, meta))
         put("pokemon/index.html", lambda c: render_ficha(c, index, meta))
         for i, entry in enumerate(ordered):
@@ -721,6 +746,7 @@ def main() -> int:
             summary = static_ficha.summary_plain(summaries[L.code][str(entry["dex"])])
             put(rel, lambda c, e=entry, d=detail, pv=prev, nx=nxt, b=before, a=after, s=summary:
                 render_species(c, e, d, moves_by, pv, nx, odds[e["dex"]], species["cards"], b, a, meta, s))
+    write("data/game-stats.json", json.dumps(gamestats.site_json(), ensure_ascii=False, separators=(",", ":")) + "\n")
     write("404.html", render_404(meta))
     share_image.save(SITE / "og.png")
     agents.write_all(SITE, meta, gachas, sheet_paths)

@@ -430,7 +430,7 @@
       '<div class="fh-main"><h1>' + esc(name) + ' <span class="fh-game">' + esc(t('fh_game')) + '</span> ' + otherName + '<small class="fh-dex">' + esc(t('dex_no', { dex: p.dex })) + '</small></h1>' +
       '<div class="facts">' + pills + rarity + legendary + tpl('tpl-regions', 'data-gen', p.bannerId) + '</div>' +
       '<p class="rankline" title="' + rankTitle + '" aria-label="' + rankTitle + '"><i class="ico ico-trophy" aria-hidden="true"></i><strong>' + rank + '</strong><span>/ ' + TOTAL + '</span></p>' +
-      '<p class="fresh">' + esc(t('fresh')) + '</p>' +
+      '<p class="fresh">' + esc(t('fresh')) + '</p>' + repWarn() +
       '</div>' + (sum || '') + '</header>';
   }
 
@@ -457,6 +457,9 @@
       '<div class="cb-list">' + atk + '</div><div class="cb-list">' + dfn + '</div>' +
       '<p class="cb-note">' + esc(note) + '</p><p class="cb-src">' + esc(t('cb_src')) + '</p></section>';
   }
+
+  const repWarn = () => '<aside class="rep-warn"><p class="rep-h"><b>' + esc(t('rep_title')) + '</b></p><ul>' +
+    ['rep_b1', 'rep_b2', 'rep_b3'].map(k => '<li>' + esc(t(k)) + '</li>').join('') + '</ul></aside>';
 
   function pager(prev, next) {
     const link = (q, dir) => {
