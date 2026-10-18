@@ -83,8 +83,8 @@ EXCEPTIONS = [
      "why": ("Ni los tiros ni los charcos usan esa recarga.", "Neither the shots nor the puddles use that cooldown.")},
     {"k": ("Cuerpo a cuerpo", "Melee"), "moves": ["tackle"], "ex": ("Placaje", "Tackle"),
      "rule": ("{heal} suma más", "{heal} adds more"),
-     "why": ("Hay que estar encima, así que el 45% al momento vale casi el doble.",
-             "You have to stand on the enemy, so the 45% on the spot is worth about twice as much.")},
+     "why": ("En la simulación, con ataques cuerpo a cuerpo la curación al momento vale casi el doble. El juego no lo cambia.",
+             "In the simulation, with melee attacks the on-the-spot heal is worth about twice as much. The game doesn't change it.")},
 ]
 EXCEPTION_MOVES = sorted({m for row in EXCEPTIONS for m in row["moves"]})
 
