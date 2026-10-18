@@ -49,13 +49,15 @@ EXT = legal.SPRITE_EXT
 SCALE_LIST = 2
 TIERS = ["S", "A", "B", "C", "D"]
 CATEGORIES = [("melee", "cuerpo a cuerpo"), ("ranged", "distancia"), ("stat", "estadística")]  # (id, valor del CSV)
-NAV = [("index", "index.html", "nav_tiers"), ("novedades", "novedades.html", "nav_novedades"),
-       ("ataques", "ataques.html", "nav_ataques"), ("objetos", "objetos.html", "nav_objetos"),
-       ("pasivas", "pasivas.html", "nav_pasivas"),
-       ("gachas", "gachas.html", "nav_gachas"),
-       ("buscador", "@finder", "nav_buscador"), ("planificador", "@planner", "nav_planificador"),
-       ("coleccion", "coleccion.html", "nav_coleccion"), ("acerca", "acerca.html", "nav_acerca"),
-       ("metodo", "metodo.html", "nav_metodo")]
+NAV_TOP = [("index", "index.html", "nav_tiers"), ("novedades", "novedades.html", "nav_novedades")]
+NAV_GROUPS = [
+    ("nav_tools", [("buscador", "@finder", "nav_buscador"), ("planificador", "@planner", "nav_planificador"),
+                   ("coleccion", "coleccion.html", "nav_coleccion")]),
+    ("nav_guide", [("ataques", "ataques.html", "nav_ataques"), ("objetos", "objetos.html", "nav_objetos"),
+                   ("pasivas", "pasivas.html", "nav_pasivas"), ("gachas", "gachas.html", "nav_gachas"),
+                   ("metodo", "metodo.html", "nav_metodo"), ("acerca", "acerca.html", "nav_acerca")]),
+]
+NAV = NAV_TOP + [item for _, items in NAV_GROUPS for item in items]
 SORT_KEYS = ("rank", "name", "dex", "atk", "pa", "sa", "hp", "spd", "df", "sd", "ehp", "rad", "td", "mv", "st",
              "rar")  # orden de la lista
 REPEAT_RANKS = (2, 40, 150, 350, 650)  # puestos de los Pokémon que salen en la ilustración de repeticiones
@@ -186,6 +188,32 @@ def theme_button(L: Lang) -> str:
             f'<i class="ico ico-sun" aria-hidden="true"></i><i class="ico ico-moon" aria-hidden="true"></i></button>')
 
 
+def _nav_link(c: Ctx, page_id: str, pid: str, href: str, key: str) -> str:
+    current = ' aria-current="page"' if pid == page_id else ""
+    return f'<a href="{c.home}{toolpages.target(c.L, href)}"{current}>{esc(c.L.t(key))}</a>'
+
+
+def _nav_html(c: Ctx, page_id: str) -> str:
+    """Menú principal: Tiers y Novedades sueltos, y dos grupos desplegables (Herramientas y Guía)."""
+    parts = [f'      {_nav_link(c, page_id, pid, href, key)}' for pid, href, key in NAV_TOP]
+    for group, items in NAV_GROUPS:
+        inside = any(pid == page_id for pid, _, _ in items)
+        cls = "nav-group is-current" if inside else "nav-group"
+        links = "\n".join(f'          {_nav_link(c, page_id, pid, href, key)}' for pid, href, key in items)
+        parts.append(f'      <details class="{cls}"><summary>{esc(c.L.t(group))}</summary>\n'
+                     f'        <div class="nav-menu">\n{links}\n        </div>\n      </details>')
+    return "\n".join(parts)
+
+
+def _footer_nav_html(c: Ctx) -> str:
+    top = " ".join(f'<a href="{c.home}{toolpages.target(c.L, href)}">{esc(c.L.t(key))}</a>' for _, href, key in NAV_TOP)
+    groups = []
+    for group, items in NAV_GROUPS:
+        links = " ".join(f'<a href="{c.home}{toolpages.target(c.L, href)}">{esc(c.L.t(key))}</a>' for _, href, key in items)
+        groups.append(f'      <div class="foot-group"><b>{esc(c.L.t(group))}</b> {links}</div>')
+    return f'      <div class="foot-group">{top}</div>\n' + "\n".join(groups)
+
+
 def page(c: Ctx, page_id: str, title: str, description: str, content: str, meta: dict, extra_head: str = "",
          head_links: str | None = None) -> str:
     L = c.L
@@ -198,10 +226,8 @@ def page(c: Ctx, page_id: str, title: str, description: str, content: str, meta:
     analytics = (f"<script defer src='https://static.cloudflareinsights.com/beacon.min.js' "
                  f"data-cf-beacon='{{\"token\": \"{legal.WEB_ANALYTICS_TOKEN}\"}}'></script>")
     current = ' aria-current="page"'
-    nav = "\n".join(
-        f'      <a href="{c.home}{toolpages.target(L, href)}"{current if pid == page_id else ""}>{esc(L.t(key))}</a>'
-        for pid, href, key in NAV)
-    footer_nav = "\n".join(f'      <a href="{c.home}{toolpages.target(L, href)}">{esc(L.t(key))}</a>' for _, href, key in NAV)
+    nav = _nav_html(c, page_id)
+    footer_nav = _footer_nav_html(c)
     lic = meta["spriteLicense"]
     sprites_line = L.t("sprites_line_html", url=esc(lic["sourceUrl"]), source=esc(lic["source"]),
                        lic_url=esc(lic["url"]), lic=esc(lic["name"]), about=f"{c.home}acerca.html")

@@ -50,7 +50,8 @@ STR: dict[str, tuple[str, str]] = {
     "index_title": ("{site} · Tier list de {game}", "{site} · {game} tier list"),
     "index_desc": ("Tier list de los {n} Pokémon de {game}, hecha simulando {sims} partidas por Pokémon. Código y datos abiertos en GitHub.",
                    "Tier list of the {n} Pokémon in {game}, built by simulating {sims} games per Pokémon. Code and data open on GitHub."),
-    "fresh": ("Datos del juego: commit {sha} · actualizado {date}", "Game data: commit {sha} · updated {date}"),
+    "fresh": ("Datos del juego: commit {sha} (ranking) · mecánicas: commit {combat} · actualizado {date}",
+              "Game data: commit {sha} (ranking) · mechanics: commit {combat} · updated {date}"),
     "guides_h": ("Más listas", "More lists"),
     "guides_types": ("Por tipo", "By type"),
     "guide_best": ("Mejores Pokémon", "Best Pokémon"),
@@ -459,7 +460,7 @@ STR: dict[str, tuple[str, str]] = {
                    "Legal notice, credits and licences for {site}, a {game} tier list."),
     "about_h1": ("Info de {game}", "About {game}"),
     "about_credits_h": ("Créditos", "Credits"),
-    "about_sprites_h": ("Sprites", "Sprites"),
+    "about_sprites_h": ("Artistas de SpriteCollab", "SpriteCollab artists"),
     "about_sprites_html": (
         '<a href="{url}" rel="noopener">{source}</a>, licencia <a href="{lic_url}" rel="noopener">{lic}</a>.',
         '<a href="{url}" rel="noopener">{source}</a>, license <a href="{lic_url}" rel="noopener">{lic}</a>.'),
@@ -625,8 +626,10 @@ STR: dict[str, tuple[str, str]] = {
                   "Our own estimate, not checked against real games."),
 
     # ------------------------------------------------------------ navegación de las herramientas
-    "nav_buscador": ("Tipos", "Types"),
-    "nav_planificador": ("Build", "Build"),
+    "nav_buscador": ("Buscador", "Type finder"),
+    "nav_planificador": ("Planificador", "Build planner"),
+    "nav_tools": ("Herramientas", "Tools"),
+    "nav_guide": ("Guía", "Guide"),
     "guide_finder": ("Buscador por tipos", "Type finder"),
     "guide_planner": ("Planificador de build", "Build planner"),
     "stat_atk": ("Ataque", "Attack"),
@@ -648,15 +651,15 @@ STR: dict[str, tuple[str, str]] = {
 
     # ------------------------------------------------------------ potenciadores (pasivas)
     "pv_buff_h": ("Potenciadores: el tope de dos y la categoría", "Boosts: the two-boost cap and the category"),
-    "pv_buff_lede": ("Un potenciador no hace daño: sube una estadística mientras está activo. Con dos potenciadores en el grupo, "
-                     "las cartas de subida de nivel ya no ofrecen potenciadores nuevos. Las mejoras de los que ya tienes siguen saliendo.",
-                     "A boost does no damage: it raises one stat while it is active. With two boosts in the group, level-up cards "
-                     "stop offering new boosts. Upgrades for the boosts you already have still show up."),
+    "pv_buff_lede": ("Un potenciador no hace daño: sube una estadística mientras dura. Con dos potenciadores en el grupo, "
+                     "las cartas de movimiento nuevo ya no ofrecen más potenciadores. Las mejoras de los que ya tienes siguen saliendo.",
+                     "A boost does no damage: it raises one stat while it lasts. With two boosts in your group, new-move cards "
+                     "stop offering boosts. Upgrades for the boosts you already have still show up."),
     "pv_buff_th_boost": ("Potenciador", "Boost"),
     "pv_buff_th_stat": ("Sube", "Raises"),
     "pv_buff_th_cd": ("Recarga", "Cooldown"),
     "pv_buff_th_dur": ("Dura", "Lasts"),
-    "pv_buff_th_max": ("Máximo", "Maximum"),
+    "pv_buff_th_max": ("Máximo sin mejoras", "Max, no upgrades"),
     "pv_buff_cat_phys": ("ataque físico", "physical attack"),
     "pv_buff_cat_spec": ("ataque especial", "special attack"),
     "pv_buff_stat_spd": ("velocidad", "speed"),
@@ -664,14 +667,14 @@ STR: dict[str, tuple[str, str]] = {
     "pv_buff_stat_regen": ("regeneración", "regeneration"),
     "pv_buff_r1": ("Cada potenciador dura 7 s (Acua Aro, 8 s). Si vuelve a salir antes de que acabe, el tiempo empieza de nuevo.",
                    "Each boost lasts 7 s (Aqua Ring, 8 s). If it fires again before it ends, the timer starts over."),
-    "pv_buff_r2": ("Danza Espada y Danza Dragón son de ataque físico y comparten casilla. Comparten el contador de acumulaciones, "
-                   "y el porcentaje por acumulación lo pone la última que se lanza: no se suman. Nunca lleves las dos.",
-                   "Swords Dance and Dragon Dance are physical attack boosts and share a slot. They share the stack counter, "
-                   "and the amount per stack is set by the last one to fire: they don't add up. Never take both."),
-    "pv_buff_r3": ("Maquinación es la de ataque especial, con su propia casilla. En un grupo mixto puedes llevar una danza física y "
-                   "Maquinación, y cada una sube su lado.",
-                   "Maquinación is the special attack boost, with its own slot. In a mixed group you can take a physical dance and "
-                   "Maquinación, and each one raises its side."),
+    "pv_buff_r2": ("Danza Espada y Danza Dragón solo suben el ataque físico y comparten el contador de acumulaciones. "
+                   "El porcentaje por acumulación lo pone la última que se lanza: no se suman. Por eso no lleves las dos.",
+                   "Swords Dance and Dragon Dance raise only physical attack and share the stack counter. The percentage per stack "
+                   "is set by the last one to fire: they don't add up. That's why you don't take both."),
+    "pv_buff_r3": ("Maquinación sube solo el ataque especial y tiene su propio contador. En un grupo mixto puedes llevar una danza "
+                   "física y Maquinación, y cada una sube su lado.",
+                   "Maquinación raises only special attack and has its own counter. In a mixed group you can take a physical dance "
+                   "and Maquinación, and each one raises its side."),
     "pv_buff_rec": ("Nuestra recomendación: Danza Espada si tu Pokémon pega más con ataques físicos, y Maquinación si pega más con "
                     "especiales. Así no acabas con una danza que no sube nada.",
                     "Our recommendation: Swords Dance if your Pokémon hits harder with physical moves, and Maquinación if it hits "
@@ -751,9 +754,9 @@ STR: dict[str, tuple[str, str]] = {
     "bp_mismatch_none": ("{boost} solo sube ataques {cat}, y este grupo no tiene ninguno.",
                          "{boost} only raises {cat} attacks, and this group has none."),
     "bp_mismatch_some": ("{boost} solo sube {n} de tus {total} ataques.", "{boost} only raises {n} of your {total} attacks."),
-    "bp_both": ("Danza Espada y Danza Dragón comparten la casilla de ataque físico: no suman, y solo cuenta la última que se lanza. "
+    "bp_both": ("Danza Espada y Danza Dragón comparten el contador de ataque físico: no suman, y solo cuenta la última que se lanza. "
                 "No las lleves juntas.",
-                "Swords Dance and Dragon Dance share the physical attack slot: they don't add up, and only the last one to fire "
+                "Swords Dance and Dragon Dance share the physical attack counter: they don't add up, and only the last one to fire "
                 "counts. Don't take both."),
     "bp_swapped": ("Su build recomendada tenía {from}, pero la mayoría de sus ataques son especiales: la cambiamos por Maquinación. "
                    "La build de la ficha se simuló antes del reparto físico y especial.",
@@ -779,9 +782,11 @@ STR: dict[str, tuple[str, str]] = {
     "bp_open_sheet": ("Ver su ficha", "See its sheet"),
     "bp_boost_guide": ("Cómo funcionan los potenciadores", "How boosts work"),
     "bp_how": ("Cada ataque es físico o especial, según la lista de movimientos del juego. Danza Espada y Danza Dragón suben "
-               "los físicos; Maquinación, los especiales. Con dos potenciadores llegas al tope.",
-               "Each attack is physical or special, according to the game's move list. Swords Dance and Dragon Dance raise "
-               "physical attacks; Maquinación raises special ones. Two boosts is the cap."),
+               "solo el físico y comparten contador; Maquinación sube el especial. Cada potenciador dura 7 s. Con dos potenciadores, "
+               "las cartas de movimiento nuevo ya no ofrecen más.",
+               "Each attack is physical or special, according to the game's move list. Swords Dance and Dragon Dance raise only "
+               "physical attack and share a counter; Maquinación raises special attack. Each boost lasts 7 s. With two boosts, "
+               "new-move cards stop offering more."),
     "bp_source": ("Movimientos: <a href=\"{url}\" rel=\"noopener\">js/data/moves.js</a>. pa y sa: "
                   "<a href=\"{stats}\" rel=\"noopener\">js/data/pokedex.js</a>. Commit {sha}.",
                   "Moves: <a href=\"{url}\" rel=\"noopener\">js/data/moves.js</a> in the game. pa and sa: "
