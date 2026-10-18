@@ -20,8 +20,11 @@ REPO = ROOT.parent
 BIN = ROOT / "sim-rs" / "target" / "release" / "pokesim"
 SYNERGY_CSV = ROOT / "results" / "fixed_group" / "synergy_groups.csv"
 BASE_CSV = ROOT / "results" / "fixed_group" / "synergy_baselines.csv"
+CHANGES_CSV = ROOT / "results" / "fixed_group" / "synergy_changes.csv"
 BEST = ROOT / "results" / "fixed_group" / "g2p2" / "rank_best_starter.csv"
 RANKING = REPO / "data" / "ranking_definitive.csv"
+# Reported in full every run. The search itself is every species that learns both.
+SPOTLIGHT = (937, 806)
 
 
 def load_csv(path: Path) -> list[dict]:
@@ -64,27 +67,53 @@ def run_tasks(lines: list[str], out: Path, seeds: int) -> None:
     subprocess.check_call(cmd, cwd=ROOT)
 
 
+def write_changes(gains: list[tuple]) -> int:
+    """Every species whose best status+Hex group beats the site group. No top-N cut."""
+    changed = [g for g in gains if g[0] > 1e-9]
+    lines = [
+        "# simulated medians, seeds 1-200, 900s, repulse, terrain, status. Bot does not dodge.",
+        "dex,name,tier,site_group,site_median_s,synergy_group,synergy_median_s,gain_s",
+    ]
+    for gain, dex, best_row, site, site_med, _pub, tier, name in changed:
+        lines.append(
+            f"{dex},{name},{tier},{site['move']},{site_med:.3f},{best_row['group']},{float(best_row['median_s']):.3f},{gain:.3f}"
+        )
+    CHANGES_CSV.write_text("\n".join(lines) + "\n", encoding="utf8")
+    return len(changed)
+
+
+def report_one(syn: list[dict], base: dict, dex: int, name: str) -> None:
+    rows = [r for r in syn if int(r["dex"]) == dex]
+    rows.sort(key=lambda r: -float(r["median_s"]))
+    site = base[dex]
+    print(f"\n{name} simulated groups (median seconds):")
+    print(f"  site {site['move']} +{site['buffs']}  {float(site['median_s']):.3f}")
+    for r in rows:
+        print(f"  {r['group']}  {float(r['median_s']):.3f}")
+
+
 def main() -> None:
-    seeds = 200
-    if len(sys.argv) > 1:
-        seeds = int(sys.argv[1])
-    if not BIN.exists():
+    args = [a for a in sys.argv[1:] if a != "--report"]
+    report_only = "--report" in sys.argv
+    seeds = int(args[0]) if args else 200
+    if not report_only and not BIN.exists():
         raise SystemExit(f"missing {BIN}")
     groups = site_groups()
-    # Species that can pair a status move with Hex are exactly the rows the
-    # engine's synergy command emits. Run that first, then the site group for
-    # each of those species (the ficha's 2 attacks + 2 buffs).
-    subprocess.check_call(
-        [str(BIN), "synergy", "--seeds", str(seeds), "--seconds", "900", "--out", str(SYNERGY_CSV)],
-        cwd=ROOT,
-    )
+    # Every species that learns a status move and Hex. The engine emits one row
+    # per joint group; there is no top-N filter.
+    if not report_only:
+        subprocess.check_call(
+            [str(BIN), "synergy", "--seeds", str(seeds), "--seconds", "900", "--out", str(SYNERGY_CSV)],
+            cwd=ROOT,
+        )
     syn = load_csv(SYNERGY_CSV)
     species = sorted({int(r["dex"]) for r in syn})
-    lines = []
-    for dex in species:
-        moves = groups[dex]["moves"]
-        lines.append(f"{dex},{attack_lead(moves)},none,,{buff_token(moves)}")
-    run_tasks(lines, BASE_CSV, seeds)
+    if not report_only:
+        lines = []
+        for dex in species:
+            moves = groups[dex]["moves"]
+            lines.append(f"{dex},{attack_lead(moves)},none,,{buff_token(moves)}")
+        run_tasks(lines, BASE_CSV, seeds)
     base = {int(r["dex"]): r for r in load_csv(BASE_CSV)}
     published = {}
     for r in load_csv(BEST):
@@ -103,20 +132,20 @@ def main() -> None:
         pub_med = float(pub["median_s"]) if pub else None
         gain = float(best_row["median_s"]) - site_med
         gains.append((gain, dex, best_row, site, site_med, pub_med, tiers.get(dex, {}).get("tier", ""), tiers.get(dex, {}).get("name", best_row["name"])))
-    gains.sort(key=lambda g: -g[0])
+    gains.sort(key=lambda g: (-g[0], g[1]))
+    n_changed = write_changes(gains)
     print(f"species {len(species)}  seeds {seeds}  simulated medians, bot does not dodge")
+    print(f"recommended group changes: {n_changed}  (wrote {CHANGES_CSV.name})")
     print(f"{'dex':>5} {'name':<16} {'tier':<4} {'site_s':>8} {'syn_s':>8} {'gain':>7} {'pub_s':>8}  site group -> synergy group")
-    for gain, dex, best_row, site, site_med, pub_med, tier, name in gains[:15]:
+    shown = [g for g in gains if g[0] > 1e-9]
+    if not shown:
+        print("  (none — no status+Hex group beats the site group)")
+    for gain, dex, best_row, site, site_med, pub_med, tier, name in shown:
         site_g = site["move"].replace("+", " + ")
         print(f"{dex:5} {name:<16} {tier:<4} {site_med:8.3f} {float(best_row['median_s']):8.3f} {gain:+7.3f} {pub_med or 0:8.3f}  {site_g} -> {best_row['group'].replace('+', ' + ')}")
-    # Ceruledge detail
-    ceru = [r for r in syn if int(r["dex"]) == 937]
-    ceru.sort(key=lambda r: -float(r["median_s"]))
-    print("\nCeruledge simulated groups (median seconds):")
-    site = base[937]
-    print(f"  site {site['move']} +{site['buffs']}  {float(site['median_s']):.3f}")
-    for r in ceru:
-        print(f"  {r['group']}  {float(r['median_s']):.3f}")
+    names = {int(r["dex"]): r["name"] for r in load_csv(RANKING)}
+    for dex in SPOTLIGHT:
+        report_one(syn, base, dex, names.get(dex, str(dex)))
 
 
 if __name__ == "__main__":

@@ -69,8 +69,11 @@ Group mode also models, from the game source (`js/` in JPTER78/pokesurvivor):
     The factor is checked, not the timer. Burn lasts 3 s (stacks to 8, tick 0.5 s), poison 4 s (stacks to 8, tick 0.6 s),
     slow 1.2 s (enemy.js applyBurn/applyPoison/applySlow). There is no hit-chance roll. `sim/rules.js` applies the same
     numbers when `opts.status` is set; the default JS run still ignores them so `parity.js` stays bit-exact.
-    Group search (`--synergy`, on for `--group`) simulates each status move with Hex (either one leading) and the
-    three strongest status moves as two appliers + Hex + Swords Dance, and keeps the group with the higher median.
+    Group search (`--synergy`, on for `--group`) runs for every species that learns both, not a shortlist.
+    It simulates each status move with Hex (either one leading) and the three strongest status moves as two
+    appliers + Hex + Swords Dance, and keeps the group with the higher median. Hex is the only move with a
+    status-conditional damage multiplier (`moves.js` `hex`). `synergy_scan.py` writes every species whose
+    joint group beats the site group to `results/fixed_group/synergy_changes.csv`.
     `--no-synergy` restores the old partner sort (Hex/status or two dashes first, then solo order).
     The melee damage cut (×0.75, player.js:238) applies only while a melee move is in the active group: the starter
     always, a companion only after that bond. Orbit stays out of the bonded group (one shared orb list).
