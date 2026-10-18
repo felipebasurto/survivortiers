@@ -1044,11 +1044,19 @@ h2 { margin: 48px 0 16px; }
 .pv-meta { display: flex; align-items: center; gap: 8px; }
 .pv-lift { font: 700 1.05rem var(--ui); }
 .pv-tip { color: var(--ink-2); font: .85rem/1.35 var(--sans); }
-.pv-combos { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-wrap: wrap; gap: 10px; }
-.pv-combo { display: flex; align-items: center; gap: 6px; padding: 8px 10px; background: var(--bg); box-shadow: var(--notch-soft); font: 700 .95rem var(--ui); }
-.pv-plus { color: var(--ink-2); }
-.pv-combo-name { font: 500 .8rem var(--sans); color: var(--ink-2); }
-.pv-except { margin-top: 0; }
+.pv-except { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 10px; max-width: 72ch; }
+.pv-except li { display: grid; gap: 4px; padding: 12px 14px; background: var(--bg); box-shadow: var(--notch-soft); }
+.pv-k { font: 700 1rem/1.2 var(--ui); color: var(--ink); }
+.pv-except p { margin: 0; max-width: none; font: .95rem/1.45 var(--sans); color: var(--ink); }
+.pv-mean { margin: 0 0 12px; max-width: 68ch; font: .95rem/1.45 var(--sans); color: var(--ink); }
+.pv-combos { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 8px; max-width: 72ch; }
+.pv-combo { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: center; padding: 10px 12px; background: var(--bg); box-shadow: var(--notch-soft); }
+.pv-names { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; min-width: 0; font: 600 .95rem/1.3 var(--ui); color: var(--ink); }
+.pv-names .item-ico { width: 28px; height: 28px; }
+.pv-plus { color: var(--ink-2); font: 700 .9rem var(--ui); }
+.pv-combo .pv-lift { font-variant-numeric: tabular-nums lining-nums; }
+.pv-combo .pv-down { color: var(--accent); }
+.pv-why { grid-column: 1 / -1; margin: 0; font: .875rem/1.4 var(--sans); color: var(--ink); }
 
 /* Colección guardada en este navegador y progreso de gacha */
 .saved { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin: 0 0 18px; font: .9rem/1.4 var(--sans); color: var(--ink-2); }

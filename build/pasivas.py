@@ -78,24 +78,60 @@ COMBOS = [
     {"item": "shellbell", "item_name": ("Cascabel", "Shell Bell"), "card": "rgn", "lift": "+3%"},
     {"item": "leftovers", "item_name": ("Restos", "Leftovers"), "card": "rgn", "lift": "+3%"},
     {"item": "leftovers", "item_name": ("Restos", "Leftovers"), "card": "hp", "lift": "+3%"},
-    {"item": "assaultvest", "item_name": ("Chaleco", "Assault Vest"), "card": "def", "lift": "0"},
-    {"item": "choiceband", "item_name": ("Cinta", "Choice Band"), "card": "cd", "lift": "−1%"},
-    {"item": "quickclaw", "item_name": ("Garra", "Quick Claw"), "card": "cd", "lift": "0"},
+    {"item": "assaultvest", "item_name": ("Chaleco", "Assault Vest"), "card": "def", "lift": "0",
+     "why": ("El chaleco y Coraza entran en el mismo tope del 70% de reducción, así que priorizar "
+             "Coraza con el chaleco puesto no alarga nada.",
+             "The vest and Armor share the same 70% reduction cap, so prioritizing Armor while you "
+             "wear the vest does not add time.")},
+    {"item": "choiceband", "item_name": ("Cinta", "Choice Band"), "card": "cd", "lift": "−1%",
+     "why": ("La cinta ya sube el daño un 40%. Reflejos solo acorta la recarga, y cogerla antes deja "
+             "fuera una carta de vida, así que aguantas un poco menos.",
+             "The band already adds 40% damage. Reflexes only shortens cooldown, and taking it first "
+             "crowds out an HP card, so you last a little less.")},
+    {"item": "quickclaw", "item_name": ("Garra", "Quick Claw"), "card": "cd", "lift": "0",
+     "why": ("La garra ya baja un 20% la recarga. Con ella puesta, priorizar Reflejos no suma tiempo.",
+             "The claw already cuts cooldown by 20%. With it equipped, prioritizing Reflexes does not add time.")},
 ]
+
+# Qué significa el porcentaje de cada fila (mediana, 150 Pokémon, grupo 2+2, 100 partidas).
+MEAN = ("Cuánto más aguantas si priorizas esa carta cuando ya llevas el objeto, frente a no priorizarla. "
+        "Es la mediana entre 150 Pokémon, con un grupo fijo de 2+2 y 100 partidas.",
+        "How much longer you last if you prioritize that card while you already hold the item, versus not "
+        "prioritizing it. It is the median across 150 Pokémon, in a fixed 2+2 group, over 100 runs.")
 
 ORDER = ["rgn", "hp", "heal", "atk"]
 
-NOTE = ("Tiempos estimados. El bot no esquiva, así que vida y curación son un techo. "
-        "Si la carta evoluciona tu ataque, va la primera.",
-        "Times are estimates. The bot does not dodge, so HP and healing are a ceiling. "
-        "If a card evolves your move, it goes first.")
+NOTE = ("Estos números salen de una simulación. El bot no esquiva nunca, así que la vida y la curación "
+        "cuentan más que para quien sí esquiva. Si una carta evoluciona tu ataque, va siempre la primera.",
+        "These numbers come from a simulation. The bot never dodges, so HP and healing count for more than "
+        "they would for someone who does. A card that evolves your move always goes first.")
 
 EXCEPTIONS = [
-    ("Cono: Síntesis sube más.", "Cone: Synthesis climbs more."),
-    ("Órbita: Vigor por delante. Reflejos no entra.", "Orbit: Vigor ahead. Reflexes does nothing."),
-    ("Aura: ninguna carta alarga.", "Aura: no card adds time."),
-    ("Torreta y estela: Reflejos no suma.", "Turret and trail: Reflexes adds nothing."),
-    ("Cuerpo a cuerpo de salida: la baya primero.", "Melee starter: the berry first."),
+    {"k": ("Cono", "Cone"),
+     "text": ("Un cono es un chorro en abanico que se queda corto, como Lanzallamas. Síntesis sube aún más "
+              "en el orden: hay que acercarse para que llegue, y esa regeneración no tiene tope, así que aguanta los golpes.",
+              "A cone is a short fan of shots, like Flamethrower. Synthesis climbs further up the order: you have to "
+              "step in close for it to land, and that regen has no cap, so it soaks up the hits.")},
+    {"k": ("Órbita", "Orbit"),
+     "text": ("Una órbita son bolas que giran a tu alrededor y pegan solas, como Giro Fuego. Pon Vigor delante de "
+              "Síntesis, que la vida entra al momento, y deja Reflejos: el tiempo entre golpes es el del ataque, y esa carta no lo cambia.",
+              "An orbit is orbs that spin around you and hit on their own, like Fire Spin. Put Vigor ahead of Synthesis, "
+              "since the HP lands right away, and skip Reflexes: the gap between hits is the move's own cooldown, and that card does not touch it.")},
+    {"k": ("Aura", "Aura"),
+     "text": ("Un aura es un pulso a tu alrededor que pega a todo lo cercano, como Chispazo. Ninguna carta alarga "
+              "la partida: se acaba antes de que la mejora llegue a notarse.",
+              "An aura is a pulse around you that hits everything nearby, like Discharge. No card makes the run last "
+              "longer: it ends before the bonus has time to show.")},
+    {"k": ("Torreta y estela", "Turret and trail"),
+     "text": ("La torreta se queda disparando sola, como Fuego Fatuo, y la estela va dejando charcos al pasar, como Tóxico. "
+              "Reflejos no suma: ni los tiros de la torreta ni el ritmo de los charcos usan esa recarga.",
+              "A turret stays put and shoots on its own, like Will-O-Wisp, and a trail drops puddles as you move, like Toxic. "
+              "Reflexes adds nothing: neither the turret's shots nor the puddle ticks use that cooldown.")},
+    {"k": ("Cuerpo a cuerpo", "Melee"),
+     "text": ("Si sales a cuerpo a cuerpo, como con Placaje, tienes que estar encima para pegar. La Baya Zidra va primera: "
+              "cura un 45% al momento, y ahí eso rinde más que ir sumando Síntesis.",
+              "If you start in melee, like Tackle, you have to stand on the enemy to hit. The Sitrus Berry goes first: "
+              "it heals 45% on the spot, and that does more here than stacking Synthesis.")},
 ]
 
 
@@ -181,17 +217,24 @@ def _order(L: Lang) -> str:
 def _combos(L: Lang) -> str:
     bits = []
     for row in COMBOS:
-        label = _t(row["item_name"], L)
+        item = _t(row["item_name"], L)
+        card = _t(_by_id(row["card"])["name"], L)
+        down = " pv-down" if row["lift"].startswith(("−", "-")) else ""
+        why = row.get("why")
+        why_html = f'<p class="pv-why">{escape(_t(why, L))}</p>' if why else ""
         bits.append(
-            f'<li class="pv-combo">{_icon("item", row["item"])}'
-            f'<span class="pv-plus">+</span>{_icon("card", row["card"])}'
-            f'<b>{escape(row["lift"])}</b>'
-            f'<span class="pv-combo-name">{escape(label)}</span></li>')
-    return f'<ul class="pv-combos">{"".join(bits)}</ul>'
+            f'<li class="pv-combo">'
+            f'<span class="pv-names">{_icon("item", row["item"])}{escape(item)}'
+            f'<span class="pv-plus">+</span>{_icon("card", row["card"])}{escape(card)}</span>'
+            f'<b class="pv-lift{down}">{escape(row["lift"])}</b>{why_html}</li>')
+    return f'<p class="pv-mean">{escape(_t(MEAN, L))}</p><ul class="pv-combos">{"".join(bits)}</ul>'
 
 
 def _exceptions(L: Lang) -> str:
-    return "".join(f"<li>{escape(_t(pair, L))}</li>" for pair in EXCEPTIONS)
+    return "".join(
+        f'<li><span class="pv-k">{escape(_t(row["k"], L))}</span>'
+        f'<p>{escape(_t(row["text"], L))}</p></li>'
+        for row in EXCEPTIONS)
 
 
 def content(L: Lang, h1: str, lede: str, order_h: str, phases_h: str, items_h: str, except_h: str) -> str:
