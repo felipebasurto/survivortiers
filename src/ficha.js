@@ -75,7 +75,7 @@
 
   function rankBand(p, name) {
     const [rank, tier, lo, hi] = p.r;
-    const [w0, w1] = zoomWindow(lo, hi);
+    const [w0, w1] = zoomWindow(Math.min(lo, rank), Math.max(hi, rank));
     const at = n => (n - w0) / (w1 - w0) * 100;
     const x = at(rank);
     const sd = x < 14 ? 'l' : x > 86 ? 'r' : 'c';

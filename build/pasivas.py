@@ -6,6 +6,7 @@ Los porcentajes son la mediana, entre 150 Pokémon, de cuánto alarga la supervi
 from __future__ import annotations
 
 import json
+import re
 from html import escape
 from pathlib import Path
 
@@ -14,6 +15,7 @@ from i18n import Lang
 DATA = Path(__file__).resolve().parent.parent / "data"
 ICONS = json.loads((DATA / "card_icons.json").read_text(encoding="utf8"))
 ITEM_ICONS = json.loads((DATA / "item_icons.json").read_text(encoding="utf8"))
+MOVE_ICONS = json.loads((DATA / "move_icons.json").read_text(encoding="utf8"))
 ICON_LETTERS = "abcdefghijklmnopqrstuvwxyz"
 
 PHASES = [
@@ -75,28 +77,63 @@ CARDS = [
 
 # Lo que suma priorizar la carta cuando ya llevas el objeto (no el objeto solo).
 COMBOS = [
-    {"item": "shellbell", "item_name": ("Cascabel", "Shell Bell"), "card": "rgn", "lift": "+3%"},
-    {"item": "leftovers", "item_name": ("Restos", "Leftovers"), "card": "rgn", "lift": "+3%"},
-    {"item": "leftovers", "item_name": ("Restos", "Leftovers"), "card": "hp", "lift": "+3%"},
-    {"item": "assaultvest", "item_name": ("Chaleco", "Assault Vest"), "card": "def", "lift": "0"},
-    {"item": "choiceband", "item_name": ("Cinta", "Choice Band"), "card": "cd", "lift": "−1%"},
-    {"item": "quickclaw", "item_name": ("Garra", "Quick Claw"), "card": "cd", "lift": "0"},
+    {"item": "shellbell", "item_name": ("Cascabel", "Shell Bell"), "card": "rgn", "lift": "+3%",
+     "why": ("Cura el 4% del daño que haces, hasta 4 de vida por segundo.",
+             "Heals 4% of the damage you deal, up to 4 HP per second.")},
+    {"item": "leftovers", "item_name": ("Restos", "Leftovers"), "card": "rgn", "lift": "+3%",
+     "why": ("Recupera un 1,5% de tu vida máxima por segundo.",
+             "Recovers 1.5% of your max HP per second.")},
+    {"item": "leftovers", "item_name": ("Restos", "Leftovers"), "card": "hp", "lift": "+3%",
+     "why": ("Igual que con Síntesis: el 1,5% de tu vida máxima por segundo.",
+             "Same as with Synthesis: 1.5% of your max HP per second.")},
+    {"item": "assaultvest", "item_name": ("Chaleco", "Assault Vest"), "card": "def", "lift": "0",
+     "why": ("Chaleco y Coraza comparten el tope del 70% de reducción: no alarga nada.",
+             "Vest and Armor share the 70% reduction cap, so it adds no time.")},
+    {"item": "choiceband", "item_name": ("Cinta", "Choice Band"), "card": "cd", "lift": "−1%",
+     "why": ("Ya sube el daño un 40%. Reflejos solo acorta la recarga, y cogerla antes deja fuera una carta de vida.",
+             "Already adds 40% damage. Reflexes only shortens cooldown, and taking it first crowds out an HP card.")},
+    {"item": "quickclaw", "item_name": ("Garra", "Quick Claw"), "card": "cd", "lift": "0",
+     "why": ("Con la garra puesta, Reflejos no suma: ya baja un 20% la recarga.",
+             "With the claw on, Reflexes adds nothing: it already cuts cooldown 20%.")},
 ]
+COMBO_HEAD = (("Objeto", "Item"), ("Carta", "Card"), ("Suma", "Adds"), ("Por qué", "Why"))
+
+# Qué significa el porcentaje de cada fila (mediana, 150 Pokémon, grupo 2+2, 100 partidas).
+MEAN = ("Cuánto más aguantas con el objeto si priorizas la carta. Mediana de 150 Pokémon, grupo fijo 2+2, 100 partidas.",
+        "How much longer you last with the item if you prioritize the card. Median of 150 Pokémon, fixed 2+2 group, 100 runs.")
 
 ORDER = ["rgn", "hp", "heal", "atk"]
 
-NOTE = ("Tiempos estimados. El bot no esquiva, así que vida y curación son un techo. "
-        "Si la carta evoluciona tu ataque, va la primera.",
-        "Times are estimates. The bot does not dodge, so HP and healing are a ceiling. "
-        "If a card evolves your move, it goes first.")
+NOTE = ("Simulación: el bot no esquiva, así que la vida y la curación cuentan más. "
+        "Una carta que evoluciona tu ataque va siempre primera.",
+        "Simulated: the bot never dodges, so HP and healing count for more. "
+        "A card that evolves your move always goes first.")
 
+# rule: el orden que cambia, con las cartas entre llaves ({id}), que se dibujan con su icono.
 EXCEPTIONS = [
-    ("Cono: Síntesis sube más.", "Cone: Synthesis climbs more."),
-    ("Órbita: Vigor por delante. Reflejos no entra.", "Orbit: Vigor ahead. Reflexes does nothing."),
-    ("Aura: ninguna carta alarga.", "Aura: no card adds time."),
-    ("Torreta y estela: Reflejos no suma.", "Turret and trail: Reflexes adds nothing."),
-    ("Cuerpo a cuerpo de salida: la baya primero.", "Melee starter: the berry first."),
+    {"k": ("Cono", "Cone"), "moves": ["flamethrower"], "ex": ("Lanzallamas", "Flamethrower"),
+     "rule": ("{rgn} sube aún más", "{rgn} climbs even higher"),
+     "why": ("Hay que acercarse para que llegue, y su regeneración no tiene tope: aguanta los golpes.",
+             "You have to get close for it to land, and its regen has no cap: it soaks up hits.")},
+    {"k": ("Órbita", "Orbit"), "moves": ["fire-spin"], "ex": ("Giro Fuego", "Fire Spin"),
+     "rule": ("{hp} antes que {rgn}, {cd} no suma", "{hp} before {rgn}, {cd} adds nothing"),
+     "why": ("Vigor da la vida al momento, y el tiempo entre golpes es el del ataque: Reflejos no lo cambia.",
+             "Vigor heals right away, and the gap between hits is the move's own cooldown, which Reflexes does not change.")},
+    {"k": ("Aura", "Aura"), "moves": ["discharge"], "ex": ("Chispazo", "Discharge"),
+     "rule": ("Ninguna carta alarga la partida", "No card lengthens the run"),
+     "why": ("La partida se acaba antes de que la mejora llegue a notarse.",
+             "The run ends before the bonus has time to show.")},
+    {"k": ("Torreta y estela", "Turret and trail"), "moves": ["will-o-wisp", "toxic"],
+     "ex": ("Fuego Fatuo · Tóxico", "Will-O-Wisp · Toxic"),
+     "rule": ("{cd} no suma", "{cd} adds nothing"),
+     "why": ("Ni los tiros de la torreta ni los charcos usan esa recarga.",
+             "Neither the turret's shots nor the puddles use that cooldown.")},
+    {"k": ("Cuerpo a cuerpo", "Melee"), "moves": ["tackle"], "ex": ("Placaje", "Tackle"),
+     "rule": ("{heal} va primera", "{heal} goes first"),
+     "why": ("Tienes que estar encima para pegar, y cura un 45% al momento: rinde más que ir sumando Síntesis.",
+             "You have to stand on the enemy to hit. It heals 45% on the spot, which beats stacking Synthesis.")},
 ]
+EXCEPTION_MOVES = sorted({m for row in EXCEPTIONS for m in row["moves"]})
 
 
 def _t(pair: tuple[str, str], L: Lang) -> str:
@@ -105,7 +142,8 @@ def _t(pair: tuple[str, str], L: Lang) -> str:
 
 def _symbols() -> str:
     out = []
-    packs = [(f"card-{k}", v) for k, v in ICONS.items()] + [(f"item-{k}", v) for k, v in ITEM_ICONS.items()]
+    packs = ([(f"card-{k}", v) for k, v in ICONS.items()] + [(f"item-{k}", v) for k, v in ITEM_ICONS.items()]
+             + [(f"move-{k}", MOVE_ICONS[k]) for k in EXCEPTION_MOVES])
     for sid, ic in packs:
         w, h = ic["size"]
         rects = []
@@ -178,20 +216,52 @@ def _order(L: Lang) -> str:
     return f'<ol class="pv-order">{"".join(steps)}</ol>'
 
 
+def _cref(card_id: str, L: Lang) -> str:
+    return (f'<span class="pv-cref">{_icon("card", card_id)}'
+            f'{escape(_t(_by_id(card_id)["name"], L))}</span>')
+
+
+def _rule(text: str, L: Lang) -> str:
+    parts = re.split(r"\{(\w+)\}", text)
+    return "".join(escape(p) if i % 2 == 0 else _cref(p, L) for i, p in enumerate(parts))
+
+
+def _lift_class(lift: str) -> str:
+    if lift.startswith(("−", "-")):
+        return "pv-chip pv-down"
+    return "pv-chip pv-up" if lift.startswith("+") else "pv-chip"
+
+
 def _combos(L: Lang) -> str:
-    bits = []
+    head = "".join(f'<th scope="col" class="{cls}">{escape(_t(h, L))}</th>'
+                   for h, cls in zip(COMBO_HEAD, ("pv-c-item", "pv-c-card", "pv-c-lift", "pv-c-why")))
+    rows = []
     for row in COMBOS:
-        label = _t(row["item_name"], L)
-        bits.append(
-            f'<li class="pv-combo">{_icon("item", row["item"])}'
-            f'<span class="pv-plus">+</span>{_icon("card", row["card"])}'
-            f'<b>{escape(row["lift"])}</b>'
-            f'<span class="pv-combo-name">{escape(label)}</span></li>')
-    return f'<ul class="pv-combos">{"".join(bits)}</ul>'
+        rows.append(
+            f'<tr>'
+            f'<td class="pv-c-item"><span class="pv-cell">{_icon("item", row["item"])}'
+            f'{escape(_t(row["item_name"], L))}</span></td>'
+            f'<td class="pv-c-card"><span class="pv-cell">{_icon("card", row["card"])}'
+            f'{escape(_t(_by_id(row["card"])["name"], L))}</span></td>'
+            f'<td class="pv-c-lift"><span class="{_lift_class(row["lift"])}">{escape(row["lift"])}</span></td>'
+            f'<td class="pv-why">{escape(_t(row["why"], L))}</td></tr>')
+    return (f'<p class="pv-mean">{escape(_t(MEAN, L))}</p>'
+            f'<div class="pv-wrap"><table class="pv-table"><thead><tr>{head}</tr></thead>'
+            f'<tbody>{"".join(rows)}</tbody></table></div>')
 
 
 def _exceptions(L: Lang) -> str:
-    return "".join(f"<li>{escape(_t(pair, L))}</li>" for pair in EXCEPTIONS)
+    cards = []
+    for row in EXCEPTIONS:
+        icons = "".join(_icon("move", m, big=True) for m in row["moves"])
+        cards.append(
+            f'<li class="pv-card">'
+            f'<div class="pv-kh"><span class="pv-kicons">{icons}</span>'
+            f'<div><h3 class="pv-k">{escape(_t(row["k"], L))}</h3>'
+            f'<p class="pv-ex">{escape(_t(row["ex"], L))}</p></div></div>'
+            f'<p class="pv-rule">{_rule(_t(row["rule"], L), L)}</p>'
+            f'<p class="pv-why">{escape(_t(row["why"], L))}</p></li>')
+    return "".join(cards)
 
 
 def content(L: Lang, h1: str, lede: str, order_h: str, phases_h: str, items_h: str, except_h: str) -> str:
@@ -205,7 +275,7 @@ def content(L: Lang, h1: str, lede: str, order_h: str, phases_h: str, items_h: s
             + f'<h2>{escape(phases_h)}</h2>'
             + f'<div class="ph-grid">{phases}</div>'
             + f'<h2>{escape(except_h)}</h2>'
-            + f'<ul class="plain pv-except">{_exceptions(L)}</ul>'
+            + f'<ul class="pv-except">{_exceptions(L)}</ul>'
             + f'<h2>{escape(items_h)}</h2>'
             + _combos(L)
-            + f'<p class="note small">{escape(_t(NOTE, L))}</p>')
+            + f'<p class="pv-note">{escape(_t(NOTE, L))}</p>')

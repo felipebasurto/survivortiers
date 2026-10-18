@@ -687,6 +687,16 @@ fn nearest(enemies: &[Enemy], x: f64, y: f64) -> Option<usize> {
     best
 }
 
+/// combat.js chain: `m.hex && (cur.burn > 0 || cur.poison > 0 || cur.slow > 0) ? m.hex : 1`.
+/// `slow` is the speed factor (enemy.js applySlow), not the timer.
+pub fn hex_multiplier(hex: f64, burn: f64, poison: f64, slow: f64) -> f64 {
+    if hex.is_finite() && hex != 0.0 && (burn > 0.0 || poison > 0.0 || slow > 0.0) {
+        hex
+    } else {
+        1.0
+    }
+}
+
 /// Applies one hit and what it inflicts (`st`, all zero unless `Opts::status`).
 fn strike(e: &mut Enemy, dmg: f64, atk: f64, ty: u8, tm: &[Vec<f64>], w: &Option<Weather>, st: Status) {
     if e.hp <= 0.0 {
@@ -1423,6 +1433,9 @@ impl<'a, M: MathFns> Match<'a, M> {
         if snow < 1.0 && !self.mon.types.contains(&T_ICE) {
             spd *= snow;
         }
+        // player.js:238: 25% less damage only while a melee move is in the active group.
+        // The starter always is. A companion counts once that bond has landed, not from t=0.
+        let melee_cut = mv.kind == Kind::Melee || self.active_has_melee();
         let st = &mut self.st;
         st.max_hp = self.mon.hp + 20.0 * s.cards[Stat::Hp as usize] as f64;
         st.atk = self.mon.atk * self.tables.atk[s.cards[Stat::Pow as usize] as usize] * (1.0 + atk_buff) * it.atk;
@@ -1445,7 +1458,7 @@ impl<'a, M: MathFns> Match<'a, M> {
         if self.regen_n > 0.0 && self.regen_t > 0.0 {
             st.regen += self.regen_n * self.regen_amt;
         }
-        st.melee = if mv.kind == Kind::Melee || self.any_melee { 0.75 } else { 1.0 };
+        st.melee = if melee_cut { 0.75 } else { 1.0 };
         st.mv = mv;
         // interact.js POWERS, 25 s. Imán only changes magnet, which the sim does not use.
         if self.power_t > 0.0 {
@@ -1899,6 +1912,14 @@ impl<'a, M: MathFns> Match<'a, M> {
         !self.opts.ext.rift || self.bond_order.iter().take(self.bonds).any(|&b| b == slot)
     }
 
+    /// Melee companion in the group that is actually firing. `any_melee` covers an evolution into melee.
+    fn active_has_melee(&self) -> bool {
+        if self.any_melee {
+            return true;
+        }
+        self.comps.iter().enumerate().any(|(i, _)| self.bonded(i as u8) && self.comp_lvl(i).kind == Kind::Melee)
+    }
+
     fn cast_comps(&mut self) {
         // Inactive slot timers freeze (combat.js only ticks the active group).
         if self.slot != 0 {
@@ -2163,7 +2184,7 @@ impl<'a, M: MathFns> Match<'a, M> {
                     done.push(i);
                     let hex = {
                         let e = &self.enemies[i];
-                        if mv.hex.is_finite() && (e.burn > 0.0 || e.poison > 0.0 || e.slow_t > 0.0) { mv.hex } else { 1.0 }
+                        hex_multiplier(mv.hex, e.burn, e.poison, e.slow)
                     };
                     {
                         let mut rng = self.crit_rng.borrow_mut();
@@ -3668,7 +3689,9 @@ pub fn run_match<M: MathFns>(
         def_buff: if opts.ext.agi { data.agility } else { data.harden },
         atk_buff: if opts.ext.dd { data.dragon_dance } else { data.swords_dance },
         comps: opts.ext.companions.iter().map(|&c| (c, 1usize, 0.0)).collect(),
-        any_melee: opts.ext.companions.iter().any(|&c| data.moves[c].kind == Kind::Melee),
+        // Seeded false. player.js applies the melee cut to activeGroup() only, and a companion
+        // is not in that group until the rift bond lands. Evolving a bonded move into melee sets it.
+        any_melee: false,
         fields: Vec::new(),
         fx: Rng::new(opts.seed.wrapping_mul(2654435761).wrapping_add(0x51F7)),
         bonds: 0,
@@ -3922,5 +3945,21 @@ pub fn run_match<M: MathFns>(
         hp: m.pl.hp,
         max_hp: m.st.max_hp,
         hp_frac: if capped { m.pl.hp / m.st.max_hp } else { 0.0 },
+    }
+}
+
+#[cfg(test)]
+mod hex_tests {
+    use super::hex_multiplier;
+
+    #[test]
+    fn hex_is_1_7_only_while_burn_poison_or_slow_is_up() {
+        assert_eq!(hex_multiplier(1.7, 0.0, 0.0, 0.0), 1.0);
+        assert_eq!(hex_multiplier(1.7, 1.0, 0.0, 0.0), 1.7);
+        assert_eq!(hex_multiplier(1.7, 0.0, 2.0, 0.0), 1.7);
+        assert_eq!(hex_multiplier(1.7, 0.0, 0.0, 0.4), 1.7);
+        assert_eq!(hex_multiplier(f64::NAN, 1.0, 0.0, 0.0), 1.0);
+        // A leftover timer with factor 0 does not count (combat.js checks cur.slow).
+        assert_eq!(hex_multiplier(1.7, 0.0, 0.0, 0.0), 1.0);
     }
 }

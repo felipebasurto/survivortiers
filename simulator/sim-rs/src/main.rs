@@ -73,11 +73,14 @@ struct Cfg {
     heal_below: f64,
     /// stat index:count pairs. Start with that many and do not take more. 7 = Aprendizaje.
     locks: Vec<(u8, u32)>,
+    /// Score status+Hex groups, not only the solo-sorted partner.
+    synergy: bool,
+    no_synergy: bool,
     rest: Vec<String>,
 }
 
 fn parse(args: &[String]) -> Cfg {
-    let mut c = Cfg { seeds: 200, seconds: 900.0, bot: Bot::Repulse, cards: true, terrain: false, status: false, out: None, group: 0, dd: false, agi: false, xkinds: false, legacy: false, item: "none".into(), fill: vec![], buffs: None, comps: None, swap: false, crit: 0.0, full_cards: false, stop: 0, heal_below: 0.0, locks: vec![], rest: vec![] };
+    let mut c = Cfg { seeds: 200, seconds: 900.0, bot: Bot::Repulse, cards: true, terrain: false, status: false, out: None, group: 0, dd: false, agi: false, xkinds: false, legacy: false, item: "none".into(), fill: vec![], buffs: None, comps: None, swap: false, crit: 0.0, full_cards: false, stop: 0, heal_below: 0.0, locks: vec![], synergy: false, no_synergy: false, rest: vec![] };
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
@@ -100,6 +103,8 @@ fn parse(args: &[String]) -> Cfg {
             "--lvl1" => c.cards = false,
             "--terrain" => c.terrain = true,
             "--status" => c.status = true,
+            "--synergy" => c.synergy = true,
+            "--no-synergy" => c.no_synergy = true,
             "--group" => {
                 i += 1;
                 c.group = match args[i].as_str() { "2+2" => 2, "3+1" => 3, "off" => 0, x => panic!("--group {x}") };
@@ -294,23 +299,54 @@ fn run_species(data: &Data, tables: &Tables, mon: &Mon, start: usize, cfg: &Cfg)
 struct Row<'a> {
     mon: &'a Mon,
     start: usize,
+    /// Empty and `buffs == None` means the heuristic partner from `ext_for`.
+    comps: Vec<usize>,
+    buffs: Option<u8>,
     s: Summary,
 }
 
+struct Job<'a> {
+    mon: &'a Mon,
+    start: usize,
+    comps: Option<Vec<usize>>,
+    buffs: Option<u8>,
+}
+
 fn run_tasks<'a>(data: &'a Data, tasks: Vec<(&'a Mon, usize)>, cfg: &Cfg) -> Vec<Row<'a>> {
+    let jobs = tasks
+        .into_iter()
+        .map(|(mon, start)| Job { mon, start, comps: None, buffs: None })
+        .collect();
+    run_jobs(data, jobs, cfg)
+}
+
+fn run_jobs<'a>(data: &'a Data, jobs: Vec<Job<'a>>, cfg: &Cfg) -> Vec<Row<'a>> {
     let tables = Tables::new();
     let done = AtomicUsize::new(0);
-    let total = tasks.len();
+    let total = jobs.len();
     let t0 = Instant::now();
-    tasks
+    jobs
         .into_par_iter()
-        .map(|(mon, start)| {
-            let s = run_species(data, &tables, mon, start, cfg);
+        .map(|job| {
+            let comps = job.comps.clone().unwrap_or_default();
+            let explicit = job.comps.is_some() || job.buffs.is_some();
+            let s = if explicit {
+                let mut sub = cfg_clone(cfg);
+                if job.comps.is_some() {
+                    sub.comps = Some(comps.iter().map(|&ix| data.moves[ix].id.clone()).collect());
+                }
+                if let Some(b) = job.buffs {
+                    sub.buffs = Some(b);
+                }
+                run_species(data, &tables, job.mon, job.start, &sub)
+            } else {
+                run_species(data, &tables, job.mon, job.start, cfg)
+            };
             let d = done.fetch_add(1, Ordering::Relaxed) + 1;
             if d % 250 == 0 || d == total {
                 eprintln!("  {d}/{total}  {:.1}s", t0.elapsed().as_secs_f64());
             }
-            Row { mon, start, s }
+            Row { mon: job.mon, start: job.start, comps, buffs: job.buffs, s }
         })
         .collect()
 }
@@ -329,8 +365,103 @@ fn cmp_desc(a: f64, b: f64) -> std::cmp::Ordering {
     b.partial_cmp(&a).unwrap()
 }
 
+fn finite_pos(x: f64) -> bool {
+    x.is_finite() && x > 0.0
+}
+
+fn is_payoff(l: &data::MoveLvl) -> bool {
+    l.hex.is_finite() && l.hex > 1.0
+}
+
+fn is_applier(l: &data::MoveLvl) -> bool {
+    finite_pos(l.burn) || finite_pos(l.poison) || finite_pos(l.slow)
+}
+
+/// Attacks the bonded group can cast. Orbit stays out (one shared orb list).
+fn castable(m: &data::Move) -> bool {
+    m.kind != Kind::Orbit && (m.kind.simulated() || m.levels[0].xk != 0)
+}
+
+fn level_dps(l: &data::MoveLvl) -> f64 {
+    let cd = if l.cd.is_finite() && l.cd > 0.0 { l.cd } else { 1.0 };
+    let n = if l.count.is_finite() && l.count > 0.0 { l.count } else { 1.0 };
+    let dmg = if l.dmg.is_finite() { l.dmg } else { 0.0 };
+    dmg * n / cd
+}
+
+struct Spec {
+    start: usize,
+    comps: Vec<usize>,
+    buffs: u8,
+}
+
+/// Status applier + Hex, both lead orders, plus the three strongest appliers as
+/// 2 appliers + Hex + Swords Dance. Capped so a species adds a handful of games,
+/// not the full pool cross product.
+fn synergy_specs(data: &Data, mon: &Mon) -> Vec<Spec> {
+    let mut atk: Vec<usize> = mon.pool.iter().copied().filter(|&ix| castable(&data.moves[ix])).collect();
+    if !atk.contains(&mon.start) && castable(&data.moves[mon.start]) {
+        atk.push(mon.start);
+    }
+    let pay: Vec<usize> = atk.iter().copied().filter(|&ix| is_payoff(&data.moves[ix].levels[0])).collect();
+    let mut app: Vec<usize> = atk.iter().copied().filter(|&ix| is_applier(&data.moves[ix].levels[0])).collect();
+    if pay.is_empty() || app.is_empty() {
+        return vec![];
+    }
+    app.sort_by(|&a, &b| {
+        level_dps(&data.moves[b].levels[0])
+            .partial_cmp(&level_dps(&data.moves[a].levels[0]))
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then(data.moves[a].id.cmp(&data.moves[b].id))
+    });
+    let mut out = Vec::new();
+    for &p in &pay {
+        for &a in &app {
+            out.push(Spec { start: p, comps: vec![a], buffs: 3 });
+            out.push(Spec { start: a, comps: vec![p], buffs: 3 });
+        }
+    }
+    let trio = 3.min(app.len());
+    for i in 0..trio {
+        for j in (i + 1)..trio {
+            let (a, b) = (app[i], app[j]);
+            for &p in &pay {
+                out.push(Spec { start: p, comps: vec![a, b], buffs: 1 });
+                out.push(Spec { start: a, comps: vec![p, b], buffs: 1 });
+            }
+        }
+    }
+    out
+}
+
+fn group_name(data: &Data, start: usize, comps: &[usize], buffs: u8, cfg: &Cfg) -> String {
+    let mut parts = vec![data.moves[start].id.clone()];
+    for &c in comps {
+        parts.push(data.moves[c].id.clone());
+    }
+    if buffs & 1 != 0 {
+        parts.push((if cfg.dd { "dragon-dance" } else { "swords-dance" }).to_string());
+    }
+    if buffs & 2 != 0 {
+        parts.push((if cfg.agi { "agility" } else { "harden" }).to_string());
+    }
+    parts.join("+")
+}
+
+fn row_group(data: &Data, row: &Row, cfg: &Cfg) -> String {
+    if row.buffs.is_none() && row.comps.is_empty() {
+        if cfg.group == 0 {
+            return data.moves[row.start].id.clone();
+        }
+        let ext = ext_for(data, row.mon, row.start, cfg);
+        return group_name(data, row.start, &ext.companions, ext.buffs, cfg);
+    }
+    group_name(data, row.start, &row.comps, row.buffs.unwrap_or(0), cfg)
+}
+
 fn sweep(data: &Data, cfg: &Cfg) {
-    let mut tasks = Vec::new();
+    let mut jobs = Vec::new();
+    let mut seen = std::collections::HashSet::new();
     for mon in &data.dex {
         let mut ids = vec![mon.start];
         for &p in &mon.pool {
@@ -341,12 +472,24 @@ fn sweep(data: &Data, cfg: &Cfg) {
         for id in ids {
             let extra = (cfg.xkinds || (cfg.group > 0 && !cfg.legacy)) && data.moves[id].levels[0].xk != 0;
             if data.moves[id].kind.simulated() || extra {
-                tasks.push((mon, id));
+                if cfg.group > 0 {
+                    let ext = ext_for(data, mon, id, cfg);
+                    seen.insert((mon.dex, id, ext.companions.clone(), ext.buffs));
+                }
+                jobs.push(Job { mon, start: id, comps: None, buffs: None });
+            }
+        }
+        if cfg.synergy && cfg.group > 0 {
+            for spec in synergy_specs(data, mon) {
+                let key = (mon.dex, spec.start, spec.comps.clone(), spec.buffs);
+                if seen.insert(key) {
+                    jobs.push(Job { mon, start: spec.start, comps: Some(spec.comps), buffs: Some(spec.buffs) });
+                }
             }
         }
     }
-    eprintln!("sweep: {} candidates x {} seeds, {} threads", tasks.len(), cfg.seeds, rayon::current_num_threads());
-    let mut rows = run_tasks(data, tasks, cfg);
+    eprintln!("sweep: {} candidates x {} seeds, {} threads", jobs.len(), cfg.seeds, rayon::current_num_threads());
+    let mut rows = run_jobs(data, jobs, cfg);
     let mv = |r: &Row| data.moves[r.start].id.as_str();
     rows.sort_by(|a, b| a.mon.dex.cmp(&b.mon.dex).then_with(|| mv(a).cmp(mv(b))));
 
@@ -354,14 +497,14 @@ fn sweep(data: &Data, cfg: &Cfg) {
     std::fs::create_dir_all(&out_dir).unwrap();
     let mut long = format!(
         "# barrido: todos los movimientos simulados del pool como inicial. seeds=1-{} seconds={} bot={}\n\
-         dex,name,start,kind,n,median_s,mean_s,boot_lo,boot_hi,p10_s,p90_s,median_kills,median_lvl,status_ignored\n",
+         dex,name,start,kind,n,median_s,mean_s,boot_lo,boot_hi,p10_s,p90_s,median_kills,median_lvl,status_ignored,group\n",
         cfg.seeds, cfg.seconds, bot_name(cfg.bot)
     );
     for r in &rows {
         let s = &r.s;
         writeln!(
             long,
-            "{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+            "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
             r.mon.dex,
             csv_escape(&r.mon.name),
             mv(r),
@@ -375,7 +518,8 @@ fn sweep(data: &Data, cfg: &Cfg) {
             num(s.p90_s),
             num(s.median_kills),
             num(s.median_lvl),
-            s.status_ignored as u8
+            s.status_ignored as u8,
+            row_group(data, r, cfg)
         )
         .unwrap();
     }
@@ -408,14 +552,14 @@ fn sweep(data: &Data, cfg: &Cfg) {
     let old = read_old_rank("sim/out/rank_200.csv");
     let mut text = format!(
         "# mejor movimiento inicial por especie. seeds=1-{} seconds={} bot={}\n\
-         rank,dex,name,best_start,best_kind,median_s,mean_s,boot_lo,boot_hi,p10_s,p90_s,median_kills,median_lvl,status_ignored,n_candidates,alt_start,alt_median_s,rank_old_200\n",
+         rank,dex,name,best_start,best_kind,median_s,mean_s,boot_lo,boot_hi,p10_s,p90_s,median_kills,median_lvl,status_ignored,n_candidates,alt_start,alt_median_s,rank_old_200,group\n",
         cfg.seeds, cfg.seconds, bot_name(cfg.bot)
     );
     for (i, (r, n, alt)) in best.iter().enumerate() {
         let s = &r.s;
         writeln!(
             text,
-            "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+            "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
             i + 1,
             r.mon.dex,
             csv_escape(&r.mon.name),
@@ -433,7 +577,8 @@ fn sweep(data: &Data, cfg: &Cfg) {
             n,
             alt.map(mv).unwrap_or(""),
             alt.map(|a| num(a.s.median_s)).unwrap_or_default(),
-            old.get(&r.mon.dex).map(|x| x.to_string()).unwrap_or_default()
+            old.get(&r.mon.dex).map(|x| x.to_string()).unwrap_or_default(),
+            row_group(data, r, cfg)
         )
         .unwrap();
     }
@@ -548,7 +693,56 @@ fn with_mods(mon: &Mon, mods: &str) -> Mon {
 }
 
 fn cfg_clone(c: &Cfg) -> Box<Cfg> {
-    Box::new(Cfg { seeds: c.seeds, seconds: c.seconds, bot: c.bot, cards: c.cards, terrain: c.terrain, status: c.status, out: None, group: c.group, dd: c.dd, agi: c.agi, xkinds: c.xkinds, legacy: c.legacy, item: c.item.clone(), fill: c.fill.clone(), buffs: c.buffs, comps: c.comps.clone(), swap: c.swap, crit: c.crit, full_cards: c.full_cards, stop: c.stop, heal_below: c.heal_below, locks: c.locks.clone(), rest: vec![] })
+    Box::new(Cfg { seeds: c.seeds, seconds: c.seconds, bot: c.bot, cards: c.cards, terrain: c.terrain, status: c.status, out: None, group: c.group, dd: c.dd, agi: c.agi, xkinds: c.xkinds, legacy: c.legacy, item: c.item.clone(), fill: c.fill.clone(), buffs: c.buffs, comps: c.comps.clone(), swap: c.swap, crit: c.crit, full_cards: c.full_cards, stop: c.stop, heal_below: c.heal_below, locks: c.locks.clone(), synergy: c.synergy, no_synergy: c.no_synergy, rest: vec![] })
+}
+
+fn synergy_cmd(data: &Data, cfg: &Cfg) {
+    let mut jobs = Vec::new();
+    for mon in &data.dex {
+        for spec in synergy_specs(data, mon) {
+            jobs.push(Job { mon, start: spec.start, comps: Some(spec.comps), buffs: Some(spec.buffs) });
+        }
+    }
+    eprintln!(
+        "synergy: {} groups x {} seeds, {} threads (terrain, status, group {})",
+        jobs.len(),
+        cfg.seeds,
+        rayon::current_num_threads(),
+        cfg.group
+    );
+    let mut rows = run_jobs(data, jobs, cfg);
+    rows.sort_by(|a, b| a.mon.dex.cmp(&b.mon.dex).then(cmp_desc(a.s.median_s, b.s.median_s)).then(cmp_desc(a.s.mean_s, b.s.mean_s)));
+    let path = cfg.out.clone().expect("--out");
+    if let Some(dir) = std::path::Path::new(&path).parent() {
+        if !dir.as_os_str().is_empty() {
+            std::fs::create_dir_all(dir).unwrap();
+        }
+    }
+    let mut text = String::from(
+        "dex,name,group,median_s,mean_s,boot_lo,boot_hi,p10_s,p90_s,median_kills,median_lvl,status_ignored\n",
+    );
+    for r in &rows {
+        let s = &r.s;
+        writeln!(
+            text,
+            "{},{},{},{},{},{},{},{},{},{},{},{}",
+            r.mon.dex,
+            csv_escape(&r.mon.name),
+            row_group(data, r, cfg),
+            num(s.median_s),
+            num(s.mean_s),
+            num(s.boot_lo),
+            num(s.boot_hi),
+            num(s.p10_s),
+            num(s.p90_s),
+            num(s.median_kills),
+            num(s.median_lvl),
+            s.status_ignored as u8
+        )
+        .unwrap();
+    }
+    std::fs::write(&path, text).unwrap();
+    eprintln!("wrote {path}");
 }
 
 fn rank(data: &Data, cfg: &Cfg) {
@@ -618,12 +812,28 @@ fn print_result(r: &RunResult) {
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
-    let cfg = parse(&args);
+    let mut cfg = parse(&args);
+    let synergy_cmd_on = cfg.rest.first().map(String::as_str) == Some("synergy");
+    if cfg.no_synergy {
+        cfg.synergy = false;
+    } else if cfg.group > 0 || synergy_cmd_on {
+        cfg.synergy = true;
+    }
+    // The published tier path. Hex does nothing useful without status, and the
+    // site's medians are played on the real map.
+    if synergy_cmd_on {
+        if cfg.group == 0 {
+            cfg.group = 2;
+        }
+        cfg.status = true;
+        cfg.terrain = true;
+    }
     let data = Data::load("v3/v3_data.json");
     let t0 = Instant::now();
     match cfg.rest.first().map(String::as_str) {
         Some("sweep") => sweep(&data, &cfg),
         Some("rank") => rank(&data, &cfg),
+        Some("synergy") => synergy_cmd(&data, &cfg),
         Some("tasks") => tasks_cmd(&data, &cfg),
         Some("run") => {
             let (mon, start) = find(&data, &cfg.rest[1], &cfg.rest[2]);
@@ -703,7 +913,7 @@ fn main() {
             print_result(&r);
         }
         _ => {
-            eprintln!("usage: pokesim sweep|rank|run|replay [--seeds N] [--seconds S] [--bot repulse|line] [--lvl1] [--terrain] [--out P]");
+            eprintln!("usage: pokesim sweep|rank|synergy|tasks|run|replay [--seeds N] [--seconds S] [--bot repulse|line] [--lvl1] [--terrain] [--status] [--group 2+2] [--no-synergy] [--out P]");
             std::process::exit(2);
         }
     }
