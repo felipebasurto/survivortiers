@@ -72,6 +72,14 @@ assert.deepStrictEqual(Collection.shinyRows(sample, { wildOnly: true }).map(r =>
 assert.deepStrictEqual(Collection.shinyRows(sample, { wildOnly: true, sort: 'dex' }).map(r => r.dex), [4, 25]);
 assert.deepStrictEqual(Collection.shinyRows(sample)[0], { dex: 4, from: 'wild', day });
 
+const mon = (dex, rarity, legendary, bst) => ({ dex, rarity, legendary, bst });
+const order = [
+  mon(1, 1, false, 318), mon(2, 5, false, 500), mon(3, 4, false, 530), mon(4, 5, true, 570),
+  mon(5, 5, false, 590), mon(6, 5, false, 590), mon(7, 3, false, 485), mon(8, 4, false, 540),
+];
+assert.deepStrictEqual(order.slice().sort(Collection.showOrder).map(p => p.dex), [4, 5, 6, 2, 8, 3, 7, 1],
+  'legendary first, then rarity 5 to 1, bst inside a rarity, dex last');
+
 const snippetPath = name => path.join(__dirname, '..', 'console', name);
 function runSnippet(file, saves) {
   const store = new Map(Object.entries(saves).map(([k, v]) => [k, JSON.stringify(v)]));

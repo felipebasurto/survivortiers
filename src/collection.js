@@ -106,6 +106,12 @@ const Collection = (() => {
     });
   }
 
-  return { parse, shinyCounts, shinyRows, originOf, fromLink, originForLink, REASONS, MAX_DAY };
+  /* Orden para presumir y para las listas de Pokémon: legendarios y singulares primero, después rareza de 5★ a 1★ y,
+     dentro de cada rareza, la suma de stats base (bst) de mayor a menor, como featured() en systems/gacha.js del juego. */
+  function showOrder(a, b) {
+    return (b.legendary ? 1 : 0) - (a.legendary ? 1 : 0) || b.rarity - a.rarity || b.bst - a.bst || a.dex - b.dex;
+  }
+
+  return { parse, shinyCounts, shinyRows, originOf, fromLink, originForLink, showOrder, REASONS, MAX_DAY };
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = Collection;

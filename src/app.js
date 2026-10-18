@@ -42,7 +42,6 @@
       copied: 'Copiado',
       copyFail: 'No se ha podido copiar. Selecciónalo a mano.',
       locale: 'es-ES',
-      tierWord: 'Tier', have: 'Tienes', progress: 'Progreso',
       haveOf: (a, b) => a + ' de ' + b,
       shinyTitle: 'Tienes el shiny', shiny: '★',
       owned: n => String(n),
@@ -52,7 +51,12 @@
       dexStat: () => 'en la Pokédex',
       shinyStat: 'shiny', lastSave: 'última partida',
       unknown: n => n + ' no están en el ranking.',
-      byTier: 'Por tier',
+      byTier: 'Por tier', byRarity: 'Por rareza', breakBy: 'Agrupar por',
+      legendWord: 'Legendarios', legendLabel: 'legendarios y singulares', legendShiny: n => n + ' shiny entre ellos',
+      legendView: 'Legendarios', missingRar: n => 'Te faltan de 5★ (' + n + ')', allRar: 'Tienes todos los de 5★.',
+      presume: 'Presumir', choiceCol: 'Colección', choiceLeg: 'Legendarios', choiceShiny: 'Shinies',
+      choiceSub: (a, b) => a + ' de ' + b, closeDialog: 'Cerrar', previewLabel: 'Vista previa',
+      copyLinkBtn: 'Copiar enlace', nativeShare: 'Compartir', nameField: 'Nombre',
       pause: 'Pausa', play: 'Seguir',
       repCount: (n, total) => grouped(n, '.') + ' / ' + grouped(total, '.'),
       stepOf: (i, n) => 'Paso ' + i + ' de ' + n,
@@ -69,11 +73,11 @@
       planOdds: n => '1 de cada ' + n + ' tiradas da un Pokémon que te falta.',
       planSee: 'Ver todos los banners',
       planDone: 'Ya tienes todos los Pokémon de los banners.',
-      colBanner: 'Banner', colMissing: 'Te faltan', colNew: 'Nuevo por tirada', colPulls: 'Tiradas para completarlo',
+      colBanner: 'Banner', colMissing: 'Te faltan', colHave: 'Tienes', colNew: 'Por tirada', colPulls: 'Tiradas', pullsAvg: '≈ media de 150 simulaciones',
       pullHere: 'Tira aquí', complete: 'Completo',
       share: 'Compartir', download: 'Descargar imagen',
       otherCollection: 'Colección de otro jugador', backToMine: 'Volver a la mía',
-      shareNamePh: 'Nombre', shareNameLabel: 'Nombre en el enlace y la imagen',
+      shareNamePh: 'Tu nombre', shareNameLabel: 'Nombre en el enlace y la imagen',
       copiedLink: 'Enlace copiado', shareFail: 'No se ha podido compartir.', copyLink: 'Copiar enlace', sendLink: 'Enviar enlace',
       imageFail: 'No se ha podido crear la imagen.', badLink: 'Ese enlace no se puede leer.',
       shareTitle: 'Mi colección', collectionWord: 'Colección',
@@ -104,7 +108,6 @@
       copied: 'Copied',
       copyFail: 'Could not copy. Select it by hand.',
       locale: 'en-US',
-      tierWord: 'Tier', have: 'You have', progress: 'Progress',
       haveOf: (a, b) => a + ' of ' + b,
       shinyTitle: 'You have the shiny', shiny: '★',
       owned: n => String(n),
@@ -114,7 +117,12 @@
       dexStat: () => 'in the Pokédex',
       shinyStat: 'shiny', lastSave: 'last save',
       unknown: n => n + ' not in the ranking.',
-      byTier: 'By tier',
+      byTier: 'By tier', byRarity: 'By rarity', breakBy: 'Group by',
+      legendWord: 'Legendaries', legendLabel: 'legendaries and singulars', legendShiny: n => n + ' shiny among them',
+      legendView: 'Legendaries', missingRar: n => 'Missing from 5★ (' + n + ')', allRar: 'You have every 5★.',
+      presume: 'Show off', choiceCol: 'Collection', choiceLeg: 'Legendaries', choiceShiny: 'Shinies',
+      choiceSub: (a, b) => a + ' of ' + b, closeDialog: 'Close', previewLabel: 'Preview',
+      copyLinkBtn: 'Copy link', nativeShare: 'Share', nameField: 'Name',
       pause: 'Pause', play: 'Play',
       repCount: (n, total) => grouped(n, ',') + ' / ' + grouped(total, ','),
       stepOf: (i, n) => 'Step ' + i + ' of ' + n,
@@ -131,11 +139,11 @@
       planOdds: n => '1 in ' + n + ' pulls gives a Pokémon you are missing.',
       planSee: 'See every banner',
       planDone: 'You already have every Pokémon in the banners.',
-      colBanner: 'Banner', colMissing: 'Missing', colNew: 'New per pull', colPulls: 'Pulls to complete',
+      colBanner: 'Banner', colMissing: 'Missing', colHave: 'You have', colNew: 'Per pull', colPulls: 'Pulls', pullsAvg: '≈ average of 150 simulations',
       pullHere: 'Pull here', complete: 'Complete',
       share: 'Share', download: 'Download image',
       otherCollection: 'Another player\'s collection', backToMine: 'Back to mine',
-      shareNamePh: 'Name', shareNameLabel: 'Name on the link and the image',
+      shareNamePh: 'Your name', shareNameLabel: 'Name on the link and the image',
       copiedLink: 'Link copied', shareFail: 'Could not share.', copyLink: 'Copy link', sendLink: 'Send link',
       imageFail: 'Could not create the image.', badLink: 'That link could not be read.',
       shareTitle: 'My collection', collectionWord: 'Collection',
@@ -162,7 +170,7 @@
     return r.json();
   });
 
-  const state = { mons: null, byDex: null, cards: [], groups: [], view: 'normal', wildOnly: false, shinySort: 'new', shinyDex: null };
+  const state = { mons: null, byDex: null, cards: [], groups: [], view: 'normal', breakBy: 'rarity', wildOnly: false, shinySort: 'new', shinyDex: null };
 
   // ---------------------------------------------------------------- tarjetas
   function card(p, extraClass, extraHtml) {
@@ -356,11 +364,102 @@
   }
 
   // ---------------------------------------------------------------- colección
-  function tierRows(owned) {
-    return TIERS.map(t => {
-      const all = state.mons.filter(p => p.r[1] === t);
-      return { t, have: all.filter(p => owned.has(p.dex)).length, n: all.length };
+  // Desglose por rareza (por defecto) o por tier. Cada fila: cuántos tienes de un grupo.
+  function breakKeys(by) {
+    return by === 'tier' ? TIERS : [5, 4, 3, 2, 1];
+  }
+
+  function breakOf(by) {
+    return by === 'tier' ? p => p.r[1] : p => p.rarity;
+  }
+
+  function breakRows(owned, by) {
+    const of = breakOf(by);
+    return breakKeys(by).map(key => {
+      const all = state.mons.filter(p => of(p) === key);
+      return { key: key, n: all.length, have: all.filter(p => owned.has(p.dex)).length };
     });
+  }
+
+  function breakBadge(by, key) {
+    if (by === 'tier') return '<span class="tier-badge ' + key + '">' + key + '</span>';
+    return '<span class="rar-badge r' + key + '"><svg class="rball" viewBox="0 0 12 12" aria-hidden="true"><use href="#rball-' + key +
+      '"/></svg>' + key + '★</span>';
+  }
+
+  function breakList(by, rows) {
+    return '<ol class="rows">' + rows.map(r => {
+      const pct = r.n ? (100 * r.have / r.n).toFixed(1) : 0;
+      const color = by === 'tier' ? 'var(--tier-' + r.key + ')' : 'var(--rar-' + r.key + ')';
+      return '<li class="row"><span class="row-label">' + breakBadge(by, r.key) + '</span>' +
+        '<span class="row-bar"><i style="width:' + pct + '%;--bf:' + color + '"></i></span>' +
+        '<span class="row-num">' + esc(TEXT.haveOf(r.have, r.n)) + '</span></li>';
+    }).join('') + '</ol>';
+  }
+
+  function breakTools() {
+    const seg = (by, label) => '<button class="seg" type="button" data-break="' + by + '" aria-pressed="' + (state.breakBy === by) +
+      '">' + esc(label) + '</button>';
+    return '<div class="break-tools" role="group" aria-label="' + esc(TEXT.breakBy) + '">' + seg('rarity', TEXT.byRarity) +
+      seg('tier', TEXT.byTier) + '</div>';
+  }
+
+  function ownedGroups(c, owned, by) {
+    const shinySet = new Set(c.shiny);
+    const of = breakOf(by);
+    return breakKeys(by).map(key => {
+      const mine = state.mons.filter(p => of(p) === key && owned.has(p.dex))
+        .sort(by === 'tier' ? (a, b) => a.r[0] - b.r[0] : Collection.showOrder);
+      if (!mine.length) return '';
+      return '<h3>' + breakBadge(by, key) + ' ' + TEXT.owned(mine.length) + '</h3><div class="grid">' +
+        mine.map(p => card(p, 'owned', shinySet.has(p.dex) ? '<span class="sh" title="' + TEXT.shinyTitle + '">' + TEXT.shiny + '</span>' : '')).join('') +
+        '</div>';
+    }).join('');
+  }
+
+  function missingHtml(owned, by) {
+    if (by === 'rarity') {
+      const missing = state.mons.filter(p => p.rarity === 5 && !owned.has(p.dex)).sort(Collection.showOrder);
+      return missing.length
+        ? '<h3>' + esc(TEXT.missingRar(missing.length)) + '</h3><div class="grid">' + missing.map(p => card(p, 'miss')).join('') + '</div>'
+        : '<p><strong>' + esc(TEXT.allRar) + '</strong></p>';
+    }
+    const missing = state.mons.filter(p => ['S', 'A'].includes(p.r[1]) && !owned.has(p.dex)).sort((a, b) => a.r[0] - b.r[0]);
+    return missing.length
+      ? '<h3>' + TEXT.missingSA(missing.length) + '</h3><div class="grid">' + missing.map(p => card(p, 'miss')).join('') + '</div>'
+      : '<p><strong>' + TEXT.allSA + '</strong></p>';
+  }
+
+  function legendView(c, owned) {
+    const legends = state.mons.filter(p => p.legendary).sort(Collection.showOrder);
+    const have = legends.filter(p => owned.has(p.dex));
+    const shinySet = new Set(c.shiny);
+    const shinies = have.filter(p => shinySet.has(p.dex)).length;
+    const pct = legends.length ? (100 * have.length / legends.length).toFixed(1) : 0;
+    const hero = '<div class="hero"><p class="hero-line"><b class="hero-n">' + have.length + '</b>' +
+      '<span class="hero-of">/ ' + legends.length + '</span><span class="hero-what">' + esc(TEXT.legendLabel) + '</span>' +
+      (shinies ? '<span class="badge-shiny">★ ' + shinies + '</span>' : '') + '</p>' +
+      '<div class="meter" role="img" aria-label="' + esc(TEXT.haveOf(have.length, legends.length)) + '"><i style="width:' + pct + '%"></i></div></div>';
+    return hero + '<div class="grid">' + legends.map(p => card(p, owned.has(p.dex) ? 'owned' : 'miss',
+      owned.has(p.dex) && shinySet.has(p.dex) ? '<span class="sh" title="' + TEXT.shinyTitle + '">' + TEXT.shiny + '</span>' : '')).join('') +
+      '</div>';
+  }
+
+  function collectionBody(c, owned, known, unknown, total, guest) {
+    const shinyBadge = c.shiny.length
+      ? '<span class="badge-shiny">★ ' + c.shiny.length + '<span class="sr"> ' + esc(TEXT.shinyStat) + '</span></span>' : '';
+    const day = !guest && c.updated ? new Date(c.updated).toLocaleDateString(TEXT.locale, { day: 'numeric', month: 'short' }) : '';
+    const hero = '<div class="hero"><p class="hero-line"><b class="hero-n">' + known.length + '</b>' +
+      '<span class="hero-of">/ ' + total + '</span><span class="hero-what">' + TEXT.dexStat() + '</span>' + shinyBadge + '</p>' +
+      '<div class="meter" role="img" aria-label="' + esc(TEXT.haveOf(known.length, total)) + '"><i style="width:' +
+      (100 * known.length / total).toFixed(1) + '%"></i></div>' +
+      (day ? '<p class="hero-sub">' + esc(TEXT.lastSave) + ': ' + esc(day) + '</p>' : '') + '</div>';
+    const by = state.breakBy;
+    return hero +
+      (unknown ? '<p class="muted small">' + TEXT.unknown(unknown) + '</p>' : '') +
+      planHtml(owned) +
+      '<div class="break-head"><h3>' + esc(by === 'tier' ? TEXT.byTier : TEXT.byRarity) + '</h3>' + breakTools() + '</div>' +
+      breakList(by, breakRows(owned, by)) + ownedGroups(c, owned, by) + missingHtml(owned, by);
   }
 
   function renderCollection(c, opts) {
@@ -370,38 +469,17 @@
     const known = state.mons.filter(p => owned.has(p.dex));
     const unknown = c.dex.length - known.length;
     const total = state.mons.length;
-    const rows = tierRows(owned);
-    const table = '<div class="tablewrap"><table><thead><tr><th>' + TEXT.tierWord + '</th><th class="num">' + TEXT.have + '</th><th>' + TEXT.progress +
-      '</th></tr></thead><tbody>' +
-      rows.map(r => '<tr><th scope="row"><span class="tier-badge ' + r.t + '">' + r.t + '</span></th><td class="num">' + TEXT.haveOf(r.have, r.n) +
-        '</td><td><span class="bar"><i style="width:' + (r.n ? (100 * r.have / r.n).toFixed(1) : 0) + '%;--bf:var(--tier-' + r.t + ')"></i></span></td></tr>').join('') + '</tbody></table></div>';
-    const shinySet = new Set(c.shiny);
-    const groups = TIERS.map(t => {
-      const mine = state.mons.filter(p => p.r[1] === t && owned.has(p.dex)).sort((a, b) => a.r[0] - b.r[0]);
-      if (!mine.length) return '';
-      return '<h3><span class="tier-badge ' + t + '">' + t + '</span> ' + TEXT.owned(mine.length) + '</h3><div class="grid">' +
-        mine.map(p => card(p, 'owned', shinySet.has(p.dex) ? '<span class="sh" title="' + TEXT.shinyTitle + '">' + TEXT.shiny + '</span>' : '')).join('') + '</div>';
-    }).join('');
-    const missingTop = state.mons.filter(p => ['S', 'A'].includes(p.r[1]) && !owned.has(p.dex)).sort((a, b) => a.r[0] - b.r[0]);
-    const missing = missingTop.length
-      ? '<h3>' + TEXT.missingSA(missingTop.length) + '</h3><div class="grid">' + missingTop.map(p => card(p, 'miss')).join('') + '</div>'
-      : '<p><strong>' + TEXT.allSA + '</strong></p>';
-    const day = !guest && c.updated ? new Date(c.updated).toLocaleDateString(TEXT.locale, { day: 'numeric', month: 'short' }) : '';
-    const shinyBadge = c.shiny.length
-      ? '<span class="badge-shiny">★ ' + c.shiny.length + '<span class="sr"> ' + esc(TEXT.shinyStat) + '</span></span>' : '';
-    const hero = '<div class="hero"><p class="hero-line"><b class="hero-n">' + known.length + '</b>' +
-      '<span class="hero-of">/ ' + total + '</span><span class="hero-what">' + TEXT.dexStat() + '</span>' + shinyBadge + '</p>' +
-      '<div class="meter" role="img" aria-label="' + esc(TEXT.haveOf(known.length, total)) + '"><i style="width:' +
-      (100 * known.length / total).toFixed(1) + '%"></i></div>' +
-      (day ? '<p class="hero-sub">' + esc(TEXT.lastSave) + ': ' + esc(day) + '</p>' : '') + '</div>';
     const heading = guest
       ? (shareName ? '<h2>' + esc(shareName) + '</h2>' : '')
       : '<h2>' + (c.name ? TEXT.collectionOf(esc(c.name)) : TEXT.yourCollection) + '</h2>';
-    const body = state.view === 'shiny' ? shinyView(c, guest) : hero +
-      (unknown ? '<p class="muted small">' + TEXT.unknown(unknown) + '</p>' : '') +
-      planHtml(owned) +
-      '<h3>' + TEXT.byTier + '</h3>' + table + groups + missing;
-    $('#result').innerHTML = viewTabs() + heading + body;
+    const body = state.view === 'shiny' ? shinyView(c, guest)
+      : state.view === 'legend' ? legendView(c, owned)
+      : collectionBody(c, owned, known, unknown, total, guest);
+    const result = $('#result');
+    const pull = result.querySelector('.pull-more');
+    const wasOpen = !!(pull && pull.open);
+    result.innerHTML = viewTabs() + heading + body;
+    if (wasOpen) { const again = result.querySelector('.pull-more'); if (again) again.open = true; }
     if (state.view === 'shiny') paintShinyGrid(c, guest);
   }
 
@@ -436,7 +514,8 @@
       (state.view === view) + '">' + icon + '<span>' + esc(label) + '</span></button>';
     return '<div class="views" role="group" aria-label="' + esc(TEXT.viewLabel) + '">' +
       tab('normal', '<i class="ico ico-ball" aria-hidden="true"></i>', TEXT.viewNormal) +
-      tab('shiny', '<i class="ico ico-sparkle" aria-hidden="true"></i>', TEXT.viewShiny) + '</div>';
+      tab('shiny', '<i class="ico ico-sparkle" aria-hidden="true"></i>', TEXT.viewShiny) +
+      tab('legend', '<i class="ico ico-crown" aria-hidden="true"></i>', TEXT.legendView) + '</div>';
   }
 
   function shinyTools(guest) {
@@ -573,7 +652,7 @@
     return el ? JSON.parse(el.textContent) : [];
   }
 
-  // La respuesta (en qué banner tirar) va arriba. La tabla, con el mismo cálculo, queda plegada debajo.
+  // La respuesta (en qué banner tirar) va arriba. La lista, con el mismo cálculo, queda plegada debajo.
   function planHtml(owned) {
     const pools = bannerPools(state.mons);
     const rows = bannerNames().map(bn => {
@@ -585,23 +664,25 @@
     const done = rows.filter(r => !r.n);
     const top = open.find(r => r.p > 0);
     const line = r => {
-      if (!r.n) return '<tr><th scope="row">' + esc(r.name) + '</th><td class="num">0</td><td class="num">—</td><td class="num">' +
-        esc(TEXT.complete) + '</td></tr>';
-      const tag = r === top ? ' <span class="pull-tag">' + esc(TEXT.pullHere) + '</span>' : '';
-      return '<tr' + (r === top ? ' class="top"' : '') + '><th scope="row">' + esc(r.name) + tag + '</th><td class="num">' + r.n +
-        '</td><td class="num">' + TEXT.pct(dec(100 * r.p, 1)) + '</td><td class="num">' +
-        grouped(Math.round(pullsToComplete(r.b, r.missing)), TEXT.sep) + '</td></tr>';
+      const have = r.total - r.n;
+      const chip = r.n ? '<span class="pl-chip">' + esc(TEXT.pct(dec(100 * r.p, 1))) + '</span>' : '<span class="pl-chip is-empty">—</span>';
+      const pulls = r.n ? grouped(Math.round(pullsToComplete(r.b, r.missing)), TEXT.sep) : esc(TEXT.complete);
+      return '<li class="pl-row' + (r === top ? ' is-top' : '') + (r.n ? '' : ' is-done') + '">' +
+        '<span class="pl-name">' + esc(r.name) + (r === top ? '<span class="pull-tag">' + esc(TEXT.pullHere) + '</span>' : '') + '</span>' +
+        '<span class="pl-prog"><span class="pl-bar"><i style="width:' + (100 * have / r.total).toFixed(1) + '%"></i></span>' +
+        '<span class="pl-num">' + esc(TEXT.haveOf(have, r.total)) + '</span></span>' +
+        chip + '<span class="pl-pulls">' + pulls + '</span></li>';
     };
-    const table = '<div class="tablewrap"><table><thead><tr><th>' + TEXT.colBanner + '</th><th class="num">' + TEXT.colMissing +
-      '</th><th class="num">' + TEXT.colNew + '</th><th class="num">' + TEXT.colPulls + '</th></tr></thead><tbody>' +
-      open.map(line).join('') + done.map(line).join('') + '</tbody></table></div>';
+    const list = '<div class="pl-list"><div class="pl-head" aria-hidden="true"><span>' + esc(TEXT.colBanner) + '</span><span>' +
+      esc(TEXT.colHave) + '</span><span>' + esc(TEXT.colNew) + '</span><span title="' + esc(TEXT.planNote) + '">' + esc(TEXT.colPulls) +
+      '</span></div><ol class="pl-rows">' + open.map(line).join('') + done.map(line).join('') + '</ol>' +
+      '<p class="pl-note">' + esc(TEXT.pullsAvg) + '</p></div>';
     const next = top ? open.filter(r => r !== top && r.p > 0).slice(0, 2) : [];
     return '<section class="pull" id="pull">' +
       '<h3 class="pull-h"><i class="ico ico-dice" aria-hidden="true"></i>' + esc(TEXT.planH) + '</h3>' +
       (top ? planBoard(top, next) : '<p class="pull-done"><i class="ico ico-trophy" aria-hidden="true"></i>' + esc(TEXT.planDone) + '</p>') +
       '<details class="pull-more"><summary>' + esc(TEXT.planSee) + '<i class="pull-chev" aria-hidden="true"></i></summary>' +
-      '<div class="pull-body"><p class="pull-lede">' + esc(TEXT.planLede) + '</p>' + table +
-      '<p class="pull-note">' + esc(TEXT.planNote) + '</p></div></details></section>';
+      '<div class="pull-body"><p class="pull-lede">' + esc(TEXT.planLede) + '</p>' + list + '</div></details></section>';
   }
 
   // Tarjeta del banner que más te acerca, y los dos siguientes en pequeño.
@@ -647,39 +728,33 @@
 
   // Fila de acciones: una sola para la colección propia, la de otro jugador y los enlaces rotos.
   // mode: 'own' | 'failed' (sin almacenamiento) | 'guest' | 'broken' | 'forgot' | 'none'
-  function renderSaved(mode, shareName) {
+  function renderSaved(mode) {
     const el = $('#saved');
     const guest = mode === 'guest';
-    const input = $('#share-name');
-    input.readOnly = guest;
-    input.value = guest ? (shareName || '') : '';
-    $('.share-name').hidden = guest && !shareName;
-    const colBtn = (id, inner, label, attrs) => '<button class="col-btn" type="button" id="' + id + '"' + (attrs || '') +
+    closePresume();
+    const colBtn = (id, inner, label) => '<button class="col-btn" type="button" id="' + id + '"' +
       ' aria-label="' + esc(label) + '" title="' + esc(label) + '">' + inner + '</button>';
-    const share = colBtn('share-toggle', ICO_SHARE, TEXT.share, ' aria-expanded="false" aria-controls="sharebar"');
-    const img = colBtn('share-img', ICO_IMG, TEXT.download, '');
-    const back = colBtn('back-own', ICO_BACK, TEXT.backToMine, '');
-    const reimport = colBtn('reimport', '<i class="ico ico-import" aria-hidden="true"></i>', TEXT.reimport, '');
-    const forget = colBtn('forget', '<i class="ico ico-trash" aria-hidden="true"></i>', TEXT.forget, '');
+    const presume = '<button class="btn small col-presume" type="button" id="presume-open" aria-haspopup="dialog">' + ICO_SHARE +
+      '<span>' + esc(TEXT.presume) + '</span></button>';
+    const back = colBtn('back-own', ICO_BACK, TEXT.backToMine);
+    const reimport = colBtn('reimport', '<i class="ico ico-import" aria-hidden="true"></i>', TEXT.reimport);
+    const forget = colBtn('forget', '<i class="ico ico-trash" aria-hidden="true"></i>', TEXT.forget);
     const row = (meta, actions) => '<span class="col-meta' + (guest ? ' guest' : '') + '">' + meta + '</span>' +
       (actions.length ? '<span class="col-actions">' + actions.join('') + '</span>' : '');
     const html = {
       none: '',
       forgot: '<span class="col-meta">' + esc(TEXT.forgot) + '</span>',
-      own: row(esc(TEXT.savedHere), [share, img, reimport, forget]),
-      failed: row(esc(TEXT.storageOff), [share, img, reimport]),
-      guest: row(ICO_USER + esc(TEXT.otherCollection), [share, img, back]),
+      own: row(esc(TEXT.savedHere), [presume, reimport, forget]),
+      failed: row(esc(TEXT.storageOff), [presume, reimport]),
+      guest: row(ICO_USER + esc(TEXT.otherCollection), [presume, back]),
       broken: row('', [back]),
     };
     el.innerHTML = html[mode];
-    setSharePanel(false);
   }
 
-  function setSharePanel(open) {
-    $('#sharebar').hidden = !open;
-    const t = $('#share-toggle');
-    if (t) t.setAttribute('aria-expanded', String(open));
-    $('#share-msg').textContent = '';
+  function closePresume() {
+    const dlg = $('#presume');
+    if (dlg && dlg.open) dlg.close();
   }
 
   // Progreso en cada tarjeta de gacha (página Gacha), si hay una colección guardada.
@@ -702,7 +777,6 @@
   const ICO_SHARE = '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false" shape-rendering="crispEdges"><path fill="currentColor" d="M1 6h4v4H1zm10-5h4v4h-4zm0 10h4v4h-4z"/><path d="M5 8h6M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>';
   const ICO_BACK = '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false" shape-rendering="crispEdges"><path fill="currentColor" d="M8 2 3 8l5 6V10h6V6H8z"/></svg>';
   const ICO_USER = '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false" shape-rendering="crispEdges"><path fill="currentColor" d="M6 1h4v4H6zM3 7h10v7H3z"/></svg>';
-  const ICO_TAG = '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false" shape-rendering="crispEdges"><path fill="currentColor" d="M1 7V1h6l8 8-6 6zm3-3h2v2H4z"/></svg>';
   const ICO_IMG = '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false" shape-rendering="crispEdges"><path fill="currentColor" fill-rule="evenodd" d="M1 1h14v14H1zM2 2v12h12V2z"/><path fill="currentColor" d="M4 12l3-4 2 2 1-1 2 3z"/></svg>';
   const ICO_COPY = '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false" shape-rendering="crispEdges"><path fill="none" stroke="currentColor" stroke-width="2" d="M6 1h9v9h-2M1 6h9v9H1z"/></svg>';
   const CARD_W = 1200, CARD_H = 630, CARD_LEFT = 48, CARD_BAR_W = 560;
@@ -729,11 +803,19 @@
     });
   }
 
+  const ICO_X = '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false" shape-rendering="crispEdges"><path fill="currentColor" d="M3 1h2v2h2v2h2V3h2V1h2v2h-2v2h-2v2h2v2h2v2h2v2h-2v-2h-2v-2H9v2H7v2H5v2H3v-2h2v-2h2v-2H5V7H3V5H1V3h2z"/></svg>';
+  const FILE_NAME = { normal: 'survivortiers-collection.png', shiny: 'survivortiers-shiny.png', legend: 'survivortiers-legendarios.png' };
+  const CHOICES = ['normal', 'legend', 'shiny'];
+  let presumeView = 'normal';
+  let shareNameOwn = '';
+  let previewToken = 0;
+  let previewTimer = 0;
+
   function shareUrl() {
     if (!viewing) return '';
     const name = $('#share-name') ? $('#share-name').value : '';
     return location.origin + location.pathname + location.search + '#c=' +
-      ShareCodec.encodeCollection({ dex: viewing.c.dex, shiny: viewing.c.shiny, ...Collection.originForLink(viewing.c), name: name, view: state.view });
+      ShareCodec.encodeCollection({ dex: viewing.c.dex, shiny: viewing.c.shiny, ...Collection.originForLink(viewing.c), name: name, view: presumeView });
   }
 
   function onMobileShare() {
@@ -757,13 +839,153 @@
     else done(false);
   }
 
+  function choiceLabel(view) {
+    return view === 'shiny' ? TEXT.choiceShiny : view === 'legend' ? TEXT.choiceLeg : TEXT.choiceCol;
+  }
+
+  // Lo que dice cada opción de «Presumir» antes de abrirla: cuántos Pokémon o cazados entran en esa imagen.
+  function choiceSub(view) {
+    const c = viewing.c;
+    const owned = new Set(c.dex);
+    if (view === 'shiny') {
+      const k = hunterCounts(c);
+      return k.hunted + ' ' + (k.legacy ? TEXT.shinyTotal : TEXT.hunted);
+    }
+    if (view === 'legend') {
+      const legends = state.mons.filter(p => p.legendary);
+      return TEXT.choiceSub(legends.filter(p => owned.has(p.dex)).length, legends.length);
+    }
+    return TEXT.choiceSub(state.mons.filter(p => owned.has(p.dex)).length, state.mons.length);
+  }
+
+  function cardBlob() {
+    return buildShareCanvas(viewing.c, $('#share-name').value, presumeView)
+      .then(canvas => new Promise(resolve => canvas.toBlob(resolve, 'image/png')))
+      .then(blob => { if (!blob) throw new Error('png'); return blob; });
+  }
+
+  function renderPreview() {
+    if (!viewing) return;
+    const token = ++previewToken;
+    buildShareCanvas(viewing.c, $('#share-name').value, presumeView).then(canvas => {
+      const pv = $('#ps-canvas');
+      if (token !== previewToken || !pv) return;
+      const ctx = pv.getContext('2d');
+      ctx.clearRect(0, 0, pv.width, pv.height);
+      ctx.drawImage(canvas, 0, 0);
+    }).catch(() => { if (token === previewToken) $('#share-msg').textContent = TEXT.imageFail; });
+  }
+
+  function setChoice(view) {
+    presumeView = view;
+    $$('[data-choice]').forEach(b => {
+      b.setAttribute('aria-pressed', String(b.dataset.choice === view));
+      b.querySelector('b').textContent = choiceLabel(b.dataset.choice);
+      b.querySelector('span').textContent = choiceSub(b.dataset.choice);
+    });
+    $('#share-link').querySelector('span').textContent = onMobileShare() ? TEXT.sendLink : TEXT.copyLinkBtn;
+    renderPreview();
+  }
+
+  function shareImage() {
+    if (!viewing) return;
+    const btn = $('#share-img');
+    const view = presumeView;
+    btn.disabled = true;
+    cardBlob().then(blob => {
+      const a = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      a.href = url;
+      a.download = FILE_NAME[view];
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1500);
+    }).catch(() => { $('#share-msg').textContent = TEXT.imageFail; }).finally(() => { btn.disabled = false; });
+  }
+
+  // En el móvil, la imagen va como archivo a la hoja de compartir (si el navegador deja enviar archivos).
+  function shareNativeImage() {
+    const msg = $('#share-msg');
+    const view = presumeView;
+    cardBlob().then(blob => {
+      const file = new File([blob], FILE_NAME[view], { type: 'image/png' });
+      return navigator.share({ title: TEXT.shareTitle, files: [file] });
+    }).catch(err => { if (err && err.name !== 'AbortError') msg.textContent = TEXT.shareFail; });
+  }
+
+  function canShareFiles() {
+    try {
+      return !!(navigator.canShare && navigator.canShare({ files: [new File([''], 'a.png', { type: 'image/png' })] }));
+    } catch (e) { return false; }
+  }
+
+  function mountPresume() {
+    if ($('#presume')) return;
+    const mobile = onMobileShare();
+    const dlg = document.createElement('dialog');
+    dlg.id = 'presume';
+    dlg.className = 'presume';
+    dlg.setAttribute('aria-labelledby', 'presume-h');
+    dlg.innerHTML =
+      '<div class="ps-head"><h2 id="presume-h">' + esc(TEXT.presume) + '</h2>' +
+      '<button class="col-btn" type="button" data-close aria-label="' + esc(TEXT.closeDialog) + '" title="' + esc(TEXT.closeDialog) + '">' +
+      ICO_X + '</button></div>' +
+      '<div class="ps-choices" role="group" aria-label="' + esc(TEXT.presume) + '">' +
+      CHOICES.map(v => '<button class="ps-choice" type="button" data-choice="' + v + '" aria-pressed="false"><b></b><span></span></button>').join('') +
+      '</div>' +
+      '<div class="ps-body"><figure class="ps-preview"><canvas id="ps-canvas" width="1200" height="630" role="img" aria-label="' +
+      esc(TEXT.previewLabel) + '"></canvas></figure>' +
+      '<div class="ps-side"><label class="ps-field"><span>' + esc(TEXT.nameField) + '</span>' +
+      '<input id="share-name" type="text" maxlength="' + ShareCodec.MAX_CHARS + '" autocomplete="off" spellcheck="false" placeholder="' +
+      esc(TEXT.shareNamePh) + '"></label>' +
+      '<button class="btn" type="button" id="share-link">' + (mobile ? ICO_SHARE : ICO_COPY) + '<span></span></button>' +
+      (mobile && canShareFiles() ? '<button class="btn ghost" type="button" id="share-native">' + ICO_SHARE + '<span>' +
+        esc(TEXT.nativeShare) + '</span></button>' : '') +
+      '<button class="btn ghost" type="button" id="share-img">' + ICO_IMG + '<span>' + esc(TEXT.download) + '</span></button>' +
+      '<p id="share-msg" class="muted small" role="status" aria-live="polite"></p></div></div>';
+    document.body.appendChild(dlg);
+    dlg.addEventListener('click', e => {
+      if (e.target === dlg || e.target.closest('[data-close]')) { dlg.close(); return; }
+      const choice = e.target.closest('[data-choice]');
+      if (choice) setChoice(choice.dataset.choice);
+    });
+    $('#share-name', dlg).addEventListener('input', () => {
+      shareNameOwn = $('#share-name').value;
+      clearTimeout(previewTimer);
+      previewTimer = setTimeout(renderPreview, 150);
+    });
+    $('#share-name', dlg).addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); $('#share-link').click(); }
+    });
+    $('#share-link', dlg).addEventListener('click', shareLink);
+    $('#share-img', dlg).addEventListener('click', shareImage);
+    const native = $('#share-native', dlg);
+    if (native) native.addEventListener('click', shareNativeImage);
+  }
+
+  function openPresume() {
+    if (!viewing) return;
+    mountPresume();
+    const dlg = $('#presume');
+    const input = $('#share-name');
+    input.readOnly = !!viewing.opts.guest;
+    input.value = viewing.opts.guest ? (viewing.opts.shareName || '') : shareNameOwn;
+    $('#share-msg').textContent = '';
+    setChoice(state.view);
+    if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', '');
+    $('[data-choice][aria-pressed="true"]', dlg).focus();
+  }
+
   function themeColors() {
     const s = getComputedStyle(document.documentElement);
     const g = name => s.getPropertyValue(name).trim();
     const tier = {};
     TIERS.forEach(t => { tier[t] = g('--tier-' + t); });
+    const rar = {};
+    [1, 2, 3, 4, 5].forEach(r => { rar[r] = g('--rar-' + r); });
     return { bg: g('--bg'), ink: g('--ink'), ink2: g('--ink-2'), accent: g('--accent'), on: g('--on-accent'),
-      soft: g('--rule-soft'), tierInk: g('--tier-ink'), tier };
+      soft: g('--rule-soft'), tierInk: g('--tier-ink'), tier, rar };
   }
 
   function fitText(ctx, text, max, size, weight, family) {
@@ -812,13 +1034,12 @@
 
   function showcase(c) {
     const owned = new Set(c.dex);
-    const out = [];
-    TIERS.forEach(t => {
-      state.mons.filter(p => p.r[1] === t && owned.has(p.dex)).sort((a, b) => a.r[0] - b.r[0]).forEach(p => {
-        if (out.length < 6) out.push(p);
-      });
-    });
-    return out;
+    return state.mons.filter(p => owned.has(p.dex)).sort(Collection.showOrder).slice(0, 6);
+  }
+
+  function legendPicks(c) {
+    const owned = new Set(c.dex);
+    return state.mons.filter(p => p.legendary && owned.has(p.dex)).sort(Collection.showOrder).slice(0, 6);
   }
 
   function paintFrame(ctx, colors, kicker) {
@@ -921,20 +1142,20 @@
     if (info.sub) ctx.fillText(info.sub, hunterX + 28, y + 102);
     y = labelY + 44;
     info.rows.forEach(r => {
-      ctx.fillStyle = colors.tier[r.t];
+      ctx.fillStyle = r.color;
       ctx.fillRect(CARD_LEFT, y, 36, 36);
       ctx.fillStyle = colors.tierInk;
-      ctx.font = '700 22px ' + CARD_UI;
+      ctx.font = (r.label.length > 1 ? '700 17px ' : '700 22px ') + CARD_UI;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(r.t, CARD_LEFT + 18, y + 19);
+      ctx.fillText(r.label, CARD_LEFT + 18, y + 19);
       ctx.textAlign = 'left';
       ctx.textBaseline = 'top';
       const barX = CARD_LEFT + 48, barW = 400, barY = y + 11;
       ctx.fillStyle = colors.soft;
       ctx.fillRect(barX, barY, barW, 14);
       const fill = r.n ? Math.round(barW * r.have / r.n) : 0;
-      ctx.fillStyle = colors.tier[r.t];
+      ctx.fillStyle = r.color;
       for (let i = 0; i < fill; i += 8) ctx.fillRect(barX + i, barY, Math.min(6, fill - i), 14);
       ctx.font = '700 20px ' + CARD_UI;
       ctx.fillStyle = colors.ink;
@@ -974,6 +1195,56 @@
     ctx.fillRect(CARD_LEFT, barY + 34, Math.round(CARD_BAR_W * info.dex.have / total), 16);
   }
 
+  function paintLegendStats(ctx, colors, info, y) {
+    ctx.font = '700 84px ' + CARD_UI;
+    ctx.fillStyle = colors.ink;
+    const num = String(info.have);
+    drawNum(ctx, num, CARD_LEFT, y);
+    const totalX = Math.round(CARD_LEFT + numWidth(ctx, num) + 16);
+    ctx.font = '400 30px ' + CARD_UI;
+    ctx.fillStyle = colors.ink2;
+    drawNum(ctx, '/ ' + info.total, totalX, y + 48);
+    ctx.font = '400 20px ' + CARD_UI;
+    ctx.fillText(info.label, CARD_LEFT, y + 92);
+    ctx.fillStyle = colors.soft;
+    ctx.fillRect(CARD_LEFT, y + 140, CARD_BAR_W, 16);
+    ctx.fillStyle = colors.accent;
+    ctx.fillRect(CARD_LEFT, y + 140, Math.round(CARD_BAR_W * info.have / info.total), 16);
+    if (info.shinies) {
+      ctx.font = '700 20px ' + CARD_UI;
+      ctx.fillStyle = colors.ink;
+      ctx.fillText(TEXT.legendShiny(info.shinies), CARD_LEFT, y + 176);
+    }
+  }
+
+  // Todos los legendarios en rejilla: los que tienes a color, los que no, apagados; el shiny lleva un punto.
+  function paintLegendGrid(ctx, colors, grid, y) {
+    const cell = 42, gap = 6, cols = 22;
+    grid.forEach((item, i) => {
+      const x = CARD_LEFT + (i % cols) * (cell + gap);
+      const cy = y + Math.floor(i / cols) * (cell + gap);
+      if (item.owned) {
+        ctx.fillStyle = colors.soft;
+        ctx.fillRect(x, cy, cell, cell);
+      }
+      if (item.img) {
+        const box = cell - 6;
+        const scale = Math.min(box / item.img.width, box / item.img.height);
+        const w = Math.max(1, Math.round(item.img.width * scale));
+        const h = Math.max(1, Math.round(item.img.height * scale));
+        ctx.globalAlpha = item.owned ? 1 : 0.16;
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(item.img, Math.round(x + (cell - w) / 2), Math.round(cy + (cell - h) / 2), w, h);
+        ctx.imageSmoothingEnabled = true;
+        ctx.globalAlpha = 1;
+      }
+      if (item.shiny) {
+        ctx.fillStyle = colors.accent;
+        ctx.fillRect(x + cell - 7, cy + 2, 5, 5);
+      }
+    });
+  }
+
   function paintSprites(ctx, colors, images, big) {
     if (!images.length) return;
     const cell = big ? 150 : 116, gap = 14;
@@ -1002,8 +1273,10 @@
     paintFrame(ctx, colors, info.kicker);
     const y = paintName(ctx, colors, info.name, 118);
     if (info.mode === 'shiny') paintHunterStats(ctx, colors, info, y);
+    else if (info.mode === 'legend') paintLegendStats(ctx, colors, info, y);
     else paintCollectionStats(ctx, colors, info, y);
     paintSprites(ctx, colors, images, info.mode === 'shiny');
+    if (info.grid) paintLegendGrid(ctx, colors, info.grid, 390);
     ctx.font = '400 16px "Zen Kaku Gothic New", sans-serif';
     ctx.fillStyle = colors.ink2;
     ctx.textAlign = 'left';
@@ -1019,20 +1292,32 @@
     await loadZen();
     const colors = themeColors();
     const shiny = view === 'shiny';
-    const picks = shiny ? shinyPicks(c) : showcase(c);
+    const legend = view === 'legend';
+    const owned = new Set(c.dex);
+    const picks = shiny ? shinyPicks(c) : legend ? legendPicks(c) : showcase(c);
     const loaded = await Promise.all(picks.map(p => loadSprite(p.dex, shiny)));
-    const images = picks.map((p, i) => ({ color: shiny ? colors.accent : colors.tier[p.r[1]], img: loaded[i] })).filter(item => item.img);
+    const images = picks.map((p, i) => ({ color: shiny ? colors.accent : colors.rar[p.rarity], img: loaded[i] })).filter(item => item.img);
     const k = hunterCounts(c);
     const name = ShareCodec.cleanName(shareName);
     let info;
     if (shiny) {
       info = { mode: 'shiny', kicker: TEXT.shinyHunter, name: name, hunted: k.hunted,
         hunterLabel: k.legacy ? TEXT.shinyTotal : TEXT.hunted, facts: hunterFacts(k), dex: shinyDexCount(c) };
+    } else if (legend) {
+      const legends = state.mons.filter(p => p.legendary).sort(Collection.showOrder);
+      const shinySet = new Set(c.shiny);
+      const have = legends.filter(p => owned.has(p.dex));
+      const imgs = await Promise.all(legends.map(p => loadSprite(p.dex, false)));
+      info = { mode: 'legend', kicker: TEXT.legendWord, name: name, have: have.length, total: legends.length,
+        shinies: have.filter(p => shinySet.has(p.dex)).length, label: TEXT.legendLabel,
+        grid: legends.map((p, i) => ({ img: imgs[i], owned: owned.has(p.dex), shiny: shinySet.has(p.dex) })) };
     } else {
-      const owned = new Set(c.dex);
+      const by = state.breakBy;
       info = { mode: 'collection', kicker: TEXT.collectionWord, name: name, known: state.mons.filter(p => owned.has(p.dex)).length,
         total: state.mons.length, hunted: k.hunted, hunterLabel: k.legacy ? TEXT.shinyStat : TEXT.hunted,
-        sub: k.gacha ? TEXT.gachaCount(k.gacha) : '', rows: tierRows(owned) };
+        sub: k.gacha ? TEXT.gachaCount(k.gacha) : '',
+        rows: breakRows(owned, by).map(r => ({ label: by === 'tier' ? r.key : r.key + '★',
+          color: by === 'tier' ? colors.tier[r.key] : colors.rar[r.key], have: r.have, n: r.n })) };
     }
     const canvas = document.createElement('canvas');
     canvas.width = CARD_W;
@@ -1041,52 +1326,10 @@
     return canvas;
   }
 
-  function shareImage() {
-    if (!viewing) return;
-    const btn = $('#share-img');
-    btn.disabled = true;
-    buildShareCanvas(viewing.c, $('#share-name').value, state.view).then(canvas => new Promise(resolve => canvas.toBlob(resolve, 'image/png'))).then(blob => {
-      if (!blob) throw new Error('png');
-      const a = document.createElement('a');
-      const url = URL.createObjectURL(blob);
-      a.href = url;
-      a.download = state.view === 'shiny' ? 'survivortiers-shiny.png' : 'survivortiers-collection.png';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 1500);
-    }).catch(() => { showError(TEXT.imageFail); }).finally(() => { btn.disabled = false; });
-  }
-
-  function mountShare() {
-    if ($('#sharebar')) return;
-    const mobile = onMobileShare();
-    const label = mobile ? TEXT.sendLink : TEXT.copyLink;
-    const bar = document.createElement('div');
-    bar.id = 'sharebar';
-    bar.className = 'sharebar';
-    bar.hidden = true;
-    bar.innerHTML =
-      '<div class="share-name">' + ICO_TAG +
-      '<label class="sr" for="share-name">' + esc(TEXT.shareNameLabel) + '</label>' +
-      '<input id="share-name" type="text" maxlength="' + ShareCodec.MAX_CHARS + '" autocomplete="off" spellcheck="false" placeholder="' +
-      esc(TEXT.shareNamePh) + '"></div>' +
-      '<button class="btn small share-go" type="button" id="share-link">' + (mobile ? ICO_SHARE : ICO_COPY) +
-      '<span>' + esc(label) + '</span></button>' +
-      '<span id="share-msg" class="muted small" role="status" aria-live="polite"></span>';
-    const result = $('#result');
-    result.parentNode.insertBefore(bar, result);
-    $('#share-link').addEventListener('click', shareLink);
-    $('#share-name').addEventListener('keydown', e => {
-      if (e.key === 'Enter') { e.preventDefault(); $('#share-link').click(); }
-    });
-  }
-
   function initCollection() {
     const area = $('#import-area'), drop = $('#drop'), fileIn = $('#file');
     // Con una colección importada, el paso a paso y el área de pegado se ocultan; «Reimportar» (en la fila guardada) los vuelve.
     const showImport = on => { area.hidden = !on; };
-    mountShare();
     const paintOwn = (c, stored) => {
       viewing = { c: c, opts: {} };
       renderCollection(c, viewing.opts);
@@ -1115,7 +1358,7 @@
         viewing = { c: c, opts: { guest: true, shareName: decoded.name } };
         state.view = decoded.view;
         renderCollection(c, viewing.opts);
-        renderSaved('guest', decoded.name);
+        renderSaved('guest');
         return;
       }
       const saved = readSaved();
@@ -1129,8 +1372,15 @@
     };
     window.addEventListener('hashchange', showView);
     $('#result').addEventListener('click', e => {
-      const t = e.target.closest('[data-view], [data-sh-filter], [data-sh-sort]');
+      const t = e.target.closest('[data-view], [data-sh-filter], [data-sh-sort], [data-break]');
       if (!t || !viewing) return;
+      if (t.dataset.break) {
+        if (state.breakBy === t.dataset.break) return;
+        state.breakBy = t.dataset.break;
+        renderCollection(viewing.c, viewing.opts);
+        $('[data-break="' + state.breakBy + '"]').focus();
+        return;
+      }
       if (t.dataset.view) {
         if (state.view === t.dataset.view) return;
         state.view = t.dataset.view;
@@ -1159,10 +1409,8 @@
       } else if (btn.id === 'reimport') {
         showImport(true);
         area.scrollIntoView({ block: 'start' });
-      } else if (btn.id === 'share-toggle') {
-        setSharePanel($('#sharebar').hidden);
-      } else if (btn.id === 'share-img') {
-        shareImage();
+      } else if (btn.id === 'presume-open') {
+        openPresume();
       } else if (btn.id === 'back-own') {
         location.hash = '';
       }

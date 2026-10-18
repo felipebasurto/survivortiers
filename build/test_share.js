@@ -45,6 +45,8 @@ round({ dex: [386, 1, 151], shiny: [], gacha: [], name: 'a'.repeat(40) });
 round({ dex: [5], shiny: [9], gacha: [], name: '' });
 round({ dex: [4, 7, 9], shiny: [4, 7, 9], gacha: [7], unknown: [4, 9, 2], name: 'mix' });
 round({ dex: [4, 7], shiny: [4, 7], gacha: [], unknown: [4, 7], view: 'shiny' });
+round({ dex: [144, 145, 146, 1004], shiny: [], gacha: [], name: 'Ana', view: 'legend' });
+round({ dex: [144, 1004], shiny: [144], gacha: [144], name: '', view: 'legend' });
 assert.equal(codec.cleanName('a'.repeat(40)).length, 24);
 
 const v1Ana = 'AQNBbmETABIAAAIAAAAAAAAAAAAAAAAAAIAQAAACAAAAAAAAAAAAAAAAAAAA';
@@ -67,8 +69,11 @@ assert.equal(codec.decodeCollection(Buffer.from([7, 0, 0, 0, 0]).toString('base6
 const v2 = codec.encodeCollection({ dex: [1, 4, 25, 151], shiny: [4, 25], gacha: [25], name: 'Ana', view: 'shiny' });
 const raw = Buffer.from(v2, 'base64url');
 const flipped = Buffer.from(raw);
-flipped[1] |= 0x80;
+flipped[1] |= 0x10;
 assert.equal(codec.decodeCollection(flipped.toString('base64url')), null, 'reserved flag bit');
+const bothViews = Buffer.from(v2, 'base64url');
+bothViews[1] |= 8;
+assert.equal(codec.decodeCollection(bothViews.toString('base64url')), null, 'shiny and legend views at once');
 const notSubset = Buffer.from(codec.encodeCollection({ dex: [4], shiny: [4], gacha: [4], name: '' }), 'base64url');
 const bitsAt = notSubset.length - 1;
 notSubset[bitsAt] = notSubset[bitsAt] | 0x08;

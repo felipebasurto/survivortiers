@@ -2,11 +2,12 @@
    El nombre solo viaja en el enlace; no se guarda en localStorage.
    v1 (enlaces viejos, solo se leen): versión 1, longitud del nombre, nombre UTF-8, uint16 LE con los bytes de cada
    bitset, bitset de dex poseídos, bitset de shiny.
-   v2: versión 2, banderas (bit 0: vista shiny; bit 1: hay bitset de gacha; bit 2: hay bitset de origen desconocido),
-   longitud del nombre, nombre UTF-8, uint16 LE con los bytes de cada bitset: dex, shiny y, según las banderas, gacha y
-   desconocido. Los shiny que no están en ninguno de los dos son salvajes. La fecha de captura no viaja.
+   v2: versión 2, banderas (bit 0: vista shiny; bit 1: hay bitset de gacha; bit 2: hay bitset de origen desconocido;
+   bit 3: vista de legendarios), longitud del nombre, nombre UTF-8, uint16 LE con los bytes de cada bitset: dex, shiny y,
+   según las banderas, gacha y desconocido. Los shiny que no están en ninguno de los dos son salvajes. La fecha de
+   captura no viaja.
    Encodes a collection into the URL fragment (#c=). Version 2 adds flags (bit 0 shiny view, bit 1 gacha set, bit 2
-   unknown-origin set); the shinies in neither set are wild. Version 1 links still decode. */
+   unknown-origin set, bit 3 legendary view); the shinies in neither set are wild. Version 1 links still decode. */
 const ShareCodec = (() => {
   'use strict';
   const VERSION = 2;
@@ -14,6 +15,7 @@ const ShareCodec = (() => {
   const FLAG_SHINY_VIEW = 1;
   const FLAG_ORIGIN = 2;
   const FLAG_UNKNOWN = 4;
+  const FLAG_LEGEND_VIEW = 8;
   const MAX_CHARS = 24;
   const MAX_NAME_BYTES = 96;
   const MAX_BYTES = 512;
@@ -84,8 +86,15 @@ const ShareCodec = (() => {
     return [...name].length > MAX_CHARS ? null : name;
   }
 
+  function viewFlag(view) {
+    if (view === 'shiny') return FLAG_SHINY_VIEW;
+    if (view === 'legend') return FLAG_LEGEND_VIEW;
+    return 0;
+  }
+
   /* dex: Pokémon poseídos. shiny: los que tienen shiny. gacha: los shiny que salieron de gacha, o null si el origen no
-     viaja. unknown: shiny de origen desconocido; los que no están en gacha ni aquí son salvajes. view: 'normal' o 'shiny'. */
+     viaja. unknown: shiny de origen desconocido; los que no están en gacha ni aquí son salvajes.
+     view: 'normal', 'shiny' o 'legend'. */
   function encodeCollection({ dex, shiny, gacha = null, unknown = [], name = '', view = 'normal' } = {}) {
     const owned = idsOf(dex);
     const stars = idsOf(shiny);
@@ -100,7 +109,7 @@ const ShareCodec = (() => {
     const sets = [owned, stars];
     if (originKnown) sets.push(gachaIds);
     if (unknownIds.length) sets.push(unknownIds);
-    const flags = (view === 'shiny' ? FLAG_SHINY_VIEW : 0) | (originKnown ? FLAG_ORIGIN : 0) | (unknownIds.length ? FLAG_UNKNOWN : 0);
+    const flags = viewFlag(view) | (originKnown ? FLAG_ORIGIN : 0) | (unknownIds.length ? FLAG_UNKNOWN : 0);
     const out = new Uint8Array(3 + labelBytes.length + 2 + nbytes * sets.length);
     out[0] = VERSION;
     out[1] = flags;
@@ -139,8 +148,9 @@ const ShareCodec = (() => {
   function decodeV2(bytes) {
     if (bytes.length < 5) return null;
     const flags = bytes[1];
-    if (flags & ~(FLAG_SHINY_VIEW | FLAG_ORIGIN | FLAG_UNKNOWN)) return null;
+    if (flags & ~(FLAG_SHINY_VIEW | FLAG_ORIGIN | FLAG_UNKNOWN | FLAG_LEGEND_VIEW)) return null;
     if ((flags & FLAG_UNKNOWN) && !(flags & FLAG_ORIGIN)) return null;
+    if ((flags & FLAG_SHINY_VIEW) && (flags & FLAG_LEGEND_VIEW)) return null;
     const nameLen = bytes[2];
     const name = decodeName(bytes, 3, nameLen);
     if (name === null) return null;
@@ -167,7 +177,7 @@ const ShareCodec = (() => {
     return {
       version: VERSION,
       name,
-      view: flags & FLAG_SHINY_VIEW ? 'shiny' : 'normal',
+      view: flags & FLAG_SHINY_VIEW ? 'shiny' : flags & FLAG_LEGEND_VIEW ? 'legend' : 'normal',
       dex,
       shiny,
       gacha,
