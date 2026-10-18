@@ -64,4 +64,7 @@ def build(src: Path, site: Path, public: Path) -> str:
     for f in sorted(public.glob("*.json")):
         shutil.copy2(f, site / "data" / f.name)
     shutil.copy2(src / "_headers", site / "_headers")
+    for key in sorted(src.glob("*.txt")):
+        if re.fullmatch(r"[0-9a-f]{32}", key.stem):
+            shutil.copy2(key, site / key.name)
     return hashlib.sha1((css + js).encode("utf8")).hexdigest()[:8]
