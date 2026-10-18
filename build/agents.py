@@ -210,6 +210,8 @@ def llms_full_txt(meta: dict) -> str:
         "- w, h: sprite size in pixels.",
         "- r: `[rank, tier, p10, p90, firm]`. firm is the percentage of repeats in the tier (0–100, not a fraction).",
         "- v: sort values. atk (in-game attack multiplier), hp, spd (speed), ehp (effective HP), rad (body radius) come from the game's Pokédex export. td (type defence), mv (moves), st (stats) are 0–100 percentile scores where 100 is best.",
+        "- v.pa, v.sa: physical and special attack multipliers (damage of its physical / special moves; atk is the larger of the two). v.df, v.sd: base Defence and Special Defence. Taken from js/data/pokedex.js of the game at commit e868b5e.",
+        "- v.ak: the stronger side, `phys`, `spec`, or `mix` (mix when pa and sa differ by 0.05 or less).",
         "",
         "### data/species.json",
         "",

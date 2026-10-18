@@ -26,6 +26,8 @@ GAME_REPO_URL = "https://github.com/JPTER78/pokesurvivor"
 GAME_LICENSE_URL = GAME_REPO_URL + "/blob/main/LICENSE"
 REPO_URL = "https://github.com/felipebasurto/survivortiers"
 GAME_COMMIT = "a9b21f0"
+# Commit de js/data/pokedex.js de donde salen pa, sa, df y sd (build/import_game_combat.py). El ranking sigue en GAME_COMMIT.
+COMBAT_COMMIT = "e868b5e"
 GAME_AUTHOR = "JPTER78"
 
 # URL pública del sitio, para los enlaces absolutos de llms.txt, llms-full.txt y sitemap.xml (build/agents.py).

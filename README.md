@@ -23,6 +23,7 @@ Web: https://survivortiers.pages.dev
 | `build/serve.py` | Servidor local con el mismo comportamiento que el hosting: 404.html con estado 404 y `/_sprites/` |
 | `build/move_tierlist_v4.py` | Regenera `data/move_tierlist_v4.csv` (necesita el análisis y una copia del juego) |
 | `build/shiny_sprites.py` | Deriva qué especies pueden ser shiny (`data/shiny_species.json`) desde los metadatos de sprites del juego, en un commit fijo, y recorta sus sprites shiny a `sprites/shiny/`. Sin argumentos comprueba el repositorio del juego en caché; `--fetch` lo descarga |
+| `build/import_game_combat.py` | Añade a `data/pokedex_export.json` `pa`, `sa`, `df` y `sd` (ataque físico y especial, Defensa y Def. Especial) desde `js/data/pokedex.js` del juego en el commit `e868b5e`. Comprueba que hp, spd, atk, tipos, rareza y generación no hayan cambiado |
 | `build/landing.py` | Las 22 páginas de consulta por idioma (mejores Pokémon, iniciales, legendarios, uno por tipo y pasivas), generadas solo desde los datos del build. Ver «Páginas de consulta» |
 | `build/dupcheck.py` | Similitud (Jaccard sobre trozos de 5 palabras del texto visible) entre las fichas de un idioma |
 | `build/indexnow.py` | Avisa a IndexNow de las URL de `sitemap.xml`. Se ejecuta a mano después de cada deploy |
