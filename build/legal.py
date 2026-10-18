@@ -14,6 +14,8 @@ WEB_ANALYTICS_TOKEN = "b25b980b4c074c92883d29239edc0bea"
 X_URL = "https://x.com/fildotai"
 GAME_URL = "https://pokesurvivor.com"   # CNAME del repositorio del juego en a9b21f0
 GAME_REPO_URL = "https://github.com/JPTER78/pokesurvivor"
+# LICENSE del juego en main: MIT hasta b297089 (14 oct 2026); el código posterior es PolyForm Noncommercial 1.0.0.
+GAME_LICENSE_URL = GAME_REPO_URL + "/blob/main/LICENSE"
 GAME_COMMIT = "a9b21f0"
 GAME_AUTHOR = "JPTER78"
 
@@ -80,10 +82,14 @@ def legal_sections(L: Lang) -> list[dict]:
             "id": "datos",
             "title": pick("Datos y código", "Data and code"),
             "html": pick(
-                f"<p>Datos de {GAME_NAME}, de código MIT (Copyright © 2026 {GAME_AUTHOR}). No se copia su código. "
+                f"<p>Datos de {GAME_NAME} (Copyright © 2026 {GAME_AUTHOR}), de código "
+                f'<a href="{GAME_LICENSE_URL}" rel="noopener">MIT hasta el commit b297089; desde el 14 oct 2026 '
+                f"el código nuevo es PolyForm Noncommercial 1.0.0</a>. No se copia su código. "
                 f"{POKEAPI_NOTICE[0]}</p><p>{MIT_NOTICE[0]}</p>",
-                f"<p>Data from {GAME_NAME}, whose code is MIT (Copyright © 2026 {GAME_AUTHOR}). Its code is not "
-                f"copied. {POKEAPI_NOTICE[1]}</p><p>{MIT_NOTICE[1]}</p>"),
+                f"<p>Data from {GAME_NAME} (Copyright © 2026 {GAME_AUTHOR}), whose code is "
+                f'<a href="{GAME_LICENSE_URL}" rel="noopener">MIT up to commit b297089; from 14 Oct 2026 '
+                f"new code is PolyForm Noncommercial 1.0.0</a>. Its code is not copied. "
+                f"{POKEAPI_NOTICE[1]}</p><p>{MIT_NOTICE[1]}</p>"),
         },
         {
             "id": "privacidad",

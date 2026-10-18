@@ -84,7 +84,7 @@ Las tres líneas bajo el nombre de cada ficha (perfil, build y por qué ese pues
 
 ## Licencias
 
-- Código de este sitio: ver el repositorio. Código adaptado del juego (colores y glifos de tipo): MIT, © 2026 JPTER78 (aviso en `data/GAME_LICENSE.txt` y en la página Acerca).
+- Código de este sitio: ver el repositorio. Código del juego: [MIT hasta el commit b297089; desde el 14 oct 2026 el código nuevo es PolyForm Noncommercial 1.0.0](https://github.com/JPTER78/pokesurvivor/blob/main/LICENSE). Código adaptado del juego (colores y glifos de tipo): MIT, © 2026 JPTER78 (aviso en `data/GAME_LICENSE.txt` y en la página Acerca).
 - Sprites: SpriteCollab, CC BY-NC 4.0 (uso no comercial). Por eso el sitio no puede llevar anuncios, donaciones ni ninguna monetización.
 - Letras: Pixelify Sans (títulos y tiers) y Zen Kaku Gothic New (texto y números), SIL OFL 1.1. Zen Kaku Gothic New va recortada a latino en `src/fonts/ZenKakuGothicNew-400.woff2`, `ZenKakuGothicNew-500.woff2` y `ZenKakuGothicNew-700.woff2`; las licencias están en `src/fonts/`.
 - Pokémon y sus nombres son marcas de Nintendo, Creatures Inc., GAME FREAK y The Pokémon Company; el sitio es de fans y no está afiliado.

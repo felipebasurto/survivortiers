@@ -127,4 +127,4 @@ alone stays in the ranking as `start_noshop_s`. Shop stat upgrades (`rank_v4_max
 
 ## Credits
 
-PokéSurvivor and its code are by JPTER78, under the MIT licence (see `../data/GAME_LICENSE.txt`). The game data in `v3/` is extracted from that code. This simulator is unofficial and not affiliated with the game or with the owners of Pokémon.
+PokéSurvivor and its code are by JPTER78: [MIT up to commit b297089; from 14 Oct 2026 new code is PolyForm Noncommercial 1.0.0](https://github.com/JPTER78/pokesurvivor/blob/main/LICENSE). The game data in `v3/` is extracted from that code. This simulator is unofficial and not affiliated with the game or with the owners of Pokémon.
