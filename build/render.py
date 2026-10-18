@@ -487,6 +487,7 @@ def render_gachas(c: Ctx, gachas: list[dict], pokemon: list[dict], meta: dict) -
     cards = "".join(gacha_card(c, i, g, len(ordered) - 1, by_banner, by_dex) for i, g in enumerate(ordered))
     content = f"""
 <h1>{esc(L.t("gachas_h1"))}</h1>
+<p class="g-hint">{icon("dice")}<a href="{c.home}coleccion.html">{esc(L.t("g_yours"))}</a></p>
 {banners_script(L, gachas)}
 <ol class="gacha">{cards}</ol>
 """

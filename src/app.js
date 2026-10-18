@@ -63,8 +63,10 @@
       storageOff: 'Este navegador no deja guardar la colección. Solo se verá mientras la página esté abierta.',
       ownedIn: (a, b) => 'Tienes ' + a + ' de ' + b,
       planH: 'Qué gacha tirar',
-      planLede: 'Cada tirada da un Pokémon que te falta con la probabilidad de «Nuevo por tirada». Tira en el primero de la lista para acercarte a completar. «Tiradas para completarlo» es una estimación de 150 simulaciones de tiradas normales (×1).',
-      planTop: (name, n) => 'Tira primero en ' + name + ': 1 de cada ' + n + ' tiradas da un Pokémon que te falta.',
+      planLede: 'Cada tirada da un Pokémon que te falta con la probabilidad de «Nuevo por tirada».',
+      planNote: '«Tiradas para completarlo» es una estimación de 150 simulaciones de tiradas normales (×1).',
+      planOdds: n => '1 de cada ' + n + ' tiradas da un Pokémon que te falta.',
+      planSee: 'Ver todos los banners',
       planDone: 'Ya tienes todos los Pokémon de los banners.',
       colBanner: 'Banner', colMissing: 'Te faltan', colNew: 'Nuevo por tirada', colPulls: 'Tiradas para completarlo',
       pullHere: 'Tira aquí', complete: 'Completo',
@@ -108,8 +110,10 @@
       storageOff: 'This browser does not let the collection be saved. It will only show while the page is open.',
       ownedIn: (a, b) => 'You have ' + a + ' of ' + b,
       planH: 'What to pull',
-      planLede: 'Each pull gives a Pokémon you are missing, with the chance in "New per pull". Pull on the first banner to get closer to completing. "Pulls to complete" is an estimate from 150 simulations of single pulls (×1).',
-      planTop: (name, n) => 'Pull first on ' + name + ': 1 in ' + n + ' pulls gives a Pokémon you are missing.',
+      planLede: 'Each pull gives a Pokémon you are missing, with the chance in "New per pull".',
+      planNote: '"Pulls to complete" is an estimate from 150 simulations of single pulls (×1).',
+      planOdds: n => '1 in ' + n + ' pulls gives a Pokémon you are missing.',
+      planSee: 'See every banner',
       planDone: 'You already have every Pokémon in the banners.',
       colBanner: 'Banner', colMissing: 'Missing', colNew: 'New per pull', colPulls: 'Pulls to complete',
       pullHere: 'Pull here', complete: 'Complete',
@@ -363,7 +367,8 @@
       '<div class="stat"><b>' + c.shiny.length + '</b><span>' + TEXT.shinyStat + '</span></div>' +
       '<div class="stat"><b class="stat-small">' + esc(when) + '</b><span>' + TEXT.lastSave + '</span></div></div>' +
       (unknown ? '<p class="muted small">' + TEXT.unknown(unknown) + '</p>' : '') +
-      '<h3>' + TEXT.byTier + '</h3>' + table + groups + missing + planHtml(owned);
+      planHtml(owned) +
+      '<h3>' + TEXT.byTier + '</h3>' + table + groups + missing;
   }
 
   // ---------------------------------------------------------------- gacha: qué tirar
@@ -451,7 +456,7 @@
     return el ? JSON.parse(el.textContent) : [];
   }
 
-  // Tabla por banner: qué te falta, cuánto da una tirada nueva y cuántas tiradas faltan para completarlo.
+  // La respuesta (en qué banner tirar) va arriba. La tabla, con el mismo cálculo, queda plegada debajo.
   function planHtml(owned) {
     const pools = bannerPools(state.mons);
     const rows = bannerNames().map(bn => {
@@ -462,7 +467,6 @@
     const open = rows.filter(r => r.n).sort((a, b) => b.p - a.p);
     const done = rows.filter(r => !r.n);
     const top = open.find(r => r.p > 0);
-    const head = top ? TEXT.planTop(top.name, Math.round(1 / top.p)) : TEXT.planDone;
     const line = r => {
       if (!r.n) return '<tr><th scope="row">' + esc(r.name) + '</th><td class="num">0</td><td class="num">—</td><td class="num">' +
         esc(TEXT.complete) + '</td></tr>';
@@ -474,8 +478,30 @@
     const table = '<div class="tablewrap"><table><thead><tr><th>' + TEXT.colBanner + '</th><th class="num">' + TEXT.colMissing +
       '</th><th class="num">' + TEXT.colNew + '</th><th class="num">' + TEXT.colPulls + '</th></tr></thead><tbody>' +
       open.map(line).join('') + done.map(line).join('') + '</tbody></table></div>';
-    return '<h3>' + esc(TEXT.planH) + '</h3><p class="muted small">' + esc(TEXT.planLede) + '</p>' +
-      '<p><strong>' + esc(head) + '</strong></p>' + table;
+    const next = top ? open.filter(r => r !== top && r.p > 0).slice(0, 2) : [];
+    return '<section class="pull" id="pull">' +
+      '<h3 class="pull-h"><i class="ico ico-dice" aria-hidden="true"></i>' + esc(TEXT.planH) + '</h3>' +
+      (top ? planBoard(top, next) : '<p class="pull-done"><i class="ico ico-trophy" aria-hidden="true"></i>' + esc(TEXT.planDone) + '</p>') +
+      '<details class="pull-more"><summary>' + esc(TEXT.planSee) + '<i class="pull-chev" aria-hidden="true"></i></summary>' +
+      '<div class="pull-body"><p class="pull-lede">' + esc(TEXT.planLede) + '</p>' + table +
+      '<p class="pull-note">' + esc(TEXT.planNote) + '</p></div></details></section>';
+  }
+
+  // Tarjeta del banner que más te acerca, y los dos siguientes en pequeño.
+  function planBoard(top, next) {
+    const odds = n => esc(TEXT.planOdds(n));
+    const alts = next.map((r, i) => {
+      const k = Math.round(1 / r.p);
+      return '<li><span class="pull-n" aria-hidden="true">' + (i + 2) + '</span><b>' + esc(r.name) + '</b>' +
+        '<span class="pull-k"><span class="sr">' + odds(k) + '</span><span aria-hidden="true">1/' + k + '</span></span>' +
+        '<span class="pull-miss"><span class="sr">' + esc(TEXT.colMissing) + ' </span>' + r.n + '</span></li>';
+    }).join('');
+    const n = Math.round(1 / top.p);
+    return '<div class="pull-board' + (alts ? ' with-alts' : '') + '"><article class="pull-hero">' +
+      '<span class="pull-tag"><i class="ico ico-dice" aria-hidden="true"></i>' + esc(TEXT.pullHere) + '</span>' +
+      '<p class="pull-name">' + esc(top.name) + '</p><p class="pull-odds">' + odds(n) + '</p>' +
+      '<p class="pull-gap"><span>' + esc(TEXT.colMissing) + '</span><b>' + top.n + '</b></p></article>' +
+      (alts ? '<ol class="pull-alts">' + alts + '</ol>' : '') + '</div>';
   }
 
   // ---------------------------------------------------------------- guardado en este navegador
