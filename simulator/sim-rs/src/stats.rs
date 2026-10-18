@@ -53,6 +53,9 @@ pub struct Summary {
     pub alive300: usize,
     pub alive600: usize,
     pub median_kills: f64,
+    pub median_bosses: f64,
+    pub median_kpm: f64,
+    pub median_coins: f64,
     pub median_lvl: f64,
     pub n_cap: usize,
     pub mean_hp_frac: Option<f64>,
@@ -63,9 +66,15 @@ pub struct Summary {
 pub fn summarize(runs: &[RunResult]) -> Summary {
     let mut times: Vec<f64> = runs.iter().map(|r| r.time).collect();
     let mut kills: Vec<f64> = runs.iter().map(|r| r.kills as f64).collect();
+    let mut bosses: Vec<f64> = runs.iter().map(|r| r.bosses as f64).collect();
+    let mut coins: Vec<f64> = runs.iter().map(|r| r.coins).collect();
+    let mut kpm: Vec<f64> = runs.iter().map(|r| if r.time > 0.0 { r.kills as f64 * 60.0 / r.time } else { 0.0 }).collect();
     let mut levels: Vec<f64> = runs.iter().map(|r| r.level as f64).collect();
     sort(&mut times);
     sort(&mut kills);
+    sort(&mut bosses);
+    sort(&mut coins);
+    sort(&mut kpm);
     sort(&mut levels);
     let (boot_lo, boot_hi) = bootstrap_median(&times, 400);
     let capped: Vec<&RunResult> = runs.iter().filter(|r| r.capped).collect();
@@ -95,6 +104,9 @@ pub fn summarize(runs: &[RunResult]) -> Summary {
         alive300: runs.iter().filter(|r| r.time >= 300.0).count(),
         alive600: runs.iter().filter(|r| r.time >= 600.0).count(),
         median_kills: quantile(&kills, 0.5),
+        median_bosses: quantile(&bosses, 0.5),
+        median_kpm: quantile(&kpm, 0.5),
+        median_coins: quantile(&coins, 0.5),
         median_lvl: quantile(&levels, 0.5),
         n_cap: capped.len(),
         mean_hp_frac,

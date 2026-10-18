@@ -26,8 +26,9 @@ cargo build --release --manifest-path sim-rs/Cargo.toml
 node sim-rs/parity.js
 ```
 
-Options: `--seeds N` (200), `--seconds S` (900), `--bot repulse|line`, `--lvl1`, `--terrain` (real map, not JS-parity), `--status` (slow, burn and poison, not JS-parity).
-`--full-cards` also offers Aprendizaje and Baya Zidra (levelup.js). `--stop N` limits a `--fill` priority to N copies. `--heal-below F` takes Baya Zidra only at or below that fraction of max HP. `--lock 2:4` starts with 4 Vigor and takes no more (index 7 is Aprendizaje).
+Options: `--seeds N` (200), `--seconds S` (900), `--bot repulse|line|kite`, `--lvl1`, `--terrain` (real map, not JS-parity), `--status` (slow, burn and poison, not JS-parity).
+`--full-cards` also offers Aprendizaje and Baya Zidra (levelup.js). `--stop N` limits a `--fill` priority to N copies. `--heal-below F` takes Baya Zidra when HP is at or below that fraction, ahead of the stat cards (0 = only if the fill list prefers it). `--dodge F` ignores that fraction of contact and shot damage (lava and weather still hit). `--lock 2:4` starts with 4 Vigor and takes no more (index 7 is Aprendizaje).
+`tasks` also writes `median_kills`, `median_bosses`, `median_kpm` and `median_coins`. Coins are game.js:295-301 with coinMul 1 (upgrades.js:41, no Fortuna): `floor(time/5) + floor(kills*0.25) + bosses*80 + picked`, rounded. Picked coins are the boss shower (enemy.js:174, 10×5) and the rift-legend shower (enemy.js:191, 10×8). A rift legend counts as a boss (rift.js spawnLegend, enemy.js:910).
 
 ### Fixed main group (Rust only)
 
@@ -115,7 +116,7 @@ evolution rows match the game's own `evolve()`.
 `--legacy-group` restores the old behaviour (bonded from t=0, no rifts, bosses, heal orbs or extra kinds). Default runs
 (no `--group`) are unchanged and still pass `parity.js`; the JS engine does not have group mode.
 
-Known bias (estimates): the bot does not dodge, so sustain (Synthesis `rgn`, Vigor `hp`, Leftovers) still looks strong;
+Known bias (estimates): the bot does not dodge, so sustain (Synthesis `rgn`, Vigor `hp`, Leftovers) still looks strong. A check that ignores half of each combat hit (`--dodge 0.5`) lengthens runs and does not move Power or Reflexes ahead of Synthesis. The pasivas page ranks cards by the game's coin reward (game.js:295-301, coinMul 1) and takes Baya Zidra only at or below 70% HP.
 build/passives.py keeps at most one of `rgn`/`hp` in the Build card. The rift walk is time-at-current-speed, not pathing.
 Boss and legendary hit radius ×2 stands in for sprite bossScale when the idle anchor is the default (enemy.js:15–22, sprites.js:127–130); huge sprites would be closer to ×1. Boss personalities other
 than ranged/charger/chase are collapsed. The arena is fought in open space at the map position (no Distortion World

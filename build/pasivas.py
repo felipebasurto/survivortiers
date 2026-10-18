@@ -1,7 +1,10 @@
 """Tier list de las cartas de nivel de PokéSurvivor, en español e inglés.
 
-Los porcentajes son la mediana, entre 150 Pokémon, de cuánto alarga la supervivencia priorizar esa carta
-(grupo fijo 2+2, 100 partidas). Cada texto es una pareja (es, en).
+El porcentaje es la mediana, entre 150 Pokémon, de cuánto sube la recompensa en monedas al priorizar
+esa carta (grupo fijo 2+2, 100 partidas). La recompensa es la del juego, sin Fortuna (coinMul 1,
+upgrades.js:41): floor(tiempo/5) + floor(bajas*0.25) + jefes*80 + monedas recogidas (game.js:295-301).
+Baya Zidra no entra en el orden: se coge solo con la vida al 70% o menos (levelup.js:27). Cada texto
+es una pareja (es, en).
 """
 from __future__ import annotations
 
@@ -25,28 +28,24 @@ PHASES = [
 ]
 TIER_ORDER = ["S", "A", "B", "C", "D"]
 
-# tiers = (al empezar, a mitad, si duras). El orden de cogida no cambia con la fase:
-# Síntesis se aleja, el resto no la adelanta.
+# tiers = (al empezar, a mitad, si duras). El orden no cambia con la fase:
+# en las partidas largas Síntesis se aleja (p90), el resto no la adelanta.
+# Baya Zidra no es un tier: ver ZIDRA.
 CARDS = [
     {
         "id": "rgn", "name": ("Síntesis", "Synthesis"), "tiers": ("S", "S", "S"), "lift": "+6%",
-        "tip": ("La primera. En las partidas que duran, aún más.",
-                "First. On the runs that last, even more."),
+        "tip": ("La que más monedas da. Si duras, aún más.",
+                "Pays the most coins. If you last, even more."),
     },
     {
-        "id": "heal", "name": ("Baya Zidra", "Sitrus Berry"), "tiers": ("A", "A", "A"), "lift": "+4%",
-        "tip": ("45% de vida al momento. En cuerpo a cuerpo, antes que Síntesis.",
-                "45% HP on the spot. On melee, before Synthesis."),
-    },
-    {
-        "id": "hp", "name": ("Vigor", "Vigor"), "tiers": ("A", "A", "A"), "lift": "+3%",
-        "tip": ("Justo después de Síntesis. No tiene tope.",
-                "Right after Synthesis. No cap."),
+        "id": "hp", "name": ("Vigor", "Vigor"), "tiers": ("A", "A", "A"), "lift": "+2%",
+        "tip": ("La segunda. No tiene tope.",
+                "Second. No cap."),
     },
     {
         "id": "atk", "name": ("Potencia", "Power"), "tiers": ("B", "B", "B"), "lift": "0",
-        "tip": ("El grupo ya pega. No la pongas delante.",
-                "The group already hits. Do not put it first."),
+        "tip": ("El grupo ya pega. Ponerla primera no suma.",
+                "The group already hits. Putting it first adds nothing."),
     },
     {
         "id": "def", "name": ("Coraza", "Armor"), "tiers": ("C", "C", "C"), "lift": "0",
@@ -55,8 +54,8 @@ CARDS = [
     },
     {
         "id": "cd", "name": ("Reflejos", "Reflexes"), "tiers": ("C", "C", "C"), "lift": "0",
-        "tip": ("Órbita, torreta y estela no la usan al golpear.",
-                "Orbit, turret and trail ignore it on the hit."),
+        "tip": ("Unas bajas más por minuto. Las monedas no suben.",
+                "A few more kills per minute. The coins do not rise."),
     },
     {
         "id": "spd", "name": ("Carrera", "Sprint"), "tiers": ("C", "C", "C"), "lift": "0",
@@ -64,34 +63,44 @@ CARDS = [
                 "Running faster does not dodge in this test."),
     },
     {
-        "id": "xp", "name": ("Aprendizaje", "Learning"), "tiers": ("D", "D", "D"), "lift": "−2%",
+        "id": "xp", "name": ("Aprendizaje", "Learning"), "tiers": ("D", "D", "D"), "lift": "−1%",
         "tip": ("Unos niveles de más, y dejas Síntesis.",
                 "A few extra levels, and you skip Synthesis."),
     },
     {
-        "id": "mag", "name": ("Imán", "Magnet"), "tiers": ("D", "D", "D"), "lift": "−2%",
+        "id": "mag", "name": ("Imán", "Magnet"), "tiers": ("D", "D", "D"), "lift": "−3%",
         "tip": ("La experiencia cae al matar. El radio no cuenta.",
                 "Experience lands on the kill. Radius does nothing."),
     },
 ]
 
+# levelup.js:26-27. Cura el 45% de la vida máxima ahora mismo. No es un stat.
+# Se coge solo con hp/maxHp <= 0.70 (falta un 30% o más). Por encima, la siguiente carta.
+ZIDRA = {
+    "id": "heal", "name": ("Baya Zidra", "Sitrus Berry"),
+    "rule": ("Cógela si te falta más del 30% de vida.",
+             "Take it when you are missing more than 30% HP."),
+    "why": ("Cura un 45% al momento. A tope de vida no hace nada.",
+            "Heals 45% on the spot. At full HP it does nothing."),
+}
+
 # Lo que suma priorizar la carta cuando ya llevas el objeto (no el objeto solo).
 COMBOS = [
-    {"item": "shellbell", "item_name": ("Cascabel", "Shell Bell"), "card": "rgn", "lift": "+3%",
+    {"item": "shellbell", "item_name": ("Cascabel", "Shell Bell"), "card": "rgn", "lift": "+2%",
      "why": ("Cura el 4% del daño que haces, hasta 4 de vida por segundo.",
              "Heals 4% of the damage you deal, up to 4 HP per second.")},
-    {"item": "leftovers", "item_name": ("Restos", "Leftovers"), "card": "rgn", "lift": "+3%",
+    {"item": "leftovers", "item_name": ("Restos", "Leftovers"), "card": "rgn", "lift": "+2%",
      "why": ("Recupera un 1,5% de tu vida máxima por segundo.",
              "Recovers 1.5% of your max HP per second.")},
-    {"item": "leftovers", "item_name": ("Restos", "Leftovers"), "card": "hp", "lift": "+3%",
+    {"item": "leftovers", "item_name": ("Restos", "Leftovers"), "card": "hp", "lift": "+1%",
      "why": ("Igual que con Síntesis: el 1,5% de tu vida máxima por segundo.",
              "Same as with Synthesis: 1.5% of your max HP per second.")},
     {"item": "assaultvest", "item_name": ("Chaleco", "Assault Vest"), "card": "def", "lift": "0",
      "why": ("Chaleco y Coraza comparten el tope del 70% de reducción: no alarga nada.",
              "Vest and Armor share the 70% reduction cap, so it adds no time.")},
-    {"item": "choiceband", "item_name": ("Cinta", "Choice Band"), "card": "cd", "lift": "−1%",
-     "why": ("Ya sube el daño un 40%. Reflejos solo acorta la recarga, y cogerla antes deja fuera una carta de vida.",
-             "Already adds 40% damage. Reflexes only shortens cooldown, and taking it first crowds out an HP card.")},
+    {"item": "choiceband", "item_name": ("Cinta", "Choice Band"), "card": "cd", "lift": "0",
+     "why": ("Ya sube el daño un 40%. Reflejos no añade monedas.",
+             "Already adds 40% damage. Reflexes adds no coins.")},
     {"item": "quickclaw", "item_name": ("Garra", "Quick Claw"), "card": "cd", "lift": "0",
      "why": ("Con la garra puesta, Reflejos no suma: ya baja un 20% la recarga.",
              "With the claw on, Reflexes adds nothing: it already cuts cooldown 20%.")},
@@ -99,14 +108,16 @@ COMBOS = [
 COMBO_HEAD = (("Objeto", "Item"), ("Carta", "Card"), ("Suma", "Adds"), ("Por qué", "Why"))
 
 # Qué significa el porcentaje de cada fila (mediana, 150 Pokémon, grupo 2+2, 100 partidas).
-MEAN = ("Cuánto más aguantas con el objeto si priorizas la carta. Mediana de 150 Pokémon, grupo fijo 2+2, 100 partidas.",
-        "How much longer you last with the item if you prioritize the card. Median of 150 Pokémon, fixed 2+2 group, 100 runs.")
+MEAN = ("Cuánto suben las monedas con el objeto si priorizas la carta. Mediana de 150 Pokémon, grupo fijo 2+2, 100 partidas.",
+        "How much the coins rise with the item if you prioritize the card. Median of 150 Pokémon, fixed 2+2 group, 100 runs.")
 
-ORDER = ["rgn", "hp", "heal", "atk"]
+ORDER = ["rgn", "hp", "atk"]
 
-NOTE = ("Simulación: el bot no esquiva, así que la vida y la curación cuentan más. "
+NOTE = ("El porcentaje es la subida de monedas. El bot no esquiva. "
+        "Si se ignora la mitad de cada golpe, el orden se queda y Síntesis sube más. "
         "Una carta que evoluciona tu ataque va siempre primera.",
-        "Simulated: the bot never dodges, so HP and healing count for more. "
+        "The percentage is the coin bump. The bot does not dodge. "
+        "If half of each hit is ignored, the order holds and Synthesis climbs further. "
         "A card that evolves your move always goes first.")
 
 # rule: el orden que cambia, con las cartas entre llaves ({id}), que se dibujan con su icono.
@@ -116,11 +127,11 @@ EXCEPTIONS = [
      "why": ("Hay que acercarse para que llegue, y su regeneración no tiene tope: aguanta los golpes.",
              "You have to get close for it to land, and its regen has no cap: it soaks up hits.")},
     {"k": ("Órbita", "Orbit"), "moves": ["fire-spin"], "ex": ("Giro Fuego", "Fire Spin"),
-     "rule": ("{hp} antes que {rgn}, {cd} no suma", "{hp} before {rgn}, {cd} adds nothing"),
-     "why": ("Vigor da la vida al momento, y el tiempo entre golpes es el del ataque: Reflejos no lo cambia.",
-             "Vigor heals right away, and the gap between hits is the move's own cooldown, which Reflexes does not change.")},
+     "rule": ("{cd} no suma", "{cd} adds nothing"),
+     "why": ("El tiempo entre golpes es el del ataque. Reflejos no lo cambia.",
+             "The gap between hits is the move's own cooldown. Reflexes does not change it.")},
     {"k": ("Aura", "Aura"), "moves": ["discharge"], "ex": ("Chispazo", "Discharge"),
-     "rule": ("Ninguna carta alarga la partida", "No card lengthens the run"),
+     "rule": ("Ninguna carta suma", "No card adds anything"),
      "why": ("La partida se acaba antes de que la mejora llegue a notarse.",
              "The run ends before the bonus has time to show.")},
     {"k": ("Torreta y estela", "Turret and trail"), "moves": ["will-o-wisp", "toxic"],
@@ -129,9 +140,9 @@ EXCEPTIONS = [
      "why": ("Ni los tiros de la torreta ni los charcos usan esa recarga.",
              "Neither the turret's shots nor the puddles use that cooldown.")},
     {"k": ("Cuerpo a cuerpo", "Melee"), "moves": ["tackle"], "ex": ("Placaje", "Tackle"),
-     "rule": ("{heal} va primera", "{heal} goes first"),
-     "why": ("Tienes que estar encima para pegar, y cura un 45% al momento: rinde más que ir sumando Síntesis.",
-             "You have to stand on the enemy to hit. It heals 45% on the spot, which beats stacking Synthesis.")},
+     "rule": ("{heal} suma más", "{heal} adds more"),
+     "why": ("Hay que estar encima para pegar, así que el 45% al momento se nota el doble.",
+             "You have to stand on the enemy to hit, so the 45% on the spot is worth about twice as much.")},
 ]
 EXCEPTION_MOVES = sorted({m for row in EXCEPTIONS for m in row["moves"]})
 
@@ -176,7 +187,12 @@ def _badge(t: str) -> str:
 
 
 def _by_id(card_id: str) -> dict:
-    return next(c for c in CARDS if c["id"] == card_id)
+    for c in CARDS:
+        if c["id"] == card_id:
+            return c
+    if card_id == ZIDRA["id"]:
+        return ZIDRA
+    raise KeyError(card_id)
 
 
 def _phase(L: Lang, idx: int, name: tuple[str, str], note: tuple[str, str]) -> str:
@@ -204,6 +220,11 @@ def _hand(L: Lang) -> str:
             f'<span class="pv-tip">{escape(_t(c["tip"], L))}</span>'
             f'</li>')
     return f'<ol class="pv-hand">{"".join(tiles)}</ol>'
+
+
+def _zidra(L: Lang) -> str:
+    return (f'<p class="pv-rule">{_icon("card", ZIDRA["id"])}{escape(_t(ZIDRA["rule"], L))}</p>'
+            f'<p class="pv-why">{escape(_t(ZIDRA["why"], L))}</p>')
 
 
 def _order(L: Lang) -> str:
@@ -271,6 +292,7 @@ def content(L: Lang, h1: str, lede: str, order_h: str, phases_h: str, items_h: s
             + f'<p class="lede">{escape(lede)}</p>'
             + f'<h2>{escape(order_h)}</h2>'
             + _order(L)
+            + _zidra(L)
             + _hand(L)
             + f'<h2>{escape(phases_h)}</h2>'
             + f'<div class="ph-grid">{phases}</div>'

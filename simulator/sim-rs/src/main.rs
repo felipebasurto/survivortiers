@@ -13,7 +13,7 @@
 //!   ... -- mapcheck <seed> [half]
 //!       terrain digest; must match `node sim-rs/mapcheck.js <game repo> <seed> [half]`
 //!
-//! Options: --seeds N (200) --seconds S (900) --bot repulse|line --lvl1
+//! Options: --seeds N (200) --seconds S (900) --bot repulse|line|kite --lvl1 --dodge F
 //!          --terrain  play on the real map (walls, props, liquids, pathing); not JS-parity
 //!          --status   model slow, burn and poison with the game's values (enemy.js); moves the
 //!                     sim never fires keep status_ignored=1. Not JS-parity.
@@ -70,8 +70,10 @@ struct Cfg {
     full_cards: bool,
     /// fill priority stops once that stat reaches this count. 0 = no extra limit.
     stop: u32,
-    /// take Baya Zidra only at or below this hp fraction. 0 = whenever it is preferred.
+    /// take Baya Zidra only at or below this hp fraction. 0 = only when the fill list prefers it.
     heal_below: f64,
+    /// fraction of combat damage ignored. 0 = the bot eats every hit.
+    dodge: f64,
     /// stat index:count pairs. Start with that many and do not take more. 7 = Aprendizaje.
     locks: Vec<(u8, u32)>,
     /// Score status+Hex groups, not only the solo-sorted partner.
@@ -81,7 +83,7 @@ struct Cfg {
 }
 
 fn parse(args: &[String]) -> Cfg {
-    let mut c = Cfg { seeds: 200, seconds: 900.0, bot: Bot::Repulse, cards: true, terrain: false, status: false, out: None, group: 0, dd: false, agi: false, xkinds: false, legacy: false, item: "none".into(), fill: vec![], buffs: None, comps: None, swap: false, crit: 0.0, full_cards: false, stop: 0, heal_below: 0.0, locks: vec![], synergy: false, no_synergy: false, rest: vec![] };
+    let mut c = Cfg { seeds: 200, seconds: 900.0, bot: Bot::Repulse, cards: true, terrain: false, status: false, out: None, group: 0, dd: false, agi: false, xkinds: false, legacy: false, item: "none".into(), fill: vec![], buffs: None, comps: None, swap: false, crit: 0.0, full_cards: false, stop: 0, heal_below: 0.0, dodge: 0.0, locks: vec![], synergy: false, no_synergy: false, rest: vec![] };
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
@@ -98,6 +100,7 @@ fn parse(args: &[String]) -> Cfg {
                 c.bot = match args[i].as_str() {
                     "repulse" => Bot::Repulse,
                     "line" => Bot::Line,
+                    "kite" => Bot::Kite,
                     b => panic!("unknown bot {b}"),
                 };
             }
@@ -143,6 +146,10 @@ fn parse(args: &[String]) -> Cfg {
             "--heal-below" => {
                 i += 1;
                 c.heal_below = args[i].parse().expect("--heal-below");
+            }
+            "--dodge" => {
+                i += 1;
+                c.dodge = args[i].parse().expect("--dodge");
             }
             "--lock" => {
                 i += 1;
@@ -271,6 +278,7 @@ fn ext_for(data: &Data, mon: &Mon, start: usize, cfg: &Cfg) -> Ext {
         full_cards: cfg.full_cards,
         stop: cfg.stop,
         heal_below: cfg.heal_below,
+        dodge: cfg.dodge,
         locks: cfg.locks.clone(),
     }
 }
@@ -283,6 +291,7 @@ fn bot_name(b: Bot) -> &'static str {
     match b {
         Bot::Repulse => "repulse",
         Bot::Line => "line",
+        Bot::Kite => "kite",
     }
 }
 
@@ -781,7 +790,7 @@ fn tasks_cmd(data: &Data, cfg: &Cfg) {
             let d = done.fetch_add(1, Ordering::Relaxed) + 1;
             if d % 500 == 0 { eprintln!("  {d}/{total}"); }
             format!(
-                "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+                "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
                 c[0],
                 c[1],
                 c[2],
@@ -800,12 +809,16 @@ fn tasks_cmd(data: &Data, cfg: &Cfg) {
                 num(s.median_lvl),
                 s.alive180,
                 s.alive300,
-                s.alive600
+                s.alive600,
+                num(s.median_kills),
+                num(s.median_bosses),
+                num(s.median_kpm),
+                num(s.median_coins)
             )
         })
         .collect();
     let path = cfg.out.clone().expect("--out");
-    std::fs::write(&path, format!("dex,move,item,fill,buffs,stop,heal_below,lock,mods,median_s,mean_s,boot_lo,boot_hi,p75_s,p90_s,median_lvl,alive180,alive300,alive600\n{}\n", rows.join("\n"))).unwrap();
+    std::fs::write(&path, format!("dex,move,item,fill,buffs,stop,heal_below,lock,mods,median_s,mean_s,boot_lo,boot_hi,p75_s,p90_s,median_lvl,alive180,alive300,alive600,median_kills,median_bosses,median_kpm,median_coins\n{}\n", rows.join("\n"))).unwrap();
     eprintln!("wrote {path}");
 }
 
@@ -826,7 +839,7 @@ fn with_mods(mon: &Mon, mods: &str) -> Mon {
 }
 
 fn cfg_clone(c: &Cfg) -> Box<Cfg> {
-    Box::new(Cfg { seeds: c.seeds, seconds: c.seconds, bot: c.bot, cards: c.cards, terrain: c.terrain, status: c.status, out: None, group: c.group, dd: c.dd, agi: c.agi, xkinds: c.xkinds, legacy: c.legacy, item: c.item.clone(), fill: c.fill.clone(), buffs: c.buffs, comps: c.comps.clone(), swap: c.swap, crit: c.crit, full_cards: c.full_cards, stop: c.stop, heal_below: c.heal_below, locks: c.locks.clone(), synergy: c.synergy, no_synergy: c.no_synergy, rest: vec![] })
+    Box::new(Cfg { seeds: c.seeds, seconds: c.seconds, bot: c.bot, cards: c.cards, terrain: c.terrain, status: c.status, out: None, group: c.group, dd: c.dd, agi: c.agi, xkinds: c.xkinds, legacy: c.legacy, item: c.item.clone(), fill: c.fill.clone(), buffs: c.buffs, comps: c.comps.clone(), swap: c.swap, crit: c.crit, full_cards: c.full_cards, stop: c.stop, heal_below: c.heal_below, dodge: c.dodge, locks: c.locks.clone(), synergy: c.synergy, no_synergy: c.no_synergy, rest: vec![] })
 }
 
 fn synergy_cmd(data: &Data, cfg: &Cfg) {
@@ -938,8 +951,8 @@ fn read_f64s(path: &str) -> Vec<f64> {
 
 fn print_result(r: &RunResult) {
     println!(
-        "{{\"time\":{:?},\"kills\":{},\"level\":{},\"capped\":{},\"statusIgnored\":{},\"hp\":{:?},\"maxHp\":{:?},\"hpFrac\":{:?}}}",
-        r.time, r.kills, r.level, r.capped, r.status_ignored, r.hp, r.max_hp, r.hp_frac
+        "{{\"time\":{:?},\"kills\":{},\"bosses\":{},\"coins\":{:?},\"level\":{},\"capped\":{},\"statusIgnored\":{},\"hp\":{:?},\"maxHp\":{:?},\"hpFrac\":{:?}}}",
+        r.time, r.kills, r.bosses, r.coins, r.level, r.capped, r.status_ignored, r.hp, r.max_hp, r.hp_frac
     );
 }
 
