@@ -20,6 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import agents  # noqa: E402
 import balls  # noqa: E402
 import charts  # noqa: E402
+import landing  # noqa: E402
 import legal  # noqa: E402
 import objetos  # noqa: E402
 import pasivas  # noqa: E402
@@ -29,7 +30,7 @@ import share_image  # noqa: E402
 import static_ficha  # noqa: E402
 import theme  # noqa: E402
 import typedata  # noqa: E402
-from i18n import ES, LANGS, TYPE_NAMES, Lang  # noqa: E402
+from i18n import EN, ES, LANGS, TYPE_NAMES, Lang  # noqa: E402
 from slugs import species_path  # noqa: E402
 
 SITE = ROOT / "site"
@@ -68,10 +69,11 @@ class Ctx:
     other: str | None   # enlace a la misma página en el otro idioma, o None si no existe
 
     @staticmethod
-    def of(L: Lang, rel: str) -> "Ctx":
+    def of(L: Lang, rel: str, twin: str | None = None) -> "Ctx":
         up = "../" * rel.count("/")
         assets = up + ("../" if L.en else "")
-        twin = rel.removesuffix("index.html") if rel.startswith("pokemon/") else rel
+        if twin is None:
+            twin = rel.removesuffix("index.html") if rel.startswith("pokemon/") else rel
         return Ctx(L, rel, assets, up, f"{assets}{'' if L.en else 'en/'}{twin}")
 
 
@@ -249,7 +251,8 @@ def render_index(c: Ctx, pokemon: list[dict], meta: dict) -> str:
     content = f"""
 {balls.defs()}
 <h1>{esc(L.t("index_h1", game=legal.GAME_NAME))}</h1>
-<p class="tagline">{L.t("value_html", repo=esc(legal.REPO_URL))}</p>
+<p class="tagline">{L.t("value_html", repo=esc(legal.REPO_URL), **legal.method_counts(L, meta))}</p>
+<p class="fresh">{esc(legal.freshness_text(L, meta))}</p>
 <div class="finder">
   <div class="search">
     <label class="sr" for="q">{esc(L.t("search_label"))}</label>
@@ -273,9 +276,10 @@ def render_index(c: Ctx, pokemon: list[dict], meta: dict) -> str:
 </div>
 <script type="application/json" id="labels">{labels_json}</script>
 <noscript><p class="muted">{esc(L.t("noscript"))}</p></noscript>
+{landing.guides_nav(L, c.home)}
 """
     return page(c, "index", L.t("index_title", site=legal.SITE_NAME, game=legal.GAME_NAME),
-                L.t("index_desc", n=meta["total"], game=legal.GAME_NAME), content, meta,
+                L.t("index_desc", n=meta["total"], **legal.method_counts(L, meta)), content, meta,
                 extra_head=agents.dataset_jsonld(L, meta))
 
 
@@ -289,13 +293,14 @@ FICHA_KEYS = (
     "methods_alt_item", "sim_start", "sim_best", "sim_median", "sim_alt", "sim_gain", "sim_noshop",
     "rar_1", "rar_2", "rar_3", "rar_4", "rar_5", "t_base", "bs_hp", "bs_atk", "bs_def", "bs_spa", "bs_spd", "bs_spe",
     "bs_total", "bs_alt_item", "bs_s_hp", "bs_s_atk", "bs_s_def", "bs_s_spa", "bs_s_spd", "bs_s_spe",
-    "sheet_title", "sheet_desc")
+    "sheet_title", "sheet_desc", "fh_game", "fresh")
 
 
-def ficha_chrome(L: Lang) -> tuple[str, str]:
+def ficha_chrome(L: Lang, meta: dict) -> tuple[str, str]:
     """Piezas que la ficha interactiva necesita y que no dependen del Pokémon: símbolos, plantillas e i18n."""
     strings = {k: L.t_raw(k).replace("{site}", legal.SITE_NAME).replace("{game}", legal.GAME_NAME)
-               .replace("{total}", str(charts.TOTAL)) for k in FICHA_KEYS}
+               .replace("{total}", str(charts.TOTAL)).replace("{sha}", meta["gameCommit"][:7])
+               .replace("{date}", meta["generatedAt"][:10]) for k in FICHA_KEYS}
     blob = json.dumps({"en": L.en, "s": strings}, ensure_ascii=False).replace("</", "<\\/")
     pills = "".join(f'<span data-t="{t}">{type_pill(L, t)}</span>' for t in typedata.TYPE_COLOR)
     badges = "".join(
@@ -311,7 +316,7 @@ def ficha_chrome(L: Lang) -> tuple[str, str]:
 def render_ficha(c: Ctx, index: list[dict], meta: dict) -> str:
     """Plantilla de /pokemon/?id=. Sin el número no hay ficha; con ?id= el JS redirige a la página estática."""
     L = c.L
-    before, after = ficha_chrome(L)
+    before, after = ficha_chrome(L, meta)
     slugs = {str(p["dex"]): species_path(p["dex"], p["nameEn"]) for p in index}
     blob = json.dumps(slugs, separators=(",", ":")).replace("</", "<\\/")
     content = f"""
@@ -320,15 +325,18 @@ def render_ficha(c: Ctx, index: list[dict], meta: dict) -> str:
 {after}
 <script type="application/json" id="slugs">{blob}</script>
 """
-    return page(c, "ficha", legal.SITE_NAME,
-                L.t("index_desc", n=meta["total"], game=legal.GAME_NAME), content, meta,
+    return page(c, "ficha", L.t("index_title", site=legal.SITE_NAME, game=legal.GAME_NAME),
+                L.t("index_desc", n=meta["total"], **legal.method_counts(L, meta)), content, meta,
                 extra_head='<meta name="robots" content="noindex">')
 
 
 def render_species(c: Ctx, entry: dict, detail: list, moves: dict, prev: dict | None, nxt: dict | None,
-                   odds: tuple[float, int], cards: dict, before: str, after: str, meta: dict) -> str:
+                   odds: tuple[float, int], cards: dict, before: str, after: str, meta: dict, summary: str) -> str:
     L = c.L
-    html, ld = static_ficha.build(L, c.home, SPRITES, EXT, entry, detail, moves, prev, nxt, odds, cards)
+    html, ld = static_ficha.build(L, c.home, SPRITES, EXT, entry, detail, moves, prev, nxt, odds, cards,
+                                  summary=summary, fresh=legal.freshness_text(L, meta),
+                                  guides=landing.guides_nav(L, c.home, types=entry["types"]),
+                                  updated=meta["generatedAt"][:10])
     name = L.mon(entry)
     title = L.t("sheet_title", name=name, game=legal.GAME_NAME)
     desc = L.t("sheet_desc", name=name, game=legal.GAME_NAME, tier=entry["r"]["tier"],
@@ -574,6 +582,11 @@ def render_coleccion(c: Ctx, gachas: list[dict], meta: dict) -> str:
                 content, meta)
 
 
+def render_landing(c: Ctx, built: landing.Built, meta: dict) -> str:
+    return page(c, "landing", built.title, built.desc, built.content, meta, extra_head=built.jsonld,
+                head_links=built.alternates)
+
+
 def render_metodo(c: Ctx, index: list[dict], full: list[dict], meta: dict) -> str:
     L = c.L
     m = meta["method"]
@@ -605,8 +618,8 @@ def render_metodo(c: Ctx, index: list[dict], full: list[dict], meta: dict) -> st
 <h2>{esc(L.t("met_limits_h"))}</h2>
 <ul class="plain limits">{limits}</ul>
 """
-    return page(c, "metodo", L.t("met_title", site=legal.SITE_NAME), L.t("met_desc", site=legal.SITE_NAME),
-                content, meta)
+    return page(c, "metodo", L.t("met_title", site=legal.SITE_NAME),
+                L.t("met_desc", site=legal.SITE_NAME, **legal.method_counts(L, meta)), content, meta)
 
 
 def render_acerca(c: Ctx, meta: dict) -> str:
@@ -623,7 +636,7 @@ def render_acerca(c: Ctx, meta: dict) -> str:
                 lic=esc(ui["license"]), lic_url=esc(ui["licenseUrl"]))
     content = f"""
 <h1>{esc(L.t("about_h1"))}</h1>
-<p class="lede">{L.t("value_html", repo=esc(legal.REPO_URL))}</p>
+<p class="lede">{L.t("value_html", repo=esc(legal.REPO_URL), **legal.method_counts(L, meta))}</p>
 {legal_html}
 <h2 id="creditos">{esc(L.t("about_credits_h"))}</h2>
 <h3>{esc(L.t("about_sprites_h"))}</h3>
@@ -654,6 +667,7 @@ def main() -> int:
         moves = load("moves.json")
         species = load("public/species.json")
         gachas = load("gachas.json")
+        summaries = {L.code: load(f"public/summaries-{L.code}.json") for L in LANGS}
     except RenderError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
@@ -675,11 +689,18 @@ def main() -> int:
     moves_by = {m["id"]: m for m in moves}
     odds = static_ficha.odds_table(full)
     sheet_paths = [f"pokemon/{species_path(e['dex'], e['nameEn'])}/" for e in ordered]
+    by_dex = {p["dex"]: p for p in full}
     for L in LANGS:
         def put(rel: str, build) -> None:
             write(f"{L.prefix}{rel}", build(Ctx.of(L, rel)))
 
-        before, after = ficha_chrome(L)
+        other = ES if L.en else EN
+        for page_def in landing.pages():
+            rel = landing.rel(L, page_def)
+            c = Ctx.of(L, rel, twin=landing.folder(other, page_def))
+            built = landing.build(L, page_def, index, by_dex, species["d"], moves_by, meta, c.home)
+            write(f"{L.prefix}{rel}", render_landing(c, built, meta))
+        before, after = ficha_chrome(L, meta)
         put("index.html", lambda c: render_index(c, index, meta))
         put("ataques.html", lambda c: render_ataques(c, moves, meta, index))
         put("objetos.html", lambda c: render_objetos(c, meta))
@@ -694,8 +715,9 @@ def main() -> int:
             nxt = ordered[i + 1] if i + 1 < len(ordered) else None
             detail = species["d"][str(entry["dex"])]
             rel = f"pokemon/{species_path(entry['dex'], entry['nameEn'])}/index.html"
-            put(rel, lambda c, e=entry, d=detail, pv=prev, nx=nxt, b=before, a=after:
-                render_species(c, e, d, moves_by, pv, nx, odds[e["dex"]], species["cards"], b, a, meta))
+            summary = static_ficha.summary_plain(summaries[L.code][str(entry["dex"])])
+            put(rel, lambda c, e=entry, d=detail, pv=prev, nx=nxt, b=before, a=after, s=summary:
+                render_species(c, e, d, moves_by, pv, nx, odds[e["dex"]], species["cards"], b, a, meta, s))
     write("404.html", render_404(meta))
     share_image.save(SITE / "og.png")
     agents.write_all(SITE, meta, gachas, sheet_paths)

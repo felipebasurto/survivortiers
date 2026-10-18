@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import math
+import re
 import unicodedata
 from html import escape
 
@@ -20,6 +21,7 @@ from i18n import Lang
 from slugs import species_path
 
 STAT_KEYS = ("bs_hp", "bs_atk", "bs_def", "bs_spa", "bs_spd", "bs_spe")
+SUMMARY_MARK = re.compile(r"\[([^\[\]|]+)\|([^\[\]]+)\]")  # [clave|texto] en data/summaries-<idioma>.json
 
 
 def esc(x) -> str:
@@ -83,6 +85,7 @@ def _join(L: Lang, names: list[str]) -> str:
     return ", ".join(names[:-1]) + conj + names[-1]
 
 
+
 def _move_name(L: Lang, moves: dict[str, dict], mid: str) -> str:
     m = moves.get(mid)
     if not m:
@@ -127,10 +130,16 @@ def _faqs(L: Lang, tier: str, rank: int, attacks: str, buffs: str, n_buffs: int,
     return out
 
 
-def jsonld(faqs: list[tuple[str, str]]) -> str:
+def summary_plain(text: str) -> str:
+    """El resumen de la ficha (data/summaries-<idioma>.json) sin las marcas: el texto que se ve."""
+    return SUMMARY_MARK.sub(lambda m: m.group(2), text)
+
+
+def jsonld(faqs: list[tuple[str, str]], updated: str) -> str:
     doc = {
         "@context": "https://schema.org",
         "@type": "FAQPage",
+        "dateModified": updated,
         "mainEntity": [{"@type": "Question", "name": q, "acceptedAnswer": {"@type": "Answer", "text": a}}
                        for q, a in faqs],
     }
@@ -152,8 +161,10 @@ def _neighbor(L: Lang, home: str, sprites: str, ext: str, entry: dict | None, di
 
 
 def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, detail: list, moves: dict[str, dict],
-          prev: dict | None, nxt: dict | None, odds: tuple[float, int], cards: dict) -> tuple[str, str]:
-    """Devuelve el HTML visible (sin <head>) y el JSON-LD de las preguntas."""
+          prev: dict | None, nxt: dict | None, odds: tuple[float, int], cards: dict, *, summary: str, fresh: str,
+          guides: str, updated: str) -> tuple[str, str]:
+    """Devuelve el HTML visible (sin <head>) y el JSON-LD de las preguntas. summary es el resumen ya en texto plano;
+    fresh, la línea de datos del juego; guides, el bloque de enlaces a las listas."""
     name = L.mon(entry)
     rank, tier = entry["r"]["rank"], entry["r"]["tier"]
     methods = entry["r"]["methods"]
@@ -210,13 +221,15 @@ def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, detail: list,
 <span class="tier-badge medal {tier}" title="{esc(L.t("tier", t=tier))}">{tier}</span>
 </div>
 <div class="fh-main">
-<h1>{esc(name)} {other}<small class="fh-dex">{esc(L.t("dex_no", dex=entry["dex"]))}</small></h1>
+<h1>{esc(name)} <span class="fh-game">{esc(L.t("fh_game"))}</span> {other}<small class="fh-dex">{esc(L.t("dex_no", dex=entry["dex"]))}</small></h1>
 <div class="facts"><span class="types">{pills}</span>
 <span class="rarity r{rarity}" role="img" aria-label="{rarity_name}" title="{rarity_name}"><svg class="rball" viewBox="0 0 12 12" aria-hidden="true"><use href="#rball-{rarity}"/></svg></span>
 {legendary}{region}</div>
 <p class="rankline"><i class="ico ico-trophy" aria-hidden="true"></i><strong>{rank}</strong><span>/ {charts.TOTAL}</span></p>
 <p class="simline">{esc(L.t("sheet_sim_line", rank=methods["simBest"]))}</p>
 <p class="simline">{esc(L.t("sheet_open_line", rank=methods["simStart"]))}</p>
+<p class="resumen">{esc(summary)}</p>
+<p class="fresh">{esc(fresh)}</p>
 </div>
 </header>
 <section class="fig fig-build" id="build" aria-labelledby="bd-h">
@@ -242,5 +255,6 @@ def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, detail: list,
 <h2 id="faq-h">{esc(L.t("sheet_faq_h"))}</h2>
 <dl>{faq_html}</dl>
 </section>
+{guides}
 """
-    return html, jsonld(faqs)
+    return html, jsonld(faqs, updated)
