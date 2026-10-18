@@ -26,9 +26,10 @@ class SearchPicks(unittest.TestCase):
         group = self.groups[dex]
         return group["moves"][: len(group["moves"]) - group["nBoost"]]
 
-    def test_marshadow_shadow_ball_beats_hex(self):
-        # Same median as Shadow Ball + Aura Sphere; the higher mean picks Hyper Voice.
-        self.assertEqual(self.attacks(802), ["shadow-ball", "hyper-voice"])
+    def test_marshadow_shadow_ball_hex_and_aura_sphere(self):
+        # Same median and mean as Shadow Ball + Hex + Swords Dance + Harden.
+        # The group name breaks the tie, so the third attack takes the fourth slot.
+        self.assertEqual(self.attacks(802), ["shadow-ball", "hex", "aura-sphere"])
 
     def test_dash_pair_can_lead(self):
         self.assertEqual(self.attacks(123), ["aerial-ace", "quick-attack"])

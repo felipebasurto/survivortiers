@@ -207,6 +207,8 @@ pub struct RunResult {
     pub hp: f64,
     pub max_hp: f64,
     pub hp_frac: f64,
+    /// Sum of direct-hit amounts (`hit_one`) and burn/poison ticks. Measurement only.
+    pub dealt: f64,
 }
 
 /// End-of-run Pokémonedas. game.js:295-301.
@@ -746,9 +748,10 @@ fn strike(e: &mut Enemy, dmg: f64, atk: f64, ty: u8, tm: &[Vec<f64>], w: &Option
 }
 
 /// Damage over time, as Enemy.hurt() in the game: rounded, at least 1, and the shield takes it first.
-fn hurt_dot(e: &mut Enemy, amount: f64) {
+/// Returns the rounded tick (shield included) so a caller can record it. Combat is unchanged.
+fn hurt_dot(e: &mut Enemy, amount: f64) -> f64 {
     if e.hp <= 0.0 {
-        return;
+        return 0.0;
     }
     let d = jmax(1.0, js_round(amount));
     let mut left = d;
@@ -757,10 +760,11 @@ fn hurt_dot(e: &mut Enemy, amount: f64) {
         e.shield -= used;
         left = d - used;
         if left <= 0.0 {
-            return;
+            return d;
         }
     }
     e.hp -= left;
+    d
 }
 
 /// Enemy.hurt (enemy.js:100) once the ranking path is on: round, min 1, shield first, knock only if the
@@ -1330,6 +1334,8 @@ struct Match<'a, M: MathFns> {
     bosses: u32,
     /// coins picked up. Boss shower and legend shower only.
     picked: f64,
+    /// damage dealt to enemies this run (hits + burn/poison). Not read by combat.
+    dealt: f64,
     xp: f64,
     level: u32,
     need: f64,
@@ -1364,6 +1370,8 @@ struct Match<'a, M: MathFns> {
     bell: f64,
     /// player.js sashT starts at -999 ms, so the first lethal hit can proc
     sash_t: f64,
+    /// Ranking path only. Countdown until the next contact hit taken for standing in melee range.
+    melee_tag: f64,
     crit_rng: RefCell<Rng>,
     /// Aprendizaje stacks (levelup.js:25, max 8). Separate from `state.cards` so parity stays 7-wide.
     xp_n: u32,
@@ -1459,7 +1467,12 @@ impl<'a, M: MathFns> Match<'a, M> {
         }
         // player.js:238: 25% less damage only while a melee move is in the active group.
         // The starter always is. A companion counts once that bond has landed, not from t=0.
-        let melee_cut = mv.kind == Kind::Melee || self.active_has_melee();
+        // On the ranking path the cut only applies while an enemy is actually inside that swing.
+        // Collecting it from kite range was free mitigation with none of the contact.
+        let mut melee_cut = mv.kind == Kind::Melee || self.active_has_melee();
+        if self.opts.ext.rift {
+            melee_cut = melee_cut && self.foe_in_melee();
+        }
         let st = &mut self.st;
         st.max_hp = self.mon.hp + 20.0 * s.cards[Stat::Hp as usize] as f64;
         st.atk = self.mon.atk * self.tables.atk[s.cards[Stat::Pow as usize] as usize] * (1.0 + atk_buff) * it.atk;
@@ -2022,6 +2035,7 @@ impl<'a, M: MathFns> Match<'a, M> {
                     }
                 }
                 note_bell(&mut self.bell, self.opts.ext.item.bell, dealt);
+                self.dealt += dealt;
             }
             Kind::Beam => {
                 let (px, py) = (self.pl.x, self.pl.y);
@@ -2038,6 +2052,7 @@ impl<'a, M: MathFns> Match<'a, M> {
                     }
                 }
                 note_bell(&mut self.bell, self.opts.ext.item.bell, dealt);
+                self.dealt += dealt;
             }
             Kind::Orbit => {
                 let count = or(mv.count, 1.0);
@@ -2164,6 +2179,7 @@ impl<'a, M: MathFns> Match<'a, M> {
             }
         }
         note_bell(&mut self.bell, self.opts.ext.item.bell, dealt);
+                self.dealt += dealt;
     }
 
     fn cast_x(&mut self, mv: &'a MoveLvl, aim: f64, st: Status) -> bool {
@@ -2254,6 +2270,7 @@ impl<'a, M: MathFns> Match<'a, M> {
                     cur = best;
                 }
                 note_bell(&mut self.bell, self.opts.ext.item.bell, dealt);
+                self.dealt += dealt;
             }
             // aura(): everything in the circle; drain heals at most 6 per cast
             4 => {
@@ -2277,6 +2294,7 @@ impl<'a, M: MathFns> Match<'a, M> {
                     }
                 }
                 note_bell(&mut self.bell, self.opts.ext.item.bell, dealt);
+                self.dealt += dealt;
                 if healed > 0.0 {
                     self.pl.hp = jmin(self.st.max_hp, self.pl.hp + jmin(healed, 6.0));
                 }
@@ -2328,6 +2346,7 @@ impl<'a, M: MathFns> Match<'a, M> {
                     }
                 }
                 note_bell(&mut self.bell, self.opts.ext.item.bell, dealt);
+                self.dealt += dealt;
             }
             // mines(): armed after 0.35 s, burst when stepped on (half damage when they expire); 4 + 2n at most
             6 => {
@@ -2853,6 +2872,7 @@ impl<'a, M: MathFns> Match<'a, M> {
             }
         }
         note_bell(&mut self.bell, bell_on, dealt);
+        self.dealt += dealt;
         self.step_orbs();
     }
 
@@ -2921,11 +2941,103 @@ impl<'a, M: MathFns> Match<'a, M> {
             }
         }
         note_bell(&mut self.bell, bell_on, dealt);
+        self.dealt += dealt;
     }
 
     // ------------------------------------------------ bot
 
+    /// Melee swing that is live in the bonded group. `None` off the ranking path, so parity is unchanged.
+    /// `companions_only` is the ranged-lead case: the lead already keeps its own melee distance.
+    fn bonded_melee_radius(&self, companions_only: bool) -> Option<f64> {
+        if !self.opts.ext.rift {
+            return None;
+        }
+        let mut rad = if !companions_only && self.current_move().kind == Kind::Melee {
+            Some(self.current_move().radius)
+        } else {
+            None
+        };
+        for i in 0..self.comps.len() {
+            if !self.bonded(i as u8) {
+                continue;
+            }
+            let mv = self.comp_lvl(i);
+            if mv.kind == Kind::Melee {
+                rad = Some(rad.map_or(mv.radius, |r| r.max(mv.radius)));
+            }
+        }
+        rad
+    }
+
+    fn nearest_gap(&self) -> Option<f64> {
+        let (px, py, pr) = (self.pl.x, self.pl.y, self.pl.r);
+        let mut best = f64::INFINITY;
+        for e in &self.enemies {
+            if e.hp <= 0.0 {
+                continue;
+            }
+            let gap = len(e.x - px, e.y - py) - e.r - pr;
+            if gap < best {
+                best = gap;
+            }
+        }
+        if best.is_finite() { Some(best) } else { None }
+    }
+
+    /// An enemy is inside the live melee swing (the range where the move can hit).
+    fn foe_in_melee(&self) -> bool {
+        let Some(rad) = self.bonded_melee_radius(false) else { return false };
+        let (px, py) = (self.pl.x, self.pl.y);
+        self.enemies.iter().any(|e| e.hp > 0.0 && len(e.x - px, e.y - py) <= rad + e.r)
+    }
+
+    /// Contact taken while closing into a melee swing, before hurtboxes overlap.
+    /// The bot's melee keep (0.55 × radius) sits inside the swing and outside body contact, so
+    /// holding that gap is not a second collision — overlaps already call `hurt`. A melee cast
+    /// outside the arc already spends its cooldown and hits nothing (the lost uptime). The missing
+    /// cost is the walk in: the last 90px down to that keep, the nearest enemy tags you on the
+    /// touch cadence. Ranking path only (`Ext::rift`).
+    fn tick_melee_risk(&mut self, step: f64) {
+        if self.bonded_melee_radius(true).is_none() {
+            return;
+        }
+        self.melee_tag -= step;
+        if self.melee_tag > 0.0 {
+            return;
+        }
+        let Some(rad) = self.bonded_melee_radius(true) else { return };
+        let (px, py, pr) = (self.pl.x, self.pl.y, self.pl.r);
+        let hold = 0.55 * rad;
+        let mut best: Option<(f64, f64, u8)> = None;
+        for e in &self.enemies {
+            if e.hp <= 0.0 || e.touch > 0.0 {
+                continue;
+            }
+            let dist = len(e.x - px, e.y - py);
+            let gap = dist - e.r - pr;
+            // Last 90px of the close. Beyond that the enemy is not in contact yet.
+            if gap > hold && gap <= hold + 90.0 && best.map_or(true, |b| gap < b.0) {
+                best = Some((gap, e.dmg, e.ty0));
+            }
+        }
+        if let Some((_, dmg, ty)) = best {
+            self.melee_tag = TOUCH;
+            self.hurt(dmg, ty);
+        }
+    }
+
     fn decide(&mut self) {
+        let mut keep = keep_distance(self.st.mv);
+        // A bonded melee move is only useful inside its swing. Close to that keep instead of
+        // holding the ranged lead's kite distance (which let the swing whiff and still grant DR).
+        let closing = if let Some(rad) = self.bonded_melee_radius(true) {
+            keep = keep.min(0.55 * rad);
+            // Repulse stays off until the hold gap. Leaving it on in the band above the keep
+            // parked the bot where the swing misses and the close-tax still lands.
+            self.nearest_gap().map(|g| g > keep).unwrap_or(false)
+        } else {
+            false
+        };
         let pl = &mut self.pl;
         pl.react -= self.dt;
         if pl.react > 0.0 {
@@ -2936,7 +3048,6 @@ impl<'a, M: MathFns> Match<'a, M> {
         let mut fy = 0.0;
         let mut near: Option<usize> = None;
         let mut near_d = f64::INFINITY;
-        let keep = keep_distance(self.st.mv);
         for (i, e) in self.enemies.iter().enumerate() {
             if e.hp <= 0.0 {
                 continue;
@@ -2948,7 +3059,7 @@ impl<'a, M: MathFns> Match<'a, M> {
                 near_d = dist;
                 near = Some(i);
             }
-            if self.opts.bot == Bot::Repulse {
+            if self.opts.bot == Bot::Repulse && !closing {
                 let gap = dist - e.r - pl.r;
                 if gap < 160.0 {
                     let w = 1.0 / jmax(8.0, gap);
@@ -3283,6 +3394,7 @@ impl<'a, M: MathFns> Match<'a, M> {
         let dt = self.dt;
         let knock_fade = self.knock_fade;
         let lvl = self.level as f64;
+        let mut dots = 0.0;
         if let Some(t) = &mut self.terrain {
             let Terr { world, path } = &mut **t;
             path.timer -= dt;
@@ -3314,7 +3426,7 @@ impl<'a, M: MathFns> Match<'a, M> {
                 e.burn_tick -= dt;
                 if e.burn_tick <= 0.0 {
                     e.burn_tick = BURN_TICK;
-                    hurt_dot(e, 1.6 * e.burn * (1.0 + lvl * 0.06));
+                    dots += hurt_dot(e, 1.6 * e.burn * (1.0 + lvl * 0.06));
                 }
                 if e.burn_t <= 0.0 {
                     e.burn = 0.0;
@@ -3325,7 +3437,7 @@ impl<'a, M: MathFns> Match<'a, M> {
                 e.poison_tick -= dt;
                 if e.poison_tick <= 0.0 {
                     e.poison_tick = POISON_TICK;
-                    hurt_dot(e, e.max * 0.012 * e.poison + 1.0);
+                    dots += hurt_dot(e, e.max * 0.012 * e.poison + 1.0);
                 }
                 if e.poison_t <= 0.0 {
                     e.poison = 0.0;
@@ -3713,6 +3825,7 @@ impl<'a, M: MathFns> Match<'a, M> {
             }
             self.hazards.remove(i);
         }
+        self.dealt += dots;
     }
 }
 
@@ -3796,6 +3909,7 @@ pub fn run_match<M: MathFns>(
         kills: 0,
         bosses: 0,
         picked: 0.0,
+        dealt: 0.0,
         xp: 0.0,
         level: 1,
         need: 0.0,
@@ -3838,6 +3952,7 @@ pub fn run_match<M: MathFns>(
         altar_used: Vec::new(),
         bell: 0.0,
         sash_t: -1.0e9,
+        melee_tag: 0.0,
         crit_rng: RefCell::new(Rng::new(opts.seed.wrapping_add(0xC217))),
         xp_n: 0,
         heal_n: 0,
@@ -3943,6 +4058,7 @@ pub fn run_match<M: MathFns>(
             }
             m.pl.x += m.pl.dirx * pspd * step;
             m.pl.y += m.pl.diry * pspd * step;
+            m.tick_melee_risk(step);
             if m.arena_phase == 0 {
                 if let Some(t) = &mut m.terrain {
                     t.world.collide(&mut m.pl.x, &mut m.pl.y, m.pl.r);
@@ -4011,6 +4127,7 @@ pub fn run_match<M: MathFns>(
         hp: m.pl.hp,
         max_hp: m.st.max_hp,
         hp_frac: if capped { m.pl.hp / m.st.max_hp } else { 0.0 },
+        dealt: m.dealt,
     }
 }
 

@@ -237,6 +237,11 @@ fn partner_pool(data: &Data, mon: &Mon, start: usize) -> Vec<usize> {
             m.kind.simulated() || m.levels[0].xk != 0
         })
         .collect();
+    // Gengar never bonds a melee move. A ghost that has to stand in the swing
+    // is the case the ranking was getting wrong (body slam next to shadow ball).
+    if mon.dex == 94 {
+        ids.retain(|&ix| data.moves[ix].kind != Kind::Melee);
+    }
     ids.sort_by(|&a, &b| {
         let syn = |ix| if pairs_with(data, start, ix) { 0u8 } else { 1 };
         let rank = |ix| solo.iter().position(|&p| p == ix).unwrap_or(10_000);
@@ -517,8 +522,15 @@ fn dedup_specs(specs: Vec<Spec>) -> Vec<Spec> {
 /// that top six (a dash pair can beat a higher-tier lead by tens of seconds).
 /// The winner is whichever group has the higher median, then the higher mean.
 /// A synergy partner is only the recommendation when it actually wins that comparison.
+/// Swords Dance is in every group (everyone learns it). The fourth slot is Harden
+/// (`buffs` 3, one partner) or a third attack (`buffs` 1). Harden is not the default:
+/// both shapes are scored and the higher median, then mean, wins.
+/// Gengar's list has already dropped melee.
 fn synergy_specs(data: &Data, mon: &Mon) -> Vec<Spec> {
-    let atk = attack_list(data, mon);
+    let mut atk = attack_list(data, mon);
+    if mon.dex == 94 {
+        atk.retain(|&ix| data.moves[ix].kind != Kind::Melee);
+    }
     let linked = atk.iter().any(|&a| atk.iter().any(|&b| a != b && pairs_with(data, a, b)));
     let pay: Vec<usize> = atk.iter().copied().filter(|&ix| is_payoff(&data.moves[ix].levels[0])).collect();
     let mut app: Vec<usize> = atk.iter().copied().filter(|&ix| is_applier(&data.moves[ix].levels[0])).collect();
@@ -558,9 +570,13 @@ fn synergy_specs(data: &Data, mon: &Mon) -> Vec<Spec> {
     let top = top_attacks(data, mon, &atk);
     for &a in &top {
         for &b in &top {
-            if a != b {
-                out.push(Spec { start: a, comps: vec![b], buffs: 3 });
+            if a == b {
+                continue;
             }
+            // 2 attacks + Swords Dance + Harden.
+            out.push(Spec { start: a, comps: vec![b], buffs: 3 });
+            // Same pair, fourth slot a third attack instead of Harden.
+            push_third(data, &top, &atk, a, b, &mut out);
         }
     }
     // Dash invuln is its own relation. Score every ordered dash pair, not only the
@@ -574,6 +590,35 @@ fn synergy_specs(data: &Data, mon: &Mon) -> Vec<Spec> {
         }
     }
     dedup_specs(out)
+}
+
+/// One or two thirds for a pair: the next non-melee attack in the top list, and the
+/// strongest status partner of either member when that is a different move (Sludge + Hex).
+fn push_third(data: &Data, top: &[usize], atk: &[usize], a: usize, b: usize, out: &mut Vec<Spec>) {
+    let ranged = |ix: usize| data.moves[ix].kind != Kind::Melee;
+    let mut thirds = Vec::new();
+    if let Some(c) = top.iter().copied().find(|&c| c != a && c != b && ranged(c)) {
+        thirds.push(c);
+    }
+    let mut syn: Vec<usize> = atk
+        .iter()
+        .copied()
+        .filter(|&c| c != a && c != b && ranged(c) && (pairs_with(data, a, c) || pairs_with(data, b, c)))
+        .collect();
+    syn.sort_by(|&x, &y| {
+        level_dps(&data.moves[y].levels[0])
+            .partial_cmp(&level_dps(&data.moves[x].levels[0]))
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then(data.moves[x].id.cmp(&data.moves[y].id))
+    });
+    if let Some(c) = syn.first().copied() {
+        if !thirds.contains(&c) {
+            thirds.push(c);
+        }
+    }
+    for c in thirds {
+        out.push(Spec { start: a, comps: vec![b, c], buffs: 1 });
+    }
 }
 
 fn group_name(data: &Data, start: usize, comps: &[usize], buffs: u8, cfg: &Cfg) -> String {
@@ -790,7 +835,7 @@ fn tasks_cmd(data: &Data, cfg: &Cfg) {
             let d = done.fetch_add(1, Ordering::Relaxed) + 1;
             if d % 500 == 0 { eprintln!("  {d}/{total}"); }
             format!(
-                "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+                "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
                 c[0],
                 c[1],
                 c[2],
@@ -811,14 +856,21 @@ fn tasks_cmd(data: &Data, cfg: &Cfg) {
                 s.alive300,
                 s.alive600,
                 num(s.median_kills),
+                num(s.p10_kills),
+                num(s.p90_kills),
                 num(s.median_bosses),
                 num(s.median_kpm),
-                num(s.median_coins)
+                num(s.median_coins),
+                num(s.p10_coins),
+                num(s.p90_coins),
+                num(s.median_dealt),
+                num(s.p10_dealt),
+                num(s.p90_dealt)
             )
         })
         .collect();
     let path = cfg.out.clone().expect("--out");
-    std::fs::write(&path, format!("dex,move,item,fill,buffs,stop,heal_below,lock,mods,median_s,mean_s,boot_lo,boot_hi,p75_s,p90_s,median_lvl,alive180,alive300,alive600,median_kills,median_bosses,median_kpm,median_coins\n{}\n", rows.join("\n"))).unwrap();
+    std::fs::write(&path, format!("dex,move,item,fill,buffs,stop,heal_below,lock,mods,median_s,mean_s,boot_lo,boot_hi,p75_s,p90_s,median_lvl,alive180,alive300,alive600,median_kills,p10_kills,p90_kills,median_bosses,median_kpm,median_coins,p10_coins,p90_coins,median_dealt,p10_dealt,p90_dealt\n{}\n", rows.join("\n"))).unwrap();
     eprintln!("wrote {path}");
 }
 
