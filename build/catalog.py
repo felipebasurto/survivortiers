@@ -24,6 +24,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import combos  # noqa: E402
 import passives  # noqa: E402
 import credits as credits_mod  # noqa: E402
+import game_moves  # noqa: E402
 import legal  # noqa: E402
 import objetos  # noqa: E402
 import summaries  # noqa: E402
@@ -62,6 +63,9 @@ METHOD = {
     "repeats": 2000,
 }
 METHOD_KEYS = ("sheet", "simStart", "simBest", "lateMax", "lateFresh")
+# Combate del juego (js/data/pokedex.js @ e868b5e, en data/pokedex_export.json; lo importa build/import_game_combat.py).
+# pa/sa: multiplicador del daño físico/especial; df/sd: Defensa y Defensa Especial base.
+COMBAT_KEYS = ("pa", "sa", "df", "sd")
 
 
 class CatalogError(RuntimeError):
@@ -89,13 +93,14 @@ def png_size(path: Path) -> tuple[int, int]:
 
 
 BUFF_RE = re.compile(
-    r"^(?P<type>[^,]+), potenciador: hasta \+(?P<amount>\d+(?:,\d+)?)(?P<pct> %)? de (?P<stat>\w+) "
+    r"^(?P<type>[^,]+), potenciador: hasta \+(?P<amount>\d+(?:,\d+)?)(?P<pct> %)? de (?P<stat>.+?) "
     r"con todas las acumulaciones a nivel máximo, dura (?P<dur>\d+) s con recarga de (?P<cd>\d+(?:,\d+)?) s "
     r"\(cobertura (?P<cover>\d+) %\)\. Fusionado con tus ataques multiplica su valor "
     r"×(?P<g5>\d+(?:,\d+)?) / ×(?P<g10>\d+(?:,\d+)?) / ×(?P<g15>\d+(?:,\d+)?) a los minutos 5 / 10 / 15; "
     r"alternándolo en otro hueco, ×(?P<weave>\d+(?:,\d+)?) al minuto 15\.$"
 )
-STAT_IDS = {"ataque": "atk", "velocidad": "spd", "defensa": "def", "regeneración": "regen", "vida": "hp"}
+STAT_IDS = {"ataque físico": "patk", "ataque especial": "satk", "velocidad": "spd", "defensa": "def",
+            "regeneración": "regen", "vida": "hp"}
 
 
 def _num(text: str) -> float:
@@ -150,8 +155,35 @@ def load_moves() -> list[dict]:
         if mech["kind"] != r["kind"]:
             raise CatalogError(f"{r['move_id']}: el juego dice {mech['kind']}, la tier list {r['kind']}")
         move["mech"] = {"homing": mech["homing"], "pierce": mech["pierce"], "count": mech["count"]}
+        move["damage"] = game_moves.damage_class(r["move_id"], r["kind"])
+        if r["move_id"] in game_moves.NOTES:
+            es, en_note = game_moves.NOTES[r["move_id"]]
+            move["note"] = {"es": es, "en": en_note}
         moves.append(move)
     return moves
+
+
+def load_unranked() -> list[dict]:
+    """Movimientos del juego que aún no tienen puesto (game_moves.UNRANKED): sin tier ni valor, para no mezclarlos
+    con los 64 de moves.json (la ficha cuenta y lista por tier)."""
+    icons = json.loads((DATA / "move_icons.json").read_text(encoding="utf8"))
+    out = []
+    for ref in game_moves.UNRANKED:
+        icon = icons.get(ref["id"])
+        if icon is None:
+            raise CatalogError(f"sin icono del juego para {ref['id']!r} (node build/export_move_icons.js)")
+        if (icon["type"], icon["kind"]) != (ref["type"], ref["kind"]):
+            raise CatalogError(f"{ref['id']}: el juego dice {icon['type']}/{icon['kind']}, el dato {ref['type']}/{ref['kind']}")
+        dur, cd = ref["dur"], ref["cd"]
+        out.append({
+            "id": ref["id"], "name": ref["name"][0], "en": {"name": ref["name"][1]}, "type": ref["type"],
+            "kind": ref["kind"], "damage": game_moves.damage_class(ref["id"], ref["kind"]),
+            "note": {"es": ref["note"][0], "en": ref["note"][1]},
+            "buff": {"stat": ref["stat"][0], "statEn": ref["stat"][1], "amount": ref["amount"], "stacks": ref["stacks"],
+                     "dur": dur, "cd": cd, "cover": round(100 * min(1.0, dur / cd))},
+            "icon": {"size": icon["size"], "pal": icon["pal"], "rows": icon["rows"]},
+        })
+    return out
 
 
 def _move(move_names: dict, mid: str) -> dict:
@@ -228,12 +260,14 @@ def load_pokemon(move_names: dict, credits: dict, shiny: set[int]) -> list[dict]
             "flags": {"statsCapped": row["stats_capped"] == "1", "statusUnmodelled": row["status_unmodelled"] == "1",
                       "melee": row["melee_locked"] == "1", "typesCapped": row["types_capped"] == "1"},
         }
+        if any(k not in px for k in COMBAT_KEYS):
+            raise CatalogError(f"{dex}: falta pa/sa/df/sd en pokedex_export.json; ejecuta build/import_game_combat.py")
         entries.append({
             "dex": dex, "name": px["name"], "nameEn": name_en, "types": px["types"],
             "rarity": px["rarity"], "legendary": px["legendary"],
             "bannerId": px["gen"], "banner": px["banner"], "sprite": sprite, "r": ranking, "sh": dex in shiny,
             "base": {"atk": px["atk"], "hp": px["hp"], "spd": px["spd"], "ehp": px["effective_hp"],
-                     "rad": px["body_radius"]},
+                     "rad": px["body_radius"], "pa": px["pa"], "sa": px["sa"], "df": px["df"], "sd": px["sd"]},
             "stats": base_stats[str(dex)],
         })
     return entries
@@ -352,13 +386,24 @@ def slim(entries: list[dict]) -> list[dict]:
             for e in entries]
 
 
+def attack_kind(pa: float, sa: float) -> str:
+    """'phys', 'spec' o 'mix': el lado fuerte del Pokémon. Mixto si pa y sa están a 0,05 o menos (en centésimas, sin
+    errores de coma flotante). Lo leen la ficha estática, la lista (src/app.js) y la ficha interactiva (src/ficha.js)."""
+    gap = round((pa - sa) * 100)
+    if abs(gap) <= 5:
+        return "mix"
+    return "phys" if gap > 0 else "spec"
+
+
 def sort_values(e: dict) -> dict:
-    """Valores por los que se ordena la lista: los de la Pokédex (atk, hp, spd, ehp, rad) y los pilares en %
-    (td = defensa de tipos, mv = movimientos, st = estadísticas). Los claves son cortas para que el JSON pese poco."""
+    """Valores por los que se ordena la lista: los de la Pokédex (atk, hp, spd, ehp, rad), los pilares en %
+    (td = defensa de tipos, mv = movimientos, st = estadísticas) y el combate del juego (pa, sa, df, sd, y ak, el
+    lado fuerte). Las claves son cortas para que el JSON pese poco."""
     b, pil = e["base"], e["r"]["pillars"]
     return {"atk": round(b["atk"], 2), "hp": b["hp"], "spd": b["spd"], "ehp": round(b["ehp"]),
             "rad": round(b["rad"], 1), "td": round(100 * pil["typedef"]), "mv": round(100 * pil["moves"]),
-            "st": round(100 * pil["stats"])}
+            "st": round(100 * pil["stats"]), "pa": round(b["pa"], 2), "sa": round(b["sa"], 2),
+            "df": b["df"], "sd": b["sd"], "ak": attack_kind(b["pa"], b["sa"])}
 
 
 def build_items() -> list[dict]:
@@ -419,6 +464,7 @@ def main() -> int:
     try:
         credits = credits_mod.parse_credits(DATA / "CREDITS.md")
         moves = load_moves()
+        unranked = load_unranked()
         move_names = {m["id"]: m["name"] for m in moves}
         dexes = sorted(p["dex"] for p in json.loads((DATA / "pokedex_export.json").read_text(encoding="utf8")))
         entries = load_pokemon(move_names, credits, load_shiny(dexes))
@@ -441,6 +487,7 @@ def main() -> int:
     shutil.rmtree(OUT, ignore_errors=True)
     write_json("pokemon.json", entries)
     write_json("moves.json", moves)
+    write_json("moves_unranked.json", unranked)
     write_json("pokemon-index.json", slim(entries), public=True)
     dex_types = {p["dex"]: p["types"] for p in json.loads((DATA / "pokedex_export.json").read_text(encoding="utf8"))}
     write_json("species.json", species_details(entries, meta["simRange"], meta["simMedianSeconds"],

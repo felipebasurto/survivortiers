@@ -21,9 +21,11 @@ import agents  # noqa: E402
 import balls  # noqa: E402
 import charts  # noqa: E402
 import finder  # noqa: E402
+import game_moves  # noqa: E402
 import gamestats  # noqa: E402
 import landing  # noqa: E402
 import legal  # noqa: E402
+import novedades  # noqa: E402
 import objetos  # noqa: E402
 import pasivas  # noqa: E402
 import pack  # noqa: E402
@@ -47,14 +49,17 @@ EXT = legal.SPRITE_EXT
 SCALE_LIST = 2
 TIERS = ["S", "A", "B", "C", "D"]
 CATEGORIES = [("melee", "cuerpo a cuerpo"), ("ranged", "distancia"), ("stat", "estadística")]  # (id, valor del CSV)
-NAV = [("index", "index.html", "nav_tiers"),
-       ("ataques", "ataques.html", "nav_ataques"), ("objetos", "objetos.html", "nav_objetos"),
-       ("pasivas", "pasivas.html", "nav_pasivas"),
-       ("gachas", "gachas.html", "nav_gachas"),
-       ("buscador", "@finder", "nav_buscador"), ("planificador", "@planner", "nav_planificador"),
-       ("coleccion", "coleccion.html", "nav_coleccion"), ("acerca", "acerca.html", "nav_acerca"),
-       ("metodo", "metodo.html", "nav_metodo")]
-SORT_KEYS = ("rank", "name", "dex", "atk", "hp", "spd", "ehp", "rad", "td", "mv", "st", "rar")  # orden de la lista
+NAV_TOP = [("index", "index.html", "nav_tiers"), ("novedades", "novedades.html", "nav_novedades")]
+NAV_GROUPS = [
+    ("nav_tools", [("buscador", "@finder", "nav_buscador"), ("planificador", "@planner", "nav_planificador"),
+                   ("coleccion", "coleccion.html", "nav_coleccion")]),
+    ("nav_guide", [("ataques", "ataques.html", "nav_ataques"), ("objetos", "objetos.html", "nav_objetos"),
+                   ("pasivas", "pasivas.html", "nav_pasivas"), ("gachas", "gachas.html", "nav_gachas"),
+                   ("metodo", "metodo.html", "nav_metodo"), ("acerca", "acerca.html", "nav_acerca")]),
+]
+NAV = NAV_TOP + [item for _, items in NAV_GROUPS for item in items]
+SORT_KEYS = ("rank", "name", "dex", "atk", "pa", "sa", "hp", "spd", "df", "sd", "ehp", "rad", "td", "mv", "st",
+             "rar")  # orden de la lista
 REPEAT_RANKS = (2, 40, 150, 350, 650)  # puestos de los Pokémon que salen en la ilustración de repeticiones
 PILLAR_KEYS = ("stats", "moves", "typedef", "size")
 ARENA_DEX = 25
@@ -183,6 +188,32 @@ def theme_button(L: Lang) -> str:
             f'<i class="ico ico-sun" aria-hidden="true"></i><i class="ico ico-moon" aria-hidden="true"></i></button>')
 
 
+def _nav_link(c: Ctx, page_id: str, pid: str, href: str, key: str) -> str:
+    current = ' aria-current="page"' if pid == page_id else ""
+    return f'<a href="{c.home}{toolpages.target(c.L, href)}"{current}>{esc(c.L.t(key))}</a>'
+
+
+def _nav_html(c: Ctx, page_id: str) -> str:
+    """Menú principal: Tiers y Novedades sueltos, y dos grupos desplegables (Herramientas y Guía)."""
+    parts = [f'      {_nav_link(c, page_id, pid, href, key)}' for pid, href, key in NAV_TOP]
+    for group, items in NAV_GROUPS:
+        inside = any(pid == page_id for pid, _, _ in items)
+        cls = "nav-group is-current" if inside else "nav-group"
+        links = "\n".join(f'          {_nav_link(c, page_id, pid, href, key)}' for pid, href, key in items)
+        parts.append(f'      <details class="{cls}"><summary>{esc(c.L.t(group))}</summary>\n'
+                     f'        <div class="nav-menu">\n{links}\n        </div>\n      </details>')
+    return "\n".join(parts)
+
+
+def _footer_nav_html(c: Ctx) -> str:
+    top = " ".join(f'<a href="{c.home}{toolpages.target(c.L, href)}">{esc(c.L.t(key))}</a>' for _, href, key in NAV_TOP)
+    groups = []
+    for group, items in NAV_GROUPS:
+        links = " ".join(f'<a href="{c.home}{toolpages.target(c.L, href)}">{esc(c.L.t(key))}</a>' for _, href, key in items)
+        groups.append(f'      <div class="foot-group"><b>{esc(c.L.t(group))}</b> {links}</div>')
+    return f'      <div class="foot-group">{top}</div>\n' + "\n".join(groups)
+
+
 def page(c: Ctx, page_id: str, title: str, description: str, content: str, meta: dict, extra_head: str = "",
          head_links: str | None = None) -> str:
     L = c.L
@@ -195,10 +226,8 @@ def page(c: Ctx, page_id: str, title: str, description: str, content: str, meta:
     analytics = (f"<script defer src='https://static.cloudflareinsights.com/beacon.min.js' "
                  f"data-cf-beacon='{{\"token\": \"{legal.WEB_ANALYTICS_TOKEN}\"}}'></script>")
     current = ' aria-current="page"'
-    nav = "\n".join(
-        f'      <a href="{c.home}{toolpages.target(L, href)}"{current if pid == page_id else ""}>{esc(L.t(key))}</a>'
-        for pid, href, key in NAV)
-    footer_nav = "\n".join(f'      <a href="{c.home}{toolpages.target(L, href)}">{esc(L.t(key))}</a>' for _, href, key in NAV)
+    nav = _nav_html(c, page_id)
+    footer_nav = _footer_nav_html(c)
     lic = meta["spriteLicense"]
     sprites_line = L.t("sprites_line_html", url=esc(lic["sourceUrl"]), source=esc(lic["source"]),
                        lic_url=esc(lic["url"]), lic=esc(lic["name"]), about=f"{c.home}acerca.html")
@@ -257,6 +286,7 @@ def render_index(c: Ctx, pokemon: list[dict], meta: dict) -> str:
         for g in ("tier", "type", "rar", "region", "leg", "none"))
     content = f"""
 {balls.defs()}
+{novedades.patch_note(L, c.home)}
 <h1>{esc(L.t("index_h1", game=legal.GAME_NAME))}</h1>
 <p class="tagline">{L.t("value_html", repo=esc(legal.REPO_URL), **legal.method_counts(L, meta))}</p>
 <p class="fresh">{esc(legal.freshness_text(L, meta))}</p>
@@ -300,13 +330,16 @@ FICHA_KEYS = (
     "methods_alt_item", "sim_start", "sim_best", "sim_median", "sim_alt", "sim_gain", "sim_noshop",
     "rar_1", "rar_2", "rar_3", "rar_4", "rar_5", "t_base", "bs_hp", "bs_atk", "bs_def", "bs_spa", "bs_spd", "bs_spe",
     "bs_total", "bs_alt_item", "bs_s_hp", "bs_s_atk", "bs_s_def", "bs_s_spa", "bs_s_spd", "bs_s_spe",
-    "sheet_title", "sheet_desc", "fh_game", "fresh")
+    "sheet_title", "sheet_desc", "fh_game", "fresh", "t_combat", "cb_pa", "cb_sa", "cb_df", "cb_sd", "cb_kind_phys",
+    "cb_kind_spec", "cb_kind_mix", "cb_note", "cb_src",
+    "dmg_physical", "dmg_special", "dmg_status", "dmg_tip_physical", "dmg_tip_special", "dmg_tip_status")
 
 
 def ficha_chrome(L: Lang, meta: dict) -> tuple[str, str]:
     """Piezas que la ficha interactiva necesita y que no dependen del Pokémon: símbolos, plantillas e i18n."""
     strings = {k: L.t_raw(k).replace("{site}", legal.SITE_NAME).replace("{game}", legal.GAME_NAME)
                .replace("{total}", str(charts.TOTAL)).replace("{sha}", meta["gameCommit"][:7])
+               .replace("{combat}", legal.COMBAT_COMMIT)
                .replace("{date}", meta["generatedAt"][:10]) for k in FICHA_KEYS}
     blob = json.dumps({"en": L.en, "s": strings}, ensure_ascii=False).replace("</", "<\\/")
     pills = "".join(f'<span data-t="{t}">{type_pill(L, t)}</span>' for t in typedata.TYPE_COLOR)
@@ -442,6 +475,9 @@ def move_facts(L: Lang, m: dict) -> str:
     if "buff" in m:
         b = m["buff"]
         facts.append(L.t("mv_buff", dur=L.dec(b["dur"], 0), cd=L.dec(b["cd"], 2)))
+        if "stacks" in b:
+            stat = b["statEn"] if L.en else b["stat"]
+            facts.append(L.t("mv_stacks", amt=L.dec(b["amount"] * 100, 0), stat=stat, n=b["stacks"]))
     if not facts:
         return ""
     return '<ul class="mv-facts">' + "".join(f"<li>{esc(f)}</li>" for f in facts) + "</ul>"
@@ -451,16 +487,29 @@ def move_card(L: Lang, m: dict, mon: dict, home: str) -> str:
     name = m["en"]["name"] if L.en else m["name"]
     # Teledirigido y perforante se nombran aparte del proyectil normal: cambian cómo se usa el ataque.
     kind = L.t("mv_kind_" + {"home": "homing", "pierce": "pierce"}.get(move_fx(m), m["kind"]))
-    bars = charts.buff_bars(L, m["score"], m["buff"]) if "buff" in m else charts.move_bars(L, m["score"])
+    if "score" in m:
+        bars = charts.buff_bars(L, m["score"], m["buff"]) if "buff" in m else charts.move_bars(L, m["score"])
+        meter = f'<div class="mv-meter">{bars}</div>'
+    else:
+        meter = f'<p class="mv-pending">{esc(L.t("mv_unranked"))}</p>'
+    note = m.get("note")
+    note_html = f'<p class="mv-desc">{esc(note["en"] if L.en else note["es"])}</p>' if note else ""
     types = TYPE_NAMES["en" if L.en else "es"]
     search = " ".join([m["name"], m["en"]["name"] or "", types[m["type"]], kind]).lower()
     return (f'<li class="mv-card" data-q="{esc(search)}">'
             f'<div class="mv-top">{move_icon_svg(m["icon"])}<div class="mv-title"><h4>{esc(name)}</h4>'
-            f'<div class="mv-tags">{type_pill(L, m["type"])}<span class="mv-kind">{esc(kind)}</span></div></div></div>'
-            f'{move_stage(L, m, mon, home)}<div class="mv-meter">{bars}</div>{move_facts(L, m)}</li>')
+            f'<div class="mv-tags">{type_pill(L, m["type"])}<span class="mv-kind">{esc(kind)}</span>'
+            f'{static_ficha.damage_badge(L, m["damage"])}</div></div></div>{note_html}'
+            f'{move_stage(L, m, mon, home)}{meter}{move_facts(L, m)}</li>')
 
 
-def render_ataques(c: Ctx, moves: list[dict], meta: dict, index: list[dict]) -> str:
+def damage_legend(L: Lang) -> str:
+    items = "".join(f'<li>{static_ficha.damage_badge(L, cls)}<span>{esc(L.t("dmg_tip_" + cls))}</span></li>'
+                    for cls in game_moves.DAMAGE_CLASSES)
+    return f'<ul class="cat-legend" aria-label="{esc(L.t("mv_damage_h"))}">{items}</ul>'
+
+
+def render_ataques(c: Ctx, moves: list[dict], meta: dict, index: list[dict], unranked: list[dict]) -> str:
     L = c.L
     blocks, toc = [], []
     for cat_id, cat_csv in CATEGORIES:
@@ -471,6 +520,10 @@ def render_ataques(c: Ctx, moves: list[dict], meta: dict, index: list[dict]) -> 
                 continue
             items = "".join(move_card(L, m, demo_mon(index, m["type"]), c.home) for m in ms)
             inner.append(f'<div class="mv-tier"><h3>{tier_badge(L, t)} <small>{len(ms)}</small></h3>'
+                         f'<ul class="mv-grid">{items}</ul></div>')
+        if cat_id == "stat" and unranked:
+            items = "".join(move_card(L, m, demo_mon(index, m["type"]), c.home) for m in unranked)
+            inner.append(f'<div class="mv-tier mv-unranked"><h3>{esc(L.t("mv_unranked_h"))} <small>{len(unranked)}</small></h3>'
                          f'<ul class="mv-grid">{items}</ul></div>')
         icon_name = {"melee": "sword", "ranged": "bow", "stat": "sparkle"}[cat_id]
         blocks.append(f'<section id="{cat_id}" class="mv-section"><h2>{icon(icon_name)}{esc(L.t("cat_" + cat_id))}</h2>'
@@ -485,11 +538,12 @@ def render_ataques(c: Ctx, moves: list[dict], meta: dict, index: list[dict]) -> 
 <div class="search-field mv-finder">{search_icon}<input id="mv-q" type="search" autocomplete="off" placeholder="{esc(L.t("mv_search"))}" aria-label="{esc(L.t("mv_search"))}"></div>
 <p id="mv-none" class="mv-none" hidden>{esc(L.t("mv_none"))}</p>
 <ul class="toc">{"".join(toc)}</ul>
+{damage_legend(L)}
 {charts.move_scale(L)}
 {"".join(blocks)}
 """
     return page(c, "ataques", L.t("ataques_title", site=legal.SITE_NAME),
-                L.t("ataques_desc", n=len(moves), game=legal.GAME_NAME), content, meta)
+                L.t("ataques_desc", n=len(moves) + len(unranked), game=legal.GAME_NAME), content, meta)
 
 
 def render_finder(c: Ctx, meta: dict) -> str:
@@ -642,6 +696,12 @@ def render_metodo(c: Ctx, index: list[dict], full: list[dict], meta: dict) -> st
                 L.t("met_desc", site=legal.SITE_NAME, **legal.method_counts(L, meta)), content, meta)
 
 
+def render_novedades(c: Ctx, meta: dict) -> str:
+    L = c.L
+    return page(c, "novedades", novedades.title(L, legal.SITE_NAME, legal.GAME_NAME),
+                novedades.desc(L, legal.GAME_NAME), novedades.content(L), meta)
+
+
 def render_acerca(c: Ctx, meta: dict) -> str:
     L = c.L
     lic = meta["spriteLicense"]
@@ -685,6 +745,7 @@ def main() -> int:
         index = load("public/pokemon-index.json")
         full = load("pokemon.json")
         moves = load("moves.json")
+        unranked = load("moves_unranked.json")
         species = load("public/species.json")
         gachas = load("gachas.json")
         summaries = {L.code: load(f"public/summaries-{L.code}.json") for L in LANGS}
@@ -722,7 +783,8 @@ def main() -> int:
             write(f"{L.prefix}{rel}", render_landing(c, built, meta))
         before, after = ficha_chrome(L, meta)
         put("index.html", lambda c: render_index(c, index, meta))
-        put("ataques.html", lambda c: render_ataques(c, moves, meta, index))
+        put("novedades.html", lambda c: render_novedades(c, meta))
+        put("ataques.html", lambda c: render_ataques(c, moves, meta, index, unranked))
         put("objetos.html", lambda c: render_objetos(c, meta))
         put("pasivas.html", lambda c: render_pasivas(c, meta))
         put("gachas.html", lambda c: render_gachas(c, gachas, index, meta))

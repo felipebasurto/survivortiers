@@ -21,7 +21,7 @@ from i18n import EN, ES, TYPE_NAMES, Lang
 
 ROOT = Path(__file__).resolve().parent.parent
 RANKING_SRC = ROOT / "data" / "ranking_definitive.csv"
-PAGES = ["", "ataques.html", "objetos.html", "pasivas.html", "gachas.html", "coleccion.html", "metodo.html", "acerca.html"]
+PAGES = ["", "novedades.html", "ataques.html", "objetos.html", "pasivas.html", "gachas.html", "coleccion.html", "metodo.html", "acerca.html"]
 LANG_PREFIX = {"es": "", "en": "en/"}
 SIM_CAP_S = 900  # tope de la simulación de supervivencia (sim_lede en build/i18n.py)
 
@@ -115,8 +115,10 @@ Base URL: {u}
 - [Best Pokémon (EN)]({_page_url(True, 'best')}): the top 30, tier S, in order.
 - [Best starters (EN)]({_page_url(True, 'starters')}): the starting picks that last longest in the simulated opening.
 - [Best legendaries (EN)]({_page_url(True, 'legendary')}): every legendary by rank.
-- [Best passives (EN)]({_page_url(True, 'passives')}): level-up cards ranked by coin reward, with the Sitrus Berry rule.
+- [Best passives (EN)]({_page_url(True, 'passives')}): level-up cards ranked by coin reward. The Sitrus Berry at 70% HP is a simulation rule, not a game rule.
 - Best Pokémon by type (EN), one page per type: {_type_links(True)}.
+- [Passives (EN)]({u}/en/pasivas.html): what each level-up card does, how boosts stack and the two-boost cap.
+- [What's new (EN)]({u}/en/novedades): the October 18, 2026 update: physical and special moves, bosses, Arceus' Judgment and the controller.
 - [Moves (EN)]({u}/en/ataques): attack tier list.
 - [Items (EN)]({u}/en/objetos): item tier list.
 - [Gacha (EN)]({u}/en/gachas): banners and pull odds.
@@ -131,7 +133,7 @@ Base URL: {u}
 
 - [Tier list (ES)]({u}/): the same site in Spanish, with [Mejores Pokémon]({_page_url(False, 'best')}), [Mejores iniciales]({_page_url(False, 'starters')}), [Mejores legendarios]({_page_url(False, 'legendary')}) and [Mejores pasivas]({_page_url(False, 'passives')}), and per-type pages: {_type_links(False)}.
 - [Source repository](https://github.com/felipebasurto/survivortiers): the generator that builds these files.
-- [Game repository](https://github.com/JPTER78/pokesurvivor): PokéSurvivor, at commit {meta['gameCommit']}, the commit the data was built from.
+- [Game repository](https://github.com/JPTER78/pokesurvivor): PokéSurvivor. The ranking was built from commit {meta['gameCommit']}; mechanics, attacks and boosts are checked against commit {legal.COMBAT_COMMIT}.
 """
 
 
@@ -160,7 +162,7 @@ def llms_full_txt(meta: dict) -> str:
         f"# {legal.SITE_NAME}: full data dictionary and method",
         "",
         f"Base URL: {u}",
-        f"Generated: {meta['generatedAt']}. Ranking version: {meta['version']}. Game commit the data was built from: {meta['gameCommit']}.",
+        f"Generated: {meta['generatedAt']}. Ranking version: {meta['version']}. Game commit the ranking was built from: {meta['gameCommit']}. Mechanics and attack data: commit {legal.COMBAT_COMMIT}.",
         "Language of values: `name` is Spanish (the game's names), `nameEn` and `*En` fields are English.",
         "",
         "## What the ranking is",
@@ -213,6 +215,8 @@ def llms_full_txt(meta: dict) -> str:
         "- w, h: sprite size in pixels.",
         "- r: `[rank, tier, p10, p90, firm]`. firm is the percentage of repeats in the tier (0–100, not a fraction).",
         "- v: sort values. atk (in-game attack multiplier), hp, spd (speed), ehp (effective HP), rad (body radius) come from the game's Pokédex export. td (type defence), mv (moves), st (stats) are 0–100 percentile scores where 100 is best.",
+        "- v.pa, v.sa: physical and special attack multipliers (damage of its physical / special moves; atk is the larger of the two). v.df, v.sd: base Defence and Special Defence. Taken from js/data/pokedex.js of the game at commit e868b5e.",
+        "- v.ak: the stronger side, `phys`, `spec`, or `mix` (mix when pa and sa differ by 0.05 or less).",
         "",
         "### data/species.json",
         "",
@@ -242,6 +246,8 @@ def llms_full_txt(meta: dict) -> str:
         "- type: type key. kind: attack shape (melee, projectile, beam, nova, aura, orbit, boomerang, mine, meteor, dash, cone, chain, trail, turret, or buff).",
         "- evolvesTo / needsCard: level-up card mechanics (a move that evolves into another, and the boost card it needs), or null.",
         "- mech: game parameters: `homing` (follows targets), `pierce` (goes through enemies), `count` (number of projectiles).",
+        "- damage: `physical`, `special` or `status` (boosts, which deal no damage). Physical is the game's fixed list (js/data/moves.js at e868b5e); the rest that deal damage are special.",
+        "- note: `{es, en}` short text for boosts that change with the physical/special split, or absent.",
         "",
         "### data/gachas.json",
         "",

@@ -28,6 +28,10 @@ def esc(x) -> str:
     return escape(str(x), quote=True)
 
 
+def damage_badge(L: Lang, cls: str) -> str:
+    return f'<span class="cat-tag is-{cls}" title="{esc(L.t("dmg_tip_" + cls))}">{esc(L.t("dmg_" + cls))}</span>'
+
+
 def js_round(x: float) -> int:
     """Math.round de JavaScript para positivos: mitad hacia arriba, como la página de gacha."""
     return int(math.floor(x + 0.5))
@@ -179,6 +183,37 @@ def _neighbor(L: Lang, home: str, sprites: str, ext: str, entry: dict | None, di
             f'<span>{esc(name)}<small>{esc(L.t("dex_no", dex=entry["dex"]))}</small></span></a>')
 
 
+# Ataque y defensa del juego (js/systems/stats.js:17-43): el daño que recibe es ×clamp((75/defensa)^0.35, 0,78, 1,25).
+COMBAT_REF_DEF = 75
+COMBAT_LO, COMBAT_HI = 0.78, 1.25
+ATK_BAR_MAX, DEF_BAR_MAX = 1.8, 255  # escala de las barras: ×1,00 es el neutro de ataque; 255 como las estadísticas base
+KIND_KEY = {"phys": "cb_kind_phys", "spec": "cb_kind_spec", "mix": "cb_kind_mix"}
+
+
+def _bar(cls: str, label: str, shown: str, fill: float, mark: float) -> str:
+    return (f'<div class="cb-row {cls}"><span class="cb-name">{esc(label)}</span>'
+            f'<span class="cb-track"><i class="cb-fill" style="width:{fill * 100:.2f}%"></i>'
+            f'<b class="cb-mark" style="left:{mark * 100:.2f}%"></b></span>'
+            f'<output class="cb-val">{esc(shown)}</output></div>')
+
+
+def combat(L: Lang, entry: dict) -> str:
+    """Ataque y defensa del juego: lado fuerte, las cuatro cifras con su barra y una línea sobre la defensa."""
+    b = entry["base"]
+    kind = catalog.attack_kind(b["pa"], b["sa"])
+    atk = (_bar("cb-atk-phys", L.t("cb_pa"), "×" + L.dec(b["pa"], 2), b["pa"] / ATK_BAR_MAX, 1 / ATK_BAR_MAX)
+           + _bar("cb-atk-spec", L.t("cb_sa"), "×" + L.dec(b["sa"], 2), b["sa"] / ATK_BAR_MAX, 1 / ATK_BAR_MAX))
+    dfn = (_bar("cb-def", L.t("cb_df"), str(b["df"]), b["df"] / DEF_BAR_MAX, COMBAT_REF_DEF / DEF_BAR_MAX)
+           + _bar("cb-def", L.t("cb_sd"), str(b["sd"]), b["sd"] / DEF_BAR_MAX, COMBAT_REF_DEF / DEF_BAR_MAX))
+    note = L.t("cb_note", less=round((1 - COMBAT_LO) * 100), more=round((COMBAT_HI - 1) * 100))
+    return (f'<section class="combat" id="combate" aria-labelledby="cb-h" data-kind="{kind}">'
+            f'<header class="cb-head"><h3 id="cb-h">{esc(L.t("t_combat"))}</h3>'
+            f'<span class="cb-kind cb-k-{kind}">{esc(L.t(KIND_KEY[kind]))}</span></header>'
+            f'<div class="cb-list">{atk}</div><div class="cb-list">{dfn}</div>'
+            f'<p class="cb-note">{esc(note)}</p>'
+            f'<p class="cb-src">{esc(L.t("cb_src", combat=legal.COMBAT_COMMIT))}</p></section>')
+
+
 def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, detail: list, moves: dict[str, dict],
           prev: dict | None, nxt: dict | None, odds: tuple[float, int], cards: dict, *, summary: str, fresh: str,
           guides: str, updated: str) -> tuple[str, str]:
@@ -229,8 +264,8 @@ def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, detail: list,
     region = regions.badge(L, sprites, entry["bannerId"], banner, {}, small=True)
     buff_set = set(buff_ids)
     chips = "".join(
-        f'<li class="is-buff">{esc(_move_name(L, moves, mid))}</li>' if mid in buff_set
-        else f"<li>{esc(_move_name(L, moves, mid))}</li>"
+        f'<li class="is-buff">{esc(_move_name(L, moves, mid))} {damage_badge(L, moves[mid]["damage"])}</li>' if mid in buff_set
+        else f'<li>{esc(_move_name(L, moves, mid))} {damage_badge(L, moves[mid]["damage"])}</li>'
         for mid in ids)
     card_chips = []
     for i, name in enumerate(card_names):
@@ -281,6 +316,7 @@ def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, detail: list,
 <p class="muted">{esc(L.t("sheet_a_cover", super=L.pcts(int(super_pct)), neutral=L.pcts(int(neutral_pct))))}</p>
 </div>
 </section>
+{combat(L, entry)}
 <section class="sheet" id="stats" aria-labelledby="stats-h">
 <h2 id="stats-h">{esc(L.t("t_base"))}</h2>
 <table><tbody>{stat_rows}</tbody></table>

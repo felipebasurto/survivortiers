@@ -243,6 +243,9 @@
     return u;
   }
 
+  // Físico, especial o estado (build/game_moves.py). Solo los movimientos lo llevan: objetos y cartas no.
+  const dmgTag = m => m.damage ? '<span class="cat-tag is-' + m.damage + '" title="' + esc(t('dmg_tip_' + m.damage)) + '">' +
+    esc(t('dmg_' + m.damage)) + '</span>' : '';
   const learnPool = (p, moves) => moves.filter(m => m.type === 'normal' || p.types.includes(m.type));
   function learn(p, d, moves) {
     const pool = learnPool(p, moves);
@@ -252,7 +255,7 @@
       if (!ms.length) return '';
       const chips = ms.map(m => '<li class="lt-move' + (m.id === d[2] ? ' start' : '') + (group.has(m.id) ? ' in-build' : '') +
         '" style="--tc:' + (TYPE_COLOR[m.type] || ITEM_COLOR) + '"><img class="lt-ico" src="' + iconUrl(m) +
-        '" alt="" width="32" height="32">' + esc(EN ? m.en.name : m.name) +
+        '" alt="" width="32" height="32">' + esc(EN ? m.en.name : m.name) + dmgTag(m) +
         (m.id === d[2] ? ' <em>' + esc(t('learn_start')) + '</em>' : '') + '</li>').join('');
       return '<div class="lt-row"><span class="tier-badge ' + tier + '">' + tier + '</span><ul class="lt-moves">' + chips + '</ul></div>';
     }).join('');
@@ -267,7 +270,8 @@
     const color = TYPE_COLOR[m.type] || ITEM_COLOR;
     const nm = EN ? m.en.name : m.name;
     return '<li class="bd-tile' + cls + '" style="--tc:' + color + ';--i:' + i + '">' + (badge || '') +
-      '<span class="bd-ico"><img src="' + iconUrl(m) + '" alt="" width="48" height="48"></span><span class="bd-nm">' + esc(nm) + '</span></li>';
+      '<span class="bd-ico"><img src="' + iconUrl(m) + '" alt="" width="48" height="48"></span><span class="bd-nm">' + esc(nm) + '</span>' +
+      dmgTag(m) + '</li>';
   }
   const badgeOf = (kind, label) => '<b class="bd-badge" title="' + esc(label) + '" aria-label="' + esc(label) + '">' +
     (kind === 'crown' || kind === 'sparkle' ? '<i class="ico ico-' + kind + '" aria-hidden="true"></i>' : kind) + '</b>';
@@ -434,6 +438,30 @@
       '</div>' + (sum || '') + '</header>';
   }
 
+  // Ataque y defensa del juego (js/systems/stats.js): el mismo bloque que build/static_ficha.py. Las barras de ataque
+  // van hasta ×1,8 con la línea en ×1,00; las de defensa, hasta 255 con la línea en 75 (daño normal).
+  const COMBAT_LO = 0.78, COMBAT_HI = 1.25, COMBAT_REF_DEF = 75, ATK_BAR_MAX = 1.8, DEF_BAR_MAX = 255;
+  const KIND_KEY = { phys: 'cb_kind_phys', spec: 'cb_kind_spec', mix: 'cb_kind_mix' };
+  const dec2 = x => x.toFixed(2).replace('.', EN ? '.' : ',');
+  const combatBar = (cls, label, shown, fill, mark) =>
+    '<div class="cb-row ' + cls + '"><span class="cb-name">' + esc(label) + '</span>' +
+    '<span class="cb-track"><i class="cb-fill" style="width:' + f2(fill * 100) + '%"></i>' +
+    '<b class="cb-mark" style="left:' + f2(mark * 100) + '%"></b></span>' +
+    '<output class="cb-val">' + esc(shown) + '</output></div>';
+  function combat(p) {
+    const v = p.v;
+    const atk = combatBar('cb-atk-phys', t('cb_pa'), '×' + dec2(v.pa), v.pa / ATK_BAR_MAX, 1 / ATK_BAR_MAX) +
+      combatBar('cb-atk-spec', t('cb_sa'), '×' + dec2(v.sa), v.sa / ATK_BAR_MAX, 1 / ATK_BAR_MAX);
+    const dfn = combatBar('cb-def', t('cb_df'), String(v.df), v.df / DEF_BAR_MAX, COMBAT_REF_DEF / DEF_BAR_MAX) +
+      combatBar('cb-def', t('cb_sd'), String(v.sd), v.sd / DEF_BAR_MAX, COMBAT_REF_DEF / DEF_BAR_MAX);
+    const note = t('cb_note', { less: Math.round((1 - COMBAT_LO) * 100), more: Math.round((COMBAT_HI - 1) * 100) });
+    return '<section class="combat" id="combate" aria-labelledby="cb-h" data-kind="' + v.ak + '">' +
+      '<header class="cb-head"><h3 id="cb-h">' + esc(t('t_combat')) + '</h3>' +
+      '<span class="cb-kind cb-k-' + v.ak + '">' + esc(t(KIND_KEY[v.ak])) + '</span></header>' +
+      '<div class="cb-list">' + atk + '</div><div class="cb-list">' + dfn + '</div>' +
+      '<p class="cb-note">' + esc(note) + '</p><p class="cb-src">' + esc(t('cb_src')) + '</p></section>';
+  }
+
   function pager(prev, next) {
     const link = (q, dir) => {
       const k = Math.max(1, Math.min(2, Math.floor(40 / Math.max(q.w, q.h))));
@@ -456,6 +484,7 @@
       '<p class="fx-more"><a href="' + home + 'metodo.html">' + esc(t('rank_how')) + ' →</a></p>');
     root.innerHTML = back + hero(p, name, rank, tier, text ? summary(text, moves, items, cards, d[4]) : '') +
       build(p, d, moves, items, name, Math.max(1, Math.min(4, Math.floor(56 / Math.max(p.w, p.h)))), cards) +
+      combat(p) +
       '<div class="fx-list">' + stats + learnable + ranking + '</div>' + pager(prev, next);
     document.title = t('sheet_title', { name, tier, rank });
     const desc = document.querySelector('meta[name=description]');

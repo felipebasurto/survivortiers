@@ -131,8 +131,9 @@ class LinksAndFreshness(unittest.TestCase):
     def test_freshness_line_on_index_ficha_and_landing(self) -> None:
         meta = _meta()
         date, sha = meta["generatedAt"][:10], meta["gameCommit"][:7]
-        es_line = f"Datos del juego: commit {sha} · actualizado {date}"
-        en_line = f"Game data: commit {sha} · updated {date}"
+        combat = legal.COMBAT_COMMIT[:7]
+        es_line = f"Datos del juego: commit {sha} (ranking) · mecánicas: commit {combat} · actualizado {date}"
+        en_line = f"Game data: commit {sha} (ranking) · mechanics: commit {combat} · updated {date}"
         self.assertIn(es_line, _read("index.html"))
         self.assertIn(en_line, _read("en/index.html"))
         self.assertIn(es_line, _read("pokemon/150-mewtwo/index.html"))

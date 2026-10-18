@@ -36,7 +36,8 @@ CARDS = [
 # levelup.js:26-27. Cura el 45% de la vida máxima de golpe. Se coge solo con hp/maxHp <= 0.70.
 ZIDRA = {
     "id": "heal", "name": ("Baya Zidra", "Sitrus Berry"), "at": 0.70,
-    "rule": ("Cógela al 70% de vida o menos.", "Take it at 70% HP or below."),
+    "rule": ("La simulación la coge al 70% de vida o menos. No es una regla del juego.",
+             "The simulation takes it at 70% HP or below. It is not a game rule."),
     "why": ("Cura el 45% al momento. Con la vida llena no hace nada.",
             "Heals 45% on the spot. At full HP it does nothing."),
 }
@@ -52,8 +53,10 @@ COMBOS = [
     {"item": "leftovers", "item_name": ("Restos", "Leftovers"), "card": "hp", "lift": "+1%",
      "why": ("Igual que con Síntesis.", "Same as with Synthesis.")},
     {"item": "assaultvest", "item_name": ("Chaleco", "Assault Vest"), "card": "def", "lift": "0",
-     "why": ("Comparte el tope de reducción del 70% con Coraza. No alarga nada.",
-             "Shares the 70% reduction cap with Armor. Adds no time.")},
+     "why": ("Suma 20% de reducción, y el total no pasa del 80%. Coraza topa el total en 70%: si la subes después, "
+             "te quita lo que pase de ahí.",
+             "Adds 20% reduction, and the total never passes 80%. Armor caps the total at 70%: if you raise Armor after "
+             "this, it takes away whatever is above that.")},
     {"item": "choiceband", "item_name": ("Cinta", "Choice Band"), "card": "cd", "lift": "0",
      "why": ("Ya sube el daño un 40%. Reflejos no suma monedas.",
              "Already adds 40% damage. Reflexes adds no coins.")},
@@ -80,10 +83,20 @@ EXCEPTIONS = [
      "why": ("Ni los tiros ni los charcos usan esa recarga.", "Neither the shots nor the puddles use that cooldown.")},
     {"k": ("Cuerpo a cuerpo", "Melee"), "moves": ["tackle"], "ex": ("Placaje", "Tackle"),
      "rule": ("{heal} suma más", "{heal} adds more"),
-     "why": ("Hay que estar encima, así que el 45% al momento vale casi el doble.",
-             "You have to stand on the enemy, so the 45% on the spot is worth about twice as much.")},
+     "why": ("En la simulación, con ataques cuerpo a cuerpo la curación al momento vale casi el doble. El juego no lo cambia.",
+             "In the simulation, with melee attacks the on-the-spot heal is worth about twice as much. The game doesn't change it.")},
 ]
 EXCEPTION_MOVES = sorted({m for row in EXCEPTIONS for m in row["moves"]})
+
+# Qué cartas salen al subir de nivel. levelup.js:58-59: los movimientos de su lado fuerte pesan el doble al elegir
+# (y los empatados y los potenciadores, que no tienen lado, también). El tope de dos potenciadores ya lo explica
+# la sección de potenciadores (levelup.js:47-49 y :56).
+OFFER = (
+    "En las cartas de movimiento nuevo, los ataques de tu lado fuerte salen el doble de veces que los demás. Tu lado "
+    "fuerte es el físico o el especial, el que tenga más ataque. Los empatados y los potenciadores también cuentan doble.",
+    "On new-move cards, attacks on your strong side come up twice as often as the rest. Your strong side is physical "
+    "or special, whichever has more attack. Ties and boosts count double too.",
+)
 
 ORDER_NOTE = ("Excepción: una carta que evoluciona tu ataque va siempre primera.",
               "Exception: a card that evolves your move always goes first.")
@@ -205,6 +218,11 @@ def _rest(L: Lang) -> str:
             f'<span>{escape(_t(ORDER_NOTE, L))}</span></p></section>')
 
 
+def _offers(L: Lang) -> str:
+    return (f'<section class="pv-box pv-offers"><h2>{escape(L.t("pv_offers_h"))}</h2>'
+            f'<p class="pv-why">{escape(_t(OFFER, L))}</p></section>')
+
+
 def _zidra(L: Lang) -> str:
     return (f'<section class="pv-box pv-zidra">'
             f'<h2>{escape(_t(ZIDRA["name"], L))}</h2>'
@@ -257,8 +275,8 @@ def _method(L: Lang, home: str) -> str:
 
 
 # Los potenciadores y su tope vienen de data/game_stats.json (commit e868b5e). Tope de dos potenciadores:
-# js/systems/levelup.js:46-56. Danza Espada y Danza Dragón comparten la casilla de ataque físico (patk) y Maquinación
-# la de especial (satk): js/entities/player.js:42-50 y :99-102, y js/systems/combat.js:201-202.
+# js/systems/levelup.js:46-56. Danza Espada y Danza Dragón comparten el contador de ataque físico (patk) y Maquinación
+# el de especial (satk): js/entities/player.js:42-50 y :99-102, y js/systems/combat.js:201-202.
 NUM_HEAD = ("pv_buff_th_cd", "pv_buff_th_dur", "pv_buff_th_max")
 BOOST_LABEL = {"patk": "pv_buff_cat_phys", "satk": "pv_buff_cat_spec", "spd": "pv_buff_stat_spd",
                "def": "pv_buff_stat_def", "regen": "pv_buff_stat_regen"}
@@ -281,10 +299,10 @@ def _boost_rows(L: Lang) -> str:
         top = _amount(b["amount"] * b["stacks"], b["stat"], L, digits)
         rows.append(
             f'<tr><th scope="row">{escape(name)}</th>'
-            f'<td>{escape(L.t(BOOST_LABEL[b["stat"]]))} {escape(per)}</td>'
-            f'<td class="num">{L.dec(b["cd"], 2)}{NBSP if not L.en else " "}s</td>'
-            f'<td class="num">{b["dur"]}{NBSP if not L.en else " "}s</td>'
-            f'<td class="num">{escape(top)}</td></tr>')
+            f'<td data-label="{escape(L.t("pv_buff_th_stat"))}">{escape(L.t(BOOST_LABEL[b["stat"]]))} {escape(per)}</td>'
+            f'<td class="num" data-label="{escape(L.t("pv_buff_th_cd"))}">{L.dec(b["cd"], 2)}{NBSP if not L.en else " "}s</td>'
+            f'<td class="num" data-label="{escape(L.t("pv_buff_th_dur"))}">{b["dur"]}{NBSP if not L.en else " "}s</td>'
+            f'<td class="num" data-label="{escape(L.t("pv_buff_th_max"))}">{escape(top)}</td></tr>')
     return "".join(rows)
 
 
@@ -313,7 +331,7 @@ def content(L: Lang, home: str) -> str:
             + f'<h1>{escape(L.t("pv_h1"))}</h1>'
             + f'<p class="lede">{escape(L.t("pv_lede"))}</p>'
             + '<div class="pv-main">'
-            + _top(L) + _zidra(L) + _rest(L) + _combos(L)
+            + _top(L) + _zidra(L) + _rest(L) + _combos(L) + _offers(L)
             + '</div>'
             + f'<section class="pv-styles-sec">{_styles(L)}</section>'
             + _boosts(L, home)

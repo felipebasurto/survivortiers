@@ -12,8 +12,8 @@ def method_counts(L: Lang, meta: dict) -> dict[str, str]:
 
 
 def freshness_text(L: Lang, meta: dict) -> str:
-    """Línea «Datos del juego: commit … · actualizado …»: el commit del juego que usa el ranking y la fecha del build."""
-    return L.t("fresh", sha=meta["gameCommit"][:7], date=meta["generatedAt"][:10])
+    """Línea «Datos del juego»: el commit con que se calculó el ranking, el de las mecánicas y la fecha del build."""
+    return L.t("fresh", sha=meta["gameCommit"][:7], combat=COMBAT_COMMIT[:7], date=meta["generatedAt"][:10])
 
 
 X_HANDLE = "@fildotai"
@@ -26,6 +26,8 @@ GAME_REPO_URL = "https://github.com/JPTER78/pokesurvivor"
 GAME_LICENSE_URL = GAME_REPO_URL + "/blob/main/LICENSE"
 REPO_URL = "https://github.com/felipebasurto/survivortiers"
 GAME_COMMIT = "a9b21f0"
+# Commit de js/data/pokedex.js de donde salen pa, sa, df y sd (build/import_game_combat.py). El ranking sigue en GAME_COMMIT.
+COMBAT_COMMIT = "e868b5e"
 GAME_AUTHOR = "JPTER78"
 
 # URL pública del sitio, para los enlaces absolutos de llms.txt, llms-full.txt y sitemap.xml (build/agents.py).
