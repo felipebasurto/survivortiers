@@ -30,6 +30,7 @@ from urllib.parse import parse_qs, urldefrag, urljoin, urlparse
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 import agents  # noqa: E402
+import combos  # noqa: E402
 import legal  # noqa: E402
 import theme  # noqa: E402
 
@@ -415,6 +416,18 @@ def main() -> int:
         err("data/species.json o data/moves.json no se pueden leer")
         species, moves = {}, []
     move_ids = {m["id"] for m in moves}
+    # The bonded attacks are the simulated best move, unless the fixed-group search
+    # (simulator/results/fixed_group/group_search.csv) picked a longer-lasting group.
+    search_picks = combos._search_picks()
+
+    def group_matches(dex: int, entry: list) -> bool:
+        n_boost = entry[9][5]
+        attacks = entry[9][2][: len(entry[9][2]) - n_boost]
+        picked = search_picks.get(dex)
+        if picked is None:
+            return bool(attacks) and attacks[0] == entry[4]
+        return attacks == picked[0]
+
     for d in dexes:
         e = species.get(str(d))
         ok = (isinstance(e, list) and len(e) == 12 and len(e[0]) == 4 and all(0 <= v <= 1 for v in e[0])
@@ -427,7 +440,7 @@ def main() -> int:
               and len(e[9]) == 6 and e[9][5] in (0, 1, 2) and all(isinstance(v, int) and 0 <= v <= 100 for v in e[9][:2])
               and 2 <= len(e[9][2]) <= 4 and all(m in move_ids for m in e[9][2]) and e[9][3] in (1, 2, 3)
               and len(e[9][4]) <= 3 and all(m in move_ids for m in e[9][4])
-              and not set(e[9][4]) & set(e[9][2]) and e[9][2][0] == e[4]
+              and not set(e[9][4]) & set(e[9][2]) and group_matches(d, e)
               # cartas a priorizar (build/passives.py): 1-4 ids de carta y cuántas evolucionan un ataque
               and len(e[10]) == 2 and 1 <= len(e[10][0]) <= 4 and all(c in CARD_IDS for c in e[10][0])
               and 0 <= e[10][1] <= len(e[10][0])
