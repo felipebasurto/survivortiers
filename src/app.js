@@ -706,6 +706,9 @@
   const ICO_IMG = '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false" shape-rendering="crispEdges"><path fill="currentColor" fill-rule="evenodd" d="M1 1h14v14H1zM2 2v12h12V2z"/><path fill="currentColor" d="M4 12l3-4 2 2 1-1 2 3z"/></svg>';
   const ICO_COPY = '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false" shape-rendering="crispEdges"><path fill="none" stroke="currentColor" stroke-width="2" d="M6 1h9v9h-2M1 6h9v9H1z"/></svg>';
   const CARD_W = 1200, CARD_H = 630, CARD_LEFT = 48, CARD_BAR_W = 560;
+  const CARD_UI = '"Zen Kaku Gothic New", sans-serif';
+  const CARD_PIX = '"Pixelify Sans", monospace';
+  const CARD_FONTS = ['400 20px "Zen Kaku Gothic New"', '700 20px "Zen Kaku Gothic New"', '700 52px "Pixelify Sans"'];
   let zenReady = null;
 
   function hashCollection() {
@@ -781,13 +784,15 @@
     });
   }
 
+  // El canvas dibuja con la fuente que haya en ese momento y no avisa si falta: se espera a cada peso y se comprueba.
   function loadZen() {
     if (!zenReady) {
-      zenReady = Promise.all([
-        document.fonts.load('400 20px "Zen Kaku Gothic New"'),
-        document.fonts.load('700 20px "Zen Kaku Gothic New"'),
-        document.fonts.load('700 64px "Pixelify Sans"'),
-      ]).catch(() => {});
+      zenReady = Promise.all(CARD_FONTS.map(f => document.fonts.load(f))).then(lists => {
+        if (lists.some(list => !list.length) || !CARD_FONTS.every(f => document.fonts.check(f))) throw new Error('fonts');
+      }).catch(e => {
+        zenReady = null;
+        throw e;
+      });
     }
     return zenReady;
   }
@@ -840,46 +845,77 @@
 
     ctx.textBaseline = 'top';
     ctx.textAlign = 'left';
-    ctx.font = '700 52px "Pixelify Sans"';
+    ctx.font = '700 52px ' + CARD_PIX;
     ctx.fillStyle = colors.accent;
     ctx.fillText('Survivor', CARD_LEFT, 40);
     ctx.fillStyle = colors.ink;
     ctx.fillText('Tiers', CARD_LEFT + ctx.measureText('Survivor').width, 40);
-    ctx.font = '700 26px "Pixelify Sans"';
+    ctx.font = '700 22px ' + CARD_UI;
+    ctx.letterSpacing = '3px';
     ctx.fillStyle = colors.ink2;
     ctx.textAlign = 'right';
-    ctx.fillText(kicker.toUpperCase(), W - 48, 54);
+    ctx.fillText(kicker.toUpperCase(), W - 48, 52);
+    ctx.letterSpacing = '0px';
     ctx.textAlign = 'left';
+  }
+
+  // Zen no trae cifras tabulares: cada dígito ocupa el ancho del más ancho, así el 1 no se pega al 8.
+  function digitCell(ctx) {
+    let w = 0;
+    for (let d = 0; d <= 9; d++) w = Math.max(w, ctx.measureText(String(d)).width);
+    return Math.ceil(w);
+  }
+
+  function numWidth(ctx, text) {
+    const cell = digitCell(ctx);
+    let w = 0;
+    for (const ch of text) w += /\d/.test(ch) ? cell : ctx.measureText(ch).width;
+    return w;
+  }
+
+  function drawNum(ctx, text, x, y) {
+    const cell = digitCell(ctx);
+    let cx = x;
+    for (const ch of text) {
+      const cw = ctx.measureText(ch).width;
+      if (/\d/.test(ch)) {
+        ctx.fillText(ch, Math.round(cx + (cell - cw) / 2), y);
+        cx += cell;
+      } else {
+        ctx.fillText(ch, Math.round(cx), y);
+        cx += cw;
+      }
+    }
   }
 
   function paintName(ctx, colors, name, y) {
     if (!name) return y;
-    const size = fitText(ctx, name, 680, 34, '700', '"Pixelify Sans"');
-    ctx.font = '700 ' + size + 'px "Pixelify Sans"';
+    const size = fitText(ctx, name, 680, 34, '700', CARD_UI);
+    ctx.font = '700 ' + size + 'px ' + CARD_UI;
     ctx.fillStyle = colors.ink;
     ctx.fillText(name, CARD_LEFT, y);
     return y + size + 14;
   }
 
   function paintCollectionStats(ctx, colors, info, y) {
-    ctx.font = '700 84px "Pixelify Sans"';
+    ctx.font = '700 84px ' + CARD_UI;
     ctx.fillStyle = colors.ink;
     const num = String(info.known);
-    ctx.fillText(num, CARD_LEFT, y);
-    const numW = ctx.measureText(num).width;
-    ctx.font = '700 32px "Pixelify Sans"';
+    drawNum(ctx, num, CARD_LEFT, y);
+    const totalX = Math.round(CARD_LEFT + numWidth(ctx, num) + 16);
+    ctx.font = '400 30px ' + CARD_UI;
     ctx.fillStyle = colors.ink2;
-    ctx.fillText('/ ' + info.total, CARD_LEFT + numW + 14, y + 44);
+    drawNum(ctx, '/ ' + info.total, totalX, y + 48);
     const labelY = y + 92;
-    ctx.font = '400 20px "Zen Kaku Gothic New", sans-serif';
+    ctx.font = '400 20px ' + CARD_UI;
     ctx.fillStyle = colors.ink2;
     ctx.fillText(TEXT.dexStat(), CARD_LEFT, labelY);
     const hunterX = 500;
     sparkle(ctx, hunterX, y + 36, colors.accent);
-    ctx.font = '700 42px "Pixelify Sans"';
+    ctx.font = '700 42px ' + CARD_UI;
     ctx.fillStyle = colors.ink;
-    ctx.fillText(String(info.hunted), hunterX + 28, y + 28);
-    ctx.font = '400 18px "Zen Kaku Gothic New", sans-serif';
+    drawNum(ctx, String(info.hunted), hunterX + 28, y + 26);
+    ctx.font = '400 18px ' + CARD_UI;
     ctx.fillStyle = colors.ink2;
     ctx.fillText(info.hunterLabel, hunterX + 28, y + 78);
     if (info.sub) ctx.fillText(info.sub, hunterX + 28, y + 102);
@@ -888,7 +924,7 @@
       ctx.fillStyle = colors.tier[r.t];
       ctx.fillRect(CARD_LEFT, y, 36, 36);
       ctx.fillStyle = colors.tierInk;
-      ctx.font = '700 22px "Pixelify Sans"';
+      ctx.font = '700 22px ' + CARD_UI;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(r.t, CARD_LEFT + 18, y + 19);
@@ -900,21 +936,22 @@
       const fill = r.n ? Math.round(barW * r.have / r.n) : 0;
       ctx.fillStyle = colors.tier[r.t];
       for (let i = 0; i < fill; i += 8) ctx.fillRect(barX + i, barY, Math.min(6, fill - i), 14);
-      ctx.font = '700 20px "Zen Kaku Gothic New", sans-serif';
+      ctx.font = '700 20px ' + CARD_UI;
       ctx.fillStyle = colors.ink;
-      ctx.fillText(TEXT.haveOf(r.have, r.n), barX + barW + 14, y + 7);
+      drawNum(ctx, TEXT.haveOf(r.have, r.n), barX + barW + 14, y + 8);
       y += 46;
     });
   }
 
   function paintHunterStats(ctx, colors, info, y) {
     ctx.textBaseline = 'top';
-    ctx.font = '700 96px "Pixelify Sans"';
+    ctx.textAlign = 'left';
+    ctx.font = '700 96px ' + CARD_UI;
     ctx.fillStyle = colors.ink;
     const num = String(info.hunted);
-    ctx.fillText(num, CARD_LEFT, y);
-    sparkle(ctx, CARD_LEFT + ctx.measureText(num).width + 26, y + 14, colors.accent, 4);
-    ctx.font = '400 22px "Zen Kaku Gothic New", sans-serif';
+    drawNum(ctx, num, CARD_LEFT, y);
+    sparkle(ctx, CARD_LEFT + numWidth(ctx, num) + 26, y + 14, colors.accent, 4);
+    ctx.font = '400 22px ' + CARD_UI;
     ctx.fillStyle = colors.ink2;
     ctx.fillText(info.hunterLabel, CARD_LEFT, y + 116);
     if (info.facts) {
@@ -922,13 +959,15 @@
       ctx.fillText(info.facts, CARD_LEFT, y + 150);
     }
     const barY = y + 232, total = info.dex.total || 1;
-    ctx.font = '700 22px "Pixelify Sans"';
+    ctx.font = '700 20px ' + CARD_UI;
+    ctx.letterSpacing = '2px';
     ctx.fillStyle = colors.ink2;
     ctx.fillText(TEXT.shinydex.toUpperCase(), CARD_LEFT, barY);
-    ctx.textAlign = 'right';
+    ctx.letterSpacing = '0px';
+    const count = info.dex.have + ' / ' + info.dex.total;
+    ctx.font = '700 22px ' + CARD_UI;
     ctx.fillStyle = colors.ink;
-    ctx.fillText(info.dex.have + ' / ' + info.dex.total, CARD_LEFT + CARD_BAR_W, barY);
-    ctx.textAlign = 'left';
+    drawNum(ctx, count, Math.round(CARD_LEFT + CARD_BAR_W - numWidth(ctx, count)), barY);
     ctx.fillStyle = colors.soft;
     ctx.fillRect(CARD_LEFT, barY + 34, CARD_BAR_W, 16);
     ctx.fillStyle = colors.accent;
