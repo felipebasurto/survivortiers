@@ -7,6 +7,8 @@
 (() => {
   'use strict';
   const html = document.documentElement;
+  const rankOpt = new URLSearchParams(location.search).get('rank');
+  if (rankOpt) html.dataset.rank = rankOpt;
   const assets = html.dataset.assets || '';
   const home = html.dataset.home || '';
   const sprites = html.dataset.sprites || '';

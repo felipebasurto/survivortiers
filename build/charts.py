@@ -86,12 +86,14 @@ def _band_body(L: Lang, r: dict) -> str:
     note_style = f"left:{x:.2f}%" if side != "r" else f"right:{100 - x:.2f}%"
     segs = "".join(f'<i class="rb-seg t-{t}{" on" if t == r["tier"] else ""}" style="flex:{b - a + 1}"></i>'
                    for t, a, b in TIER_CUTS)
-    letters = "".join(f'<i class="t-{t}" style="flex:{b - a + 1}">{t}</i>' for t, a, b in TIER_CUTS)
+    letters = "".join(f'<i class="t-{t}{" on" if t == r["tier"] else ""}" style="flex:{b - a + 1}">{t}</i>' for t, a, b in TIER_CUTS)
     ticks = "".join(f'<span style="left:{_pos(n):.2f}%">{n}</span>' for n in (1, 30, 120, 320, 620, 966))
     span = max(_pos(hi) - _pos(lo), 0.5)
-    return (f'<div class="rb-note rb-{side}" style="{note_style}"><b>{esc(L.t("band_rank", rank=rank))}</b>'
+    tier = f"--tier:var(--tier-{r['tier']})"
+    return (f'<div class="rb-note rb-{side}" style="{note_style};{tier}"><b>{esc(L.t("band_rank", rank=rank))}</b>'
             f'<span>{esc(L.t("band_range", lo=lo, hi=hi))}</span></div>'
-            f'<div class="rb-track">{segs}<b class="rb-range" style="left:{_pos(lo):.2f}%;width:{span:.2f}%"></b>'
+            f'<div class="rb-track" style="{tier}">{segs}<b class="rb-range" style="left:{_pos(lo):.2f}%;width:{span:.2f}%"></b>'
+            f'<b class="rb-brk" style="left:{_pos(lo):.2f}%;width:{span:.2f}%"></b>'
             f'<b class="rb-dot" style="left:{x:.2f}%"></b></div>'
             f'<div class="rb-tiers" aria-hidden="true">{letters}</div>'
             f'<div class="rb-ticks" aria-hidden="true">{ticks}</div>')
