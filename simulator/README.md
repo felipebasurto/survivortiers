@@ -65,8 +65,15 @@ Group mode also models, from the game source (`js/` in JPTER78/pokesurvivor):
   never for orbit or trail, including companion casts (player.js:203). Without the flag these moves stay inert, as in the JS engine.
 - **Synergies on the ranking path** (`--status` or `--xkinds`; both are on for a published group rank). The default
   run (neither flag) stays bit-exact with `parity.js`. Citations are the live game:
-  - Hex ×1.7 while the target is burned, poisoned or slowed (data/moves.js chain `hex`, systems/combat.js:240). The
-    partner pick prefers that pair (Flamethrower + Hex) or two dashes, then falls back to solo order.
+  - Hex ×1.7 while the target's burn, poison or slow factor is above 0 (data/moves.js `hex`, systems/combat.js:240).
+    The factor is checked, not the timer. Burn lasts 3 s (stacks to 8, tick 0.5 s), poison 4 s (stacks to 8, tick 0.6 s),
+    slow 1.2 s (enemy.js applyBurn/applyPoison/applySlow). There is no hit-chance roll. `sim/rules.js` applies the same
+    numbers when `opts.status` is set; the default JS run still ignores them so `parity.js` stays bit-exact.
+    Group search (`--synergy`, on for `--group`) simulates each status move with Hex (either one leading) and the
+    three strongest status moves as two appliers + Hex + Swords Dance, and keeps the group with the higher median.
+    `--no-synergy` restores the old partner sort (Hex/status or two dashes first, then solo order).
+    The melee damage cut (×0.75, player.js:238) applies only while a melee move is in the active group: the starter
+    always, a companion only after that bond. Orbit stays out of the bonded group (one shared orb list).
   - Dash invulnerability is `max(invuln, 0.3)` (systems/combat.js:311). Lava sets invuln to 0 and then hurts
     (entities/player.js:352). Cooldown cuts shorten the dash's own cooldown.
   - `--swap` is a second slot at level 1. Switching clamps that slot's timers to 35% of base cd and ignores cdMul

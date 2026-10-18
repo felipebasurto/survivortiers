@@ -139,14 +139,96 @@ function pulseShield(sx, sy, enemies) {
   }
 }
 
-function readStatus(move) {
-  // burn is always 1 in the extract (a flag, not damage per second). slow is a
-  // fraction, but the extract has no duration. None of the three are applied.
+// enemy.js applySlow / applyBurn / applyPoison, and the tick in Enemy.update.
+// Slow is a speed factor for 1.2 s (the default duration). Burn stacks to 8 for 3 s
+// and ticks every 0.5 s. Poison stacks to 8 for 4 s and ticks every 0.6 s.
+const SLOW_SECS = 1.2;
+const BURN_MAX = 8;
+const BURN_SECS = 3;
+const BURN_TICK = 0.5;
+const POISON_MAX = 8;
+const POISON_SECS = 4;
+const POISON_TICK = 0.6;
+// Kinds this engine actually fires. Chain is included so Infortunio can resolve;
+// cone, meteor, aura, dash, mine, trail and turret stay in the Rust ranker.
+const STATUS_KINDS = new Set(['melee', 'beam', 'orbit', 'nova', 'projectile', 'boomerang', 'chain']);
+
+function readStatus(move, apply = false) {
+  // Default (apply false) is the parity path: burn/poison/slow are recorded as
+  // ignored and not turned into damage. opts.status passes apply so a fired hit
+  // inflicts them. Values match data/moves.js; there is no hit-chance roll.
   const out = { burn: 0, poison: 0, slow: 0, ignored: false };
+  const fires = apply && STATUS_KINDS.has(move.kind);
   for (const key of ['burn', 'poison', 'slow']) {
-    if (move[key] != null) out.ignored = true;
+    if (move[key] != null) {
+      if (fires) out[key] = move[key];
+      else out.ignored = true;
+    }
   }
   return out;
+}
+
+/** combat.js chain: `m.hex && (burn > 0 || poison > 0 || slow > 0) ? m.hex : 1`. */
+function hexMultiplier(hex, enemy) {
+  if (!(hex > 0) || !enemy) return 1;
+  if (enemy.burn > 0 || enemy.poison > 0 || enemy.slow > 0) return hex;
+  return 1;
+}
+
+function applyStatus(enemy, status) {
+  if (!status) return;
+  if (status.slow > 0) {
+    enemy.slow = Math.max(enemy.slow || 0, status.slow);
+    enemy.slowT = Math.max(enemy.slowT || 0, SLOW_SECS);
+  }
+  if (status.burn > 0) {
+    enemy.burn = Math.min(BURN_MAX, (enemy.burn || 0) + status.burn);
+    enemy.burnT = BURN_SECS;
+  }
+  if (status.poison > 0) {
+    enemy.poison = Math.min(POISON_MAX, (enemy.poison || 0) + status.poison);
+    enemy.poisonT = POISON_SECS;
+  }
+}
+
+/** One Enemy.update status step. DoT uses hurt(): round, at least 1, shield first. */
+function tickStatus(enemy, dt, level) {
+  if (enemy.slowT > 0) {
+    enemy.slowT -= dt;
+    if (enemy.slowT <= 0) enemy.slow = 0;
+  }
+  if (enemy.burn > 0) {
+    enemy.burnT -= dt;
+    enemy.burnTick = (enemy.burnTick || 0) - dt;
+    if (enemy.burnTick <= 0) {
+      enemy.burnTick = BURN_TICK;
+      hurtDot(enemy, 1.6 * enemy.burn * (1 + level * 0.06));
+    }
+    if (enemy.burnT <= 0) enemy.burn = 0;
+  }
+  if (enemy.poison > 0) {
+    enemy.poisonT -= dt;
+    enemy.poisonTick = (enemy.poisonTick || 0) - dt;
+    if (enemy.poisonTick <= 0) {
+      enemy.poisonTick = POISON_TICK;
+      hurtDot(enemy, enemy.max * 0.012 * enemy.poison + 1);
+    }
+    if (enemy.poisonT <= 0) enemy.poison = 0;
+  }
+}
+
+function hurtDot(enemy, amount) {
+  if (!(enemy.hp > 0)) return;
+  const d = Math.max(1, Math.round(amount));
+  let left = d;
+  const shield = enemy.shield || 0;
+  if (shield > 0) {
+    const used = Math.min(shield, d);
+    enemy.shield = shield - used;
+    left = d - used;
+    if (left <= 0) return;
+  }
+  enemy.hp -= left;
 }
 
 function freshState() {
@@ -308,6 +390,12 @@ module.exports = {
   pulseHealer,
   pulseShield,
   readStatus,
+  hexMultiplier,
+  applyStatus,
+  tickStatus,
+  SLOW_SECS,
+  BURN_SECS,
+  POISON_SECS,
   freshState,
   currentMove,
   buffLevel,
