@@ -298,7 +298,6 @@ FICHA_KEYS = (
     "t_rank", "rank_how", "ficha_rank", "pill_stats", "pill_moves", "pill_typedef", "pill_size", "pillars_alt_item",
     "median", "m_sheet", "m_simStart", "m_simBest", "m_lateMax", "m_lateFresh", "methods_final", "methods_alt",
     "methods_alt_item", "sim_start", "sim_best", "sim_median", "sim_alt", "sim_gain", "sim_noshop",
-    "rep_title", "rep_b1", "rep_b2", "rep_b3",
     "rar_1", "rar_2", "rar_3", "rar_4", "rar_5", "t_base", "bs_hp", "bs_atk", "bs_def", "bs_spa", "bs_spd", "bs_spe",
     "bs_total", "bs_alt_item", "bs_s_hp", "bs_s_atk", "bs_s_def", "bs_s_spa", "bs_s_spd", "bs_s_spe",
     "sheet_title", "sheet_desc", "fh_game", "fresh")
@@ -624,7 +623,7 @@ def render_metodo(c: Ctx, index: list[dict], full: list[dict], meta: dict) -> st
 <p class="lede">{esc(L.t("met_lede"))}</p>
 {charts.pipeline(L)}
 {charts.method_steps(L, m["pieces"], meta["tierCuts"], m["gates"])}
-{repertorio.box(L)}
+{repertorio.note(L)}
 {charts.walk(L, walkers, meta["tierCuts"], m["pieces"])}
 {charts.weights(L, m["pieces"])}
 {charts.weights_pillars(L, m["pillars"])}

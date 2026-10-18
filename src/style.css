@@ -1510,11 +1510,8 @@ html { overflow-x: hidden; }
 .ql-guides .toc { margin-top: 8px; }
 
 /* ---------- avisos: Repertorio y potenciadores ---------- */
-.rep-warn { margin: 24px 0; max-width: 66ch; padding: 14px 16px 14px 18px; background: var(--bd-tile); box-shadow: inset 5px 0 0 var(--accent); }
-.rep-h { margin: 0; font: 700 1rem/1.3 var(--ui); color: var(--ink); }
-.rep-h b { color: var(--accent); font-weight: 700; }
-.rep-warn ul { margin: 8px 0 0; padding-left: 1.1rem; font: .9rem/1.5 var(--ui); color: var(--ink); }
-.rep-warn li + li { margin-top: 4px; }
+.rep-note { display: flex; align-items: center; gap: 7px; margin: 10px 0 0; max-width: 66ch; font: .8125rem/1.4 var(--ui); color: var(--ink-2); }
+.rep-ico { flex: none; width: 12px; height: 12px; }
 
 .pv-boosts { margin-top: 56px; }
 .pv-tablewrap { overflow-x: auto; margin: 14px 0 6px; }

@@ -28,7 +28,7 @@ Web: https://survivortiers.pages.dev
 | `build/gamestats.py` | Carga `data/game_stats.json`, `data/move_icons.json` y `data/type_matrix.json`. Da el orden de potenciadores, la categoría de cada ataque y el lado fuerte de cada Pokémon (`side_of`) |
 | `build/toolpages.py` | Rutas de las herramientas en cada idioma (`buscador-tipos/`, `planificador-build/`), sus enlaces y los datos del navegador (`#i18n`) |
 | `build/finder.py`, `build/planner.py` | Páginas de Buscador por tipos y Planificador de build. La lógica está en `src/tools.js` (sin dependencias, con exports para pruebas) |
-| `build/repertorio.py` | Aviso de la mejora Repertorio (1.500 Pokémonedas), que aparece en las iniciales, la ficha y la página de método |
+| `build/repertorio.py` | Nota de una línea de la mejora Repertorio (1.500 Pokémonedas), con su icono del juego, en la página de iniciales y en la de método (no en la ficha) |
 | `build/dupcheck.py` | Similitud (Jaccard sobre trozos de 5 palabras del texto visible) entre las fichas de un idioma |
 | `build/indexnow.py` | Avisa a IndexNow de las URL de `sitemap.xml`. Se ejecuta a mano después de cada deploy |
 | `build/check_site.py` | Comprobaciones de aceptación sobre un sitio servido |
