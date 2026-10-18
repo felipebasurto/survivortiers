@@ -388,7 +388,7 @@ def species_details(entries: list[dict], sim_range: list[float], median: float, 
     cuerpo a cuerpo tras Repertorio, 4 estadísticas, 8 tipos), estadísticas base oficiales [PS, ataque, defensa,
     ataque especial, defensa especial, velocidad], combo de cobertura [% super efectivo, % no resistido, ids de los
     ataques y el potenciador, tipos de ataque distintos (1-3), ids de los ataques opcionales] (build/combos.py),
-    cartas, segundos del ataque inicial a solas (sin Repertorio ni Veto)].
+    cartas por prioridad, segundos del ataque inicial a solas (sin Repertorio ni Veto)].
     Lo lee src/ficha.js.
     «items» son los objetos de la build, iguales para todos. «statMedian» es la mediana de cada estadística base entre los 966, para la línea de referencia de la ficha."""
     out = {}
@@ -401,8 +401,8 @@ def species_details(entries: list[dict], sim_range: list[float], median: float, 
             [m["id"] for m in r["pair"]], int(f["statusUnmodelled"]) + 2 * int(f["melee"]) + 4 * int(f["statsCapped"]) + 8 * int(f["typesCapped"]),
             e["stats"], [combo[e["dex"]]["super"], combo[e["dex"]]["neutral"], combo[e["dex"]]["moves"],
                          combo[e["dex"]]["types"], combo[e["dex"]]["alts"], combo[e["dex"]]["nBoost"]],
-            # cartas que coge el bot (build/passives.py): [ids, cuántas de las primeras se cogen una sola vez]
-            passives.compute(e["dex"], combo[e["dex"]]["moves"], psim),
+            # cartas por prioridad (build/passives.py): [8 ids de mejor a peor, id de la que evoluciona el ataque o null]
+            passives.priority(e["dex"], combo[e["dex"]]["moves"], psim),
             r["sim"]["noshop"]["seconds"]]
     medians = [statistics.median(e["stats"][i] for e in entries) for i in range(6)]
     return {"sim": [*sim_range, median], "statMedian": medians, "items": build_items(), "cards": build_cards(), "d": out}

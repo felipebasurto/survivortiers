@@ -117,7 +117,7 @@ evolution rows match the game's own `evolve()`.
 (no `--group`) are unchanged and still pass `parity.js`; the JS engine does not have group mode.
 
 Known bias (estimates): the bot does not dodge, so sustain (Synthesis `rgn`, Vigor `hp`, Leftovers) still looks strong. A check that ignores half of each combat hit (`--dodge 0.5`) lengthens runs and does not move Power or Reflexes ahead of Synthesis. The pasivas page ranks cards by the game's coin reward (game.js:295-301, coinMul 1) and takes Baya Zidra only at or below 70% HP.
-build/passives.py keeps at most one of `rgn`/`hp` in the Build card. The rift walk is time-at-current-speed, not pathing.
+build/passives.py `priority` lists the eight stat cards in this coin order on the Build card and marks the lead attack's evolution card; `compute` (the policy's pick sequence) only feeds the summaries. The rift walk is time-at-current-speed, not pathing.
 Boss and legendary hit radius ×2 stands in for sprite bossScale when the idle anchor is the default (enemy.js:15–22, sprites.js:127–130); huge sprites would be closer to ×1. Boss personalities other
 than ranged/charger/chase are collapsed. The arena is fought in open space at the map position (no Distortion World
 columns or arena weather). Judgment / Arceus (minute 30) is outside the 900 s sim.
