@@ -28,6 +28,10 @@ def esc(x) -> str:
     return escape(str(x), quote=True)
 
 
+def damage_badge(L: Lang, cls: str) -> str:
+    return f'<span class="cat-tag is-{cls}" title="{esc(L.t("dmg_tip_" + cls))}">{esc(L.t("dmg_" + cls))}</span>'
+
+
 def js_round(x: float) -> int:
     """Math.round de JavaScript para positivos: mitad hacia arriba, como la página de gacha."""
     return int(math.floor(x + 0.5))
@@ -229,8 +233,8 @@ def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, detail: list,
     region = regions.badge(L, sprites, entry["bannerId"], banner, {}, small=True)
     buff_set = set(buff_ids)
     chips = "".join(
-        f'<li class="is-buff">{esc(_move_name(L, moves, mid))}</li>' if mid in buff_set
-        else f"<li>{esc(_move_name(L, moves, mid))}</li>"
+        f'<li class="is-buff">{esc(_move_name(L, moves, mid))} {damage_badge(L, moves[mid]["damage"])}</li>' if mid in buff_set
+        else f'<li>{esc(_move_name(L, moves, mid))} {damage_badge(L, moves[mid]["damage"])}</li>'
         for mid in ids)
     card_chips = []
     for i, name in enumerate(card_names):

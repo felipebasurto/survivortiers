@@ -243,6 +243,9 @@
     return u;
   }
 
+  // Físico, especial o estado (build/game_moves.py). Solo los movimientos lo llevan: objetos y cartas no.
+  const dmgTag = m => m.damage ? '<span class="cat-tag is-' + m.damage + '" title="' + esc(t('dmg_tip_' + m.damage)) + '">' +
+    esc(t('dmg_' + m.damage)) + '</span>' : '';
   const learnPool = (p, moves) => moves.filter(m => m.type === 'normal' || p.types.includes(m.type));
   function learn(p, d, moves) {
     const pool = learnPool(p, moves);
@@ -252,7 +255,7 @@
       if (!ms.length) return '';
       const chips = ms.map(m => '<li class="lt-move' + (m.id === d[2] ? ' start' : '') + (group.has(m.id) ? ' in-build' : '') +
         '" style="--tc:' + (TYPE_COLOR[m.type] || ITEM_COLOR) + '"><img class="lt-ico" src="' + iconUrl(m) +
-        '" alt="" width="32" height="32">' + esc(EN ? m.en.name : m.name) +
+        '" alt="" width="32" height="32">' + esc(EN ? m.en.name : m.name) + dmgTag(m) +
         (m.id === d[2] ? ' <em>' + esc(t('learn_start')) + '</em>' : '') + '</li>').join('');
       return '<div class="lt-row"><span class="tier-badge ' + tier + '">' + tier + '</span><ul class="lt-moves">' + chips + '</ul></div>';
     }).join('');
@@ -267,7 +270,8 @@
     const color = TYPE_COLOR[m.type] || ITEM_COLOR;
     const nm = EN ? m.en.name : m.name;
     return '<li class="bd-tile' + cls + '" style="--tc:' + color + ';--i:' + i + '">' + (badge || '') +
-      '<span class="bd-ico"><img src="' + iconUrl(m) + '" alt="" width="48" height="48"></span><span class="bd-nm">' + esc(nm) + '</span></li>';
+      '<span class="bd-ico"><img src="' + iconUrl(m) + '" alt="" width="48" height="48"></span><span class="bd-nm">' + esc(nm) + '</span>' +
+      dmgTag(m) + '</li>';
   }
   const badgeOf = (kind, label) => '<b class="bd-badge" title="' + esc(label) + '" aria-label="' + esc(label) + '">' +
     (kind === 'crown' || kind === 'sparkle' ? '<i class="ico ico-' + kind + '" aria-hidden="true"></i>' : kind) + '</b>';

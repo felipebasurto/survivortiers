@@ -753,6 +753,22 @@ summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
 @keyframes mv-hit-80 { 0%, 72% { transform: translate(-50%, -50%) scale(1); border-color: var(--ink-2); } 80% { transform: translate(-50%, -50%) scale(1.22); border-color: var(--accent); } 88%, 100% { transform: translate(-50%, -50%) scale(1); border-color: var(--ink-2); } }
 .mv-ex { align-self: flex-start; margin-top: -4px; font: .8125rem var(--sans); color: var(--link); text-decoration: none; }
 .mv-ex:hover { text-decoration: underline; }
+/* Físico, especial y estado (build/game_moves.py): cada color tiene su par claro y oscuro; los tres se leen en ambos temas. */
+:root { --cat-phys: #a8351a; --cat-spec: #2a5cb0; --cat-stat: #5d5470; }
+:root[data-theme="dark"] { --cat-phys: #ff9a6b; --cat-spec: #8fb4ff; --cat-stat: #b3aac9; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --cat-phys: #ff9a6b; --cat-spec: #8fb4ff; --cat-stat: #b3aac9; }
+}
+.cat-tag { display: inline-flex; align-items: center; padding: 1px 6px 2px; border: 1px solid var(--cat); white-space: nowrap;
+  background: color-mix(in srgb, var(--cat) 12%, var(--bg)); color: var(--cat); font: 600 .75rem/1.5 var(--ui); vertical-align: middle; }
+.cat-tag.is-physical { --cat: var(--cat-phys); }
+.cat-tag.is-special { --cat: var(--cat-spec); }
+.cat-tag.is-status { --cat: var(--cat-stat); }
+.bond li .cat-tag, .lt-move .cat-tag { margin-left: 6px; }
+.cat-legend { display: flex; flex-wrap: wrap; gap: 8px 20px; margin: 14px 0 0; padding: 0; list-style: none; font: .8125rem/1.4 var(--ui); color: var(--ink-2); }
+.cat-legend li { display: inline-flex; align-items: center; gap: 8px; }
+.mv-desc { margin: 0; font: .875rem/1.45 var(--ui); color: var(--ink); }
+.mv-pending { margin: 0; padding: 8px 10px; border: 1px dashed var(--rule); font: .8125rem/1.45 var(--ui); color: var(--ink-2); }
 @media (prefers-reduced-motion: reduce) {
   .mv-arc, .mv-p, .mv-hero { animation: none !important; }
   .mv-arc, .mv-p { display: none; }
@@ -1148,6 +1164,9 @@ h2 { margin: 48px 0 16px; }
 .pv-row-sm { grid-template-columns: 28px minmax(0, 1fr) auto; grid-template-areas: "ico name val" "ico sub sub"; padding: 7px 10px 8px; }
 .pv-row-sm > .pv-ico { width: 28px; height: 28px; }
 .pv-row-sm .pv-val { font-size: 1rem; }
+.pv-offer-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.pv-offer-list li { position: relative; padding-left: 16px; }
+.pv-offer-list li::before { content: ""; position: absolute; left: 0; top: .5em; width: 6px; height: 6px; background: var(--accent); }
 .pv-row-sm .pv-sub { font-size: .8125rem; }
 .pv-styles { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 .pv-style { display: grid; align-content: start; gap: 8px; padding: 12px 14px; background: var(--bg); box-shadow: var(--notch-soft); }

@@ -239,6 +239,8 @@ def llms_full_txt(meta: dict) -> str:
         "- type: type key. kind: attack shape (melee, projectile, beam, nova, aura, orbit, boomerang, mine, meteor, dash, cone, chain, trail, turret, or buff).",
         "- evolvesTo / needsCard: level-up card mechanics (a move that evolves into another, and the boost card it needs), or null.",
         "- mech: game parameters: `homing` (follows targets), `pierce` (goes through enemies), `count` (number of projectiles).",
+        "- damage: `physical`, `special` or `status` (boosts, which deal no damage). Physical is the game's fixed list (js/data/moves.js at e868b5e); the rest that deal damage are special.",
+        "- note: `{es, en}` short text for boosts that change with the physical/special split, or absent.",
         "",
         "### data/gachas.json",
         "",
