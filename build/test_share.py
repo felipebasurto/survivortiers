@@ -14,7 +14,7 @@ class ShareLink(unittest.TestCase):
         result = subprocess.run(["node", str(script)], cwd=ROOT, capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("round-trip ok", result.stdout)
-        for name in ("src/share.js", "src/app.js", "src/ficha.js"):
+        for name in ("src/share.js", "src/collection.js", "src/app.js", "src/ficha.js"):
             check = subprocess.run(["node", "--check", str(ROOT / name)], capture_output=True, text=True)
             self.assertEqual(check.returncode, 0, name + "\n" + check.stderr)
 

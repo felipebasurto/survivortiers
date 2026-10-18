@@ -181,6 +181,7 @@ def llms_full_txt(meta: dict) -> str:
         "",
         "- dex: national Pokédex number. name / nameEn: Spanish and English names. types: type keys, e.g. `[\"grass\",\"poison\"]`.",
         "- rarity: gacha star rating 1–5. legendary: boolean. bannerId: gacha banner 1–9 (1 Kanto … 9 Paldea).",
+        "- sh: boolean, true if the species can be shiny in the game (it has a shiny sprite in the game's sprite data).",
         "- w, h: sprite size in pixels.",
         "- r: `[rank, tier, p10, p90, firm]`. firm is the percentage of repeats in the tier (0–100, not a fraction).",
         "- v: sort values. atk (in-game attack multiplier), hp, spd (speed), ehp (effective HP), rad (body radius) come from the game's Pokédex export. td (type defence), mv (moves), st (stats) are 0–100 percentile scores where 100 is best.",

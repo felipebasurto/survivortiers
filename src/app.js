@@ -35,7 +35,8 @@
       pct: v => v + NBSP + '%',
       notJson: 'Eso no es JSON. Copia el resultado entero, de la { a la }.',
       notCollection: 'Eso no es una colección.',
-      missingKeys: 'Faltan «dex» o «shiny». Usa el JSON del comando de esta página.',
+      missingKeys: 'Faltan «dex» o «shiny». Copia el JSON que devuelve el comando de esta página.',
+      badShinyInfo: 'El bloque «shinyInfo» no tiene el formato del comando. Vuelve a copiar el comando de esta página.',
       pasteFirst: 'Pega primero el resultado del comando.',
       tooBig: 'El archivo es demasiado grande.',
       copied: 'Copiado',
@@ -77,6 +78,15 @@
       imageFail: 'No se ha podido crear la imagen.', badLink: 'Ese enlace no se puede leer.',
       shareTitle: 'Mi colección', collectionWord: 'Colección',
       siteHost: 'survivortiers.pages.dev',
+      viewLabel: 'Vista de la colección', viewNormal: 'Normal', viewShiny: 'Shiny',
+      hunted: 'cazados en salvaje', shinyTotal: 'shiny en total', shinyHunter: 'Cazador de shiny',
+      gachaCount: n => n + ' de gacha', unknownOrigin: n => n + ' sin origen',
+      legacyNote: 'Este JSON no dice de dónde sale cada shiny. Pega otra vez el comando de esta página para verlo.',
+      odds: () => '1 de cada ' + grouped(4096, '.') + ' Pokémon salvajes · 1 de cada 100 tiradas de gacha',
+      shinydex: 'Shinydex', filterLabel: 'Filtro', sortLabel: 'Orden',
+      filterAll: 'Todos', filterWild: 'Solo salvaje', sortNew: 'Recientes', sortDex: 'Pokédex',
+      badgeWild: 'Salvaje', badgeGacha: 'Gacha',
+      shEmpty: 'Todavía no tienes ningún shiny.', shEmptyWild: 'Ningún shiny cazado en salvaje todavía.',
     },
     en: {
       loadFail: n => 'Could not load ' + n,
@@ -87,7 +97,8 @@
       pct: v => v + '%',
       notJson: 'That is not JSON. Copy the whole result, from { to }.',
       notCollection: 'That is not a collection.',
-      missingKeys: 'Missing "dex" or "shiny". Use the JSON from this page\'s command.',
+      missingKeys: 'Missing "dex" or "shiny". Copy the JSON that this page\'s command returns.',
+      badShinyInfo: '"shinyInfo" is not in the command\'s format. Copy this page\'s command again.',
       pasteFirst: 'Paste the command result first.',
       tooBig: 'The file is too large.',
       copied: 'Copied',
@@ -129,6 +140,15 @@
       imageFail: 'Could not create the image.', badLink: 'That link could not be read.',
       shareTitle: 'My collection', collectionWord: 'Collection',
       siteHost: 'survivortiers.pages.dev',
+      viewLabel: 'Collection view', viewNormal: 'Normal', viewShiny: 'Shiny',
+      hunted: 'hunted in the wild', shinyTotal: 'shiny in total', shinyHunter: 'Shiny hunter',
+      gachaCount: n => n + ' from gacha', unknownOrigin: n => n + ' unknown origin',
+      legacyNote: 'This JSON does not say where each shiny came from. Paste this page\'s command again to see it.',
+      odds: () => '1 in ' + grouped(4096, ',') + ' wild Pokémon · 1 in 100 gacha pulls',
+      shinydex: 'Shinydex', filterLabel: 'Filter', sortLabel: 'Sort',
+      filterAll: 'All', filterWild: 'Wild only', sortNew: 'Newest', sortDex: 'Pokédex',
+      badgeWild: 'Wild', badgeGacha: 'Gacha',
+      shEmpty: 'You have no shiny yet.', shEmptyWild: 'No shiny hunted in the wild yet.',
     },
   }[EN ? 'en' : 'es'];
 
@@ -142,7 +162,7 @@
     return r.json();
   });
 
-  const state = { mons: null, byDex: null, cards: [], groups: [] };
+  const state = { mons: null, byDex: null, cards: [], groups: [], view: 'normal', wildOnly: false, shinySort: 'new', shinyDex: null };
 
   // ---------------------------------------------------------------- tarjetas
   function card(p, extraClass, extraHtml) {
@@ -336,17 +356,6 @@
   }
 
   // ---------------------------------------------------------------- colección
-  class ImportError extends Error {}
-
-  function parseCollection(text) {
-    let o;
-    try { o = JSON.parse(text.trim()); } catch (e) { throw new ImportError(TEXT.notJson); }
-    if (typeof o === 'string') { try { o = JSON.parse(o); } catch (e) { throw new ImportError(TEXT.notCollection); } }
-    if (!o || typeof o !== 'object' || !Array.isArray(o.dex) || !Array.isArray(o.shiny)) throw new ImportError(TEXT.missingKeys);
-    const ints = a => [...new Set(a.map(Number).filter(n => Number.isInteger(n) && n > 0))];
-    return { version: o.version, name: String(o.name || ''), updated: +o.updated || 0, dex: ints(o.dex), shiny: ints(o.shiny) };
-  }
-
   function tierRows(owned) {
     return TIERS.map(t => {
       const all = state.mons.filter(p => p.r[1] === t);
@@ -388,10 +397,95 @@
     const heading = guest
       ? (shareName ? '<h2>' + esc(shareName) + '</h2>' : '')
       : '<h2>' + (c.name ? TEXT.collectionOf(esc(c.name)) : TEXT.yourCollection) + '</h2>';
-    $('#result').innerHTML = heading + hero +
+    const body = state.view === 'shiny' ? shinyView(c, guest) : hero +
       (unknown ? '<p class="muted small">' + TEXT.unknown(unknown) + '</p>' : '') +
       planHtml(owned) +
       '<h3>' + TEXT.byTier + '</h3>' + table + groups + missing;
+    $('#result').innerHTML = viewTabs() + heading + body;
+    if (state.view === 'shiny') paintShinyGrid(c, guest);
+  }
+
+  // ---------------------------------------------------------------- vista shiny
+  const dayDate = day => new Date(day * 864e5);
+  const dayLabel = day => dayDate(day).toLocaleDateString(TEXT.locale, { day: 'numeric', month: 'short', timeZone: 'UTC' });
+  const dayIso = day => dayDate(day).toISOString().slice(0, 10);
+
+  // Cazados en salvaje y de gacha. Un JSON sin origen (antes de shinyInfo) cuenta todos como «shiny en total».
+  function hunterCounts(c) {
+    const k = Collection.shinyCounts(c);
+    const legacy = k.wild === 0 && k.gacha === 0 && k.unknown > 0;
+    return { hunted: legacy ? k.total : k.wild, legacy: legacy, gacha: k.gacha, unknown: k.unknown };
+  }
+
+  function hunterFacts(k) {
+    return [k.gacha ? TEXT.gachaCount(k.gacha) : '', k.unknown && !k.legacy ? TEXT.unknownOrigin(k.unknown) : ''].filter(Boolean).join(' · ');
+  }
+
+  function shinyDexSet() {
+    if (!state.shinyDex) state.shinyDex = new Set(state.mons.filter(p => p.sh).map(p => p.dex));
+    return state.shinyDex;
+  }
+
+  function shinyDexCount(c) {
+    const set = shinyDexSet();
+    return { have: c.shiny.filter(d => set.has(d)).length, total: set.size };
+  }
+
+  function viewTabs() {
+    const tab = (view, icon, label) => '<button class="view-btn" type="button" data-view="' + view + '" aria-pressed="' +
+      (state.view === view) + '">' + icon + '<span>' + esc(label) + '</span></button>';
+    return '<div class="views" role="group" aria-label="' + esc(TEXT.viewLabel) + '">' +
+      tab('normal', '<i class="ico ico-ball" aria-hidden="true"></i>', TEXT.viewNormal) +
+      tab('shiny', '<i class="ico ico-sparkle" aria-hidden="true"></i>', TEXT.viewShiny) + '</div>';
+  }
+
+  function shinyTools(guest) {
+    const seg = (attr, val, label, on) => '<button class="seg" type="button" data-' + attr + '="' + val + '" aria-pressed="' + on + '">' +
+      esc(label) + '</button>';
+    return '<div class="sh-tools">' +
+      '<div class="sh-group" role="group" aria-label="' + esc(TEXT.filterLabel) + '">' +
+      seg('sh-filter', 'all', TEXT.filterAll, !state.wildOnly) + seg('sh-filter', 'wild', TEXT.filterWild, state.wildOnly) + '</div>' +
+      (guest ? '' : '<div class="sh-group" role="group" aria-label="' + esc(TEXT.sortLabel) + '">' +
+        seg('sh-sort', 'new', TEXT.sortNew, state.shinySort === 'new') + seg('sh-sort', 'dex', TEXT.sortDex, state.shinySort === 'dex') + '</div>') +
+      '</div>';
+  }
+
+  function shinyView(c, guest) {
+    const k = hunterCounts(c);
+    const dex = shinyDexCount(c);
+    const facts = hunterFacts(k);
+    const pct = dex.total ? (100 * dex.have / dex.total).toFixed(1) : 0;
+    return '<section class="sh-hero">' +
+      '<div class="sh-count"><span class="sh-spk" aria-hidden="true"><i class="ico ico-sparkle"></i></span>' +
+      '<b class="sh-n">' + k.hunted + '</b><span class="sh-what">' + esc(k.legacy ? TEXT.shinyTotal : TEXT.hunted) + '</span></div>' +
+      (facts ? '<p class="sh-facts">' + esc(facts) + '</p>' : '') +
+      (k.legacy ? '<p class="sh-note muted small">' + esc(TEXT.legacyNote) + '</p>' : '') +
+      '<p class="sh-odds muted small">' + esc(TEXT.odds()) + '</p>' +
+      '</section>' +
+      '<div class="sh-dex"><div class="sh-dex-head"><span>' + esc(TEXT.shinydex) + '</span><b>' + dex.have + ' / ' + dex.total + '</b></div>' +
+      '<div class="meter" role="img" aria-label="' + esc(TEXT.shinydex + ' ' + dex.have + ' / ' + dex.total) + '"><i style="width:' + pct + '%"></i></div></div>' +
+      (k.legacy ? '' : shinyTools(guest)) +
+      '<div class="sh-grid" id="sh-grid"></div>';
+  }
+
+  function shinyCard(p, row) {
+    const badge = row.from === 'wild' || row.from === 'gacha'
+      ? '<span class="sh-badge sh-' + row.from + '">' + esc(row.from === 'wild' ? TEXT.badgeWild : TEXT.badgeGacha) + '</span>' : '';
+    return '<a class="sh-card" href="' + home + 'pokemon/?id=' + p.dex + '" title="' + esc(monName(p)) + '">' +
+      '<span class="sh-spr"><img src="' + sprites + 'shiny/' + p.dex + spriteExt + '" width="' + p.w * SCALE + '" height="' + p.h * SCALE +
+      '" alt="" loading="lazy" decoding="async"></span>' +
+      '<span class="sh-nm">' + esc(monName(p)) + '</span>' +
+      '<span class="sh-meta">' + badge + (row.day !== null ? '<time datetime="' + dayIso(row.day) + '">' + esc(dayLabel(row.day)) + '</time>' : '') +
+      '</span></a>';
+  }
+
+  function paintShinyGrid(c, guest) {
+    const k = hunterCounts(c);
+    const rows = Collection.shinyRows(c, { sort: guest ? 'dex' : state.shinySort, wildOnly: state.wildOnly && !k.legacy })
+      .filter(r => state.byDex.has(r.dex));
+    $('#sh-grid').innerHTML = rows.length
+      ? rows.map(r => shinyCard(state.byDex.get(r.dex), r)).join('')
+      : '<p class="sh-empty">' + esc(c.shiny.length ? TEXT.shEmptyWild : TEXT.shEmpty) + '</p>';
   }
 
   // ---------------------------------------------------------------- gacha: qué tirar
@@ -535,7 +629,8 @@
   function readSaved() {
     try {
       const o = JSON.parse(localStorage.getItem(STORE_KEY));
-      return o && o.data && Array.isArray(o.data.dex) ? { c: o.data, savedAt: +o.savedAt || 0 } : null;
+      if (!o || !o.data || !Array.isArray(o.data.dex) || !Array.isArray(o.data.shiny)) return null;
+      return { c: { ...o.data, info: o.data.info || {} }, savedAt: +o.savedAt || 0 };
     } catch (e) { return null; }
   }
 
@@ -610,7 +705,10 @@
   const ICO_TAG = '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false" shape-rendering="crispEdges"><path fill="currentColor" d="M1 7V1h6l8 8-6 6zm3-3h2v2H4z"/></svg>';
   const ICO_IMG = '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false" shape-rendering="crispEdges"><path fill="currentColor" fill-rule="evenodd" d="M1 1h14v14H1zM2 2v12h12V2z"/><path fill="currentColor" d="M4 12l3-4 2 2 1-1 2 3z"/></svg>';
   const ICO_COPY = '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false" shape-rendering="crispEdges"><path fill="none" stroke="currentColor" stroke-width="2" d="M6 1h9v9h-2M1 6h9v9H1z"/></svg>';
-  const CARD_W = 1200, CARD_H = 630;
+  const CARD_W = 1200, CARD_H = 630, CARD_LEFT = 48, CARD_BAR_W = 560;
+  const CARD_UI = '"Zen Kaku Gothic New", sans-serif';
+  const CARD_PIX = '"Pixelify Sans", monospace';
+  const CARD_FONTS = ['400 20px "Zen Kaku Gothic New"', '700 20px "Zen Kaku Gothic New"', '700 52px "Pixelify Sans"'];
   let zenReady = null;
 
   function hashCollection() {
@@ -635,7 +733,7 @@
     if (!viewing) return '';
     const name = $('#share-name') ? $('#share-name').value : '';
     return location.origin + location.pathname + location.search + '#c=' +
-      ShareCodec.encodeCollection(viewing.c.dex, viewing.c.shiny, name);
+      ShareCodec.encodeCollection({ dex: viewing.c.dex, shiny: viewing.c.shiny, ...Collection.originForLink(viewing.c), name: name, view: state.view });
   }
 
   function onMobileShare() {
@@ -678,29 +776,31 @@
     return s;
   }
 
-  function sparkle(ctx, x, y, color) {
+  function sparkle(ctx, x, y, color, px = 2) {
     ctx.fillStyle = color;
     const rows = ['000010000', '000111000', '001111100', '111111111', '011111110', '001111100', '011000110', '110000011'];
     rows.forEach((row, dy) => {
-      for (let dx = 0; dx < row.length; dx++) if (row[dx] === '1') ctx.fillRect(x + dx * 2, y + dy * 2, 2, 2);
+      for (let dx = 0; dx < row.length; dx++) if (row[dx] === '1') ctx.fillRect(x + dx * px, y + dy * px, px, px);
     });
   }
 
+  // El canvas dibuja con la fuente que haya en ese momento y no avisa si falta: se espera a cada peso y se comprueba.
   function loadZen() {
     if (!zenReady) {
-      zenReady = Promise.all([
-        document.fonts.load('400 20px "Zen Kaku Gothic New"'),
-        document.fonts.load('700 20px "Zen Kaku Gothic New"'),
-        document.fonts.load('700 64px "Pixelify Sans"'),
-      ]).catch(() => {});
+      zenReady = Promise.all(CARD_FONTS.map(f => document.fonts.load(f))).then(lists => {
+        if (lists.some(list => !list.length) || !CARD_FONTS.every(f => document.fonts.check(f))) throw new Error('fonts');
+      }).catch(e => {
+        zenReady = null;
+        throw e;
+      });
     }
     return zenReady;
   }
 
-  function loadSprite(dex) {
+  function loadSprite(dex, shiny) {
     return new Promise(resolve => {
       const img = new Image();
-      const src = sprites + dex + spriteExt;
+      const src = sprites + (shiny ? 'shiny/' : '') + dex + spriteExt;
       let absolute = null;
       try { absolute = new URL(src, location.href); } catch (e) { absolute = null; }
       if (absolute && absolute.origin !== location.origin) img.crossOrigin = 'anonymous';
@@ -721,7 +821,7 @@
     return out;
   }
 
-  function paintCard(ctx, colors, info, images) {
+  function paintFrame(ctx, colors, kicker) {
     const W = CARD_W, H = CARD_H;
     ctx.clearRect(0, 0, W, H);
     ctx.fillStyle = colors.ink;
@@ -743,80 +843,147 @@
     ctx.stroke();
     ctx.restore();
 
-    const left = 48;
     ctx.textBaseline = 'top';
     ctx.textAlign = 'left';
-    ctx.font = '700 52px "Pixelify Sans"';
+    ctx.font = '700 52px ' + CARD_PIX;
     ctx.fillStyle = colors.accent;
-    ctx.fillText('Survivor', left, 40);
+    ctx.fillText('Survivor', CARD_LEFT, 40);
     ctx.fillStyle = colors.ink;
-    ctx.fillText('Tiers', left + ctx.measureText('Survivor').width, 40);
-    ctx.font = '700 26px "Pixelify Sans"';
+    ctx.fillText('Tiers', CARD_LEFT + ctx.measureText('Survivor').width, 40);
+    ctx.font = '700 22px ' + CARD_UI;
+    ctx.letterSpacing = '3px';
     ctx.fillStyle = colors.ink2;
     ctx.textAlign = 'right';
-    ctx.fillText(TEXT.collectionWord.toUpperCase(), W - 48, 54);
+    ctx.fillText(kicker.toUpperCase(), W - 48, 52);
+    ctx.letterSpacing = '0px';
     ctx.textAlign = 'left';
+  }
 
-    let y = 118;
-    if (info.name) {
-      const size = fitText(ctx, info.name, 680, 34, '700', '"Pixelify Sans"');
-      ctx.font = '700 ' + size + 'px "Pixelify Sans"';
-      ctx.fillStyle = colors.ink;
-      ctx.fillText(info.name, left, y);
-      y += size + 14;
+  // Zen no trae cifras tabulares: cada dígito ocupa el ancho del más ancho, así el 1 no se pega al 8.
+  function digitCell(ctx) {
+    let w = 0;
+    for (let d = 0; d <= 9; d++) w = Math.max(w, ctx.measureText(String(d)).width);
+    return Math.ceil(w);
+  }
+
+  function numWidth(ctx, text) {
+    const cell = digitCell(ctx);
+    let w = 0;
+    for (const ch of text) w += /\d/.test(ch) ? cell : ctx.measureText(ch).width;
+    return w;
+  }
+
+  function drawNum(ctx, text, x, y) {
+    const cell = digitCell(ctx);
+    let cx = x;
+    for (const ch of text) {
+      const cw = ctx.measureText(ch).width;
+      if (/\d/.test(ch)) {
+        ctx.fillText(ch, Math.round(cx + (cell - cw) / 2), y);
+        cx += cell;
+      } else {
+        ctx.fillText(ch, Math.round(cx), y);
+        cx += cw;
+      }
     }
-    ctx.font = '700 84px "Pixelify Sans"';
+  }
+
+  function paintName(ctx, colors, name, y) {
+    if (!name) return y;
+    const size = fitText(ctx, name, 680, 34, '700', CARD_UI);
+    ctx.font = '700 ' + size + 'px ' + CARD_UI;
+    ctx.fillStyle = colors.ink;
+    ctx.fillText(name, CARD_LEFT, y);
+    return y + size + 14;
+  }
+
+  function paintCollectionStats(ctx, colors, info, y) {
+    ctx.font = '700 84px ' + CARD_UI;
     ctx.fillStyle = colors.ink;
     const num = String(info.known);
-    ctx.fillText(num, left, y);
-    const numW = ctx.measureText(num).width;
-    ctx.font = '700 32px "Pixelify Sans"';
+    drawNum(ctx, num, CARD_LEFT, y);
+    const totalX = Math.round(CARD_LEFT + numWidth(ctx, num) + 16);
+    ctx.font = '400 30px ' + CARD_UI;
     ctx.fillStyle = colors.ink2;
-    ctx.fillText('/ ' + info.total, left + numW + 14, y + 44);
+    drawNum(ctx, '/ ' + info.total, totalX, y + 48);
     const labelY = y + 92;
-    ctx.font = '400 20px "Zen Kaku Gothic New", sans-serif';
+    ctx.font = '400 20px ' + CARD_UI;
     ctx.fillStyle = colors.ink2;
-    ctx.fillText(TEXT.dexStat(), left, labelY);
-    const shinyX = 500;
-    sparkle(ctx, shinyX, y + 36, colors.accent);
-    ctx.font = '700 42px "Pixelify Sans"';
+    ctx.fillText(TEXT.dexStat(), CARD_LEFT, labelY);
+    const hunterX = 500;
+    sparkle(ctx, hunterX, y + 36, colors.accent);
+    ctx.font = '700 42px ' + CARD_UI;
     ctx.fillStyle = colors.ink;
-    ctx.fillText(String(info.shiny), shinyX + 28, y + 28);
-    ctx.font = '400 18px "Zen Kaku Gothic New", sans-serif';
+    drawNum(ctx, String(info.hunted), hunterX + 28, y + 26);
+    ctx.font = '400 18px ' + CARD_UI;
     ctx.fillStyle = colors.ink2;
-    ctx.fillText(TEXT.shinyStat, shinyX + 28, y + 78);
-
+    ctx.fillText(info.hunterLabel, hunterX + 28, y + 78);
+    if (info.sub) ctx.fillText(info.sub, hunterX + 28, y + 102);
     y = labelY + 44;
     info.rows.forEach(r => {
       ctx.fillStyle = colors.tier[r.t];
-      ctx.fillRect(left, y, 36, 36);
+      ctx.fillRect(CARD_LEFT, y, 36, 36);
       ctx.fillStyle = colors.tierInk;
-      ctx.font = '700 22px "Pixelify Sans"';
+      ctx.font = '700 22px ' + CARD_UI;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(r.t, left + 18, y + 19);
+      ctx.fillText(r.t, CARD_LEFT + 18, y + 19);
       ctx.textAlign = 'left';
       ctx.textBaseline = 'top';
-      const barX = left + 48, barW = 400, barY = y + 11;
+      const barX = CARD_LEFT + 48, barW = 400, barY = y + 11;
       ctx.fillStyle = colors.soft;
       ctx.fillRect(barX, barY, barW, 14);
       const fill = r.n ? Math.round(barW * r.have / r.n) : 0;
       ctx.fillStyle = colors.tier[r.t];
       for (let i = 0; i < fill; i += 8) ctx.fillRect(barX + i, barY, Math.min(6, fill - i), 14);
-      ctx.font = '700 20px "Zen Kaku Gothic New", sans-serif';
+      ctx.font = '700 20px ' + CARD_UI;
       ctx.fillStyle = colors.ink;
-      ctx.fillText(TEXT.haveOf(r.have, r.n), barX + barW + 14, y + 7);
+      drawNum(ctx, TEXT.haveOf(r.have, r.n), barX + barW + 14, y + 8);
       y += 46;
     });
+  }
 
-    const cell = 116, gap = 14;
-    const cols = images.length > 3 ? 3 : Math.max(images.length, 1);
-    const gridW = images.length ? cols * cell + (cols - 1) * gap : 0;
-    const originX = W - 48 - gridW;
+  function paintHunterStats(ctx, colors, info, y) {
+    ctx.textBaseline = 'top';
+    ctx.textAlign = 'left';
+    ctx.font = '700 96px ' + CARD_UI;
+    ctx.fillStyle = colors.ink;
+    const num = String(info.hunted);
+    drawNum(ctx, num, CARD_LEFT, y);
+    sparkle(ctx, CARD_LEFT + numWidth(ctx, num) + 26, y + 14, colors.accent, 4);
+    ctx.font = '400 22px ' + CARD_UI;
+    ctx.fillStyle = colors.ink2;
+    ctx.fillText(info.hunterLabel, CARD_LEFT, y + 116);
+    if (info.facts) {
+      ctx.fillStyle = colors.ink;
+      ctx.fillText(info.facts, CARD_LEFT, y + 150);
+    }
+    const barY = y + 232, total = info.dex.total || 1;
+    ctx.font = '700 20px ' + CARD_UI;
+    ctx.letterSpacing = '2px';
+    ctx.fillStyle = colors.ink2;
+    ctx.fillText(TEXT.shinydex.toUpperCase(), CARD_LEFT, barY);
+    ctx.letterSpacing = '0px';
+    const count = info.dex.have + ' / ' + info.dex.total;
+    ctx.font = '700 22px ' + CARD_UI;
+    ctx.fillStyle = colors.ink;
+    drawNum(ctx, count, Math.round(CARD_LEFT + CARD_BAR_W - numWidth(ctx, count)), barY);
+    ctx.fillStyle = colors.soft;
+    ctx.fillRect(CARD_LEFT, barY + 34, CARD_BAR_W, 16);
+    ctx.fillStyle = colors.accent;
+    ctx.fillRect(CARD_LEFT, barY + 34, Math.round(CARD_BAR_W * info.dex.have / total), 16);
+  }
+
+  function paintSprites(ctx, colors, images, big) {
+    if (!images.length) return;
+    const cell = big ? 150 : 116, gap = 14;
+    const cols = images.length > 3 ? 3 : images.length;
+    const gridW = cols * cell + (cols - 1) * gap;
+    const originX = CARD_W - 48 - gridW;
     images.forEach((item, i) => {
       const x = originX + (i % cols) * (cell + gap);
       const sy = 128 + Math.floor(i / cols) * (cell + gap);
-      ctx.fillStyle = colors.tier[item.tier];
+      ctx.fillStyle = item.color;
       ctx.fillRect(x, sy, cell, cell);
       ctx.fillStyle = colors.bg;
       ctx.fillRect(x + 5, sy + 5, cell - 10, cell - 10);
@@ -829,28 +996,48 @@
       ctx.drawImage(item.img, Math.round(x + (cell - w) / 2), Math.round(sy + (cell - h) / 2), w, h);
       ctx.imageSmoothingEnabled = true;
     });
+  }
 
+  function paintCard(ctx, colors, info, images) {
+    paintFrame(ctx, colors, info.kicker);
+    const y = paintName(ctx, colors, info.name, 118);
+    if (info.mode === 'shiny') paintHunterStats(ctx, colors, info, y);
+    else paintCollectionStats(ctx, colors, info, y);
+    paintSprites(ctx, colors, images, info.mode === 'shiny');
     ctx.font = '400 16px "Zen Kaku Gothic New", sans-serif';
     ctx.fillStyle = colors.ink2;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'alphabetic';
-    ctx.fillText(TEXT.siteHost, left, H - 28);
+    ctx.fillText(TEXT.siteHost, CARD_LEFT, CARD_H - 28);
   }
 
-  async function buildShareCanvas(c, shareName) {
+  function shinyPicks(c) {
+    return Collection.shinyRows(c).map(r => state.byDex.get(r.dex)).filter(Boolean).slice(0, 6);
+  }
+
+  async function buildShareCanvas(c, shareName, view) {
     await loadZen();
-    const owned = new Set(c.dex);
-    const known = state.mons.filter(p => owned.has(p.dex)).length;
-    const picks = showcase(c);
-    const loaded = await Promise.all(picks.map(p => loadSprite(p.dex)));
-    const images = picks.map((p, i) => ({ tier: p.r[1], img: loaded[i] })).filter(item => item.img);
+    const colors = themeColors();
+    const shiny = view === 'shiny';
+    const picks = shiny ? shinyPicks(c) : showcase(c);
+    const loaded = await Promise.all(picks.map(p => loadSprite(p.dex, shiny)));
+    const images = picks.map((p, i) => ({ color: shiny ? colors.accent : colors.tier[p.r[1]], img: loaded[i] })).filter(item => item.img);
+    const k = hunterCounts(c);
+    const name = ShareCodec.cleanName(shareName);
+    let info;
+    if (shiny) {
+      info = { mode: 'shiny', kicker: TEXT.shinyHunter, name: name, hunted: k.hunted,
+        hunterLabel: k.legacy ? TEXT.shinyTotal : TEXT.hunted, facts: hunterFacts(k), dex: shinyDexCount(c) };
+    } else {
+      const owned = new Set(c.dex);
+      info = { mode: 'collection', kicker: TEXT.collectionWord, name: name, known: state.mons.filter(p => owned.has(p.dex)).length,
+        total: state.mons.length, hunted: k.hunted, hunterLabel: k.legacy ? TEXT.shinyStat : TEXT.hunted,
+        sub: k.gacha ? TEXT.gachaCount(k.gacha) : '', rows: tierRows(owned) };
+    }
     const canvas = document.createElement('canvas');
     canvas.width = CARD_W;
     canvas.height = CARD_H;
-    paintCard(canvas.getContext('2d'), themeColors(), {
-      known: known, total: state.mons.length, shiny: c.shiny.length,
-      name: ShareCodec.cleanName(shareName), rows: tierRows(owned),
-    }, images);
+    paintCard(canvas.getContext('2d'), colors, info, images);
     return canvas;
   }
 
@@ -858,12 +1045,12 @@
     if (!viewing) return;
     const btn = $('#share-img');
     btn.disabled = true;
-    buildShareCanvas(viewing.c, $('#share-name').value).then(canvas => new Promise(resolve => canvas.toBlob(resolve, 'image/png'))).then(blob => {
+    buildShareCanvas(viewing.c, $('#share-name').value, state.view).then(canvas => new Promise(resolve => canvas.toBlob(resolve, 'image/png'))).then(blob => {
       if (!blob) throw new Error('png');
       const a = document.createElement('a');
       const url = URL.createObjectURL(blob);
       a.href = url;
-      a.download = 'survivortiers-collection.png';
+      a.download = state.view === 'shiny' ? 'survivortiers-shiny.png' : 'survivortiers-collection.png';
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -901,8 +1088,8 @@
     const showImport = on => { area.hidden = !on; };
     mountShare();
     const paintOwn = (c, stored) => {
-      viewing = { c: c };
-      renderCollection(c);
+      viewing = { c: c, opts: {} };
+      renderCollection(c, viewing.opts);
       renderSaved(stored === false ? 'failed' : 'own');
       showImport(false);
     };
@@ -924,9 +1111,10 @@
           renderSaved('broken');
           return;
         }
-        const c = { version: 1, name: '', updated: 0, dex: decoded.dex, shiny: decoded.shiny };
-        viewing = { c: c };
-        renderCollection(c, { guest: true, shareName: decoded.name });
+        const c = Collection.fromLink(decoded);
+        viewing = { c: c, opts: { guest: true, shareName: decoded.name } };
+        state.view = decoded.view;
+        renderCollection(c, viewing.opts);
         renderSaved('guest', decoded.name);
         return;
       }
@@ -940,6 +1128,25 @@
       }
     };
     window.addEventListener('hashchange', showView);
+    $('#result').addEventListener('click', e => {
+      const t = e.target.closest('[data-view], [data-sh-filter], [data-sh-sort]');
+      if (!t || !viewing) return;
+      if (t.dataset.view) {
+        if (state.view === t.dataset.view) return;
+        state.view = t.dataset.view;
+        renderCollection(viewing.c, viewing.opts);
+        $('[data-view="' + state.view + '"]').focus();
+        return;
+      }
+      if (t.dataset.shFilter) {
+        state.wildOnly = t.dataset.shFilter === 'wild';
+        $$('[data-sh-filter]').forEach(b => b.setAttribute('aria-pressed', String(b === t)));
+      } else {
+        state.shinySort = t.dataset.shSort;
+        $$('[data-sh-sort]').forEach(b => b.setAttribute('aria-pressed', String(b === t)));
+      }
+      paintShinyGrid(viewing.c, viewing.opts.guest);
+    });
     $('#saved').addEventListener('click', e => {
       const btn = e.target.closest('button');
       if (!btn) return;
@@ -961,16 +1168,13 @@
       }
     });
     const run = text => {
-      try {
-        const c = parseCollection(text);
-        const stored = writeSaved(c);
-        if (location.hash) {
-          pendingOwn = { c: c, stored: stored };
-          location.hash = '';
-        } else paintOwn(c, stored);
-      } catch (e) {
-        if (e instanceof ImportError) showError(e.message); else throw e;
-      }
+      const r = Collection.parse(text);
+      if (!r.ok) { showError(TEXT[r.reason]); return; }
+      const stored = writeSaved(r.c);
+      if (location.hash) {
+        pendingOwn = { c: r.c, stored: stored };
+        location.hash = '';
+      } else paintOwn(r.c, stored);
     };
     const loadFile = f => {
       if (f.size > 2e6) { showError(TEXT.tooBig); return; }

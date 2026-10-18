@@ -29,9 +29,18 @@
       modified: h.s.updated ? new Date(+h.s.updated).toLocaleString() : '-' })));
   }
   const { s, kind } = found[0];
-  const out = { version: 1, name: String(s.name || ''), updated: +s.updated || 0, dex: keysOf(s.owned), shiny: keysOf(s.shiny) };
+  // shinyInfo: { «no.»: [origin, day] }. Origin: 0 wild, 1 gacha, 2 other. Day: days since 1970 (UTC) of the catch.
+  const ORIGIN = { wild: 0, gacha: 1 };
+  const shinyInfo = {};
+  keysOf(s.shiny).forEach(n => {
+    const e = s.shiny[n];
+    const at = +(e && e.at);
+    shinyInfo[n] = [ORIGIN[e && e.from] ?? 2, at > 0 ? Math.floor(at / 864e5) : null];
+  });
+  const out = { version: 2, name: String(s.name || ''), updated: +s.updated || 0, dex: keysOf(s.owned), shiny: keysOf(s.shiny), shinyInfo };
+  const wild = Object.values(shinyInfo).filter(([o]) => o === 0).length;
   const text = JSON.stringify(out);
-  console.log(`Collection of "${out.name}" (${kind}): ${out.dex.length} Pokémon, ${out.shiny.length} shiny.`);
+  console.log(`Collection of "${out.name}" (${kind}): ${out.dex.length} Pokémon, ${out.shiny.length} shiny (${wild} wild).`);
   // Straight to the clipboard with the console's copy(). If that function is missing, the JSON is printed to copy by hand.
   if (typeof copy === 'function') {
     copy(text);

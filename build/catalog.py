@@ -158,7 +158,22 @@ def _move(move_names: dict, mid: str) -> dict:
     return {"id": mid, "name": move_names[mid]}
 
 
-def load_pokemon(move_names: dict, credits: dict) -> list[dict]:
+def load_shiny(dexes: list[int]) -> set[int]:
+    """Pokémon con sprite shiny en el juego: data/shiny_species.json, que hace build/shiny_sprites.py desde el
+    sprites-meta.js de JPTER78/pokesurvivor. Aquí solo se comprueba que cuadre con los 966 y con sprites/shiny/."""
+    doc = json.loads((DATA / "shiny_species.json").read_text(encoding="utf8"))
+    shiny = doc["dex"]
+    if shiny != sorted(set(shiny)) or doc["count"] != len(shiny):
+        raise CatalogError("data/shiny_species.json: lista sin ordenar, repetida o con un count que no cuadra")
+    if sorted(set(shiny) | set(doc["withoutShiny"])) != dexes:
+        raise CatalogError("data/shiny_species.json no cubre exactamente los 966 Pokémon de pokedex_export.json")
+    gone = [d for d in shiny if not (SPRITES / "shiny" / f"{d}.png").exists()]
+    if gone:
+        raise CatalogError(f"faltan sprites/shiny/<n>.png para {gone[:5]} (build/shiny_sprites.py --fetch)")
+    return set(shiny)
+
+
+def load_pokemon(move_names: dict, credits: dict, shiny: set[int]) -> list[dict]:
     dex_export = {p["dex"]: p for p in json.load(open(DATA / "pokedex_export.json", encoding="utf8"))}
     base_stats = json.loads((DATA / "base_stats.json").read_text(encoding="utf8"))  # build/fetch_base_stats.py
     if {str(d) for d in dex_export} != set(base_stats):
@@ -214,7 +229,7 @@ def load_pokemon(move_names: dict, credits: dict) -> list[dict]:
         entries.append({
             "dex": dex, "name": px["name"], "nameEn": name_en, "types": px["types"],
             "rarity": px["rarity"], "legendary": px["legendary"],
-            "bannerId": px["gen"], "banner": px["banner"], "sprite": sprite, "r": ranking,
+            "bannerId": px["gen"], "banner": px["banner"], "sprite": sprite, "r": ranking, "sh": dex in shiny,
             "base": {"atk": px["atk"], "hp": px["hp"], "spd": px["spd"], "ehp": px["effective_hp"],
                      "rad": px["body_radius"]},
             "stats": base_stats[str(dex)],
@@ -318,7 +333,7 @@ def build_meta(entries: list[dict], credits: dict, counts: dict) -> dict:
 def slim(entries: list[dict]) -> list[dict]:
     """Lo mínimo para la tier list, el buscador y la colección: r = [puesto, tier, p10, p90, % en su tier]."""
     return [{"dex": e["dex"], "name": e["name"], "nameEn": e["nameEn"], "types": e["types"],
-             "rarity": e["rarity"], "legendary": e["legendary"], "bannerId": e["bannerId"],
+             "rarity": e["rarity"], "legendary": e["legendary"], "bannerId": e["bannerId"], "sh": e["sh"],
              "w": e["sprite"]["w"], "h": e["sprite"]["h"],
              "r": [e["r"]["rank"], e["r"]["tier"], e["r"]["p10"], e["r"]["p90"], round(100 * e["r"]["pTier"])],
              "v": sort_values(e)}
@@ -393,7 +408,8 @@ def main() -> int:
         credits = credits_mod.parse_credits(DATA / "CREDITS.md")
         moves = load_moves()
         move_names = {m["id"]: m["name"] for m in moves}
-        entries = load_pokemon(move_names, credits)
+        dexes = sorted(p["dex"] for p in json.loads((DATA / "pokedex_export.json").read_text(encoding="utf8")))
+        entries = load_pokemon(move_names, credits, load_shiny(dexes))
         counts = check_ranks(entries)
         gachas = build_gachas(entries)
         meta = build_meta(entries, credits, counts)
