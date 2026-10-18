@@ -173,7 +173,7 @@ class FaqCopy(unittest.TestCase):
         self.assertEqual(static_ficha._join(ES, []), "")
 
     def test_faq_branches(self) -> None:
-        cards = "Imán, Reflejos, Vigor y Coraza"
+        cards = "Según nuestra simulación, en este orden: Imán una vez y después Vigor."
         plain = static_ficha._faqs(ES, "A", 87, "Psíquico y Vozarrón", "", 0, 13, cards, "Kanto", False, "0,25", 400)
         self.assertEqual(plain[1][1], "Psíquico y Vozarrón. Pega super efectivo al 13\u00a0% de los enemigos.")
         self.assertEqual(plain[0][1], "Sí, está entre los buenos: tier A, puesto 87 de 966.")
@@ -186,7 +186,7 @@ class FaqCopy(unittest.TestCase):
                                     "Ninguno de sus ataques es super efectivo contra los enemigos.")
         self.assertTrue(one[-1][1].startswith("Es de los legendarios y sale en el banner Galar."))
         en = static_ficha._faqs(EN, "D", 966, "Hyper Voice and Petal Blizzard", "Swords Dance and Harden", 2, 19,
-                                "Reflexes, Synthesis, Armor and Sprint", "Galar", False, "2.0", 51)
+                                "Based on our simulation, in this order: Reflexes.", "Galar", False, "2.0", 51)
         self.assertEqual(en[1][1], "Hyper Voice and Petal Blizzard, with Swords Dance and Harden as boosts. "
                                    "Its moves are super effective against 19% of enemies.")
         self.assertEqual(en[-1][1], "It is on the Galar banner. Each pull has a 2.0% chance, so on average it takes "

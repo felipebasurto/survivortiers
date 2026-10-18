@@ -401,7 +401,7 @@ def species_details(entries: list[dict], sim_range: list[float], median: float, 
             [m["id"] for m in r["pair"]], int(f["statusUnmodelled"]) + 2 * int(f["melee"]) + 4 * int(f["statsCapped"]) + 8 * int(f["typesCapped"]),
             e["stats"], [combo[e["dex"]]["super"], combo[e["dex"]]["neutral"], combo[e["dex"]]["moves"],
                          combo[e["dex"]]["types"], combo[e["dex"]]["alts"], combo[e["dex"]]["nBoost"]],
-            # cartas a priorizar (build/passives.py): [ids de LevelUp.STATS, cuántas de las primeras evolucionan un ataque]
+            # cartas que coge el bot (build/passives.py): [ids, cuántas de las primeras se cogen una sola vez]
             passives.compute(e["dex"], combo[e["dex"]]["moves"], psim),
             r["sim"]["noshop"]["seconds"]]
     medians = [statistics.median(e["stats"][i] for e in entries) for i in range(6)]

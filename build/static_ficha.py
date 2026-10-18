@@ -112,6 +112,25 @@ def _card_name(L: Lang, card: dict) -> str:
     return card["en"]["name"] if L.en else card["name"]
 
 
+def card_answer(L: Lang, names: list[str], n_once: int, keep_evolves: bool) -> str:
+    """La misma frase en la FAQ y en el JSON-LD. `n_once` es la carta que se coge una vez y no se repite."""
+    if n_once == 1 and len(names) >= 2:
+        return L.t("faq_a_cards_once", once=names[0], card=_join(L, names[1:]))
+    cards = _join(L, names)
+    if keep_evolves:
+        return L.t("faq_a_cards_evo", cards=cards)
+    return L.t("faq_a_cards", cards=cards)
+
+
+def _need_id(cards: dict, name: str | None) -> str | None:
+    if not name:
+        return None
+    for cid, card in cards.items():
+        if card["name"] == name:
+            return cid
+    raise KeyError(name)
+
+
 def _faqs(L: Lang, tier: str, rank: int, attacks: str, buffs: str, n_buffs: int, super_pct: int,
           cards: str, banner: str, legendary: bool, pct: str, pulls: int) -> list[tuple[str, str]]:
     worth = (L.t("faq_q_worth"), L.t(f"faq_a_{tier}", rank=rank, total=charts.TOTAL))
@@ -124,7 +143,7 @@ def _faqs(L: Lang, tier: str, rank: int, attacks: str, buffs: str, n_buffs: int,
     cover = L.t("faq_a_cover", super=L.pcts(super_pct)) if super_pct else L.t("faq_a_cover_none")
     out = [worth, (L.t("faq_q_moves"), f"{head} {cover}")]
     if cards:
-        out.append((L.t("faq_q_cards"), L.t("faq_a_cards", cards=cards)))
+        out.append((L.t("faq_q_cards"), cards))
     where = L.t("faq_get_where_leg" if legendary else "faq_get_where", banner=banner)
     out.append((L.t("faq_q_get"), f"{where} {L.t('faq_get_odds', pct=pct, n=L.num(pulls))}"))
     return out
@@ -184,8 +203,15 @@ def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, detail: list,
         raise ValueError(f"{entry['dex']}: la tirada no tiene probabilidad")
     pct = L.dec(p_pull * 100, _digits(p_pull * 100))
     banner = L.banner(entry["banner"])
-    card_ids = detail[10][0]
-    card_text = _join(L, [_card_name(L, cards[c]) for c in card_ids])
+    card_ids, n_once = detail[10]
+    card_names = [_card_name(L, cards[c]) for c in card_ids]
+    need_ids = []
+    for mid in ids:
+        nid = _need_id(cards, moves[mid].get("needsCard"))
+        if nid:
+            need_ids.append(nid)
+    keep_evolves = n_once == 0 and bool(card_ids) and card_ids[0] in need_ids
+    card_text = card_answer(L, card_names, n_once, keep_evolves) if card_names else ""
     faqs = _faqs(L, tier, rank, attacks, buffs, len(buff_ids), int(super_pct), card_text, banner,
                  bool(entry["legendary"]), pct, pulls)
     w, h = entry["sprite"]["w"], entry["sprite"]["h"]
@@ -206,6 +232,18 @@ def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, detail: list,
         f'<li class="is-buff">{esc(_move_name(L, moves, mid))}</li>' if mid in buff_set
         else f"<li>{esc(_move_name(L, moves, mid))}</li>"
         for mid in ids)
+    card_chips = []
+    for i, name in enumerate(card_names):
+        if i < n_once:
+            note = L.t("build_once")
+        elif n_once == 0 and keep_evolves:
+            note = L.t("build_first_evo")
+        elif n_once == 0:
+            note = L.t("build_keep")
+        else:
+            note = L.t("build_then")
+        card_chips.append(f"<li>{esc(name)} <small>{esc(note)}</small></li>")
+    card_list = "".join(card_chips)
     stat_rows = "".join(
         f'<tr><th scope="row">{esc(L.t(key))}</th><td class="num">{n}</td></tr>'
         for key, n in zip(STAT_KEYS, stats))
@@ -237,6 +275,8 @@ def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, detail: list,
 <header class="bd-head"><div><h2 id="bd-h">{esc(L.t("t_build"))}</h2><span class="bd-who">{esc(name)}</span></div></header>
 <p class="bd-cap">{esc(L.t("build_group"))}</p>
 <ul class="bond">{chips}</ul>
+<p class="bd-cap">{esc(L.t("build_cards"))}</p>
+<ul class="bond">{card_list}</ul>
 <p>{esc(L.t("sheet_a_build", attacks=attacks, buffs=buffs) if buffs else L.t("sheet_a_build_plain", attacks=attacks))}</p>
 <p class="muted">{esc(L.t("sheet_a_cover", super=L.pcts(int(super_pct)), neutral=L.pcts(int(neutral_pct))))}</p>
 </div>

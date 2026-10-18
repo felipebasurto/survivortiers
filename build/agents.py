@@ -226,7 +226,7 @@ def llms_full_txt(meta: dict) -> str:
         "  - d[7]: flags bitmask (see flags above).",
         "  - d[8]: official base stats `[HP, Attack, Defence, Sp. Atk, Sp. Def, Speed]`.",
         "  - d[9]: fixed group `[super %, neutral %, move ids, attack types 1–2, optional move ids, number of boosts]`. Move ids are the two attacks (the first is the best fixed-group simulated attack) followed by the boosts (Dragon Dance or Swords Dance, and Harden). super % = share of the 966 species that the attacks hit super effectively (multiplier above 1.05). neutral % = share they never resist (multiplier at least 0.95).",
-        "  - d[10]: level-up cards to prioritize `[card ids, n]` (ids of LevelUp.STATS: atk, spd, hp, cd, def, rgn, mag); the first n are needed to evolve a group attack, the rest are ranked by the fixed-group simulation (estimate).",
+        "  - d[10]: cards the sim takes over a run `[card ids, n]` (atk, spd, hp, cd, def, rgn, mag, xp). The first n are taken once to evolve the lead attack and then not again; the last id is the stat the policy keeps stacking (the coin-best fill). A companion's evolution card is listed only when that stat is the fill. Estimate.",
         "  - d[11]: simulated seconds with the starter alone, no Repertoire and no Veto.",
         "",
         "### data/moves.json",
