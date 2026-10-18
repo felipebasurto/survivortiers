@@ -16,7 +16,6 @@ import catalog
 import charts
 import legal
 import regions
-import repertorio
 import typedata
 from i18n import Lang
 from slugs import species_path
@@ -302,7 +301,6 @@ def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, detail: list,
 <p class="rankline"><i class="ico ico-trophy" aria-hidden="true"></i><strong>{rank}</strong><span>/ {charts.TOTAL}</span></p>
 <p class="simline">{esc(L.t("sheet_sim_line", rank=methods["simBest"]))}</p>
 <p class="simline">{esc(L.t("sheet_open_line", rank=methods["simStart"]))}</p>
-{repertorio.box(L)}
 <p class="resumen">{esc(summary)}</p>
 <p class="fresh">{esc(fresh)}</p>
 </div>

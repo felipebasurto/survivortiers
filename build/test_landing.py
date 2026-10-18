@@ -52,6 +52,15 @@ class LandingPages(unittest.TestCase):
             for lang in (ES, EN):
                 self.assertTrue((SITE / _page_rel(lang, page)).is_file(), _page_rel(lang, page))
 
+    def test_repertorio_note_only_on_starters_page(self) -> None:
+        for page in landing.pages():
+            for lang in (ES, EN):
+                html = _read(_page_rel(lang, page))
+                if page.key == "starters":
+                    self.assertEqual(html.count('class="rep-note"'), 1, _page_rel(lang, page))
+                else:
+                    self.assertNotIn("rep-note", html, _page_rel(lang, page))
+
     def test_itemlist_matches_visible_list_in_order(self) -> None:
         for page in landing.pages():
             for lang in (ES, EN):

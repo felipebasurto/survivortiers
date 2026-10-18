@@ -640,14 +640,9 @@ STR: dict[str, tuple[str, str]] = {
     "tool_load": ("Cargando datos…", "Loading data…"),
     "tool_fail": ("No se pudieron cargar los datos. Recarga la página.", "The data did not load. Reload the page."),
 
-    # ------------------------------------------------------------ aviso del Repertorio
-    "rep_title": ("Antes de comprar el Repertorio", "Before you buy Repertoire"),
-    "rep_b1": ("Te da un segundo ataque, pero no lo eliges: el juego saca uno al azar de los movimientos que puede aprender tu Pokémon.",
-               "It gives you a second attack, but you don't pick it: the game rolls one at random from the moves your Pokémon can learn."),
-    "rep_b2": ("Nunca sale un potenciador ni un movimiento que hayas vetado con Veto.",
-               "It never gives you a boost or a move you banned with Veto."),
-    "rep_b3": ("Cuesta 1.500 Pokémonedas, es solo de ese Pokémon y no se puede deshacer. Si el ataque que sale no te sirve, te lo quedas.",
-               "It costs 1,500 coins, belongs only to that Pokémon and can't be undone. If the attack you get is bad, you keep it."),
+    # ------------------------------------------------------------ nota del Repertorio
+    "rep_note": ("Repertorio te da un segundo ataque al azar y no se puede deshacer.",
+                 "Repertoire gives you a random second attack and can't be undone."),
 
     # ------------------------------------------------------------ potenciadores (pasivas)
     "pv_buff_h": ("Potenciadores: el tope de dos y la categoría", "Boosts: the two-boost cap and the category"),

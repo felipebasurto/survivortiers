@@ -78,6 +78,14 @@ class SlugsAndOdds(unittest.TestCase):
 
 
 class StaticMewtwo(unittest.TestCase):
+    def test_ficha_has_no_repertorio_note(self) -> None:
+        for page in (SITE / "pokemon" / "150-mewtwo" / "index.html", SITE / "en" / "pokemon" / "150-mewtwo" / "index.html"):
+            html = page.read_text(encoding="utf8")
+            self.assertNotIn("rep-note", html, page)
+            self.assertNotIn("rep-warn", html, page)
+        for source in ("ficha.js", "style.css"):
+            self.assertNotIn("rep-warn", (ROOT / "src" / source).read_text(encoding="utf8"), source)
+
     def test_sample_page_has_tier_rank_and_title_without_js(self) -> None:
         es_path = SITE / "pokemon" / "150-mewtwo" / "index.html"
         en_path = SITE / "en" / "pokemon" / "150-mewtwo" / "index.html"

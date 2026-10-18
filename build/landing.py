@@ -220,7 +220,7 @@ def build(L: Lang, page: Page, index: list[dict], by_dex: dict[int, dict], detai
             lede = L.t("lp_type_lede", type=tname, top=top, n=len(members), s=s)
             desc = L.t("lp_type_desc", type=tname, top=top)
         body = f'<section class="ql-list"><h2>{escape(top_h)}</h2>{_list_html(L, home, rows)}</section>'
-    rep = repertorio.box(L) if page.key == "starters" else ""
+    rep = repertorio.note(L) if page.key == "starters" else ""
     content = (f'<div class="ql"><h1>{escape(h1)}</h1>'
                f'<p class="ql-lede">{escape(lede)}</p><p class="ql-note">{escape(note)}</p>{rep}'
                f'<p class="fresh">{escape(legal.freshness_text(L, meta))}</p>'

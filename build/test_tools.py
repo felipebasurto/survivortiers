@@ -88,12 +88,14 @@ class ToolsNodeTest(unittest.TestCase):
 
 
 class ToolsHtmlTest(unittest.TestCase):
-    def test_repertorio_box_in_both_languages(self):
-        for L, title in ((ES, "Antes de comprar el Repertorio"), (EN, "Before you buy Repertoire")):
-            html = repertorio.box(L)
-            self.assertIn('class="rep-warn"', html)
-            self.assertIn(title, html)
-            self.assertEqual(html.count("<li>"), 3)
+    def test_repertorio_note_in_both_languages(self):
+        for L, text in ((ES, "Repertorio te da un segundo ataque al azar y no se puede deshacer."),
+                        (EN, "Repertoire gives you a random second attack and can't be undone.")):
+            html = repertorio.note(L)
+            self.assertTrue(html.startswith('<p class="rep-note"><svg class="rep-ico"'), html)
+            self.assertIn(text, html)
+            self.assertNotIn("<li>", html)
+            self.assertNotIn("rep-warn", html)
 
     def test_boost_table_uses_game_values(self):
         html = pasivas._boosts(ES, "../")
