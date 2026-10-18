@@ -25,6 +25,7 @@ import game_moves  # noqa: E402
 import gamestats  # noqa: E402
 import landing  # noqa: E402
 import legal  # noqa: E402
+import novedades  # noqa: E402
 import objetos  # noqa: E402
 import pasivas  # noqa: E402
 import pack  # noqa: E402
@@ -48,7 +49,7 @@ EXT = legal.SPRITE_EXT
 SCALE_LIST = 2
 TIERS = ["S", "A", "B", "C", "D"]
 CATEGORIES = [("melee", "cuerpo a cuerpo"), ("ranged", "distancia"), ("stat", "estadística")]  # (id, valor del CSV)
-NAV = [("index", "index.html", "nav_tiers"),
+NAV = [("index", "index.html", "nav_tiers"), ("novedades", "novedades.html", "nav_novedades"),
        ("ataques", "ataques.html", "nav_ataques"), ("objetos", "objetos.html", "nav_objetos"),
        ("pasivas", "pasivas.html", "nav_pasivas"),
        ("gachas", "gachas.html", "nav_gachas"),
@@ -259,6 +260,7 @@ def render_index(c: Ctx, pokemon: list[dict], meta: dict) -> str:
         for g in ("tier", "type", "rar", "region", "leg", "none"))
     content = f"""
 {balls.defs()}
+{novedades.patch_note(L, c.home)}
 <h1>{esc(L.t("index_h1", game=legal.GAME_NAME))}</h1>
 <p class="tagline">{L.t("value_html", repo=esc(legal.REPO_URL), **legal.method_counts(L, meta))}</p>
 <p class="fresh">{esc(legal.freshness_text(L, meta))}</p>
@@ -669,6 +671,12 @@ def render_metodo(c: Ctx, index: list[dict], full: list[dict], meta: dict) -> st
                 L.t("met_desc", site=legal.SITE_NAME, **legal.method_counts(L, meta)), content, meta)
 
 
+def render_novedades(c: Ctx, meta: dict) -> str:
+    L = c.L
+    return page(c, "novedades", novedades.title(L, legal.SITE_NAME, legal.GAME_NAME),
+                novedades.desc(L, legal.GAME_NAME), novedades.content(L), meta)
+
+
 def render_acerca(c: Ctx, meta: dict) -> str:
     L = c.L
     lic = meta["spriteLicense"]
@@ -750,6 +758,7 @@ def main() -> int:
             write(f"{L.prefix}{rel}", render_landing(c, built, meta))
         before, after = ficha_chrome(L, meta)
         put("index.html", lambda c: render_index(c, index, meta))
+        put("novedades.html", lambda c: render_novedades(c, meta))
         put("ataques.html", lambda c: render_ataques(c, moves, meta, index, unranked))
         put("objetos.html", lambda c: render_objetos(c, meta))
         put("pasivas.html", lambda c: render_pasivas(c, meta))

@@ -125,7 +125,7 @@ class StaticMewtwo(unittest.TestCase):
         self.assertIn("Esta página necesita JavaScript", shell)
         self.assertIn('name="robots" content="noindex"', shell)
         sitemap = (SITE / "sitemap.xml").read_text(encoding="utf8")
-        self.assertEqual(sitemap.count("<url>"), (8 + 966 + 22 + len(toolpages.FOLDERS)) * 2)
+        self.assertEqual(sitemap.count("<url>"), (8 + 966 + 22 + len(toolpages.FOLDERS) + 1) * 2)
         self.assertIn("/pokemon/150-mewtwo/", sitemap)
         self.assertIn("/en/pokemon/150-mewtwo/", sitemap)
         robots = (SITE / "robots.txt").read_text(encoding="utf8")
