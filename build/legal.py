@@ -12,8 +12,8 @@ def method_counts(L: Lang, meta: dict) -> dict[str, str]:
 
 
 def freshness_text(L: Lang, meta: dict) -> str:
-    """Línea «Datos del juego: commit … · actualizado …»: el commit del juego que usa el ranking y la fecha del build."""
-    return L.t("fresh", sha=meta["gameCommit"][:7], date=meta["generatedAt"][:10])
+    """Línea «Datos del juego»: el commit con que se calculó el ranking, el de las mecánicas y la fecha del build."""
+    return L.t("fresh", sha=meta["gameCommit"][:7], combat=COMBAT_COMMIT[:7], date=meta["generatedAt"][:10])
 
 
 X_HANDLE = "@fildotai"

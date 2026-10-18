@@ -27,19 +27,21 @@ def physical_ids() -> frozenset[str]:
 
 
 # Textos de los potenciadores de la tier list. Cada uno es una pareja (es, en). El límite de dos potenciadores es
-# levelup.js:47-49 (recuento) y :56 (se quitan de la oferta de cartas).
-_CAP_ES = "Con dos potenciadores de cualquier tipo, ya no salen más."
-_CAP_EN = "With two boosts of any kind, no more come up."
+# levelup.js:46-49 (recuento de los de tipo buff) y :56 (se quitan de la oferta de movimientos nuevos; las mejoras no).
+_CAP_ES = "Con dos potenciadores, las cartas de movimiento nuevo ya no ofrecen más."
+_CAP_EN = "With two boosts, new-move cards stop offering more."
 NOTES = {
     "swords-dance": (
-        "Solo sube el ataque físico. Si tu Pokémon pega físico, usa esta; si pega especial, Maquinación. " + _CAP_ES,
-        "Only raises physical attack. If your Pokémon attacks physically, use this one; if it attacks with special "
-        "moves, use Nasty Plot. " + _CAP_EN,
+        "Solo sube el ataque físico. Dura 7 s y comparte contador con Danza Dragón: no se suman. "
+        "Si tu Pokémon pega especial, usa Maquinación. " + _CAP_ES,
+        "Only raises physical attack. Lasts 7 s and shares its counter with Dragon Dance: they don't add up. "
+        "If your Pokémon attacks with special moves, use Nasty Plot. " + _CAP_EN,
     ),
     "dragon-dance": (
-        "Solo sube el ataque físico. Si tu Pokémon pega físico, usa esta; si pega especial, Maquinación. " + _CAP_ES,
-        "Only raises physical attack. If your Pokémon attacks physically, use this one; if it attacks with special "
-        "moves, use Nasty Plot. " + _CAP_EN,
+        "Solo sube el ataque físico. Dura 7 s y comparte contador con Danza Espada: no se suman. "
+        "Si tu Pokémon pega especial, usa Maquinación. " + _CAP_ES,
+        "Only raises physical attack. Lasts 7 s and shares its counter with Swords Dance: they don't add up. "
+        "If your Pokémon attacks with special moves, use Nasty Plot. " + _CAP_EN,
     ),
 }
 
@@ -50,8 +52,10 @@ UNRANKED = [
         "id": "nasty-plot", "name": ("Maquinación", "Nasty Plot"), "type": "normal", "kind": "buff",
         "stat": ("ataque especial", "special attack"), "amount": 0.13, "stacks": 5, "dur": 7, "cd": 0.85,
         "note": (
-            "Solo sube el ataque especial. Es para los atacantes especiales; los físicos usan Danza Espada. " + _CAP_ES,
-            "Only raises special attack. It is for special attackers; physical ones use Swords Dance. " + _CAP_EN,
+            "Solo sube el ataque especial. Dura 7 s y tiene su propio contador, así que puedes llevarla con una danza física. "
+            "Es para los atacantes especiales. " + _CAP_ES,
+            "Only raises special attack. Lasts 7 s and has its own counter, so you can run it with a physical dance. "
+            "It is for special attackers. " + _CAP_EN,
         ),
     },
 ]

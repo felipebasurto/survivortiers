@@ -63,22 +63,23 @@ SECTIONS = [
         ],
         "table": PHYS_SPECIAL,
         "after": [
-            ("Al subir de nivel, cada carta dice si el ataque es físico o especial. Los ataques de tu lado bueno salen "
-             "el doble de a menudo, y si un ataque rinde menos del 95 % con tu Pokémon, la carta lo avisa.",
-             "Level-up cards say whether a move is physical or special. Moves on your strong side show up twice as "
-             "often, and if a move does less than 95% with your Pokémon, the card says so."),
+            ("Al subir de nivel, cada carta dice si el ataque es físico o especial. En las cartas de movimiento nuevo, "
+             "los de tu lado bueno salen el doble de a menudo, y si un ataque rinde menos del 95 % con tu Pokémon, la carta lo avisa.",
+             "Level-up cards say whether a move is physical or special. Among new-move cards, moves on your strong side "
+             "show up twice as often, and if a move does less than 95% with your Pokémon, the card says so."),
         ],
     },
     {
         "id": "danzas",
         "h": ("Danzas y Maquinación", "Dances and Nasty Plot"),
         "body": [
-            ("Danza Espada y Danza Dragón solo suben el Ataque físico. Maquinación, nueva, sube el Ataque Especial y "
-             "la puede aprender cualquier Pokémon. Las tres son potenciadores: no hacen daño, y solo suben tu ataque "
-             "mientras duran.",
-             "Swords Dance and Dragon Dance now raise only physical Attack. Nasty Plot, new, raises Special Attack and "
-             "any Pokémon can learn it. All three are boosts: they deal no damage, and they only raise your attack "
-             "while they last."),
+            ("Danza Espada y Danza Dragón solo suben el ataque físico. Maquinación, nueva, sube solo el especial y "
+             "la puede aprender cualquier Pokémon. Las tres son potenciadores: no hacen daño y duran 7 s. Las dos danzas "
+             "comparten contador, así que no se suman. Con dos potenciadores, las cartas de movimiento nuevo ya no "
+             "ofrecen más. Los detalles están en Pasivas.",
+             "Swords Dance and Dragon Dance now raise only physical attack. Nasty Plot, new, raises only special attack, "
+             "and any Pokémon can learn it. All three are boosts: they deal no damage and last 7 s. The two dances share "
+             "a counter, so they don't add up. With two boosts, new-move cards stop offering more. Details are in Passives."),
         ],
     },
     {
