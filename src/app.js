@@ -38,7 +38,6 @@
       tooBig: 'El archivo es demasiado grande.',
       copied: 'Copiado',
       copyFail: 'No se ha podido copiar. Selecciónalo a mano.',
-      noDate: 'sin fecha',
       locale: 'es-ES',
       tierWord: 'Tier', have: 'Tienes', progress: 'Progreso',
       haveOf: (a, b) => a + ' de ' + b,
@@ -57,8 +56,7 @@
       auto: 'Auto', stop: 'Parar',
       over: 'Fin',
       sep: '.',
-      savedOn: d => 'Guardada en este navegador el ' + d + '.',
-      forget: 'Borrar de este navegador',
+      savedHere: 'Guardada en este navegador', reimport: 'Reimportar', forget: 'Borrar de este navegador',
       forgot: 'Borrada de este navegador. Pega el resultado otra vez cuando quieras.',
       storageOff: 'Este navegador no deja guardar la colección. Solo se verá mientras la página esté abierta.',
       ownedIn: (a, b) => 'Tienes ' + a + ' de ' + b,
@@ -85,7 +83,6 @@
       tooBig: 'The file is too large.',
       copied: 'Copied',
       copyFail: 'Could not copy. Select it by hand.',
-      noDate: 'no date',
       locale: 'en-US',
       tierWord: 'Tier', have: 'You have', progress: 'Progress',
       haveOf: (a, b) => a + ' of ' + b,
@@ -104,8 +101,7 @@
       auto: 'Auto', stop: 'Stop',
       over: 'Over',
       sep: ',',
-      savedOn: d => 'Saved in this browser on ' + d + '.',
-      forget: 'Delete from this browser',
+      savedHere: 'Saved in this browser', reimport: 'Re-import', forget: 'Delete from this browser',
       forgot: 'Deleted from this browser. Paste the result again whenever you like.',
       storageOff: 'This browser does not let the collection be saved. It will only show while the page is open.',
       ownedIn: (a, b) => 'You have ' + a + ' of ' + b,
@@ -344,7 +340,6 @@
       const all = state.mons.filter(p => p.r[1] === t);
       return { t, have: all.filter(p => owned.has(p.dex)).length, n: all.length };
     });
-    const when = c.updated ? new Date(c.updated).toLocaleString(TEXT.locale, { dateStyle: 'long', timeStyle: 'short' }) : TEXT.noDate;
     const table = '<div class="tablewrap"><table><thead><tr><th>' + TEXT.tierWord + '</th><th class="num">' + TEXT.have + '</th><th>' + TEXT.progress +
       '</th></tr></thead><tbody>' +
       rows.map(r => '<tr><th scope="row"><span class="tier-badge ' + r.t + '">' + r.t + '</span></th><td class="num">' + TEXT.haveOf(r.have, r.n) +
@@ -360,12 +355,16 @@
     const missing = missingTop.length
       ? '<h3>' + TEXT.missingSA(missingTop.length) + '</h3><div class="grid">' + missingTop.map(p => card(p, 'miss')).join('') + '</div>'
       : '<p><strong>' + TEXT.allSA + '</strong></p>';
+    const day = c.updated ? new Date(c.updated).toLocaleDateString(TEXT.locale, { day: 'numeric', month: 'short' }) : '';
+    const shinyBadge = c.shiny.length
+      ? '<span class="badge-shiny">★ ' + c.shiny.length + '<span class="sr"> ' + esc(TEXT.shinyStat) + '</span></span>' : '';
+    const hero = '<div class="hero"><p class="hero-line"><b class="hero-n">' + known.length + '</b>' +
+      '<span class="hero-of">/ ' + total + '</span><span class="hero-what">' + TEXT.dexStat() + '</span>' + shinyBadge + '</p>' +
+      '<div class="meter" role="img" aria-label="' + esc(TEXT.haveOf(known.length, total)) + '"><i style="width:' +
+      (100 * known.length / total).toFixed(1) + '%"></i></div>' +
+      (day ? '<p class="hero-sub">' + esc(TEXT.lastSave) + ': ' + esc(day) + '</p>' : '') + '</div>';
     $('#result').innerHTML =
-      '<h2>' + (c.name ? TEXT.collectionOf(esc(c.name)) : TEXT.yourCollection) + '</h2>' +
-      '<div class="stats"><div class="stat"><b>' + known.length + ' / ' + total + '</b><span>' +
-      TEXT.dexStat(known.length, total, (100 * known.length / total).toFixed(1)) + '</span></div>' +
-      '<div class="stat"><b>' + c.shiny.length + '</b><span>' + TEXT.shinyStat + '</span></div>' +
-      '<div class="stat"><b class="stat-small">' + esc(when) + '</b><span>' + TEXT.lastSave + '</span></div></div>' +
+      '<h2>' + (c.name ? TEXT.collectionOf(esc(c.name)) : TEXT.yourCollection) + '</h2>' + hero +
       (unknown ? '<p class="muted small">' + TEXT.unknown(unknown) + '</p>' : '') +
       planHtml(owned) +
       '<h3>' + TEXT.byTier + '</h3>' + table + groups + missing;
@@ -525,13 +524,13 @@
     try { localStorage.removeItem(STORE_KEY); } catch (e) { /* nada que borrar */ }
   }
 
-  function showSaved(savedAt, failed) {
+  function showSaved(failed) {
     const el = $('#saved');
     if (failed) { el.textContent = TEXT.storageOff; return; }
-    if (!savedAt) { el.textContent = ''; return; }
-    const when = new Date(savedAt).toLocaleString(TEXT.locale, { dateStyle: 'medium', timeStyle: 'short' });
-    el.innerHTML = '<span>' + esc(TEXT.savedOn(when)) + '</span> <button class="btn ghost small" type="button" id="forget">' +
-      esc(TEXT.forget) + '</button>';
+    const iconBtn = (id, ico, label) => '<button class="col-btn" type="button" id="' + id + '" aria-label="' + esc(label) +
+      '" title="' + esc(label) + '"><i class="ico ' + ico + '" aria-hidden="true"></i></button>';
+    el.innerHTML = '<span class="col-meta">' + esc(TEXT.savedHere) + '</span><span class="col-actions">' +
+      iconBtn('reimport', 'ico-import', TEXT.reimport) + iconBtn('forget', 'ico-trash', TEXT.forget) + '</span>';
   }
 
   // Progreso en cada tarjeta de gacha (página Gacha), si hay una colección guardada.
@@ -551,26 +550,31 @@
   }
 
   function initCollection() {
-    const area = $('#import-area'), again = $('#reimport'), drop = $('#drop'), fileIn = $('#file');
-    // Con una colección importada, el paso a paso y el área de pegado se ocultan: sólo queda «Reimportar».
-    const showImport = on => { area.hidden = !on; again.hidden = on; };
+    const area = $('#import-area'), drop = $('#drop'), fileIn = $('#file');
+    // Con una colección importada, el paso a paso y el área de pegado se ocultan; «Reimportar» (en la fila guardada) los vuelve.
+    const showImport = on => { area.hidden = !on; };
     const saved = readSaved();
-    if (saved) { renderCollection(saved.c); showSaved(saved.savedAt, false); showImport(false); }
+    if (saved) { renderCollection(saved.c); showSaved(false); showImport(false); }
     else showImport(true);
     $('#saved').addEventListener('click', e => {
-      if (e.target.id !== 'forget') return;
-      clearSaved();
-      $('#result').innerHTML = '';
-      $('#saved').textContent = TEXT.forgot;
-      showImport(true);
+      const btn = e.target.closest('button');
+      if (!btn) return;
+      if (btn.id === 'forget') {
+        clearSaved();
+        $('#result').innerHTML = '';
+        $('#saved').textContent = TEXT.forgot;
+        showImport(true);
+      } else if (btn.id === 'reimport') {
+        showImport(true);
+        area.scrollIntoView({ block: 'start' });
+      }
     });
-    again.addEventListener('click', () => { showImport(true); area.scrollIntoView({ block: 'start' }); });
     const run = text => {
       try {
         const c = parseCollection(text);
         const stored = writeSaved(c);
         renderCollection(c);
-        showSaved(stored ? Date.now() : 0, !stored);
+        showSaved(!stored);
         showImport(false);
       } catch (e) {
         if (e instanceof ImportError) showError(e.message); else throw e;
@@ -872,7 +876,7 @@
     };
 
     readColors();
-    matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { readColors(); draw(); });
+    document.addEventListener('themechange', () => { readColors(); draw(); });
     document.fonts.ready.then(draw);
     reset();
     if (REDUCED) { for (let i = 0; i < 80; i++) update(0.05); draw(); } else draw();
@@ -881,6 +885,50 @@
     new IntersectionObserver(es => { visible = es[0].isIntersecting; kick(); }, { threshold: 0.1 }).observe(cv);
     document.addEventListener('visibilitychange', kick);
     set(!REDUCED);
+  }
+
+  // ---------------------------------------------------------------- tema claro u oscuro
+  // El script de <head> (build/theme.py) ya ha puesto data-theme si hay elección guardada. Aquí solo se muestra el botón,
+  // se guarda la elección y se avisa a los gráficos con «themechange». Sin elección, manda el sistema.
+  const THEME_KEY = 'survivortiers.tema';
+  const darkQuery = matchMedia('(prefers-color-scheme: dark)');
+  const isDark = () => (html.dataset.theme ? html.dataset.theme === 'dark' : darkQuery.matches);
+
+  function syncTheme() {
+    const meta = $('#theme-color');
+    if (meta) meta.content = getComputedStyle(html).getPropertyValue('--bg').trim();
+    const btn = $('#theme');
+    if (!btn) return;
+    const label = isDark() ? btn.dataset.toLight : btn.dataset.toDark;
+    btn.setAttribute('aria-label', label);
+    btn.title = label;
+  }
+
+  function applyTheme() {
+    syncTheme();
+    document.dispatchEvent(new CustomEvent('themechange'));
+  }
+
+  function initTheme() {
+    const btn = $('#theme');
+    if (!btn) return;
+    btn.hidden = false;
+    btn.addEventListener('click', () => {
+      html.dataset.theme = isDark() ? 'light' : 'dark';
+      try { localStorage.setItem(THEME_KEY, html.dataset.theme); } catch (e) { /* sin almacenamiento: vale para esta visita */ }
+      applyTheme();
+    });
+    darkQuery.addEventListener('change', () => { if (!html.dataset.theme) applyTheme(); });
+    syncTheme();
+  }
+
+  // En móvil el menú es una tira deslizable: se desplaza solo la tira para que la página activa quede centrada.
+  function centerNav() {
+    const nav = $('.nav');
+    const cur = nav && $('a[aria-current="page"]', nav);
+    if (!cur || nav.scrollWidth <= nav.clientWidth) return;
+    const r = cur.getBoundingClientRect(), n = nav.getBoundingClientRect();
+    nav.scrollLeft += r.left - n.left - (n.width - r.width) / 2;
   }
 
   // ---------------------------------------------------------------- arranque
@@ -897,6 +945,8 @@
     const old = location.pathname.match(/^(\/en)?\/pokemon\/(\d+)(?:\.html)?\/?$/);
     if (old) { location.replace((old[1] || '') + '/pokemon/?id=' + old[2]); return; }
   }
+  initTheme();
+  centerNav();
   initReveal();
   initDemo();
   initReps();
