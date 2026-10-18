@@ -90,6 +90,7 @@
       shinydex: 'Shinydex', filterLabel: 'Filtro', sortLabel: 'Orden',
       filterAll: 'Todos', filterWild: 'Solo salvaje', sortNew: 'Recientes', sortDex: 'Pokédex',
       badgeWild: 'Salvaje', badgeGacha: 'Gacha',
+      attackKind: { phys: 'físico', spec: 'especial', mix: 'mixto' },
       shEmpty: 'Todavía no tienes ningún shiny.', shEmptyWild: 'Ningún shiny cazado en salvaje todavía.',
     },
     en: {
@@ -156,6 +157,7 @@
       shinydex: 'Shinydex', filterLabel: 'Filter', sortLabel: 'Sort',
       filterAll: 'All', filterWild: 'Wild only', sortNew: 'Newest', sortDex: 'Pokédex',
       badgeWild: 'Wild', badgeGacha: 'Gacha',
+      attackKind: { phys: 'physical', spec: 'special', mix: 'mixed' },
       shEmpty: 'You have no shiny yet.', shEmptyWild: 'No shiny hunted in the wild yet.',
     },
   }[EN ? 'en' : 'es'];
@@ -285,8 +287,12 @@
     name: { val: p => monName(p), desc: false, text: true, show: p => p.r[0] },
     dex: { val: p => p.dex, desc: false, show: p => p.r[0] },
     atk: { val: p => p.v.atk, desc: true, show: p => dec(p.v.atk, 2) },
+    pa: { val: p => p.v.pa, desc: true, show: p => dec(p.v.pa, 2) },
+    sa: { val: p => p.v.sa, desc: true, show: p => dec(p.v.sa, 2) },
     hp: { val: p => p.v.hp, desc: true, show: p => p.v.hp },
     spd: { val: p => p.v.spd, desc: true, show: p => p.v.spd },
+    df: { val: p => p.v.df, desc: true, show: p => p.v.df },
+    sd: { val: p => p.v.sd, desc: true, show: p => p.v.sd },
     ehp: { val: p => p.v.ehp, desc: true, show: p => p.v.ehp },
     rad: { val: p => p.v.rad, desc: true, show: p => dec(p.v.rad, 1) },
     td: { val: p => p.v.td, desc: true, show: p => pct(p.v.td) },
@@ -316,7 +322,7 @@
   function indexMons(mons) {
     state.byDex = new Map();
     mons.forEach(p => {
-      p.q = plain([p.name, p.nameEn, p.dex, '#' + p.dex, ...p.types, ...p.types.map(t => TYPE_ES[t])].join(' '));
+      p.q = plain([p.name, p.nameEn, p.dex, '#' + p.dex, ...p.types, ...p.types.map(t => TYPE_ES[t]), TEXT.attackKind[p.v.ak]].join(' '));
       state.byDex.set(p.dex, p);
     });
   }

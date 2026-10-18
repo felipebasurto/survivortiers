@@ -54,7 +54,8 @@ NAV = [("index", "index.html", "nav_tiers"),
        ("buscador", "@finder", "nav_buscador"), ("planificador", "@planner", "nav_planificador"),
        ("coleccion", "coleccion.html", "nav_coleccion"), ("acerca", "acerca.html", "nav_acerca"),
        ("metodo", "metodo.html", "nav_metodo")]
-SORT_KEYS = ("rank", "name", "dex", "atk", "hp", "spd", "ehp", "rad", "td", "mv", "st", "rar")  # orden de la lista
+SORT_KEYS = ("rank", "name", "dex", "atk", "pa", "sa", "hp", "spd", "df", "sd", "ehp", "rad", "td", "mv", "st",
+             "rar")  # orden de la lista
 REPEAT_RANKS = (2, 40, 150, 350, 650)  # puestos de los Pokémon que salen en la ilustración de repeticiones
 PILLAR_KEYS = ("stats", "moves", "typedef", "size")
 ARENA_DEX = 25
@@ -301,13 +302,15 @@ FICHA_KEYS = (
     "rep_title", "rep_b1", "rep_b2", "rep_b3",
     "rar_1", "rar_2", "rar_3", "rar_4", "rar_5", "t_base", "bs_hp", "bs_atk", "bs_def", "bs_spa", "bs_spd", "bs_spe",
     "bs_total", "bs_alt_item", "bs_s_hp", "bs_s_atk", "bs_s_def", "bs_s_spa", "bs_s_spd", "bs_s_spe",
-    "sheet_title", "sheet_desc", "fh_game", "fresh")
+    "sheet_title", "sheet_desc", "fh_game", "fresh", "t_combat", "cb_pa", "cb_sa", "cb_df", "cb_sd", "cb_kind_phys",
+    "cb_kind_spec", "cb_kind_mix", "cb_note", "cb_src")
 
 
 def ficha_chrome(L: Lang, meta: dict) -> tuple[str, str]:
     """Piezas que la ficha interactiva necesita y que no dependen del Pokémon: símbolos, plantillas e i18n."""
     strings = {k: L.t_raw(k).replace("{site}", legal.SITE_NAME).replace("{game}", legal.GAME_NAME)
                .replace("{total}", str(charts.TOTAL)).replace("{sha}", meta["gameCommit"][:7])
+               .replace("{combat}", legal.COMBAT_COMMIT)
                .replace("{date}", meta["generatedAt"][:10]) for k in FICHA_KEYS}
     blob = json.dumps({"en": L.en, "s": strings}, ensure_ascii=False).replace("</", "<\\/")
     pills = "".join(f'<span data-t="{t}">{type_pill(L, t)}</span>' for t in typedata.TYPE_COLOR)
