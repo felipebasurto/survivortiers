@@ -115,8 +115,9 @@ Base URL: {u}
 - [Best Pokémon (EN)]({_page_url(True, 'best')}): the top 30, tier S, in order.
 - [Best starters (EN)]({_page_url(True, 'starters')}): the starting picks that last longest in the simulated opening.
 - [Best legendaries (EN)]({_page_url(True, 'legendary')}): every legendary by rank.
-- [Best passives (EN)]({_page_url(True, 'passives')}): level-up cards ranked by coin reward, with the Sitrus Berry rule.
+- [Best passives (EN)]({_page_url(True, 'passives')}): level-up cards ranked by coin reward. The Sitrus Berry at 70% HP is a simulation rule, not a game rule.
 - Best Pokémon by type (EN), one page per type: {_type_links(True)}.
+- [Passives (EN)]({u}/en/pasivas.html): what each level-up card does, how boosts stack and the two-boost cap.
 - [What's new (EN)]({u}/en/novedades): the October 18, 2026 update: physical and special moves, bosses, Arceus' Judgment and the controller.
 - [Moves (EN)]({u}/en/ataques): attack tier list.
 - [Items (EN)]({u}/en/objetos): item tier list.
@@ -132,7 +133,7 @@ Base URL: {u}
 
 - [Tier list (ES)]({u}/): the same site in Spanish, with [Mejores Pokémon]({_page_url(False, 'best')}), [Mejores iniciales]({_page_url(False, 'starters')}), [Mejores legendarios]({_page_url(False, 'legendary')}) and [Mejores pasivas]({_page_url(False, 'passives')}), and per-type pages: {_type_links(False)}.
 - [Source repository](https://github.com/felipebasurto/survivortiers): the generator that builds these files.
-- [Game repository](https://github.com/JPTER78/pokesurvivor): PokéSurvivor, at commit {meta['gameCommit']}, the commit the data was built from.
+- [Game repository](https://github.com/JPTER78/pokesurvivor): PokéSurvivor. The ranking was built from commit {meta['gameCommit']}; mechanics, attacks and boosts are checked against commit {legal.COMBAT_COMMIT}.
 """
 
 
@@ -161,7 +162,7 @@ def llms_full_txt(meta: dict) -> str:
         f"# {legal.SITE_NAME}: full data dictionary and method",
         "",
         f"Base URL: {u}",
-        f"Generated: {meta['generatedAt']}. Ranking version: {meta['version']}. Game commit the data was built from: {meta['gameCommit']}.",
+        f"Generated: {meta['generatedAt']}. Ranking version: {meta['version']}. Game commit the ranking was built from: {meta['gameCommit']}. Mechanics and attack data: commit {legal.COMBAT_COMMIT}.",
         "Language of values: `name` is Spanish (the game's names), `nameEn` and `*En` fields are English.",
         "",
         "## What the ranking is",

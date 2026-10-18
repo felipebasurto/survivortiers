@@ -14,9 +14,8 @@ GAME_REPO = "https://github.com/JPTER78/pokesurvivor"
 BANNER_KEY = "survivortiers.novedades.20261018"
 
 LEDE = (
-    "Actualización obligatoria del 18 de octubre de 2026. Todos los rankings empiezan de cero: los puestos de antes "
-    "ya no cuentan.",
-    "Mandatory update from October 18, 2026. Every leaderboard starts from zero: old positions no longer count.",
+    "Actualización del 18 de octubre de 2026. El ranking se recalcula desde cero: los puestos de antes ya no valen.",
+    "October 18, 2026 update. The ranking is recalculated from scratch: the old positions no longer count.",
 )
 
 H1 = ("Novedades", "What's new")

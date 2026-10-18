@@ -299,10 +299,10 @@ def _boost_rows(L: Lang) -> str:
         top = _amount(b["amount"] * b["stacks"], b["stat"], L, digits)
         rows.append(
             f'<tr><th scope="row">{escape(name)}</th>'
-            f'<td>{escape(L.t(BOOST_LABEL[b["stat"]]))} {escape(per)}</td>'
-            f'<td class="num">{L.dec(b["cd"], 2)}{NBSP if not L.en else " "}s</td>'
-            f'<td class="num">{b["dur"]}{NBSP if not L.en else " "}s</td>'
-            f'<td class="num">{escape(top)}</td></tr>')
+            f'<td data-label="{escape(L.t("pv_buff_th_stat"))}">{escape(L.t(BOOST_LABEL[b["stat"]]))} {escape(per)}</td>'
+            f'<td class="num" data-label="{escape(L.t("pv_buff_th_cd"))}">{L.dec(b["cd"], 2)}{NBSP if not L.en else " "}s</td>'
+            f'<td class="num" data-label="{escape(L.t("pv_buff_th_dur"))}">{b["dur"]}{NBSP if not L.en else " "}s</td>'
+            f'<td class="num" data-label="{escape(L.t("pv_buff_th_max"))}">{escape(top)}</td></tr>')
     return "".join(rows)
 
 
