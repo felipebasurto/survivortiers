@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
-<meta name="theme-color" content="#fffff8" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#151515" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" id="theme-color" content="#f6f0dc">
+$theme_init
 <title>$title</title>
 <meta name="description" content="$description">
 $social
@@ -24,7 +24,7 @@ $extra_head
     <nav class="nav" aria-label="$nav_aria">
 $nav
     </nav>
-    <div class="tools">$switch$follow</div>
+    <div class="tools">$switch$theme$follow</div>
   </div>
 </header>
 <main id="main"><div class="wrap">
