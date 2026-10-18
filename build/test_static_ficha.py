@@ -7,6 +7,7 @@ La página de ejemplo sale de build/render.py (site/pokemon/150-mewtwo/index.htm
 from __future__ import annotations
 
 import csv
+import html as html_lib
 import json
 import re
 import subprocess
@@ -19,6 +20,7 @@ sys.path.insert(0, str(ROOT / "build"))
 
 import legal  # noqa: E402
 import static_ficha  # noqa: E402
+from i18n import EN, ES  # noqa: E402
 from slugs import slugify, species_path  # noqa: E402
 
 SITE = ROOT / "site"
@@ -127,6 +129,68 @@ class StaticMewtwo(unittest.TestCase):
         self.assertIn("/en/pokemon/150-mewtwo/", sitemap)
         robots = (SITE / "robots.txt").read_text(encoding="utf8")
         self.assertIn(f"Sitemap: {legal.SITE_URL}/sitemap.xml", robots)
+
+
+def _faq_pairs(page: str) -> list[tuple[str, str]]:
+    section = re.search(r'<section class="sheet faq".*?</section>', page, re.S)
+    if not section:
+        return []
+    return [(html_lib.unescape(q), html_lib.unescape(a))
+            for q, a in re.findall(r"<dt>(.*?)</dt><dd>(.*?)</dd>", section.group(0), re.S)]
+
+
+class FaqCopy(unittest.TestCase):
+    def test_visible_faq_matches_jsonld_exactly(self) -> None:
+        for rel in ("pokemon/150-mewtwo/index.html", "en/pokemon/150-mewtwo/index.html",
+                    "pokemon/1000-gholdengo/index.html", "pokemon/829-gossifleur/index.html"):
+            page = (SITE / rel).read_text(encoding="utf8")
+            ld = json.loads(re.search(r'<script type="application/ld\+json">(.*?)</script>', page, re.S).group(1))
+            pairs = _faq_pairs(page)
+            self.assertEqual(len(pairs), 4, rel)
+            self.assertEqual(pairs, [(e["name"], e["acceptedAnswer"]["text"]) for e in ld["mainEntity"]], rel)
+
+    def test_mewtwo_questions_are_the_player_ones(self) -> None:
+        es = [q for q, _ in _faq_pairs((SITE / "pokemon" / "150-mewtwo" / "index.html").read_text(encoding="utf8"))]
+        en = [q for q, _ in _faq_pairs((SITE / "en" / "pokemon" / "150-mewtwo" / "index.html").read_text(encoding="utf8"))]
+        self.assertEqual(es, ["¿Vale la pena?", "¿Qué ataques le pongo?", "¿Qué cartas le conviene coger?", "¿Cómo se consigue?"])
+        self.assertEqual(en, ["Is it worth it?", "Which moves should I use?", "Which upgrade cards should I take?",
+                              "How do you get it?"])
+
+    def test_faq_answers_do_not_repeat_the_name(self) -> None:
+        for rel in ("pokemon/150-mewtwo/index.html", "en/pokemon/150-mewtwo/index.html"):
+            page = (SITE / rel).read_text(encoding="utf8")
+            section = re.search(r'<section class="sheet faq".*?</section>', page, re.S).group(0)
+            self.assertNotIn("Mewtwo", section)
+
+    def test_join_uses_e_before_i_sound(self) -> None:
+        self.assertEqual(static_ficha._join(ES, ["Vozarrón", "Hipnosis"]), "Vozarrón e Hipnosis")
+        self.assertEqual(static_ficha._join(ES, ["Psíquico", "Vozarrón", "Ímpetu"]), "Psíquico, Vozarrón e Ímpetu")
+        self.assertEqual(static_ficha._join(ES, ["Vozarrón", "Hierba"]), "Vozarrón y Hierba")
+        self.assertEqual(static_ficha._join(ES, ["Vozarrón", "Hielo"]), "Vozarrón y Hielo")
+        self.assertEqual(static_ficha._join(ES, ["Vozarrón", "Hidropulso"]), "Vozarrón e Hidropulso")
+        self.assertEqual(static_ficha._join(EN, ["Hyper Voice", "Impact"]), "Hyper Voice and Impact")
+        self.assertEqual(static_ficha._join(ES, ["Solo"]), "Solo")
+        self.assertEqual(static_ficha._join(ES, []), "")
+
+    def test_faq_branches(self) -> None:
+        cards = "Imán, Reflejos, Vigor y Coraza"
+        plain = static_ficha._faqs(ES, "A", 87, "Psíquico y Vozarrón", "", 0, 13, cards, "Kanto", False, "0,25", 400)
+        self.assertEqual(plain[1][1], "Psíquico y Vozarrón. Pega super efectivo al 13\u00a0% de los enemigos.")
+        self.assertEqual(plain[0][1], "Sí, está entre los buenos: tier A, puesto 87 de 966.")
+        self.assertEqual(plain[-1][1], "Sale en el banner Kanto. Cada tirada tiene un 0,25\u00a0% de probabilidad, "
+                                       "así que de media hacen falta unas 400 tiradas, sin contar las garantías.")
+        one = static_ficha._faqs(ES, "B", 300, "Vozarrón y Golpe Cuerpo", "Danza Espada", 1, 0, "", "Galar", True,
+                                 "2", 51)
+        self.assertEqual([q for q, _ in one], ["¿Vale la pena?", "¿Qué ataques le pongo?", "¿Cómo se consigue?"])
+        self.assertEqual(one[1][1], "Vozarrón y Golpe Cuerpo, con Danza Espada de potenciador. "
+                                    "Ninguno de sus ataques es super efectivo contra los enemigos.")
+        self.assertTrue(one[-1][1].startswith("Es de los legendarios y sale en el banner Galar."))
+        en = static_ficha._faqs(EN, "D", 966, "Hyper Voice and Petal Blizzard", "Swords Dance and Harden", 2, 19,
+                                "Reflexes, Synthesis, Armor and Sprint", "Galar", False, "2.0", 51)
+        self.assertEqual(en[1][1], "Hyper Voice and Petal Blizzard, with Swords Dance and Harden as boosts. "
+                                   "Its moves are super effective against 19% of enemies.")
+        self.assertEqual(en[-1][1], "It is on the Galar banner. Each pull has a 2.0% chance, so on average it takes "
+                                    "about 51 pulls, not counting pity guarantees.")
 
 
 if __name__ == "__main__":
