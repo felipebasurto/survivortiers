@@ -23,6 +23,9 @@ Web: https://survivortiers.pages.dev
 | `build/serve.py` | Servidor local con el mismo comportamiento que el hosting: 404.html con estado 404 y `/_sprites/` |
 | `build/move_tierlist_v4.py` | Regenera `data/move_tierlist_v4.csv` (necesita el análisis y una copia del juego) |
 | `build/shiny_sprites.py` | Deriva qué especies pueden ser shiny (`data/shiny_species.json`) desde los metadatos de sprites del juego, en un commit fijo, y recorta sus sprites shiny a `sprites/shiny/`. Sin argumentos comprueba el repositorio del juego en caché; `--fetch` lo descarga |
+| `build/landing.py` | Las 22 páginas de consulta por idioma (mejores Pokémon, iniciales, legendarios, uno por tipo y pasivas), generadas solo desde los datos del build. Ver «Páginas de consulta» |
+| `build/dupcheck.py` | Similitud (Jaccard sobre trozos de 5 palabras del texto visible) entre las fichas de un idioma |
+| `build/indexnow.py` | Avisa a IndexNow de las URL de `sitemap.xml`. Se ejecuta a mano después de cada deploy |
 | `build/check_site.py` | Comprobaciones de aceptación sobre un sitio servido |
 | `console/coleccion.js`, `coleccion.en.js` | Comando que el jugador pega en la consola del juego. Exporta cada shiny con su origen y fecha en `shinyInfo` (`{dex: [origen, día]}`; origen 0 salvaje, 1 gacha, 2 desconocido). El JSON antiguo sin `shinyInfo` sigue valiendo, con origen desconocido |
 | `build/test_share.js`, `build/test_collection.js` | Pruebas del codec del enlace (v1 y v2) y del lector del comando. `python3 -m unittest build/test_share.py build/test_collection.py` las ejecuta |
@@ -37,7 +40,7 @@ python3 build/check_site.py http://127.0.0.1:8765/    # enlaces, atribución, da
 python3 build/check_site.py http://127.0.0.1:8765/ --external   # además, enlaces externos (red)
 ```
 
-`check_site.py` dibuja una muestra de fichas en un navegador si tienes Playwright (`pip install playwright`); con `--all-species` dibuja las 966 de cada idioma.
+`check_site.py` dibuja una muestra de fichas en un navegador si tienes Playwright (`pip install playwright`); con `--all-species` dibuja las 966 de cada idioma. También recorre las 22 páginas de consulta a 390 px y comprueba que su lista visible sea la del JSON-LD, en el mismo orden.
 
 `site/` y `build/out/` son salida generada y no se versionan. Para publicar, genera el sitio **sin** `SPRITE_BASE` y ejecuta `npx wrangler deploy` (Cloudflare Workers, ver `wrangler.jsonc`). `vercel.json` queda por si se despliega allí.
 
@@ -67,6 +70,43 @@ El sitio es estático y no tiene API: los datos son JSON y CSV en `/data/`, sin 
 5. `python3 build/catalog.py && python3 build/render.py && python3 build/check_site.py …`.
 
 Si cambian los tamaños de tier (`TIER_CUTS`) o los conteos esperados, ajusta `build/catalog.py`.
+
+## Páginas de consulta
+
+`build/landing.py` genera, en cada idioma, 22 páginas de respuesta corta:
+
+| Página (ES / EN) | Lista |
+| --- | --- |
+| `/mejores-pokemon/` · `/en/best-pokemon/` | los 30 primeros del ranking (tier S) |
+| `/mejores-iniciales/` · `/en/best-starters/` | los 20 Pokémon que más aguantan como inicial en la apertura simulada (`rank_sim_start`) |
+| `/mejores-legendarios/` · `/en/best-legendaries/` | todos los legendarios, por puesto |
+| `/mejores-tipo/<tipo>/` · `/en/best-type/<type>/` | los 20 mejores de cada uno de los 18 tipos |
+| `/mejores-pasivas/` · `/en/best-passives/` | las 8 cartas de nivel de `build/pasivas.py`, por monedas |
+
+Cada página responde en sus dos primeras líneas (el título de la lista y una frase con los primeros nombres) y luego enseña la lista. El JSON-LD `CollectionPage` con `ItemList` repite exactamente esa lista, en el mismo orden; `check_site.py` lo comprueba. Todas están en `sitemap.xml`, enlazadas desde la portada y desde cada ficha, y con `hreflang` es/en y `x-default`. No hay texto escrito a mano por Pokémon: si cambian los datos, cambian las listas.
+
+## Frescura
+
+La portada, cada ficha y cada página de consulta muestran «Datos del juego: commit <sha> · actualizado <fecha>» (en inglés, «Game data: commit … · updated …»). El commit es `GAME_COMMIT` de `build/legal.py`, y la fecha es la del build (`generatedAt` en `meta.json`). Las fichas y las páginas de consulta llevan esa fecha como `dateModified` en el JSON-LD.
+
+## Similitud entre fichas
+
+```sh
+python3 build/dupcheck.py --lang es   # o --lang en
+```
+
+Compara las fichas por el texto visible: trozos de 5 palabras, Jaccard entre pares, y aparte los trozos que están en más de la mitad de las fichas (la plantilla). Sirve para medir si una ficha se parece demasiado a otra.
+
+## IndexNow
+
+`src/<clave>.txt` es la clave de IndexNow (32 caracteres hexadecimales dentro del archivo). `pack.py` la copia a la raíz del sitio. **Ejecuta `build/indexnow.py` a mano después de cada deploy**, cuando la clave ya responda en `https://survivortiers.pages.dev/<clave>.txt`:
+
+```sh
+python3 build/indexnow.py --dry-run   # cuántas URL y en cuántos lotes, sin red
+python3 build/indexnow.py             # envía las URL de sitemap.xml a api.indexnow.org
+```
+
+El script no corre en el build ni en CI. Solo envía URL del host de `SITE_URL`, en lotes de 10.000 como máximo.
 
 ## Resúmenes de la ficha
 

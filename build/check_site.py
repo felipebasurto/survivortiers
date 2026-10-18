@@ -16,6 +16,7 @@ devolver 404.html con estado 404 para lo que no existe, como el hosting: usa bui
 from __future__ import annotations
 
 import argparse
+import html as html_lib
 import json
 import random
 import re
@@ -31,8 +32,11 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 import agents  # noqa: E402
 import combos  # noqa: E402
+import indexnow  # noqa: E402
+import landing  # noqa: E402
 import legal  # noqa: E402
 import theme  # noqa: E402
+from i18n import EN, ES  # noqa: E402
 
 try:
     from playwright.sync_api import Error, sync_playwright
@@ -141,8 +145,8 @@ def agent_check(base: str, body_by_url: dict[str, str], err, notes: list[str], n
     elif len(rows) != 967 or any(r.startswith("#") for r in rows):
         err(f"data/ranking.csv: {len(rows) - 1} filas, se esperaban 966 y sin líneas de comentario")
 
-    # sitemap: una entrada por página de menú, por ficha y por idioma
-    expected = (len(agents.PAGES) + n_sheets) * len(agents.LANG_PREFIX)
+    # sitemap: una entrada por página de menú, por ficha, por página de consulta y por idioma
+    expected = (len(agents.PAGES) + n_sheets + len(landing.pages())) * len(agents.LANG_PREFIX)
     sitemap = fetch(base + "sitemap.xml")[1].decode("utf8", "replace")
     if sitemap.count("<url>") != expected:
         err(f"sitemap.xml: {sitemap.count('<url>')} entradas, se esperaban {expected}")
@@ -160,6 +164,10 @@ def agent_check(base: str, body_by_url: dict[str, str], err, notes: list[str], n
                 err(f"{url}: faltan las etiquetas para compartir (canónica, Open Graph o Twitter/X)")
             if legal.WEB_ANALYTICS_TOKEN not in html:
                 err(f"{url}: falta el beacon de Cloudflare Web Analytics")
+    key = indexnow.key_file().stem
+    st, key_body = fetch(f"{base}{key}.txt")
+    if st != 200 or key_body.decode("utf8", "replace").strip() != key:
+        err(f"{key}.txt: la clave de IndexNow no se sirve en la raíz con su contenido")
     st, png = fetch(base + "og.png")
     if st != 200 or png[:8] != b"\x89PNG\r\n\x1a\n" or int.from_bytes(png[16:20], "big") != 1200 or int.from_bytes(png[20:24], "big") != 630:
         err("og.png no es un PNG de 1200 × 630")
@@ -168,6 +176,70 @@ def agent_check(base: str, body_by_url: dict[str, str], err, notes: list[str], n
         if '"@type": "Dataset"' not in html:
             err(f"{base}{lang}: falta el JSON-LD Dataset")
     notes.append(f"agentes: llms.txt con {len(local_links)} enlaces, sitemap con {expected} entradas")
+
+
+LD_RE = re.compile(r'<script type="application/ld\+json">\s*(.*?)\s*</script>', re.S)
+
+
+def landing_check(base: str, body_by_url: dict[str, str], err, notes: list[str]) -> None:
+    """Páginas de consulta: la lista visible es la del JSON-LD (mismos nombres y orden), la respuesta va antes de la
+    lista, la línea de datos está, y cada ficha enlaza la tier list y sus listas de consulta."""
+    checked = 0
+    for lang in (ES, EN):
+        for page in landing.pages():
+            url = base + ("en/" if lang.en else "") + landing.folder(lang, page)
+            html = body_by_url.get(url)
+            if html is None:
+                err(f"{url}: no se alcanza desde la portada")
+                continue
+            checked += 1
+            ld = LD_RE.search(html)
+            items = json.loads(ld.group(1).replace("<\\/", "</"))["mainEntity"]["itemListElement"] if ld else None
+            if not items:
+                err(f"{url}: falta el ItemList en JSON-LD")
+                continue
+            if page.key == "passives":
+                visible = re.findall(r'<span class="ql-name">(.*?)</span>', html)
+            else:
+                visible = re.findall(r'<span class="nm">(.*?)</span>', html)
+            if [html_lib.unescape(v) for v in visible] != [i["name"] for i in items]:
+                err(f"{url}: la lista visible no coincide con el ItemList del JSON-LD")
+            if html.index('<p class="ql-lede">') > html.index('<section class="ql-list"'):
+                err(f"{url}: la respuesta no va antes de la lista")
+            if f"commit {legal.GAME_COMMIT[:7]}" not in html and f"commit {legal.GAME_COMMIT}" not in html:
+                err(f"{url}: falta la línea de datos del juego")
+            if page.key != "passives" and not re.search(r'<p class="ql-lede">[^<]*' + re.escape(html_lib.unescape(items[0]["name"])), html):
+                err(f"{url}: la primera línea no nombra al primero de la lista")
+    fichas = [(u, h) for u, h in body_by_url.items() if re.search(r"/pokemon/\d+-[a-z0-9-]+/$", u)]
+    for url, html in fichas:
+        if 'href="../../index.html"' not in html and 'href="../../en/index.html"' not in html and 'class="ql-guides"' not in html:
+            err(f"{url}: la ficha no enlaza la tier list ni las listas de consulta")
+    notes.append(f"páginas de consulta comprobadas: {checked}; fichas con enlaces a listas: {len(fichas)}")
+
+
+def landing_browser_check(base: str, err, notes: list[str]) -> None:
+    """Páginas de consulta a 390 px: sin desbordamiento horizontal y con la lista dibujada."""
+    if sync_playwright is None:
+        return
+    with sync_playwright() as pw:
+        browser = launch_chromium(pw)
+        if browser is None:
+            return
+        page = browser.new_page(viewport={"width": 390, "height": 800})
+        n = 0
+        for lang in ("", "en/"):
+            for lp in landing.pages():
+                url = base + lang + landing.folder(EN if lang else ES, lp)
+                page.goto(url, wait_until="domcontentloaded")
+                wide = page.evaluate("() => document.documentElement.scrollWidth > innerWidth + 1")
+                drawn = page.evaluate("() => document.querySelectorAll('.ql-grid .mon, .ql-rows li').length")
+                if wide:
+                    err(f"{url}: se desborda en 390 px de ancho")
+                if drawn == 0:
+                    err(f"{url}: no hay filas en la lista")
+                n += 1
+        browser.close()
+    notes.append(f"páginas de consulta en 390 px: {n}")
 
 
 def launch_chromium(pw):
@@ -668,6 +740,8 @@ def main() -> int:
                 err(f"{url}: los créditos de artistas solo van en Acerca")
     notes.append(f"páginas rastreadas: {sum(1 for p in seen.values() if p)}; sprites enlazados: {len(sprite_refs)}")
     agent_check(base, body_by_url, err, notes, len(index))
+    landing_check(base, body_by_url, err, notes)
+    landing_browser_check(base, err, notes)
     browser_check(base, index, args, err, notes)
     theme_check(base, err, notes)
 
