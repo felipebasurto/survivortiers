@@ -514,7 +514,7 @@ def banners_script(L: Lang, gachas: list[dict]) -> str:
 def render_coleccion(c: Ctx, gachas: list[dict], meta: dict) -> str:
     L = c.L
     snippet = (ROOT / "console" / ("coleccion.en.js" if L.en else "coleccion.js")).read_text(encoding="utf8")
-    content = f"""
+    content = f"""{balls.defs()}
 <h1>{esc(L.t("col_h1"))}</h1>
 {banners_script(L, gachas)}
 <div id="import-area">
