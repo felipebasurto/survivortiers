@@ -3,11 +3,19 @@ from __future__ import annotations
 
 import os
 
-from i18n import Lang
+from i18n import GAME_NAME, SITE_NAME, Lang
 
-SITE_NAME = "SurvivorTiers"
 
-GAME_NAME = "PokéSurvivor"
+def method_counts(L: Lang, meta: dict) -> dict[str, str]:
+    """Partidas simuladas por Pokémon y repeticiones del cálculo, con el formato de idioma. Los textos los citan."""
+    return {"sims": L.num(meta["simSeeds"]), "reps": L.num(meta["method"]["repeats"])}
+
+
+def freshness_text(L: Lang, meta: dict) -> str:
+    """Línea «Datos del juego: commit … · actualizado …»: el commit del juego que usa el ranking y la fecha del build."""
+    return L.t("fresh", sha=meta["gameCommit"][:7], date=meta["generatedAt"][:10])
+
+
 X_HANDLE = "@fildotai"
 # Token público del sitio de Cloudflare Web Analytics para survivortiers.pages.dev (aparece en el HTML).
 WEB_ANALYTICS_TOKEN = "b25b980b4c074c92883d29239edc0bea"

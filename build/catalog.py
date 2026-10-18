@@ -39,6 +39,8 @@ VERSION = "definitivo"
 TIER_CUTS = [("S", 1, 30), ("A", 31, 120), ("B", 121, 320), ("C", 321, 620), ("D", 621, 966)]
 EXPECTED_COUNTS = {"S": 30, "A": 90, "B": 200, "C": 300, "D": 346}
 TOTAL = 966
+# Simulación de grupo fijo que usa el ranking (make_definitive.py): la mediana de cada Pokémon sale de sus partidas.
+SIM_RANK = ROOT / "simulator" / "results" / "fixed_group" / "g2p2" / "rank_200.csv"
 PRESETS = ("Kyurem", "Keldeo", "Pikachu")  # ejemplos del deslizador de la página Método
 FIRM = 0.8  # un tier es «firme» si el Pokémon cae en él en al menos el 80 % de las repeticiones
 
@@ -309,6 +311,14 @@ def build_gachas(entries: list[dict]) -> list[dict]:
     return out
 
 
+def sim_seeds() -> int:
+    """Partidas simuladas por Pokémon en la sim del ranking (columna n de rank_200.csv). Tienen que ser todas iguales."""
+    counts = {int(r["n"]) for r in _read_csv(SIM_RANK)}
+    if len(counts) != 1:
+        raise CatalogError(f"{SIM_RANK.name}: partidas por Pokémon distintas {sorted(counts)}")
+    return counts.pop()
+
+
 def build_meta(entries: list[dict], credits: dict, counts: dict) -> dict:
     when = os.environ.get("SOURCE_DATE_EPOCH")
     stamp = datetime.fromtimestamp(int(when), timezone.utc) if when else datetime.now(timezone.utc)
@@ -317,6 +327,7 @@ def build_meta(entries: list[dict], credits: dict, counts: dict) -> dict:
         "version": VERSION, "generatedAt": stamp.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "tierCuts": [{"tier": t, "from": a, "to": b} for t, a, b in TIER_CUTS],
         "tierCounts": counts, "total": TOTAL, "gameCommit": legal.GAME_COMMIT, "firmShare": int(FIRM * 100),
+        "simSeeds": sim_seeds(),
         "top": [{"dex": e["dex"], "name": e["name"], "nameEn": e["nameEn"]} for e in top],
         "simMedianSeconds": round(statistics.median(e["r"]["sim"]["start"]["seconds"] for e in entries)),
         "stability": build_stability(entries), "method": METHOD, "agreement": build_agreement(entries),
