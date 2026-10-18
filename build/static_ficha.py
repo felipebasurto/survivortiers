@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import math
+import unicodedata
 from html import escape
 
 import catalog
@@ -67,10 +68,18 @@ def _digits(pct: float) -> int:
     return 3
 
 
+def _starts_i_sound(word: str) -> bool:
+    """La RAE pide «e» antes de i- y de hi- (Hipnosis, Impactrueno), pero no ante hie-, hia-, hio-, hiu- (hierba)."""
+    w = "".join(c for c in unicodedata.normalize("NFKD", word.lower()) if not unicodedata.combining(c))
+    if w.startswith("i"):
+        return True
+    return w.startswith("hi") and w[2:3] not in ("a", "e", "i", "o", "u")
+
+
 def _join(L: Lang, names: list[str]) -> str:
     if len(names) <= 1:
         return names[0] if names else ""
-    conj = " and " if L.en else " y "
+    conj = " and " if L.en else (" e " if _starts_i_sound(names[-1]) else " y ")
     return ", ".join(names[:-1]) + conj + names[-1]
 
 
@@ -96,20 +105,26 @@ def alternates(slug: str) -> str:
     ))
 
 
-def _faqs(L: Lang, name: str, tier: str, rank: int, sim_best: int, sim_open: int,
-          attacks: str, buffs: str, super_pct: int, neutral_pct: int, stats: list[int],
-          banner: str, stars: int, pct: str, pulls: int) -> list[tuple[str, str]]:
-    labels = [L.t(k) for k in STAT_KEYS]
-    stat_bits = ", ".join(f"{label} {n}" for label, n in zip(labels, stats))
-    cover = L.t("sheet_a_cover", super=L.pcts(super_pct), neutral=L.pcts(neutral_pct))
-    build = L.t("sheet_a_build", attacks=attacks, buffs=buffs) if buffs else L.t("sheet_a_build_plain", attacks=attacks)
-    return [
-        (L.t("sheet_q_tier", name=name), L.t("sheet_a_tier", name=name, tier=tier, rank=rank, total=charts.TOTAL)),
-        (L.t("sheet_q_sim"), L.t("sheet_a_sim", best=sim_best, open=sim_open)),
-        (L.t("sheet_q_build"), f"{build} {cover}"),
-        (L.t("sheet_q_stats"), L.t("sheet_a_stats", stats=stat_bits, total=sum(stats))),
-        (L.t("sheet_q_get"), L.t("sheet_a_get", banner=banner, stars=stars, pct=pct, n=L.num(pulls))),
-    ]
+def _card_name(L: Lang, card: dict) -> str:
+    return card["en"]["name"] if L.en else card["name"]
+
+
+def _faqs(L: Lang, tier: str, rank: int, attacks: str, buffs: str, n_buffs: int, super_pct: int,
+          cards: str, banner: str, legendary: bool, pct: str, pulls: int) -> list[tuple[str, str]]:
+    worth = (L.t("faq_q_worth"), L.t(f"faq_a_{tier}", rank=rank, total=charts.TOTAL))
+    if n_buffs == 0:
+        head = L.t("faq_a_moves_plain", attacks=attacks)
+    elif n_buffs == 1:
+        head = L.t("faq_a_moves_one", attacks=attacks, buffs=buffs)
+    else:
+        head = L.t("faq_a_moves", attacks=attacks, buffs=buffs)
+    cover = L.t("faq_a_cover", super=L.pcts(super_pct)) if super_pct else L.t("faq_a_cover_none")
+    out = [worth, (L.t("faq_q_moves"), f"{head} {cover}")]
+    if cards:
+        out.append((L.t("faq_q_cards"), L.t("faq_a_cards", cards=cards)))
+    where = L.t("faq_get_where_leg" if legendary else "faq_get_where", banner=banner)
+    out.append((L.t("faq_q_get"), f"{where} {L.t('faq_get_odds', pct=pct, n=L.num(pulls))}"))
+    return out
 
 
 def jsonld(faqs: list[tuple[str, str]]) -> str:
@@ -137,7 +152,7 @@ def _neighbor(L: Lang, home: str, sprites: str, ext: str, entry: dict | None, di
 
 
 def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, detail: list, moves: dict[str, dict],
-          prev: dict | None, nxt: dict | None, odds: tuple[float, int]) -> tuple[str, str]:
+          prev: dict | None, nxt: dict | None, odds: tuple[float, int], cards: dict) -> tuple[str, str]:
     """Devuelve el HTML visible (sin <head>) y el JSON-LD de las preguntas."""
     name = L.mon(entry)
     rank, tier = entry["r"]["rank"], entry["r"]["tier"]
@@ -158,8 +173,10 @@ def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, detail: list,
         raise ValueError(f"{entry['dex']}: la tirada no tiene probabilidad")
     pct = L.dec(p_pull * 100, _digits(p_pull * 100))
     banner = L.banner(entry["banner"])
-    faqs = _faqs(L, name, tier, rank, methods["simBest"], methods["simStart"], attacks, buffs,
-                 int(super_pct), int(neutral_pct), stats, banner, entry["rarity"], pct, pulls)
+    card_ids = detail[10][0]
+    card_text = _join(L, [_card_name(L, cards[c]) for c in card_ids])
+    faqs = _faqs(L, tier, rank, attacks, buffs, len(buff_ids), int(super_pct), card_text, banner,
+                 bool(entry["legendary"]), pct, pulls)
     w, h = entry["sprite"]["w"], entry["sprite"]["h"]
     scale = max(1, min(5, 170 // max(w, h)))
     types = entry["types"]
@@ -219,7 +236,6 @@ def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, detail: list,
 </article>
 <section class="sheet" id="obtain" aria-labelledby="obtain-h">
 <h2 id="obtain-h">{esc(L.t("sheet_obtain_h"))}</h2>
-<p>{esc(faqs[-1][1])}</p>
 <p><a href="{home}gachas.html">{esc(L.t("nav_gachas"))}</a></p>
 </section>
 <section class="sheet faq" id="faq" aria-labelledby="faq-h">

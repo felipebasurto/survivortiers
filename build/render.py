@@ -326,9 +326,9 @@ def render_ficha(c: Ctx, index: list[dict], meta: dict) -> str:
 
 
 def render_species(c: Ctx, entry: dict, detail: list, moves: dict, prev: dict | None, nxt: dict | None,
-                   odds: tuple[float, int], before: str, after: str, meta: dict) -> str:
+                   odds: tuple[float, int], cards: dict, before: str, after: str, meta: dict) -> str:
     L = c.L
-    html, ld = static_ficha.build(L, c.home, SPRITES, EXT, entry, detail, moves, prev, nxt, odds)
+    html, ld = static_ficha.build(L, c.home, SPRITES, EXT, entry, detail, moves, prev, nxt, odds, cards)
     name = L.mon(entry)
     title = L.t("sheet_title", name=name, game=legal.GAME_NAME)
     desc = L.t("sheet_desc", name=name, game=legal.GAME_NAME, tier=entry["r"]["tier"],
@@ -695,7 +695,7 @@ def main() -> int:
             detail = species["d"][str(entry["dex"])]
             rel = f"pokemon/{species_path(entry['dex'], entry['nameEn'])}/index.html"
             put(rel, lambda c, e=entry, d=detail, pv=prev, nx=nxt, b=before, a=after:
-                render_species(c, e, d, moves_by, pv, nx, odds[e["dex"]], b, a, meta))
+                render_species(c, e, d, moves_by, pv, nx, odds[e["dex"]], species["cards"], b, a, meta))
     write("404.html", render_404(meta))
     share_image.save(SITE / "og.png")
     agents.write_all(SITE, meta, gachas, sheet_paths)
