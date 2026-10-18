@@ -93,7 +93,7 @@ Base URL: {u}
 - [Tier list (EN)]({u}/en/): all Pokémon by tier, with search and sorting.
 - [Moves (EN)]({u}/en/ataques): attack tier list.
 - [Items (EN)]({u}/en/objetos): item tier list.
-- [Passives (EN)]({u}/en/pasivas): level-up card tier list.
+- [Passives (EN)]({u}/en/pasivas): level-up cards ranked by coin reward, with the Sitrus Berry rule.
 - [Gacha (EN)]({u}/en/gachas): banners and pull odds.
 - [Collection (EN)]({u}/en/coleccion): collection helper.
 - [Method (EN)]({u}/en/metodo): how the ranking is built, with the numbers.

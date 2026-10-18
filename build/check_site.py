@@ -273,7 +273,7 @@ def browser_check(base: str, index: list[dict], args, err, notes: list[str]) -> 
 
 
 THEME_LIGHT, THEME_DARK = "#f6f0dc", "#1b1528"
-THEME_PAGES = ("", "coleccion.html", "pokemon/25-pikachu/", "metodo.html", "ataques.html", "en/", "en/pokemon/25-pikachu/", "en/coleccion.html")
+THEME_PAGES = ("", "coleccion.html", "pokemon/25-pikachu/", "metodo.html", "ataques.html", "pasivas.html", "en/", "en/pokemon/25-pikachu/", "en/coleccion.html", "en/pasivas.html")
 THEME_STATE_JS = """() => ({
     theme: document.documentElement.dataset.theme || null,
     bg: getComputedStyle(document.documentElement).getPropertyValue('--bg').trim(),

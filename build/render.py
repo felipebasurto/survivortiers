@@ -486,8 +486,7 @@ def render_objetos(c: Ctx, meta: dict) -> str:
 
 def render_pasivas(c: Ctx, meta: dict) -> str:
     L = c.L
-    content = pasivas.content(L, L.t("pv_h1"), L.t("pv_lede"), L.t("pv_order_h"), L.t("pv_phases_h"),
-                              L.t("pv_items_h"), L.t("pv_except_h"))
+    content = pasivas.content(L, c.home)
     return page(c, "pasivas", L.t("pv_title", site=legal.SITE_NAME),
                 L.t("pv_desc", game=legal.GAME_NAME), content, meta)
 
