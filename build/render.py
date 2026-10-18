@@ -243,6 +243,7 @@ def render_index(c: Ctx, pokemon: list[dict], meta: dict) -> str:
     content = f"""
 {balls.defs()}
 <h1>{esc(L.t("index_h1", game=legal.GAME_NAME))}</h1>
+<p class="tagline">{L.t("value_html", repo=esc(legal.REPO_URL))}</p>
 <div class="finder">
   <div class="search">
     <label class="sr" for="q">{esc(L.t("search_label"))}</label>
@@ -592,6 +593,7 @@ def render_acerca(c: Ctx, meta: dict) -> str:
                 lic=esc(ui["license"]), lic_url=esc(ui["licenseUrl"]))
     content = f"""
 <h1>{esc(L.t("about_h1"))}</h1>
+<p class="lede">{L.t("value_html", repo=esc(legal.REPO_URL))}</p>
 {legal_html}
 <h2 id="creditos">{esc(L.t("about_credits_h"))}</h2>
 <h3>{esc(L.t("about_sprites_h"))}</h3>

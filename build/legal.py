@@ -16,6 +16,7 @@ GAME_URL = "https://pokesurvivor.com"   # CNAME del repositorio del juego en a9b
 GAME_REPO_URL = "https://github.com/JPTER78/pokesurvivor"
 # LICENSE del juego en main: MIT hasta b297089 (14 oct 2026); el código posterior es PolyForm Noncommercial 1.0.0.
 GAME_LICENSE_URL = GAME_REPO_URL + "/blob/main/LICENSE"
+REPO_URL = "https://github.com/felipebasurto/survivortiers"
 GAME_COMMIT = "a9b21f0"
 GAME_AUTHOR = "JPTER78"
 

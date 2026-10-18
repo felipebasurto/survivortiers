@@ -827,6 +827,7 @@ pre.snippet { background: var(--rule-soft); padding: 14px; overflow: auto; max-h
 
 /* ---------- textos explicativos y números legibles ---------- */
 p.lede { font: 1.1rem/1.55 var(--sans); color: var(--ink-2); max-width: 66ch; margin: 0 0 26px; }
+p.tagline { font: .9375rem/1.5 var(--sans); color: var(--ink-2); max-width: 86ch; margin: 0 0 24px; }
 .fig-lede { font: .95rem/1.5 var(--sans); color: var(--ink-2); max-width: 64ch; margin: -8px 0 16px; }
 .fig-note { font: .8125rem/1.45 var(--sans); color: var(--ink-2); margin: 12px 0 0; }
 .met-steps { list-style: none; counter-reset: ms; margin: 30px 0 8px; padding: 0; max-width: 72ch; display: grid; gap: 18px; }
@@ -1403,6 +1404,7 @@ html { overflow-x: hidden; }
   .nav a { flex: none; display: inline-flex; align-items: center; min-height: 40px; padding: 0 12px; box-shadow: var(--notch-soft); }
   main { padding-block: 20px 56px; }
   h1 { font-size: 1.9rem; margin-bottom: 16px; }
+  p.tagline { font-size: .875rem; margin-bottom: 20px; }
   h2 { font-size: 1.3rem; margin-top: 40px; }
   /* tier list: buscador arriba, orden en una fila y agrupación deslizable; 5 por fila a 360-414 px */
   .finder { grid-template-columns: 1fr; gap: 10px; }
