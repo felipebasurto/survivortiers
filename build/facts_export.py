@@ -23,8 +23,9 @@ population median, everything else fixed, on that same point score:
   start_move                 the Repertorio opening (start_median_s) replaced by the median over every
                              solo start the species can learn (starter_sweep.csv). startS is that
                              opening minus the solo median, in seconds.
-  best_move                  that sim median replaced by its second best start in the same sweep: what the move
-                             itself adds. (Against the median of its own moves it would lift every species.)
+  best_move                  that solo median replaced by its second best start in the solo sweep
+                             (simulator/results/fixed_group/solo_sweep.csv): what the move itself adds.
+                             (Against the median of its own moves it would lift every species.)
   stats, moves, typedef      that sheet pillar at 0.5.
   late                       both late-game ranks at the middle (483.5).
   gate                       published rank minus the ungated rank, for the species a tier gate held back.
@@ -52,6 +53,8 @@ import summary_facts as sf  # noqa: E402
 OUT = sf.DATA / "facts.parquet"
 CF_CSV = sf.SIM / "counterfactuals_g2p2.csv"
 SWEEP_CSV = sf.SIM / "g2p2" / "starter_sweep.csv"
+SOLO_SWEEP = sf.SIM / "solo_sweep.csv"
+SOLO_CF = sf.SIM / "counterfactuals_solo.csv"
 N = sf.N
 PILLAR_W = {"stats": 45, "moves": 25, "typedef": 15, "size": 15}
 SIM_STATS = {"r": "hitbox", "spd": "speed", "hp": "hp", "atk": "attack"}
@@ -118,9 +121,9 @@ def ungated_ranks(rows: list[dict]) -> dict[int, int]:
     """Position of each species before the tier gates, as make_definitive.main orders it."""
     starts = {int(r["dex"]): r for r in md.load_csv(sf.SIM / "g2p2" / "rank_200.csv")}
     sweep = md.load_csv(SWEEP_CSV)
-    winners = md.winner_by_dex(sweep)
+    winners = md.winner_by_dex(md.load_csv(SOLO_SWEEP))
     sweep_moves = {(int(r["dex"]), r["start"]): r for r in sweep}
-    arrays = md.sim_arrays(rows, starts, winners, sweep_moves, False)
+    arrays = md.sim_arrays(rows, starts, winners, sweep_moves, False, share_interval=False)
     start_s, slo, shi, best_s, blo, bhi, same = arrays[:7]
     opening = md.repertoire_opening(SWEEP_CSV)
     md.apply_repertoire(rows, start_s, slo, shi, opening)
@@ -133,12 +136,12 @@ def ungated_ranks(rows: list[dict]) -> dict[int, int]:
     return {int(rows[i]["dex"]): pos for pos, i in enumerate(order, start=1)}
 
 
-def load_cf() -> dict[tuple[int, str, str], float]:
+def load_cf(path: Path = CF_CSV) -> dict[tuple[int, str, str], float]:
     """(dex, move, mod key or '') -> median seconds."""
-    if not CF_CSV.exists():
-        raise SystemExit(f"falta {CF_CSV.relative_to(sf.ROOT)}; córrelo con simulator/counterfactual_bench.py")
+    if not path.exists():
+        raise SystemExit(f"falta {path.relative_to(sf.ROOT)}; córrelo con simulator/counterfactual_bench.py")
     out = {}
-    for r in csv.DictReader(CF_CSV.open(encoding="utf8")):
+    for r in csv.DictReader(path.open(encoding="utf8")):
         key = r["mods"].split("=")[0] if r["mods"] else ""
         out[(int(r["dex"]), r["move"], key)] = float(r["median_s"])
     return out
@@ -149,10 +152,14 @@ def records() -> dict[str, dict]:
     rows = sf.ranking_rows()
     base = sf.base_records()
     px = {p["dex"]: p for p in json.loads((sf.DATA / "pokedex_export.json").read_text(encoding="utf8"))}
-    cf = load_cf()
+    cf_start = load_cf(CF_CSV)
+    cf_best = load_cf(SOLO_CF)
     sweep: dict[int, list[float]] = {}
     for r in md.load_csv(SWEEP_CSV):
         sweep.setdefault(int(r["dex"]), []).append(float(r["median_s"]))
+    solo: dict[int, list[float]] = {}
+    for r in md.load_csv(SOLO_SWEEP):
+        solo.setdefault(int(r["dex"]), []).append(float(r["median_s"]))
     start_s = np.array([float(r["start_median_s"]) for r in rows])
     noshop = np.array([float(r["start_noshop_s"]) for r in rows])
     best_s = np.array([float(r["best_median_s"]) for r in rows])
@@ -165,18 +172,21 @@ def records() -> dict[str, dict]:
     for i, r in enumerate(rows):
         d = int(r["dex"])
         start_mv, best_mv = r["start_move"], r["best_move"]
-        base_start, base_best = cf[(d, start_mv, "")], cf[(d, best_mv, "")]
-        # The bench is the solo starter. start_median_s is the Repertorio opening.
+        # Opening counterfactuals stay on the group bench (they must match start_noshop_s).
+        # Best-move counterfactuals are the solo bench, the same protocol as best_median_s.
+        base_start, base_best = cf_start[(d, start_mv, "")], cf_best[(d, best_mv, "")]
         if abs(base_start - noshop[i]) > 1e-9 or abs(base_best - best_s[i]) > 1e-9:
-            raise SystemExit(f"{d}: la sim de contrafactuales no reproduce el inicial sin tienda "
-                             f"({base_start} / {noshop[i]}, {base_best} / {best_s[i]})")
+            raise SystemExit(f"{d}: la sim de contrafactuales no reproduce el ranking "
+                             f"(inicio {base_start} / {noshop[i]}, mejor {base_best} / {best_s[i]})")
         here = model.counterfactual(i)
         drivers = {}
         for key, factor in SIM_STATS.items():
-            s2, b2 = cf.get((d, start_mv, key)), cf.get((d, best_mv, key))
+            s2, b2 = cf_start.get((d, start_mv, key)), cf_best.get((d, best_mv, key))
             if s2 is None:  # already at the median
                 drivers[factor] = {"places": 0, "startS": 0.0, "bestS": 0.0}
                 continue
+            if b2 is None:
+                b2 = base_best
             pil = {"size": med_size} if key == "r" else None
             ev_cf = float(start_s[i] + (s2 - base_start))
             cfr = model.counterfactual(i, start_s=ev_cf, best_s=b2, pillars=pil)
@@ -184,7 +194,7 @@ def records() -> dict[str, dict]:
         cand = statistics.median(sweep[d])
         drivers["start_move"] = {"places": int(model.counterfactual(i, start_s=cand) - here),
                                  "startS": sf.r2(float(start_s[i]) - cand)}
-        runner_up = sorted(sweep[d])[-2] if len(sweep[d]) > 1 else base_best
+        runner_up = sorted(solo[d])[-2] if len(solo[d]) > 1 else base_best
         drivers["best_move"] = {"places": int(model.counterfactual(i, best_s=runner_up) - here),
                                 "bestS": sf.r2(base_best - runner_up)}
         for k in ("stats", "moves", "typedef"):

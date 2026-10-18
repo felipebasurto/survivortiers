@@ -3,8 +3,9 @@
 1. Primero, las cartas que hacen falta para evolucionar los ataques del grupo: en el juego un ataque al nivel máximo
    solo evoluciona después de coger una vez la carta de su condición (`needs`; js/data/moves.js evoInfo y
    js/systems/levelup.js, cartas de evolución).
-2. Después, las de estadística por lo que aguantó el bot de grupo fijo (simulator/, --group 2+2) cuando esa carta iba
-   primera (data/passive_sim.json, 40 partidas por orden; estimación).
+2. Después, las de estadística por las monedas del bot de grupo fijo (simulator/, --group 2+2, Baya Zidra al 70 %
+   de vida) cuando esa carta iba primera (data/passive_sim.json, 100 partidas por carta; estimación).
+   Monedas = round(floor(tiempo/5) + floor(bajas*0,25) + jefes*80 + recogidas), el mismo marcador que la página de pasivas.
 3. Como mucho una carta de aguante (Síntesis `rgn` o Vigor `hp`) entre las de estadística: el bot no esquiva como una
    persona, así que la curación y la vida máxima salen sobrevaloradas en la sim aunque ya modela jefes y orbes de
    curación (js/entities/pickup.js:81,93; js/game.js:496). La segunda baja al final.

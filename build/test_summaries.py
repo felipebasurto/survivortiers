@@ -51,7 +51,7 @@ class Validator(unittest.TestCase):
         self.assertTrue(any("atk-" in x for x in errors(self.f, e)))
 
     def test_claim_outside_a_mark(self):
-        e = self.edit(es=self.entry["es"].replace("de verdad.", "de verdad, y es rápido."))
+        e = self.edit(es=self.entry["es"] + " Es rápido.")
         self.assertTrue(any("fuera de marca" in x for x in errors(self.f, e)))
 
     def test_move_name_must_match_the_build(self):
@@ -65,13 +65,13 @@ class Validator(unittest.TestCase):
         self.assertTrue(any("m.start:tackle" in x for x in errors(self.f, e)))
 
     def test_tier_letter_must_be_backed(self):
-        e = self.edit(es=self.entry["es"].replace("de verdad.", "de verdad. No llega al S."))
+        e = self.edit(es=self.entry["es"] + " No llega al S.")
         self.assertTrue(any("«S»" in x for x in errors(self.f, e)))
 
     def test_driver_must_be_a_top_driver(self):
         weak = min(S.DIRECTION, key=lambda k: abs(S._places(self.f, k)))
-        e = self.edit(es=self.entry["es"].replace("[nodown|", f"[up:{weak}|", 1),
-                      en=self.entry["en"].replace("[nodown|", f"[up:{weak}|", 1))
+        e = self.edit(es=self.entry["es"].replace("[down:hitbox|", f"[up:{weak}|", 1),
+                      en=self.entry["en"].replace("[down:hitbox|", f"[up:{weak}|", 1))
         self.assertTrue(any(f"up:{weak}" in x for x in errors(self.f, e)))
 
     def test_languages_must_agree(self):
@@ -87,7 +87,7 @@ class Validator(unittest.TestCase):
         self.assertTrue(any("huella" in x for x in errors(self.f, self.edit(fp="000000000000"))))
 
     def test_numbers_are_not_allowed(self):
-        self.assertTrue(errors(self.f, self.edit(es=self.entry["es"].replace("de verdad.", "de verdad, en 90 s."))))
+        self.assertTrue(errors(self.f, self.edit(es=self.entry["es"] + " En 90 s.")))
 
     def test_base_record_as_catalog_sees_it(self):
         base = sf.base_records()[str(EXAMPLE["dex"])]

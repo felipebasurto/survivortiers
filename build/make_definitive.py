@@ -63,6 +63,8 @@ COMMENT = (
     "simulator/sim/repertorio.js). start_noshop_s es el ataque inicial a solas, sin esa tienda, y no entra en la nota. "
     "S excluye melee_locked (cada apertura que queda sigue en cuerpo a cuerpo). "
     "rank_v4_max es el final con la tienda de estadisticas al maximo, no esta apertura. "
+    "best_move y best_median_s son el barrido en solitario del motor actual "
+    "(terreno, estado y tipos extra, seeds 1-200, 900 s), no el grupo fijo. "
     "2000 sorteos, seed 20261014. Cifras de la sim: estimacion."
 )
 CUTS = (("S", 30), ("A", 90), ("B", 200), ("C", 300), ("D", 346))
@@ -179,7 +181,7 @@ def apply_repertoire(base: list[dict], start_s, slo, shi, opening: dict[int, dic
     return noshop
 
 
-def sim_arrays(base: list[dict], starts: dict[int, dict], winners: dict[int, dict], sweep_moves: dict, use_stored_best: bool):
+def sim_arrays(base: list[dict], starts: dict[int, dict], winners: dict[int, dict], sweep_moves: dict, use_stored_best: bool, share_interval: bool = True):
     start_s = np.array([float(starts[int(r["dex"])]["median_s"]) for r in base])
     slo = np.array([float(starts[int(r["dex"])]["boot_lo"]) for r in base])
     shi = np.array([float(starts[int(r["dex"])]["boot_hi"]) for r in base])
@@ -207,7 +209,9 @@ def sim_arrays(base: list[dict], starts: dict[int, dict], winners: dict[int, dic
             blo[i], bhi[i] = float(win["boot_lo"]), float(win["boot_hi"])
             best_move.append(win["start"])
             best_text.append(win["median_s"])
-        same[i] = best_move[-1] == row["start_move"]
+        # Same move id only shares an interval when both numbers come from one protocol.
+        # A solo best-move sweep and the group opening are different runs.
+        same[i] = share_interval and best_move[-1] == row["start_move"]
         if same[i]:
             blo[i], bhi[i] = slo[i], shi[i]
     return start_s, slo, shi, best_s, blo, bhi, same, best_move, best_text
@@ -238,6 +242,9 @@ def main() -> None:
     parser.add_argument("--base", type=Path, default=ROOT / "data" / "ranking_definitive.csv")
     parser.add_argument("--rank-200", type=Path, default=ROOT / "simulator" / "results" / "fixed_group" / "g2p2" / "rank_200.csv")
     parser.add_argument("--sweep", type=Path, default=ROOT / "simulator" / "results" / "fixed_group" / "g2p2" / "starter_sweep.csv")
+    parser.add_argument("--best-sweep", type=Path, default=None,
+                        help="Sweep whose winner is best_move. Defaults to --sweep. "
+                             "The opening stays on --sweep and rank-200.")
     parser.add_argument("--out", type=Path, default=ROOT / "data" / "ranking_definitive.csv")
     parser.add_argument("--use-stored-best", action="store_true")
     parser.add_argument("--check", action="store_true")
@@ -249,13 +256,15 @@ def main() -> None:
     base.sort(key=lambda r: int(r["dex"]))
     starts = {int(r["dex"]): r for r in load_csv(args.rank_200)}
     sweep_rows = load_csv(args.sweep)
-    winners = winner_by_dex(sweep_rows)
+    best_rows = load_csv(args.best_sweep) if args.best_sweep else sweep_rows
+    winners = winner_by_dex(best_rows)
     if set(starts) != {int(r["dex"]) for r in base} or set(winners) != {int(r["dex"]) for r in base}:
         raise SystemExit("sim files do not cover the same 966 species as the ranking")
     sweep_moves = {(int(r["dex"]), r["start"]): r for r in sweep_rows}
     ignored = {int(r["dex"]) for r in sweep_rows if r.get("status_ignored") == "1"}
+    ignored |= {int(r["dex"]) for r in best_rows if r.get("status_ignored") == "1"}
     start_s, slo, shi, best_s, blo, bhi, same, best_move, best_text = sim_arrays(
-        base, starts, winners, sweep_moves, args.use_stored_best
+        base, starts, winners, sweep_moves, args.use_stored_best, share_interval=args.best_sweep is None
     )
     opening = repertoire_opening(args.sweep)
     if set(opening) != {int(r["dex"]) for r in base}:
