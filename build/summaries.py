@@ -390,7 +390,7 @@ FACTOR_MEANS = {
     "best_move": "its best move compared with its second best", "stats": "its stats overall",
     "moves": "the moves it can learn", "typedef": "how its types take enemy hits", "late": "how it does in long runs",
     "gate_stats": "a tier cap for low stats", "gate_types": "a tier cap for a single attack type",
-    "gate_melee": "a tier cap for a melee start",
+    "gate_melee": "a tier cap for still playing melee on every Repertoire draw",
 }
 
 

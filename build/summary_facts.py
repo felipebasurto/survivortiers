@@ -121,9 +121,10 @@ def base_records() -> dict[str, dict]:
                 "item": {"id": items[0]["id"], "es": items[0]["name"][0], "en": items[0]["name"][1]},
                 "cards": [{"id": k, "es": cards_es[k], "en": CARD_EN[k]} for k in card_ids], "evoCards": n_evo,
             },
-            "sim": {"startS": start_s[i], "bestS": float(r["best_median_s"]), "medianStartS": med_start},
+            "sim": {"startS": start_s[i], "noshopS": float(r["start_noshop_s"]),
+                    "bestS": float(r["best_median_s"]), "medianStartS": med_start},
             "flags": {"statsCapped": r["stats_capped"] == "1", "typesCapped": r["types_capped"] == "1",
-                      "melee": r["melee_start"] == "1"},
+                      "melee": r["melee_locked"] == "1"},
         }
     return out
 

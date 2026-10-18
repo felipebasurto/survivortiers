@@ -84,8 +84,8 @@ STR: dict[str, tuple[str, str]] = {
                     "así que su aguante puede estar infravalorado.",
                     "One of its attacks applies a status this sim pass does not reproduce, "
                     "so its survival may be underrated."),
-    "flag_melee": ("Empieza con un ataque cuerpo a cuerpo, que es objetivamente peor para empezar.",
-                   "It starts with a melee move, which is objectively worse to start with."),
+    "flag_melee": ("Sigue en cuerpo a cuerpo: aunque vete los peores ataques, el segundo no lo saca de ahí, y por eso no entra en S.",
+                   "It stays melee: even after banning its worst moves, the second attack never gets it out, so it stays out of S."),
     "flag_capped": ("Sus estadísticas son bajas para el tier que le darían sus otras medidas, "
                     "y por eso le frenan el tier.",
                     "Its stats are too low for the tier its other measures would give, "
@@ -173,37 +173,43 @@ STR: dict[str, tuple[str, str]] = {
     "pillars_alt_item": ("{label}, mejor que el {v} % de los Pokémon", "{label}, better than {v}% of Pokémon"),
     "median": ("mediana", "median"),
     "m_sheet": ("Ficha", "Sheet"),
-    "m_simStart": ("Partida, ataque inicial", "Game, starting move"),
+    "m_simStart": ("Partida, apertura con Repertorio", "Game, Repertoire opening"),
     "m_simBest": ("Partida, mejor ataque", "Game, best move"),
     "m_lateMax": ("Final, todas las mejoras al máximo", "Late game, all shop upgrades maxed"),
     "m_lateFresh": ("Final, sin mejoras de tienda", "Late game, no shop upgrades"),
     "methods_lede": ("Cada punto es el puesto que daría esa medida: 1 es el mejor de 966, a la izquierda. "
                      "La escala se amplía hasta su peor puesto, así que un 24 parece lejos de 1, pero sigue siendo el 3 % superior. "
-                     "«Final» estima cuánto aguanta al final de una partida, con la tienda sin comprar nada "
-                     "o con todas sus mejoras permanentes al máximo. La línea naranja es el puesto final, "
+                     "«Apertura con Repertorio» es la partida empezando con dos ataques y hasta tres vetos. "
+                     "«Final» estima cuánto aguanta al final de una partida, con la tienda de estadísticas sin comprar nada "
+                     "o con todas sus mejoras permanentes al máximo; esa medida no es la apertura. La línea naranja es el puesto final, "
                      "que mezcla todas las medidas.",
                      "Each dot is the rank that measure would give: 1 is the best of 966, on the left. "
                      "The scale zooms in to its worst rank, so 24 looks far from 1 but is still the top 3%. "
-                     "“Late game” estimates how long a Pokémon lasts at the end of a run, with no shop upgrades "
-                     "bought or with all permanent upgrades maxed. The orange line is the final rank, which mixes every measure."),
+                     "“Repertoire opening” is the run starting with two attacks and up to three bans. "
+                     "“Late game” estimates how long a Pokémon lasts at the end of a run, with no stat-shop upgrades "
+                     "bought or with all permanent upgrades maxed; that measure is not the opening. The orange line is the final rank, which mixes every measure."),
     "methods_final": ("puesto final {rank}", "final rank {rank}"),
     "methods_alt": ("{name}: puesto final {rank}. ", "{name}: final rank {rank}. "),
     "methods_alt_item": ("{label}, puesto {v}", "{label}, rank {v}"),
-    "sim_start": ("Ataque inicial: {name}", "Starting move: {name}"),
+    "sim_start": ("Apertura con Repertorio: {name}", "Repertoire opening: {name}"),
     "sim_best": ("Mejor ataque: {name}", "Best move: {name}"),
     "sim_median": ("mediana de todos: {s} s", "median of all: {s} s"),
     "sim_alt": ("Segundos simulados que aguanta un bot con un grupo fijo (mediana de 200 partidas): ",
                 "Simulated seconds a bot survives with one fixed group (median of 200 games): "),
     "sim_lede": ("Un bot juega con un grupo fijo (el ataque inicial, otro más, Danza Espada y Fortaleza). "
+                 "La barra de apertura es una estimación: con Repertorio sale un segundo ataque al azar, con Veto se bloquean los 3 que más bajan esa media, y se juega el mejor de los dos. "
                  "Los vínculos llegan al ganar la grieta, no al empezar; hay jefes y orbes de curación, y se lanzan todos los tipos de ataque. "
-                 "Hasta 900 s, sin mejoras permanentes. Es una estimación: el bot no esquiva como una persona.",
+                 "Hasta 900 s. El bot no esquiva como una persona.",
                  "A bot plays one fixed group (the starting move, one more attack, Swords Dance and Harden). "
+                 "The opening bar is an estimate: Repertoire deals a random second attack, Veto bans the 3 that pull that average down the most, and the better of the two is played. "
                  "Bonds arrive when a rift is won, not at the start; bosses and heal orbs are in, and every attack kind fires. "
-                 "Up to 900 s, with no permanent upgrades. It is an estimate: the bot does not dodge the way a person does."),
+                 "Up to 900 s. The bot does not dodge the way a person does."),
     "sim_scale": ("Escala: de {lo} s a {hi} s, lo que aguantan todos los Pokémon.",
                   "Scale: {lo} s to {hi} s, what all Pokémon last."),
-    "sim_gain": ("Con el mejor ataque aguanta {d} s más que con el inicial.",
-                 "With the best move it lasts {d} s longer than with the starting move."),
+    "sim_gain": ("Con el mejor ataque aguanta {d} s más que con esa apertura. Cifra simulada.",
+                 "With the best move it lasts {d} s longer than with that opening. Simulated figure."),
+    "sim_noshop": ("Sin Repertorio ni Veto, solo con {name}, la simulación aguanta {s} s.",
+                   "With no Repertoire and no Veto, {name} alone lasts {s} s in the simulation."),
 
     # ------------------------------------------------------------ ataques
     "ataques_title": ("Ataques · {site}", "Moves · {site}"),
@@ -369,12 +375,12 @@ STR: dict[str, tuple[str, str]] = {
     "met_step_6_h": ("Tier", "Tier"),
     "met_step_6": ("Los puestos se reparten en tiers de tamaño fijo: {sizes}. Para entrar en S hace falta estar "
                    "entre el {s} mejor en estadísticas, tener ataques de tres tipos distintos contando el normal "
-                   "(que aprenden todos: son dos tipos además del normal) y no empezar con un "
-                   "ataque cuerpo a cuerpo; en A, entre el {a}; en B, entre el {b}. Quien no cumple el mínimo espera "
+                   "(que aprenden todos: son dos tipos además del normal) y no quedarte en cuerpo a cuerpo "
+                   "después de Repertorio y tres Vetos; en A, entre el {a}; en B, entre el {b}. Quien no cumple el mínimo espera "
                    "al siguiente tier en el que sí entre.",
                    "Ranks are split into tiers of fixed size: {sizes}. To enter S you must be in the top {s} for "
                    "stats, have attacks of three different types counting normal (everyone learns it: that is two "
-                   "types besides normal), and not start with a melee attack; A, top {a}; "
+                   "types besides normal), and not still be on melee after Repertoire and three bans; A, top {a}; "
                    "B, top {b}. Whoever misses the minimum waits for the next tier they qualify for."),
     "pipe_title": ("Del dato al tier", "From data to tier"),
     "pipe_1": ("Medir", "Measure"),
