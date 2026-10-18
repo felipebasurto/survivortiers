@@ -20,6 +20,7 @@ sys.path.insert(0, str(ROOT / "build"))
 
 import legal  # noqa: E402
 import static_ficha  # noqa: E402
+import toolpages  # noqa: E402
 from i18n import EN, ES  # noqa: E402
 from slugs import slugify, species_path  # noqa: E402
 
@@ -124,7 +125,7 @@ class StaticMewtwo(unittest.TestCase):
         self.assertIn("Esta página necesita JavaScript", shell)
         self.assertIn('name="robots" content="noindex"', shell)
         sitemap = (SITE / "sitemap.xml").read_text(encoding="utf8")
-        self.assertEqual(sitemap.count("<url>"), (8 + 966 + 22) * 2)
+        self.assertEqual(sitemap.count("<url>"), (8 + 966 + 22 + len(toolpages.FOLDERS)) * 2)
         self.assertIn("/pokemon/150-mewtwo/", sitemap)
         self.assertIn("/en/pokemon/150-mewtwo/", sitemap)
         robots = (SITE / "robots.txt").read_text(encoding="utf8")

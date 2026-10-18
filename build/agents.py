@@ -16,6 +16,7 @@ from pathlib import Path
 
 import landing
 import legal
+import toolpages
 from i18n import EN, ES, TYPE_NAMES, Lang
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -123,6 +124,8 @@ Base URL: {u}
 - [Collection (EN)]({u}/en/coleccion): collection helper.
 - [Method (EN)]({u}/en/metodo): how the ranking is built, with the numbers.
 - [About (EN)]({u}/en/acerca): fan-site notice, sprite credits and licences.
+- [Type finder (EN)]({u}/en/type-finder/): pick one or two types and see which Pokémon have them, with their weaknesses.
+- [Build planner (EN)]({u}/en/build-planner/): the bonded group, item and cards of a Pokémon, with a shareable link.
 - [Sitemap]({u}/sitemap.xml)
 
 ## Optional
@@ -211,6 +214,8 @@ def llms_full_txt(meta: dict) -> str:
         "- w, h: sprite size in pixels.",
         "- r: `[rank, tier, p10, p90, firm]`. firm is the percentage of repeats in the tier (0–100, not a fraction).",
         "- v: sort values. atk (in-game attack multiplier), hp, spd (speed), ehp (effective HP), rad (body radius) come from the game's Pokédex export. td (type defence), mv (moves), st (stats) are 0–100 percentile scores where 100 is best.",
+        "- v.pa, v.sa: physical and special attack multipliers (damage of its physical / special moves; atk is the larger of the two). v.df, v.sd: base Defence and Special Defence. Taken from js/data/pokedex.js of the game at commit e868b5e.",
+        "- v.ak: the stronger side, `phys`, `spec`, or `mix` (mix when pa and sa differ by 0.05 or less).",
         "",
         "### data/species.json",
         "",
@@ -286,7 +291,7 @@ def sitemap_xml(meta: dict, sheets: list[str] | None = None, landing_pairs: list
     Las rutas son sin prefijo de idioma: sheets como pokemon/150-mewtwo/ y landing_pairs como (es, en) de cada
     página de consulta, con barra final. Las páginas fijas del menú comparten nombre en los dos idiomas."""
     lastmod = meta["generatedAt"][:10]
-    pairs = [(p, p) for p in [*PAGES, *(sheets or [])]] + list(landing_pairs or [])
+    pairs = [(p, p) for p in [*PAGES, *(sheets or [])]] + list(landing_pairs or []) + toolpages.pairs()
     out = ['<?xml version="1.0" encoding="UTF-8"?>',
            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">']
     for es_path, en_path in pairs:
