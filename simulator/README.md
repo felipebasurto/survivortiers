@@ -117,6 +117,14 @@ Results used for the site are in `results/fixed_group/`.
 
 Any change to `sim/match.js` or `sim/rules.js` has to be mirrored in `sim-rs/src/engine.rs` and re-checked with `parity.js`.
 
+## Repertoire opening
+
+The published "run with the starting move" is not a second physics run. `sim/repertorio.js` and
+`sim-rs/src/repertorio.rs` read the starter sweep and return the expected survival of a Repertoire + Veto
+opening: ban up to 3 non-buff pool moves that pull the average down, draw the second attack at random from
+what remains, play the better of the two. `sim/test/repertorio_cases.json` is the shared check. The starter
+alone stays in the ranking as `start_noshop_s`. Shop stat upgrades (`rank_v4_max`) are a different measure.
+
 ## Credits
 
 PokéSurvivor and its code are by JPTER78, under the MIT licence (see `../data/GAME_LICENSE.txt`). The game data in `v3/` is extracted from that code. This simulator is unofficial and not affiliated with the game or with the owners of Pokémon.

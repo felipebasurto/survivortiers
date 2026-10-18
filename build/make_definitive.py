@@ -8,12 +8,19 @@ ranking. The sim piece is replaced:
   rank_late                        geometric mean of v4 max and v4 fresh, weights 2/3 and 1/3
   final score                      geometric mean of sheet, early and late, weights 45, 30 and 25
 
+rank_sim_start is the Repertorio + Veto opening (simulator/sim/repertorio.js), not the starter
+alone. The starter alone stays in start_noshop_s / rank_sim_noshop and is not weighted. The 10/45
+split is unchanged: the move you build still dominates the early piece, and the opening is the
+first stretch of the run. Players who chase a tier buy Repertorio (1500, one level).
+
 Percentile of a rank r (1 = best of 966) is (966 - r + 0.5) / 966.
 
 Two thousand repeats (seed 20261014) move each median inside its bootstrap interval, cycle 80
 blends of the late-game model around the 2/3 weight, and move the sim/late weights around 30/25
 with the sheet fixed at 45. The published order is the median of those ungated ranks. Tiers are
-then filled with the gates (stats 0.6 / 0.4 / 0.2, three attack types for S, no melee start in S).
+then filled with the gates (stats 0.6 / 0.4 / 0.2, three attack types for S, melee_locked out of S).
+melee_locked means every remaining Repertorio draw still plays a melee move. A melee starter you
+can switch off is not a hard ban; that penalty is already in the opening expectation.
 p10, p90, p_tier and p_S describe the ungated repeats. Sim numbers are estimates.
 
 Feeding the previous sim columns back through this procedure reproduces that ranking only to a
@@ -25,6 +32,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -43,14 +51,19 @@ HEADER = (
     "rank,dex,name,tier,rank_p10,rank_p90,p_tier,p_S,start_move,start_kind,start_median_s,"
     "best_move,best_median_s,rank_sim_start,rank_sim_best,rank_v4_max,rank_v4_fresh,rank_early,"
     "rank_late,phase_gap,rank_sheet,pct_stats,pct_moves,pct_typedef,pct_size,move_pair,"
-    "shot_dmg_taken,radius,map_reach,stats_capped,attack_types,types_capped,status_unmodelled,melee_start"
+    "shot_dmg_taken,radius,map_reach,stats_capped,attack_types,types_capped,status_unmodelled,melee_start,"
+    "start_noshop_s,rank_sim_noshop,melee_locked,repertoire_bans"
 )
 COMMENT = (
     "# ensemble definitivo (estimacion): ficha 0.45 (stats/ataques/tipos/tamano) x sim con terreno y estado, "
     "grupo fijo 2 ataques + Danza Espada y Fortaleza, vinculos al ganar la grieta, jefes, orbes de curacion "
-    "y todos los tipos de ataque (simulator/results/fixed_group/g2p2/rank_200.csv; mejor 45/inicial 10) x v4, "
+    "y todos los tipos de ataque (simulator/results/fixed_group/g2p2; mejor 45 / apertura 10) x v4, "
     "media geometrica de percentiles, tope de tier por stats {'S': 0.6, 'A': 0.4, 'B': 0.2} y por tipos de ataque "
-    "{'S': 3}, sin ataque inicial cuerpo a cuerpo en ('S',), 2000 sorteos, seed 20261014. Cifras de la sim: estimacion."
+    "{'S': 3}. start_median_s es la apertura con Repertorio y 3 Vetos (esperanza sobre el segundo ataque; "
+    "simulator/sim/repertorio.js). start_noshop_s es el ataque inicial a solas, sin esa tienda, y no entra en la nota. "
+    "S excluye melee_locked (cada apertura que queda sigue en cuerpo a cuerpo). "
+    "rank_v4_max es el final con la tienda de estadisticas al maximo, no esta apertura. "
+    "2000 sorteos, seed 20261014. Cifras de la sim: estimacion."
 )
 CUTS = (("S", 30), ("A", 90), ("B", 200), ("C", 300), ("D", 346))
 BANDS = {"S": (1, 30), "A": (31, 120), "B": (121, 320), "C": (321, 620), "D": (621, 966)}
@@ -106,7 +119,9 @@ def qualifies(row: dict, tier: str) -> bool:
         return True
     if float(row["pct_stats"]) < STAT_MIN[tier]:
         return False
-    if tier == "S" and (int(row["attack_types"]) < 3 or row["melee_start"] == "1"):
+    # melee_locked: Repertorio still plays a melee move on every remaining draw.
+    # A melee starter you can switch off is already priced into start_median_s.
+    if tier == "S" and (int(row["attack_types"]) < 3 or row.get("melee_locked") == "1"):
         return False
     return True
 
@@ -133,6 +148,35 @@ def fill_tiers(order: list[dict]) -> list[dict]:
 
 def fmt_prob(x: float) -> str:
     return f"{x:.3f}".rstrip("0").rstrip(".") or "0"
+
+
+def fmt_seconds(x: float) -> str:
+    return f"{x:.3f}".rstrip("0").rstrip(".") or "0"
+
+
+def repertoire_opening(sweep_path: Path) -> dict[int, dict]:
+    """dex -> opening from simulator/sim/repertorio.js (the same function sim-rs tests)."""
+    script = ROOT / "simulator" / "sim" / "repertorio.js"
+    proc = subprocess.run(
+        ["node", str(script), "--sweep", str(sweep_path)],
+        check=False, capture_output=True, text=True,
+    )
+    if proc.returncode != 0:
+        raise SystemExit(proc.stderr.strip() or "repertorio.js failed")
+    return {int(row["dex"]): row for row in json.loads(proc.stdout)}
+
+
+def apply_repertoire(base: list[dict], start_s, slo, shi, opening: dict[int, dict]):
+    """Replace the solo starter with the Repertorio expectation. Returns the solo seconds."""
+    noshop = start_s.copy()
+    for i, row in enumerate(base):
+        op = opening[int(row["dex"])]
+        start_s[i] = float(op["median"])
+        slo[i] = min(float(op["lo"]), start_s[i])
+        shi[i] = max(float(op["hi"]), start_s[i])
+        row["melee_locked"] = "1" if op["meleeLocked"] else "0"
+        row["repertoire_bans"] = "|".join(op["banned"])
+    return noshop
 
 
 def sim_arrays(base: list[dict], starts: dict[int, dict], winners: dict[int, dict], sweep_moves: dict, use_stored_best: bool):
@@ -213,6 +257,10 @@ def main() -> None:
     start_s, slo, shi, best_s, blo, bhi, same, best_move, best_text = sim_arrays(
         base, starts, winners, sweep_moves, args.use_stored_best
     )
+    opening = repertoire_opening(args.sweep)
+    if set(opening) != {int(r["dex"]) for r in base}:
+        raise SystemExit("repertoire opening does not cover the same 966 species")
+    noshop = apply_repertoire(base, start_s, slo, shi, opening)
     sheet = np.array([int(r["rank_sheet"]) for r in base], dtype=float)
     v4m = np.array([int(r["rank_v4_max"]) for r in base], dtype=float)
     v4f = np.array([int(r["rank_v4_fresh"]) for r in base], dtype=float)
@@ -223,6 +271,7 @@ def main() -> None:
     p_s = np.mean(fr <= 30, axis=0)
     rstart = ranks_of(start_s).astype(int)
     rbest = ranks_of(best_s).astype(int)
+    rnoshop = ranks_of(noshop).astype(int)
 
     order_ix = sorted(range(N), key=lambda i: (med[i], -point[i], int(base[i]["dex"])))
     ungated = [base[i] for i in order_ix]
@@ -251,7 +300,10 @@ def main() -> None:
             "rank_p90": str(int(round(float(p90[i])))),
             "p_tier": fmt_prob(float(np.mean((fr[:, i] >= lo) & (fr[:, i] <= hi)))),
             "p_S": fmt_prob(float(p_s[i])),
-            "start_median_s": starts[dex]["median_s"],
+            "start_median_s": starts[dex]["median_s"] if abs(start_s[i] - float(starts[dex]["median_s"])) < 1e-9
+            else fmt_seconds(float(start_s[i])),
+            "start_noshop_s": starts[dex]["median_s"],
+            "rank_sim_noshop": str(int(rnoshop[i])),
             "best_move": best_move[i],
             "best_median_s": best_text[i],
             "rank_sim_start": str(int(rstart[i])),

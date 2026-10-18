@@ -46,8 +46,8 @@ MAX_FILES, MAX_BYTES = 50, 5_000_000  # presupuesto de site/ para el despliegue
 EXPECTED_COUNTS = {"S": 30, "A": 90, "B": 200, "C": 300, "D": 346}
 SPANISH_WORDS = re.compile(r"\b(el|los|las|del|con|para|puesto|aguante|daño|ficha|partidas?|repeticiones|cuántos)\b", re.I)
 LANGS = ("", "en/")
-EXPECTED_GACHA = {"Paldea": 20.7, "Alola": 18.1, "Galar": 14.9, "Sinnoh": 13.1, "Kanto": 11.9, "Teselia": 10.6,
-                  "Johto": 10.0, "Kalos": 11.4, "Hoenn": 5.9}
+EXPECTED_GACHA = {"Paldea": 20.7, "Alola": 18.1, "Galar": 14.9, "Sinnoh": 13.1, "Kanto": 11.3, "Teselia": 11.3,
+                  "Johto": 9.0, "Kalos": 11.4, "Hoenn": 6.7}
 
 
 CARD_IDS = {"atk", "spd", "hp", "cd", "def", "rgn", "mag", "xp"}
@@ -417,7 +417,7 @@ def main() -> int:
     move_ids = {m["id"] for m in moves}
     for d in dexes:
         e = species.get(str(d))
-        ok = (isinstance(e, list) and len(e) == 11 and len(e[0]) == 4 and all(0 <= v <= 1 for v in e[0])
+        ok = (isinstance(e, list) and len(e) == 12 and len(e[0]) == 4 and all(0 <= v <= 1 for v in e[0])
               and len(e[1]) == 5 and all(isinstance(v, int) and 1 <= v <= 966 for v in e[1])
               and e[2] in move_ids and e[4] in move_ids and e[3] > 0 and e[5] > 0
               and all(m in move_ids for m in e[6]) and isinstance(e[7], int) and 0 <= e[7] <= 15
@@ -430,7 +430,8 @@ def main() -> int:
               and not set(e[9][4]) & set(e[9][2]) and e[9][2][0] == e[4]
               # cartas a priorizar (build/passives.py): 1-4 ids de carta y cuántas evolucionan un ataque
               and len(e[10]) == 2 and 1 <= len(e[10][0]) <= 4 and all(c in CARD_IDS for c in e[10][0])
-              and 0 <= e[10][1] <= len(e[10][0]))
+              and 0 <= e[10][1] <= len(e[10][0])
+              and isinstance(e[11], (int, float)) and e[11] > 0)
         if not ok:
             err(f"data/species.json: datos incompletos o raros para el Pokémon {d}")
 

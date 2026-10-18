@@ -26,6 +26,7 @@
 mod data;
 mod engine;
 mod math;
+mod repertorio;
 mod rng;
 mod stats;
 mod terrain;

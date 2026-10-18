@@ -16,8 +16,13 @@ population median, everything else fixed, on that same point score:
   hitbox, speed, hp, attack  re-simulated with that stat at the median (simulator/counterfactual_bench.py,
                              results/fixed_group/counterfactuals_g2p2.csv, same seeds and flags as the rank).
                              hitbox also sets the size pillar to the median radius.
-  start_move                 that sim median replaced by the median over every start the species can learn
-                             (results/fixed_group/g2p2/starter_sweep.csv).
+                             The bench resimulates the solo starter and the best move. The opening
+                             measure is the Repertorio expectation, so the same second-delta is
+                             applied to that expectation (the bench did not resimulate every
+                             second attack). startS/bestS stay the solo gaps.
+  start_move                 the Repertorio opening (start_median_s) replaced by the median over every
+                             solo start the species can learn (starter_sweep.csv). startS is that
+                             opening minus the solo median, in seconds.
   best_move                  that sim median replaced by its second best start in the same sweep: what the move
                              itself adds. (Against the median of its own moves it would lift every species.)
   stats, moves, typedef      that sheet pillar at 0.5.
@@ -117,6 +122,8 @@ def ungated_ranks(rows: list[dict]) -> dict[int, int]:
     sweep_moves = {(int(r["dex"]), r["start"]): r for r in sweep}
     arrays = md.sim_arrays(rows, starts, winners, sweep_moves, False)
     start_s, slo, shi, best_s, blo, bhi, same = arrays[:7]
+    opening = md.repertoire_opening(SWEEP_CSV)
+    md.apply_repertoire(rows, start_s, slo, shi, opening)
     sheet = np.array([int(r["rank_sheet"]) for r in rows], dtype=float)
     v4m = np.array([int(r["rank_v4_max"]) for r in rows], dtype=float)
     v4f = np.array([int(r["rank_v4_fresh"]) for r in rows], dtype=float)
@@ -147,6 +154,7 @@ def records() -> dict[str, dict]:
     for r in md.load_csv(SWEEP_CSV):
         sweep.setdefault(int(r["dex"]), []).append(float(r["median_s"]))
     start_s = np.array([float(r["start_median_s"]) for r in rows])
+    noshop = np.array([float(r["start_noshop_s"]) for r in rows])
     best_s = np.array([float(r["best_median_s"]) for r in rows])
     model = Model(rows, start_s, best_s)
     ungated = ungated_ranks(rows)
@@ -158,9 +166,10 @@ def records() -> dict[str, dict]:
         d = int(r["dex"])
         start_mv, best_mv = r["start_move"], r["best_move"]
         base_start, base_best = cf[(d, start_mv, "")], cf[(d, best_mv, "")]
-        if abs(base_start - start_s[i]) > 1e-9 or abs(base_best - best_s[i]) > 1e-9:
-            raise SystemExit(f"{d}: la sim de contrafactuales no reproduce el ranking ({base_start} / {start_s[i]}, "
-                             f"{base_best} / {best_s[i]})")
+        # The bench is the solo starter. start_median_s is the Repertorio opening.
+        if abs(base_start - noshop[i]) > 1e-9 or abs(base_best - best_s[i]) > 1e-9:
+            raise SystemExit(f"{d}: la sim de contrafactuales no reproduce el inicial sin tienda "
+                             f"({base_start} / {noshop[i]}, {base_best} / {best_s[i]})")
         here = model.counterfactual(i)
         drivers = {}
         for key, factor in SIM_STATS.items():
@@ -169,17 +178,20 @@ def records() -> dict[str, dict]:
                 drivers[factor] = {"places": 0, "startS": 0.0, "bestS": 0.0}
                 continue
             pil = {"size": med_size} if key == "r" else None
-            cfr = model.counterfactual(i, start_s=s2, best_s=b2, pillars=pil)
+            ev_cf = float(start_s[i] + (s2 - base_start))
+            cfr = model.counterfactual(i, start_s=ev_cf, best_s=b2, pillars=pil)
             drivers[factor] = {"places": int(cfr - here), "startS": sf.r2(base_start - s2), "bestS": sf.r2(base_best - b2)}
         cand = statistics.median(sweep[d])
-        drivers["start_move"] = {"places": int(model.counterfactual(i, start_s=cand) - here), "startS": sf.r2(base_start - cand)}
+        drivers["start_move"] = {"places": int(model.counterfactual(i, start_s=cand) - here),
+                                 "startS": sf.r2(float(start_s[i]) - cand)}
         runner_up = sorted(sweep[d])[-2] if len(sweep[d]) > 1 else base_best
         drivers["best_move"] = {"places": int(model.counterfactual(i, best_s=runner_up) - here),
                                 "bestS": sf.r2(base_best - runner_up)}
         for k in ("stats", "moves", "typedef"):
             drivers[k] = {"places": int(model.counterfactual(i, pillars={k: 0.5}) - here)}
         drivers["late"] = {"places": int(model.counterfactual(i, late=True) - here)}
-        gated = r["stats_capped"] == "1" or r["types_capped"] == "1" or (r["melee_start"] == "1" and ungated[d] <= 30)
+        locked = r["melee_locked"] == "1"
+        gated = r["stats_capped"] == "1" or r["types_capped"] == "1" or (locked and ungated[d] <= 30)
         drivers["gate"] = {"places": -(int(r["rank"]) - ungated[d]) if gated else 0}
         out[str(d)] = {**base[str(d)], "ungated": ungated[d], "drivers": drivers}
     return out

@@ -56,7 +56,7 @@ METHOD = {
     "gates": [{"tier": "S", "top": 40}, {"tier": "A", "top": 60}, {"tier": "B", "top": 80}],
     # Requisitos extra de entrada (make_definitive.py: TYPES_GATE y NO_MELEE_TIERS).
     "typesMin": {"S": 3},          # ataques de al menos tres tipos distintos
-    "noMeleeTiers": ["S"],         # quien empieza con un ataque cuerpo a cuerpo no entra en estos tiers
+    "noMeleeTiers": ["S"],         # S excluye a quien sigue en cuerpo a cuerpo tras Repertorio y 3 Vetos
     "repeats": 2000,
 }
 METHOD_KEYS = ("sheet", "simStart", "simBest", "lateMax", "lateFresh")
@@ -205,10 +205,11 @@ def load_pokemon(move_names: dict, credits: dict) -> list[dict]:
                         "lateFresh": int(row["rank_v4_fresh"])},
             "sim": {"start": {**_move(move_names, row["start_move"]), "kind": row["start_kind"],
                               "seconds": float(row["start_median_s"])},
+                    "noshop": {"seconds": float(row["start_noshop_s"])},
                     "best": {**_move(move_names, row["best_move"]), "seconds": float(row["best_median_s"])}},
             "pair": pair,
             "flags": {"statsCapped": row["stats_capped"] == "1", "statusUnmodelled": row["status_unmodelled"] == "1",
-                      "melee": row["melee_start"] == "1", "typesCapped": row["types_capped"] == "1"},
+                      "melee": row["melee_locked"] == "1", "typesCapped": row["types_capped"] == "1"},
         }
         entries.append({
             "dex": dex, "name": px["name"], "nameEn": name_en, "types": px["types"],
@@ -355,11 +356,12 @@ def build_cards() -> dict:
 def species_details(entries: list[dict], sim_range: list[float], median: float, combo: dict) -> dict:
     psim = passives.load()
     """Lo que la ficha necesita además de pokemon-index.json, en listas para que pese poco. Orden de cada entrada:
-    [pilares (stats, moves, typedef, size), puestos por medida (METHOD_KEYS), ataque inicial, segundos, mejor ataque,
-    segundos, pareja de ataques, banderas (1 estado sin simular, 2 cuerpo a cuerpo, 4 estadísticas), estadísticas base
-    oficiales [PS, ataque, defensa, ataque especial, defensa especial, velocidad], combo de cobertura [% super efectivo,
-    % no resistido, ids de los ataques y el potenciador, tipos de ataque distintos (1-3), ids de los ataques opcionales]
-    (build/combos.py)].
+    [pilares (stats, moves, typedef, size), puestos por medida (METHOD_KEYS), ataque inicial, segundos de la
+    apertura con Repertorio, mejor ataque, segundos, pareja de ataques, banderas (1 estado sin simular, 2 sigue en
+    cuerpo a cuerpo tras Repertorio, 4 estadísticas, 8 tipos), estadísticas base oficiales [PS, ataque, defensa,
+    ataque especial, defensa especial, velocidad], combo de cobertura [% super efectivo, % no resistido, ids de los
+    ataques y el potenciador, tipos de ataque distintos (1-3), ids de los ataques opcionales] (build/combos.py),
+    cartas, segundos del ataque inicial a solas (sin Repertorio ni Veto)].
     Lo lee src/ficha.js.
     «items» son los objetos de la build, iguales para todos. «statMedian» es la mediana de cada estadística base entre los 966, para la línea de referencia de la ficha."""
     out = {}
@@ -373,7 +375,8 @@ def species_details(entries: list[dict], sim_range: list[float], median: float, 
             e["stats"], [combo[e["dex"]]["super"], combo[e["dex"]]["neutral"], combo[e["dex"]]["moves"],
                          combo[e["dex"]]["types"], combo[e["dex"]]["alts"], combo[e["dex"]]["nBoost"]],
             # cartas a priorizar (build/passives.py): [ids de LevelUp.STATS, cuántas de las primeras evolucionan un ataque]
-            passives.compute(e["dex"], combo[e["dex"]]["moves"], psim)]
+            passives.compute(e["dex"], combo[e["dex"]]["moves"], psim),
+            r["sim"]["noshop"]["seconds"]]
     medians = [statistics.median(e["stats"][i] for e in entries) for i in range(6)]
     return {"sim": [*sim_range, median], "statMedian": medians, "items": build_items(), "cards": build_cards(), "d": out}
 

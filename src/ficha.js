@@ -209,8 +209,12 @@
     const ref = '<div class="mt-ref"><span class="' + side(xm) + '" style="left:' + f2(xm) + '%">' + esc(t('sim_median', { s: rnd(median) })) + '</span></div>';
     const gainNote = items.length === 2 && items[1].s > items[0].s
       ? '<p class="fig-note sim-gain">' + esc(t('sim_gain', { d: rnd(items[1].s - items[0].s) })) + '</p>' : '';
-    const body = '<div class="sim-chart">' + ref + rows + '<div class="mt-axis sim-axis" aria-hidden="true">' + axis + '</div></div>' + gainNote;
-    const alt = t('sim_alt') + items.map(i => i.label + ', ' + secs(i.s)).join('; ') + '.';
+    const noshop = d[11];
+    const shopNote = noshop != null && Math.abs(noshop - items[0].s) >= 0.5
+      ? '<p class="fig-note sim-noshop">' + esc(t('sim_noshop', { name: moveName(d[2]), s: rnd(noshop) })) + '</p>' : '';
+    const body = '<div class="sim-chart">' + ref + rows + '<div class="mt-axis sim-axis" aria-hidden="true">' + axis + '</div></div>' + gainNote + shopNote;
+    const alt = t('sim_alt') + items.map(i => i.label + ', ' + secs(i.s)).join('; ') + '.'
+      + (shopNote ? ' ' + t('sim_noshop', { name: moveName(d[2]), s: rnd(noshop) }) : '');
     return fig('sim', t('t_sim'), body, alt);
   }
 
@@ -345,7 +349,7 @@
     return el ? el.innerHTML : '';
   };
 
-  // Avisos de la simulación (estado sin reproducir, inicio cuerpo a cuerpo...): un icono y una frase, dentro de Ranking.
+  // Avisos de la simulación (estado sin reproducir, apertura que sigue en cuerpo a cuerpo...): un icono y una frase, dentro de Ranking.
   const flagList = flags => FLAGS.filter(f => flags & f[0]);
   const flagsHtml = flags => {
     const fs = flagList(flags);
