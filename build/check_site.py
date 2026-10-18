@@ -43,7 +43,8 @@ ROOT = Path(__file__).resolve().parent.parent
 UA = {"User-Agent": "SurvivorTiers-check/1.0"}
 BEACON_URL = "https://static.cloudflareinsights.com/beacon.min.js"
 SPRITE_CDN_PREFIX = "https://cdn.jsdelivr.net/gh/felipebasurto/survivortiers@"
-MAX_FILES, MAX_BYTES = 50, 5_000_000  # presupuesto de site/ para el despliegue
+# 8 páginas × 2 idiomas + 966 fichas × 2, más CSS, JSON y fuentes. Pages admite 20 000 archivos.
+MAX_FILES, MAX_BYTES = 4_000, 180_000_000
 EXPECTED_COUNTS = {"S": 30, "A": 90, "B": 200, "C": 300, "D": 346}
 SPANISH_WORDS = re.compile(r"\b(el|los|las|del|con|para|puesto|aguante|daño|ficha|partidas?|repeticiones|cuántos)\b", re.I)
 LANGS = ("", "en/")
@@ -104,7 +105,7 @@ def fetch(url: str, method: str = "GET"):
         return 0, str(e).encode()
 
 
-def agent_check(base: str, body_by_url: dict[str, str], err, notes: list[str]) -> None:
+def agent_check(base: str, body_by_url: dict[str, str], err, notes: list[str], n_sheets: int) -> None:
     """Archivos para agentes (build/agents.py): robots.txt, llms.txt y llms-full.txt, sitemap, datos descritos, pie y
     JSON-LD de la portada. Los enlaces absolutos de llms.txt apuntan a legal.SITE_URL; aquí se piden a este servidor."""
     site_url = legal.SITE_URL
@@ -140,8 +141,8 @@ def agent_check(base: str, body_by_url: dict[str, str], err, notes: list[str]) -
     elif len(rows) != 967 or any(r.startswith("#") for r in rows):
         err(f"data/ranking.csv: {len(rows) - 1} filas, se esperaban 966 y sin líneas de comentario")
 
-    # sitemap: una entrada por página y por idioma
-    expected = len(agents.PAGES) * len(agents.LANG_PREFIX)
+    # sitemap: una entrada por página de menú, por ficha y por idioma
+    expected = (len(agents.PAGES) + n_sheets) * len(agents.LANG_PREFIX)
     sitemap = fetch(base + "sitemap.xml")[1].decode("utf8", "replace")
     if sitemap.count("<url>") != expected:
         err(f"sitemap.xml: {sitemap.count('<url>')} entradas, se esperaban {expected}")
@@ -217,10 +218,11 @@ def browser_check(base: str, index: list[dict], args, err, notes: list[str]) -> 
             en = lang == "en/"
             for d in sample:
                 problems.clear()
-                page.goto(f"{base}{lang}pokemon/?id={d}")
+                page.goto(f"{base}{lang}pokemon/?id={d}", wait_until="domcontentloaded")
                 try:
-                    wait_js(page, "() => document.querySelectorAll('figure.fig').length === 5", 8000)
-                    wait_js(page, "() => { const i = document.querySelector('.ficha-sprite img'); return !!i && i.complete; }", 8000)
+                    page.wait_for_url(re.compile(rf"/pokemon/{d}-[^/?#]+/?$"), timeout=15000)
+                    wait_js(page, "() => document.querySelectorAll('figure.fig').length === 5", 15000)
+                    wait_js(page, "() => { const i = document.querySelector('.ficha-sprite img'); return !!i && i.complete; }", 15000)
                 except (Error, TimeoutError):
                     err(f"{lang}pokemon/?id={d}: la ficha no se dibuja")
                     continue
@@ -257,20 +259,21 @@ def browser_check(base: str, index: list[dict], args, err, notes: list[str]) -> 
             page.wait_for_selector("#ficha h1", timeout=8000)
             if page.locator("figure.fig").count():
                 err(f"{lang}pokemon/?id=99999 debería decir que no existe")
-            page.goto(f"{base}{lang}pokemon/25.html")
+            page.goto(f"{base}{lang}pokemon/25.html", wait_until="domcontentloaded")
             try:
-                wait_js(page, "() => document.querySelectorAll('figure.fig').length === 5", 8000)
+                page.wait_for_url(re.compile(r"/pokemon/25-pikachu/?$"), timeout=15000)
+                wait_js(page, "() => document.querySelectorAll('figure.fig').length === 5", 15000)
             except (Error, TimeoutError):
                 err(f"{lang}pokemon/25.html no acaba en la ficha de Pikachu")
             else:
-                if not page.url.endswith(f"{lang}pokemon/?id=25"):
+                if not page.url.rstrip("/").endswith(f"{lang}pokemon/25-pikachu"):
                     err(f"{lang}pokemon/25.html acaba en {page.url}")
         browser.close()
     notes.append(f"fichas dibujadas en el navegador: {drawn} de {2 * len(dexes)}")
 
 
 THEME_LIGHT, THEME_DARK = "#f6f0dc", "#1b1528"
-THEME_PAGES = ("", "coleccion.html", "pokemon/?id=25", "metodo.html", "ataques.html", "en/", "en/pokemon/?id=25", "en/coleccion.html")
+THEME_PAGES = ("", "coleccion.html", "pokemon/25-pikachu/", "metodo.html", "ataques.html", "en/", "en/pokemon/25-pikachu/", "en/coleccion.html")
 THEME_STATE_JS = """() => ({
     theme: document.documentElement.dataset.theme || null,
     bg: getComputedStyle(document.documentElement).getPropertyValue('--bg').trim(),
@@ -529,7 +532,10 @@ def main() -> int:
                 external.setdefault(full, url)
                 continue
             lang_of = LANGS[1] if parts.path.startswith("/en/") else LANGS[0]
-            if parts.path.endswith("/pokemon/") and parts.query:
+            static_ficha = re.search(r"/pokemon/(\d+)-[a-z0-9-]+/?$", parts.path)
+            if static_ficha:
+                ficha_ids[lang_of].add(int(static_ficha.group(1)))
+            elif parts.path.endswith("/pokemon/") and parts.query:
                 ids = parse_qs(parts.query).get("id", [])
                 if len(ids) == 1 and ids[0].isdigit():
                     ficha_ids[lang_of].add(int(ids[0]))
@@ -600,7 +606,8 @@ def main() -> int:
             err(f"{lang or 'es'}: la tier list no enlaza a las 966 fichas "
                 f"(faltan {sorted(set(dexes) - ficha_ids[lang])[:5]}, sobran {sorted(ficha_ids[lang] - set(dexes))[:5]})")
         tpl = body_by_url.get(f"{base}{lang}pokemon/", "")
-        if not (tpl.count('id="ficha"') == 1 and 'id="i18n"' in tpl and 'id="tpl-types"' in tpl and 'id="tpl-regions"' in tpl):
+        if not (tpl.count('id="ficha"') == 1 and 'id="i18n"' in tpl and 'id="tpl-types"' in tpl
+                and 'id="tpl-regions"' in tpl and 'id="slugs"' in tpl and 'name="robots" content="noindex"' in tpl):
             err(f"{lang}pokemon/: falta algo de la plantilla de ficha")
         if len(re.findall(r'<span data-t="', tpl)) != 18 or len(re.findall(r'<span data-gen="', tpl)) != 9:
             err(f"{lang}pokemon/: tipos o regiones incompletos en la plantilla")
@@ -660,7 +667,7 @@ def main() -> int:
             if url.startswith(base + lang) and not url.endswith("acerca.html") and 'class="credits-list"' in text:
                 err(f"{url}: los créditos de artistas solo van en Acerca")
     notes.append(f"páginas rastreadas: {sum(1 for p in seen.values() if p)}; sprites enlazados: {len(sprite_refs)}")
-    agent_check(base, body_by_url, err, notes)
+    agent_check(base, body_by_url, err, notes, len(index))
     browser_check(base, index, args, err, notes)
     theme_check(base, err, notes)
 

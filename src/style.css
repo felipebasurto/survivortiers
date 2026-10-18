@@ -1462,6 +1462,15 @@ html { overflow-x: hidden; }
 }
 /* Zen Kaku Gothic New no trae cifras tabulares: el 1 es más estrecho que el 8.
    El puesto y el conteo van en una celda de ancho fijo, alineados a la derecha, para que 1 y 966 ocupen el mismo hueco. */
+.simline { margin: 2px 0 0; color: var(--ink-2); font: 600 .92rem/1.35 var(--ui); }
+.sheet table { width: min(28rem, 100%); border-collapse: collapse; margin: 8px 0 0; }
+.sheet th, .sheet td { padding: 7px 0; border-bottom: 1px solid var(--rule-soft); font: 600 .95rem var(--ui); }
+.sheet td.num { text-align: right; }
+.bond { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 14px; padding: 0; list-style: none; }
+.bond li { padding: 6px 10px; background: var(--bg); color: var(--ink); box-shadow: var(--notch-soft); font: 600 .875rem var(--ui); }
+.bond li.is-buff { background: var(--rule-soft); }
+.faq dt { margin: 18px 0 4px; font: 700 1.05rem var(--ui); color: var(--ink); }
+.faq dd { margin: 0; max-width: 68ch; }
 .rankline strong, .mon .rk, .tier-head .n {
   display: inline-block;
   min-width: 3.25ch;

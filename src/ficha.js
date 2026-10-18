@@ -1,7 +1,6 @@
-/* SurvivorTiers · ficha de cada Pokémon, dibujada en el navegador con data/pokemon-index.json, data/species.json y
-   data/moves.json. Es la única plantilla pokemon/index.html de cada idioma: el número sale de ?id=. Los textos llegan
-   en un bloque JSON de la propia página (build/render.py), para que ES y EN salgan de build/i18n.py.
-   Mismos gráficos que build/charts.py. */
+/* SurvivorTiers · ficha interactiva. La página estática ya trae el texto (build/static_ficha.py); este script
+   sustituye #ficha por los gráficos. En /pokemon/?id=N no hay data-dex: redirige a /pokemon/<n>-<nombre>/.
+   Los textos llegan en #i18n (build/render.py). Mismos gráficos que build/charts.py. */
 (() => {
   'use strict';
   const html = document.documentElement;
@@ -339,7 +338,8 @@
     if (!btn) return;
     const toast = document.querySelector('.bd-toast');
     btn.addEventListener('click', () => {
-      const url = location.origin + location.pathname + '?id=' + p.dex + '#build';
+      const path = location.pathname.replace(/index\.html$/, '');
+      const url = location.origin + (path.endsWith('/') ? path : path + '/') + '#build';
       const done = () => { toast.textContent = t('build_copied'); setTimeout(() => { toast.textContent = ''; }, 1800); };
       if (navigator.share) {
         navigator.share({ title: document.title, url }).catch(() => {});
@@ -428,7 +428,8 @@
   function pager(prev, next) {
     const link = (q, dir) => {
       const k = Math.max(1, Math.min(2, Math.floor(40 / Math.max(q.w, q.h))));
-      return '<a class="pg pg-' + dir + '" href="?id=' + q.dex + '"><b aria-hidden="true">' + (dir === 'prev' ? '‹' : '›') + '</b>' +
+      const slug = q.dex + '-' + globalThis.speciesSlug(q.nameEn);
+      return '<a class="pg pg-' + dir + '" href="' + home + 'pokemon/' + slug + '/"><b aria-hidden="true">' + (dir === 'prev' ? '‹' : '›') + '</b>' +
         '<img class="px" src="' + sprites + q.dex + spriteExt + '" width="' + q.w * k + '" height="' + q.h * k + '" alt="" loading="lazy">' +
         '<span>' + esc(EN ? q.nameEn : q.name) + '<small>' + esc(t('dex_no', { dex: q.dex })) + '</small></span></a>';
     };
@@ -447,11 +448,13 @@
     root.innerHTML = back + hero(p, name, rank, tier, text ? summary(text, moves, items, cards, d[4]) : '') +
       build(p, d, moves, items, name, Math.max(1, Math.min(4, Math.floor(56 / Math.max(p.w, p.h)))), cards) +
       '<div class="fx-list">' + stats + learnable + ranking + '</div>' + pager(prev, next);
-    const label = EN || p.nameEn === p.name ? name : p.name + ' (' + p.nameEn + ')';
-    document.title = t('ficha_title', { name, tier });
+    document.title = t('sheet_title', { name, tier, rank });
     const desc = document.querySelector('meta[name=description]');
-    if (desc) desc.setAttribute('content', t('ficha_desc', { label, tier, rank }));
-    document.querySelectorAll('.lang a[hreflang]:not([aria-current])').forEach(a => { a.href = a.getAttribute('href').split('?')[0] + location.search + location.hash; });
+    if (desc) desc.setAttribute('content', t('sheet_desc', { name, tier, rank }));
+    document.querySelectorAll('.lang a[hreflang]:not([aria-current])').forEach(a => {
+      const base = a.getAttribute('href').split('?')[0].split('#')[0];
+      a.href = base + location.hash;
+    });
     wireShare(p);
     const target = location.hash && document.getElementById(location.hash.slice(1));
     if (target) {
@@ -474,7 +477,17 @@
     if (!r.ok) throw new Error(name + ' ' + r.status);
     return r.json();
   });
-  const id = Number(new URLSearchParams(location.search).get('id'));
+  const baked = Number(root.dataset.dex);
+  if (!baked) {
+    const qid = Number(new URLSearchParams(location.search).get('id'));
+    const mapEl = document.getElementById('slugs');
+    if (qid && mapEl) {
+      let slug = '';
+      try { slug = JSON.parse(mapEl.textContent)[String(qid)] || ''; } catch (e) { slug = ''; }
+      if (slug) { location.replace(home + 'pokemon/' + slug + '/' + location.hash); return; }
+    }
+  }
+  const id = baked || Number(new URLSearchParams(location.search).get('id'));
   // Sin resúmenes la ficha se dibuja igual: el bloque es un extra.
   const summaries = getJSON('summaries-' + (EN ? 'en' : 'es') + '.json').catch(() => ({}));
   Promise.all([getJSON('pokemon-index.json'), getJSON('species.json'), getJSON('moves.json'), summaries]).then(([index, species, moves, texts]) => {

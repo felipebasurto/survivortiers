@@ -165,6 +165,13 @@
   const plain = s => String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const monName = p => (EN ? p.nameEn : p.name);
+  // Misma regla que build/slugs.py: número de Pokédex, guion, nombre inglés en ASCII.
+  function speciesSlug(name) {
+    const s = String(name).replace(/♀/g, '-f').replace(/♂/g, '-m').normalize('NFKD').replace(/\p{M}/gu, '').toLowerCase();
+    return s.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  }
+  globalThis.speciesSlug = speciesSlug;
+  const monPath = p => home + 'pokemon/' + p.dex + '-' + speciesSlug(p.nameEn) + '/';
   const getJSON = name => fetch(assets + 'data/' + name).then(r => {
     if (!r.ok) throw new Error(TEXT.loadFail(name));
     return r.json();
@@ -177,7 +184,7 @@
     const [rank, tier] = p.r;
     const cls = 'mon' + (extraClass ? ' ' + extraClass : '');
     const title = TEXT.cardTitle(monName(p), p.dex, rank, tier);
-    return '<a class="' + cls + '" href="' + home + 'pokemon/?id=' + p.dex + '" data-dex="' + p.dex + '" title="' + esc(title) + '">' +
+    return '<a class="' + cls + '" href="' + monPath(p) + '" data-dex="' + p.dex + '" title="' + esc(title) + '">' +
       '<span class="sp"><img class="px" src="' + sprites + p.dex + spriteExt + '" width="' + p.w * SCALE + '" height="' + p.h * SCALE +
       '" alt="" loading="lazy" decoding="async"></span><span class="nm">' + esc(monName(p)) + '</span><span class="rk">' + rank + '</span>' +
       (extraHtml || '') + '</a>';
@@ -550,7 +557,7 @@
   function shinyCard(p, row) {
     const badge = row.from === 'wild' || row.from === 'gacha'
       ? '<span class="sh-badge sh-' + row.from + '">' + esc(row.from === 'wild' ? TEXT.badgeWild : TEXT.badgeGacha) + '</span>' : '';
-    return '<a class="sh-card" href="' + home + 'pokemon/?id=' + p.dex + '" title="' + esc(monName(p)) + '">' +
+    return '<a class="sh-card" href="' + monPath(p) + '" title="' + esc(monName(p)) + '">' +
       '<span class="sh-spr"><img src="' + sprites + 'shiny/' + p.dex + spriteExt + '" width="' + p.w * SCALE + '" height="' + p.h * SCALE +
       '" alt="" loading="lazy" decoding="async"></span>' +
       '<span class="sh-nm">' + esc(monName(p)) + '</span>' +
@@ -1785,7 +1792,7 @@
     document.addEventListener('error', e => { if (e.target.tagName === 'IMG') retry(e.target); }, true);
     $$('img').forEach(i => { if (i.complete && !i.naturalWidth) retry(i); });
   }
-  // Los enlaces antiguos /pokemon/25.html caen en la página 404, que los reenvía a la ficha única.
+  // Los enlaces antiguos /pokemon/25.html caen en la 404. Esta página los manda a ?id=, y ficha.js sigue hasta la URL estática.
   if (page === '404') {
     const old = location.pathname.match(/^(\/en)?\/pokemon\/(\d+)(?:\.html)?\/?$/);
     if (old) { location.replace((old[1] || '') + '/pokemon/?id=' + old[2]); return; }
