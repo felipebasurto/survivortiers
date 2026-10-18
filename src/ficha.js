@@ -82,7 +82,7 @@
     const noteStyle = sd !== 'r' ? 'left:' + f2(x) + '%' : 'right:' + f2(100 - x) + '%';
     const visible = CUTS.map(c => [c, Math.max(c[1], w0), Math.min(c[2], w1)]).filter(v => v[2] >= v[1]);
     const segs = visible.map(([c, a, b]) => '<i class="rb-seg t-' + c[0] + (c[0] === tier ? ' on' : '') + '" style="flex:' + (b - a + 1) + '"></i>').join('');
-    const letters = visible.map(([c, a, b]) => '<i class="t-' + c[0] + (c[0] === tier ? ' on' : '') + '" style="flex:' + (b - a + 1) + '">' + c[0] + '</i>').join('');
+    const letters = visible.map(([c, a, b]) => '<i class="t-' + c[0] + '" style="flex:' + (b - a + 1) + '">' + c[0] + '</i>').join('');
     // Escala: los extremos y los cortes de tier mandan; los números redondos se quitan si se pegan a ellos.
     const fixed = [...new Set([w0, w1, ...RANK_TICKS.filter(n => n > w0 && n < w1)])];
     const cand = [...new Set([...fixed, ...niceTicks(w0, w1)])].sort((a, b) => a - b);
@@ -95,10 +95,9 @@
     const ticks = kept.map(n => '<span style="left:' + f2(at(n)) + '%">' + n + '</span>').join('');
     const span = Math.max(at(hi) - at(lo), 0.5);
     const body = '<div class="rb-view">' +
-      '<div class="rb-note rb-' + sd + '" style="' + noteStyle + ';--tier:var(--tier-' + tier + ')"><b>' + esc(t('band_rank', { rank })) + '</b>' +
+      '<div class="rb-note rb-' + sd + '" style="' + noteStyle + '"><b>' + esc(t('band_rank', { rank })) + '</b>' +
       '<span>' + esc(t('band_range', { lo, hi })) + '</span></div>' +
-      '<div class="rb-track" style="--tier:var(--tier-' + tier + ')">' + segs + '<b class="rb-range" style="left:' + f2(at(lo)) + '%;width:' + f2(span) + '%"></b>' +
-      '<b class="rb-brk" style="left:' + f2(at(lo)) + '%;width:' + f2(span) + '%"></b>' +
+      '<div class="rb-track">' + segs + '<b class="rb-range" style="left:' + f2(at(lo)) + '%;width:' + f2(span) + '%"></b>' +
       '<b class="rb-dot" style="left:' + f2(x) + '%"></b></div>' +
       '<div class="rb-tiers" aria-hidden="true">' + letters + '</div><div class="rb-ticks" aria-hidden="true">' + ticks + '</div></div>';
     return fig('band', t('t_band'), body, t('band_alt', { name, rank, total: TOTAL, tier, lo, hi }));
@@ -439,7 +438,6 @@
     root.innerHTML = back + hero(p, name, rank, tier, text ? summary(text, moves, items, cards, d[4]) : '') +
       build(p, d, moves, items, name, Math.max(1, Math.min(4, Math.floor(56 / Math.max(p.w, p.h)))), cards) +
       '<div class="fx-list">' + stats + learnable + ranking + '</div>' + pager(prev, next);
-    document.getElementById('ranking').style.setProperty('--tier', 'var(--tier-' + tier + ')');
     const label = EN || p.nameEn === p.name ? name : p.name + ' (' + p.nameEn + ')';
     document.title = t('ficha_title', { name, tier });
     const desc = document.querySelector('meta[name=description]');

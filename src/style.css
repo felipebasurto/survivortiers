@@ -304,15 +304,11 @@ textarea {
 /* 1. puesto y banda */
 .fig-band .fig-body { padding-top: 3.1rem; }
 .rb-note { position: absolute; top: 0; display: flex; flex-direction: column; line-height: 1.25; white-space: nowrap; }
-.rb-note b { color: var(--accent); font: 700 1rem var(--ui); }
+.rb-note b { color: var(--ink); font: 700 1rem var(--ui); }
 .rb-note span { color: var(--ink-2); font: .75rem var(--sans); }
 .rb-c { transform: translateX(-50%); align-items: center; text-align: center; }
 .rb-r { align-items: flex-end; text-align: right; }
-.rb-note::after { content: ""; position: absolute; bottom: -.62rem; height: .55rem; width: 1px; background: var(--accent); }
-.rb-c::after { left: 50%; }
-.rb-l::after { left: 0; }
-.rb-r::after { right: 0; }
-.rb-track { position: relative; display: flex; gap: 2px; height: 22px; }
+.rb-track { position: relative; display: flex; gap: 2px; height: 22px; margin-bottom: 14px; }
 .rb-seg { flex: 1; background: var(--rule-soft); }
 /* tramos de tier con su color de la paleta; el del Pokémon a tope y los demás apagados */
 .rb-seg.t-S, .rb-ov i.t-S { background: var(--tier-S); }
@@ -327,8 +323,10 @@ textarea {
 .rb-tiers i.t-B { color: var(--tier-B); }
 .rb-tiers i.t-C { color: var(--tier-C); }
 .rb-tiers i.t-D { color: var(--tier-D); }
-.rb-range { position: absolute; top: 8px; height: 6px; background: var(--accent); opacity: .5; }
-.rb-dot { position: absolute; top: 50%; width: 12px; height: 12px; margin: -6px 0 0 -6px; background: var(--accent); box-shadow: 0 0 0 2px var(--bg); }
+.rb-range { position: absolute; top: calc(100% + 5px); height: 7px; min-width: 4px; border: 2px solid var(--ink); border-top: 0; }
+/* El puesto es una flecha escalonada sobre la barra y el margen un corchete debajo: ni uno ni otro pisa el color del tier. */
+.rb-dot { position: absolute; top: -12px; width: 16px; height: 12px; margin-left: -8px; background: var(--ink);
+  clip-path: polygon(0 0, 100% 0, 100% 25%, 87.5% 25%, 87.5% 50%, 75% 50%, 75% 75%, 62.5% 75%, 62.5% 100%, 37.5% 100%, 37.5% 75%, 25% 75%, 25% 50%, 12.5% 50%, 12.5% 25%, 0 25%); }
 .rb-tiers { display: flex; gap: 2px; margin-top: 4px; font: .75rem var(--sans); color: var(--ink-2); }
 .rb-tiers i { font-style: normal; text-align: center; }
 .rb-ticks { position: relative; height: 1.2rem; font: .6875rem var(--sans); color: var(--ink-2); }
@@ -484,23 +482,23 @@ textarea {
 .lp-ref span, .mt-ref span { position: absolute; bottom: 0; transform: translateX(-50%); white-space: nowrap; }
 .mt-ref span.s-l { transform: none; }
 .mt-ref span.s-r { transform: translateX(-100%); }
-.mt-ref span { color: var(--accent); font-weight: 600; }
+.mt-ref span { color: var(--ink); font-weight: 600; }
 .lp-row, .mt-row { display: grid; grid-template-columns: var(--label) 1fr; align-items: center; }
 .lp-name, .mt-name { font: .875rem/1.25 var(--sans); padding-right: 12px; }
 .lp-track { position: relative; height: 2.1rem; margin-right: 3.4rem; }
 .lp-track::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; border-left: 1px dashed var(--rule); }
 .lp-line { position: absolute; left: 0; top: 50%; height: 1px; background: var(--ink-2); opacity: .45; }
 .lp-dot, .mt-dot { position: absolute; top: 50%; width: 13px; height: 12px; margin: -6px 0 0 -6.5px; background: var(--ink-2); clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%); }
-.lp-dot.hot { background: var(--accent); }
+.lp-dot.hot { background: var(--ink); }
 .lp-val, .mt-val { position: absolute; top: 50%; transform: translateY(-50%); margin-left: 12px; font: 600 .95rem var(--ui); font-variant-numeric: tabular-nums; }
-.lp-val.hot { color: var(--accent); }
+.lp-val.hot { color: var(--ink); }
 /* 3. un punto por método */
 .mt-track { position: relative; height: 2rem; }
-.mt-final { position: absolute; top: 0; bottom: 0; border-left: 1.5px solid var(--accent); }
+.mt-final { position: absolute; top: 0; bottom: 0; border-left: 1.5px solid var(--ink); }
 .mt-val.flip { margin-left: 0; margin-right: 12px; }
 /* Simulación: escala con marcas, el valor encima del punto y un tramo que muestra la diferencia. */
 .mt-grid { position: absolute; top: 0; bottom: 0; border-left: 1px dashed var(--rule); }
-.mt-gain { position: absolute; top: 50%; height: 7px; margin-top: -3.5px; background: var(--accent); opacity: .6; }
+.mt-gain { position: absolute; top: 50%; height: 7px; margin-top: -3.5px; background: var(--ink); opacity: .4; }
 .sim-chart .mt-track { height: 3.1rem; }
 .sim-chart .mt-val { top: 0; margin: 0; transform: translateX(-50%); }
 .sim-chart .mt-val.s-l { transform: none; }
@@ -624,7 +622,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .rp-track { position: relative; height: 2.1rem; }
 .rp-track::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: 1px solid var(--rule-soft); }
 .rp-band { position: absolute; top: 50%; height: 8px; margin-top: -4px; background: var(--ink-2); opacity: .2; }
-.rp-med { position: absolute; top: 18%; bottom: 18%; border-left: 1.5px solid var(--accent); }
+.rp-med { position: absolute; top: 18%; bottom: 18%; border-left: 1.5px solid var(--ink); }
 .rp-dot { position: absolute; top: 50%; width: 11px; height: 11px; margin: -5.5px 0 0 -5.5px; background: var(--ink); transition: left .18s linear; }
 .rp-axis { margin-left: var(--label); }
 
@@ -934,7 +932,7 @@ code, kbd { background: var(--rule-soft); box-shadow: 0 0 0 1px var(--rule); }
 .tier-B .tier-head { border-bottom-color: var(--tier-B); }
 .tier-C .tier-head { border-bottom-color: var(--tier-C); }
 .tier-D .tier-head { border-bottom-color: var(--tier-D); }
-.tier-head .ico { width: 28px; height: 28px; color: var(--accent); align-self: center; margin: 0; }
+.tier-head .ico { width: 28px; height: 28px; color: var(--ink-2); align-self: center; margin: 0; }
 .mon { border: 2px solid transparent; }
 .mon:hover { background: var(--rule-soft); border-color: var(--ink); }
 .mon .nm { font: 500 .8125rem/1.25 var(--ui); }
@@ -945,13 +943,12 @@ code, kbd { background: var(--rule-soft); box-shadow: 0 0 0 1px var(--rule); }
 
 .bar i { background-color: transparent; }
 .lp-line { height: 4px; margin-top: -2px; opacity: .6; }
-.rb-range, .rp-band { background-image: repeating-linear-gradient(90deg, var(--accent) 0 4px, transparent 4px 6px); background-color: transparent; opacity: 1; }
-.rp-band { background-image: repeating-linear-gradient(90deg, var(--ink-2) 0 4px, transparent 4px 6px); opacity: .5; }
-.rb-dot { box-shadow: 0 0 0 3px var(--bg); }
+.rp-band { background-color: transparent; background-image: repeating-linear-gradient(90deg, var(--ink-2) 0 4px, transparent 4px 6px); opacity: .5; }
 .rp-dot { box-shadow: 0 0 0 2px var(--bg); }
 /* clip-path recorta la sombra normal: el halo del hexágono se dibuja con drop-shadow */
 .lp-dot, .mt-dot { filter: drop-shadow(0 0 1px var(--bg)) drop-shadow(0 0 1px var(--bg)); }
 .mt-dot, .lp-dot { width: 17px; height: 15px; margin: -7.5px 0 0 -8.5px; }
+.lp-dot.hot { width: 21px; height: 18px; margin: -9px 0 0 -10.5px; }
 .fig figcaption h3 { font: 600 1.15rem/1.3 var(--ui); }
 .wb-seg, .ts-seg { box-shadow: inset 0 -4px 0 rgba(0, 0, 0, .18); }
 .dm-row output, .lp-val, .mt-val, .bar-val, .gt-val { font-family: var(--ui); }
@@ -1246,42 +1243,3 @@ html { overflow-x: hidden; }
 .bs-val, .bs-total b, .bd-meter strong, .mb-val, .dm-row output, .gt-val, td.num, th.num {
   font-variant-numeric: normal;
 }
-
-/* ---------- TEMP: opciones del marcador de puesto (?rank=a|b|c|d) ---------- */
-:root { --paper: #f6f0dc; }
-.rb-brk { display: none; }
-html[data-rank] { --hot: var(--ink); --hot-text: var(--ink); --mk: var(--tier-ink); --mk-ring: var(--paper); }
-html[data-rank=b] :is(#ranking, .rb-note, .rb-track) {
-  --mk: color-mix(in srgb, var(--tier, var(--tier-ink)) 35%, var(--tier-ink));
-  --mk-ring: color-mix(in srgb, var(--tier, var(--paper)) 30%, #fff);
-  --hot: color-mix(in srgb, var(--tier, var(--ink)) 45%, var(--ink)); --hot-text: var(--hot);
-}
-@media (prefers-color-scheme: dark) { html[data-rank=b] :is(#ranking, .rb-note, .rb-track) { --hot: var(--tier, var(--ink)); --hot-text: var(--hot); } }
-
-html[data-rank] .rb-note b { color: var(--hot-text); }
-html[data-rank] .rb-note::after { background: var(--hot); width: 2px; }
-html[data-rank] .rb-dot { width: 14px; height: 14px; margin: -7px 0 0 -7px; background: var(--mk); box-shadow: 0 0 0 2px var(--mk-ring); }
-html[data-rank]:not([data-rank=d]) .rb-range {
-  background-image: repeating-linear-gradient(90deg, var(--mk) 0 4px, transparent 4px 6px);
-  filter: drop-shadow(0 1px 0 var(--mk-ring)) drop-shadow(0 -1px 0 var(--mk-ring));
-}
-html[data-rank] .lp-dot.hot { background: var(--hot); }
-html[data-rank] .lp-val.hot, html[data-rank] .mt-ref span { color: var(--hot-text); }
-html[data-rank] .mt-final { border-left-color: var(--hot); }
-html[data-rank] .mt-gain { background: var(--hot); opacity: .4; }
-html[data-rank] .tier-head .ico { color: var(--ink-2); }
-
-html[data-rank=c] .rb-seg:not(.on) { background: var(--rule); opacity: .5; }
-html[data-rank=c] .rb-tiers i { color: var(--ink-2); }
-html[data-rank=c] .rb-tiers i.on { color: var(--ink); font-weight: 700; }
-html[data-rank=c] .rb-dot { width: 20px; height: 20px; margin: -10px 0 0 -10px; background: var(--mk-ring); box-shadow: none;
-  clip-path: polygon(40% 0, 60% 0, 60% 10%, 70% 10%, 70% 20%, 80% 20%, 80% 30%, 90% 30%, 90% 40%, 100% 40%, 100% 60%, 90% 60%, 90% 70%, 80% 70%, 80% 80%, 70% 80%, 70% 90%, 60% 90%, 60% 100%, 40% 100%, 40% 90%, 30% 90%, 30% 80%, 20% 80%, 20% 70%, 10% 70%, 10% 60%, 0 60%, 0 40%, 10% 40%, 10% 30%, 20% 30%, 20% 20%, 30% 20%, 30% 10%, 40% 10%); }
-html[data-rank=c] .rb-dot::after { content: ""; position: absolute; inset: 4px; background: var(--mk);
-  clip-path: polygon(33.33% 0, 66.67% 0, 66.67% 16.67%, 83.33% 16.67%, 83.33% 33.33%, 100% 33.33%, 100% 66.67%, 83.33% 66.67%, 83.33% 83.33%, 66.67% 83.33%, 66.67% 100%, 33.33% 100%, 33.33% 83.33%, 16.67% 83.33%, 16.67% 66.67%, 0 66.67%, 0 33.33%, 16.67% 33.33%, 16.67% 16.67%, 33.33% 16.67%); }
-
-html[data-rank=d] .rb-range { display: none; }
-html[data-rank=d] .rb-note::after { display: none; }
-html[data-rank=d] .rb-track { margin-bottom: 14px; }
-html[data-rank=d] .rb-brk { display: block; position: absolute; top: calc(100% + 5px); height: 7px; min-width: 4px; border: 2px solid var(--ink); border-top: 0; }
-html[data-rank=d] .rb-dot { top: -12px; width: 16px; height: 12px; margin: 0 0 0 -8px; background: var(--ink); box-shadow: none;
-  clip-path: polygon(0 0, 100% 0, 100% 25%, 87.5% 25%, 87.5% 50%, 75% 50%, 75% 75%, 62.5% 75%, 62.5% 100%, 37.5% 100%, 37.5% 75%, 25% 75%, 25% 50%, 12.5% 50%, 12.5% 25%, 0 25%); }
