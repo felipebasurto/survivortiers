@@ -88,6 +88,19 @@ class BuildOutputTests(unittest.TestCase):
             self.assertIn(m["damage"], game_moves.DAMAGE_CLASSES, m["id"])
             self.assertEqual(m["damage"] == "status", m["kind"] == "buff", m["id"])
 
+    def test_ranked_buffs_match_game_numbers(self):
+        game = json.loads((DATA / "game_stats.json").read_text(encoding="utf8"))["moves"]
+        moves = json.loads((OUT / "moves.json").read_text(encoding="utf8"))
+        buffs = [m for m in moves if "buff" in m]
+        self.assertEqual(len(buffs), 5)
+        for m in buffs:
+            g = game[m["id"]]["buff"]
+            b = m["buff"]
+            self.assertEqual(b["dur"], g["dur"], m["id"])
+            self.assertAlmostEqual(b["cd"], g["cd"], places=2, msg=m["id"])
+            self.assertEqual(b["stat"], g["stat"], m["id"])
+            self.assertAlmostEqual(b["amount"], g["amount"] * g["stacks"] * (100 if b["pct"] else 1), places=3, msg=m["id"])
+
     def test_unranked_has_no_tier_or_score(self):
         unranked = json.loads((OUT / "moves_unranked.json").read_text(encoding="utf8"))
         self.assertEqual([u["id"] for u in unranked], ["nasty-plot"])

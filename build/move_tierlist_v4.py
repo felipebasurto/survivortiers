@@ -49,7 +49,8 @@ KIND_ES = {
     "boomerang": "bumerán", "chain": "cadena de saltos", "mine": "minas", "meteor": "meteoros", "turret": "torreta",
     "cone": "abanico de disparos", "buff": "potenciador",
 }
-STAT_ES = {"atk": "ataque", "spd": "velocidad", "def": "defensa", "regen": "regeneración", "hp": "vida"}
+STAT_ES = {"atk": "ataque", "patk": "ataque físico", "satk": "ataque especial", "spd": "velocidad", "def": "defensa",
+           "regen": "regeneración", "hp": "vida"}
 TYPE_ES = {
     "normal": "Normal", "fire": "Fuego", "water": "Agua", "grass": "Planta", "electric": "Eléctrico", "ice": "Hielo",
     "fighting": "Lucha", "poison": "Veneno", "ground": "Tierra", "flying": "Volador", "psychic": "Psíquico",
@@ -153,7 +154,7 @@ def buff_blurb(r: dict) -> str:
     g = r["gains"]
     stat = STAT_ES.get(r["stat"], r["stat"])
     total = r["total"]
-    amount = f"hasta +{_fx(total * 100, 0)} % de {stat}" if r["stat"] in ("atk", "spd", "def") else f"hasta +{_fx(total, 1)} de {stat}"
+    amount = f"hasta +{_fx(total * 100, 0)} % de {stat}" if r["stat"] in ("atk", "patk", "satk", "spd", "def") else f"hasta +{_fx(total, 1)} de {stat}"
     uptime = min(1.0, r["dur"] / r["cd"]) if r["cd"] else 1.0
     return (f"{TYPE_ES[r['type']]}, potenciador: {amount} con todas las acumulaciones a nivel máximo, dura {_fx(r['dur'], 0)} s con recarga de "
             f"{_fx(r['cd'], 2)} s (cobertura {_fx(uptime * 100, 0)} %). Fusionado con tus ataques multiplica su valor "

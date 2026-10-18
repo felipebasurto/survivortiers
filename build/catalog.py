@@ -63,6 +63,9 @@ METHOD = {
     "repeats": 2000,
 }
 METHOD_KEYS = ("sheet", "simStart", "simBest", "lateMax", "lateFresh")
+# Combate del juego (js/data/pokedex.js @ e868b5e, en data/pokedex_export.json; lo importa build/import_game_combat.py).
+# pa/sa: multiplicador del daño físico/especial; df/sd: Defensa y Defensa Especial base.
+COMBAT_KEYS = ("pa", "sa", "df", "sd")
 
 
 class CatalogError(RuntimeError):
@@ -90,13 +93,14 @@ def png_size(path: Path) -> tuple[int, int]:
 
 
 BUFF_RE = re.compile(
-    r"^(?P<type>[^,]+), potenciador: hasta \+(?P<amount>\d+(?:,\d+)?)(?P<pct> %)? de (?P<stat>\w+) "
+    r"^(?P<type>[^,]+), potenciador: hasta \+(?P<amount>\d+(?:,\d+)?)(?P<pct> %)? de (?P<stat>.+?) "
     r"con todas las acumulaciones a nivel máximo, dura (?P<dur>\d+) s con recarga de (?P<cd>\d+(?:,\d+)?) s "
     r"\(cobertura (?P<cover>\d+) %\)\. Fusionado con tus ataques multiplica su valor "
     r"×(?P<g5>\d+(?:,\d+)?) / ×(?P<g10>\d+(?:,\d+)?) / ×(?P<g15>\d+(?:,\d+)?) a los minutos 5 / 10 / 15; "
     r"alternándolo en otro hueco, ×(?P<weave>\d+(?:,\d+)?) al minuto 15\.$"
 )
-STAT_IDS = {"ataque": "atk", "velocidad": "spd", "defensa": "def", "regeneración": "regen", "vida": "hp"}
+STAT_IDS = {"ataque físico": "patk", "ataque especial": "satk", "velocidad": "spd", "defensa": "def",
+            "regeneración": "regen", "vida": "hp"}
 
 
 def _num(text: str) -> float:
@@ -256,12 +260,14 @@ def load_pokemon(move_names: dict, credits: dict, shiny: set[int]) -> list[dict]
             "flags": {"statsCapped": row["stats_capped"] == "1", "statusUnmodelled": row["status_unmodelled"] == "1",
                       "melee": row["melee_locked"] == "1", "typesCapped": row["types_capped"] == "1"},
         }
+        if any(k not in px for k in COMBAT_KEYS):
+            raise CatalogError(f"{dex}: falta pa/sa/df/sd en pokedex_export.json; ejecuta build/import_game_combat.py")
         entries.append({
             "dex": dex, "name": px["name"], "nameEn": name_en, "types": px["types"],
             "rarity": px["rarity"], "legendary": px["legendary"],
             "bannerId": px["gen"], "banner": px["banner"], "sprite": sprite, "r": ranking, "sh": dex in shiny,
             "base": {"atk": px["atk"], "hp": px["hp"], "spd": px["spd"], "ehp": px["effective_hp"],
-                     "rad": px["body_radius"]},
+                     "rad": px["body_radius"], "pa": px["pa"], "sa": px["sa"], "df": px["df"], "sd": px["sd"]},
             "stats": base_stats[str(dex)],
         })
     return entries
@@ -380,13 +386,24 @@ def slim(entries: list[dict]) -> list[dict]:
             for e in entries]
 
 
+def attack_kind(pa: float, sa: float) -> str:
+    """'phys', 'spec' o 'mix': el lado fuerte del Pokémon. Mixto si pa y sa están a 0,05 o menos (en centésimas, sin
+    errores de coma flotante). Lo leen la ficha estática, la lista (src/app.js) y la ficha interactiva (src/ficha.js)."""
+    gap = round((pa - sa) * 100)
+    if abs(gap) <= 5:
+        return "mix"
+    return "phys" if gap > 0 else "spec"
+
+
 def sort_values(e: dict) -> dict:
-    """Valores por los que se ordena la lista: los de la Pokédex (atk, hp, spd, ehp, rad) y los pilares en %
-    (td = defensa de tipos, mv = movimientos, st = estadísticas). Los claves son cortas para que el JSON pese poco."""
+    """Valores por los que se ordena la lista: los de la Pokédex (atk, hp, spd, ehp, rad), los pilares en %
+    (td = defensa de tipos, mv = movimientos, st = estadísticas) y el combate del juego (pa, sa, df, sd, y ak, el
+    lado fuerte). Las claves son cortas para que el JSON pese poco."""
     b, pil = e["base"], e["r"]["pillars"]
     return {"atk": round(b["atk"], 2), "hp": b["hp"], "spd": b["spd"], "ehp": round(b["ehp"]),
             "rad": round(b["rad"], 1), "td": round(100 * pil["typedef"]), "mv": round(100 * pil["moves"]),
-            "st": round(100 * pil["stats"])}
+            "st": round(100 * pil["stats"]), "pa": round(b["pa"], 2), "sa": round(b["sa"], 2),
+            "df": b["df"], "sd": b["sd"], "ak": attack_kind(b["pa"], b["sa"])}
 
 
 def build_items() -> list[dict]:
