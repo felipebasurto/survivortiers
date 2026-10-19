@@ -406,7 +406,7 @@ def render_species(c: Ctx, entry: dict, detail: list, moves: dict, prev: dict | 
                                   summary=summary, fresh=legal.freshness_text(L, meta),
                                   guides=landing.guides_nav(L, c.home, types=entry["types"]),
                                   updated=meta["generatedAt"][:10], url=page_url(c), title=title)
-    return page(c, "ficha", title, desc, before + html + after, meta, extra_head=ld,
+    return page(c, "ficha", title, desc, html + before + after, meta, extra_head=ld,
                 head_links=static_ficha.alternates(species_path(entry["dex"], entry["nameEn"])), og_type="article")
 
 

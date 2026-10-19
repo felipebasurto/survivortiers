@@ -129,17 +129,13 @@ class LinksAndFreshness(unittest.TestCase):
                 self.assertIn(f'href="../../{landing.folder(ES, landing.page_for(f"type:{t}"))}"', text, path)
 
     def test_freshness_line_on_index_ficha_and_landing(self) -> None:
-        meta = _meta()
-        date, sha = meta["generatedAt"][:10], meta["gameCommit"][:7]
-        combat = legal.COMBAT_COMMIT[:7]
-        es_line = f"Datos del juego: commit {sha} (ranking) · mecánicas: commit {combat} · actualizado {date}"
-        en_line = f"Game data: commit {sha} (ranking) · mechanics: commit {combat} · updated {date}"
-        self.assertIn(es_line, _read("index.html"))
-        self.assertIn(en_line, _read("en/index.html"))
-        self.assertIn(es_line, _read("pokemon/150-mewtwo/index.html"))
-        self.assertIn(en_line, _read("en/pokemon/150-mewtwo/index.html"))
-        self.assertIn(es_line, _read("mejores-pokemon/index.html"))
-        self.assertIn(en_line, _read("en/best-pokemon/index.html"))
+        es_line, en_line = legal.freshness_text(ES), legal.freshness_text(EN)
+        self.assertEqual(es_line, f"Actualizado al parche del 19 oct 2026 ({legal.UPDATED_COMMIT})")
+        self.assertEqual(en_line, f"Updated to the Oct 19, 2026 patch ({legal.UPDATED_COMMIT})")
+        for rel in ("index.html", "pokemon/150-mewtwo/index.html", "mejores-pokemon/index.html", "metodo.html", "acerca.html"):
+            self.assertIn(es_line, _read(rel), rel)
+        for rel in ("en/index.html", "en/pokemon/150-mewtwo/index.html", "en/best-pokemon/index.html", "en/metodo.html"):
+            self.assertIn(en_line, _read(rel), rel)
 
     def test_date_modified_in_structured_data(self) -> None:
         meta = _meta()
