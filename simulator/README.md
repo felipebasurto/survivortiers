@@ -73,11 +73,12 @@ Group mode also models, from the game source (`js/` in JPTER78/pokesurvivor):
     Group search (`--synergy`, on for `--group`) runs for every species that learns a synergy
     (Hex plus a burn, poison or slow, or two dashes), not a shortlist. It simulates each status
     move with Hex (either one leading) and the three strongest status moves as two appliers + Hex
-    + Swords Dance, every ordered pair among the top 6 attacks, and every ordered pair of dashes
+    + an attack buff, every ordered pair among the top 6 attacks, and every ordered pair of dashes
     even when one of them sits outside that top 6. That top 6 is the better of the species'
     solo-sweep rank and the move-tier rank (`data/move_tierlist_v4.csv`), so a plain pair such as
     Shadow Ball + Aura Sphere is scored against Hex + Lick, and Aerial Ace + Quick Attack is
-    scored against a higher-tier lead. The higher median wins (mean breaks a tie).
+    scored against a higher-tier lead. The higher composite score wins (mean score, then survival
+    time, breaks a tie).
     `results/fixed_group/group_search.csv` is that run.
     `build/combos.py` shows the winning attacks; it does not force the status partner.
     Hex is the only move with a status-conditional damage multiplier (`moves.js` `hex`).
@@ -88,9 +89,11 @@ Group mode also models, from the game source (`js/` in JPTER78/pokesurvivor):
     swing, so a ranged lead does not collect it from kite range. A bonded melee companion also pulls the bot in to
     the melee keep (repulse stays off until that gap) and, on the last 90px of the close, takes one contact hit per
     touch cadence. Casts outside the arc still spend the cooldown and hit nothing. Orbit stays out of the bonded group (one shared orb list).
-    Gengar (dex 94) is not offered a melee move. Every searched group holds Swords Dance. The fourth slot is Harden
-    or a third attack, and the higher median (then mean) wins. A melee group is published only when its bootstrap
-    floor is strictly above the best ranged group's median.
+    Gengar (dex 94) is not offered a melee move. Every searched group holds an attack buff: Maquinación when the
+    bonded attacks are special, Danza Espada (or Danza Dragón with `--dd`) when they are physical. The fourth slot
+    is Harden or a third attack, and the higher composite score (then mean score, then survival time) wins. A melee
+    group is published only when its bootstrap floor is strictly above the best ranged group's median and its mean
+    is not worse.
   - Dash invulnerability is `max(invuln, 0.3)` (systems/combat.js:311). Lava sets invuln to 0 and then hurts
     (entities/player.js:352). Cooldown cuts shorten the dash's own cooldown.
   - `--swap` is a second slot at level 1. Switching clamps that slot's timers to 35% of base cd and ignores cdMul
