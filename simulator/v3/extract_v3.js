@@ -1,4 +1,5 @@
-// Read-only extractor: loads game data files from a9b21f0 (git archive in /tmp/a9) into a VM, dumps JSON.
+// Read-only extractor: loads the game's data files (js/ of a pokesurvivor checkout, pinned to 5a23d49) into a VM, dumps JSON.
+// Usage, from this folder: node extract_v3.js /path/to/pokesurvivor/js/
 const fs=require('fs'),vm=require('vm');const R=process.argv[2]||'/tmp/a9/js/';
 const G={};const c=vm.createContext({G,window:{G},console,performance:{now:()=>0},Math});
 for(const f of ['core/util.js','data/pokedex.js','data/sprites-meta.js','data/types.js','data/moves.js','data/upgrades.js','data/starters.js'])vm.runInContext(fs.readFileSync(R+f,'utf8'),c);
@@ -10,13 +11,13 @@ const hovers=d=>{const m=meta(d);return !!(m&&m.hv)};
 G.Sprites={hovers,bodyRadius};
 vm.runInContext(fs.readFileSync(R+'data/enemies.js','utf8').replace(/return \{\s*TIERS,/,'return { behaviorOf, defFor, TIERS,'),c);
 const E=G.Enemies;
-const tiers=E.TIERS.map((t,ti)=>({...t,cands:E.candidates(t).map(p=>({dex:p.dex,types:p.types,beh:E.behaviorOf(p),def:E.defFor(p,t,ti),r:bodyRadius(p.dex),fly:hovers(p.dex)}))}));
+const tiers=E.TIERS.map((t,ti)=>({...t,cands:E.candidates(t).map(p=>({dex:p.dex,types:p.types,beh:E.behaviorOf(p),def:E.defFor(p,t,ti),r:bodyRadius(p.dex),fly:hovers(p.dex),pa:p.pa,sa:p.sa,df:p.df,sd:p.sd}))}));
 const mv=G.Moves;const moves={};
 for(const m of mv.ALL){const L=[];for(let l=1;l<=m.maxLvl;l++){const s=mv.instance(m.id,l);delete s.def;L.push(s)}
  let ev=null;if(m.kind!=='buff'){const s=mv.instance(m.id,m.maxLvl);if(mv.evolve(s)){delete s.def;ev=s}}
  const e=mv.evoInfo({id:m.id,kind:m.kind,lvl:m.maxLvl,def:m},{});
  moves[m.id]={id:m.id,name:m.name,type:m.type,kind:m.kind,maxLvl:m.maxLvl,levels:L,evo:ev,needs:e?e.needs:null}}
-const dex=G.DEX.map(p=>({dex:p.dex,name:p.name,types:p.types,hp:p.hp,spd:p.spd,atk:p.atk,rarity:p.rarity,leg:!!p.leg,bst:p.bst,r:bodyRadius(p.dex),start:G.startMoveOf(p.dex),pool:mv.poolFor(p)}));
+const dex=G.DEX.map(p=>({dex:p.dex,name:p.name,types:p.types,hp:p.hp,spd:p.spd,atk:p.atk,rarity:p.rarity,leg:!!p.leg,bst:p.bst,r:bodyRadius(p.dex),start:G.startMoveOf(p.dex),pool:mv.poolFor(p),pa:p.pa,sa:p.sa,df:p.df,sd:p.sd}));
 const T=Object.keys(G.Types.CHART);const chart={};for(const a of T){chart[a]={};for(const d of T)chart[a][d]=G.Types.mult(a,[d])}
 fs.writeFileSync('v3_data.json',JSON.stringify({tiers,bosses:E.BOSS_SLOTS,moves,dex,chart,upgrades:G.Upgrades?G.Upgrades.LIST||null:null}));
 console.log(dex.length,Object.keys(moves).length,tiers.map(t=>t.cands.length).join(','),Object.keys(G).join(','));
