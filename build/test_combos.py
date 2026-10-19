@@ -67,6 +67,27 @@ class SearchPicks(unittest.TestCase):
     def test_species_outside_the_search_keeps_its_best_move(self):
         self.assertEqual(self.attacks(647)[0], "aura-sphere")
 
+    def test_buff_follows_the_lead_attack(self):
+        cats = {"shadow-ball": "special", "lick": "physical", "tackle": "physical", "hex": "special"}
+        available = ["nasty-plot", "swords-dance", "harden"]
+        self.assertEqual(
+            combos._attack_buff(["shadow-ball", "hex"], "swords-dance", cats, False, available),
+            "nasty-plot",
+        )
+        self.assertEqual(
+            combos._attack_buff(["tackle", "lick"], "nasty-plot", cats, True, available),
+            "swords-dance",
+        )
+        # Mixed pair: the lead decides, even when the searched buff and the species side disagree.
+        self.assertEqual(
+            combos._attack_buff(["shadow-ball", "lick"], "swords-dance", cats, False, available),
+            "nasty-plot",
+        )
+        self.assertEqual(
+            combos._attack_buff(["lick", "shadow-ball"], "nasty-plot", cats, True, available),
+            "swords-dance",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

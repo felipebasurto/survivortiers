@@ -89,8 +89,10 @@ Group mode also models, from the game source (`js/` in JPTER78/pokesurvivor):
     swing, so a ranged lead does not collect it from kite range. A bonded melee companion also pulls the bot in to
     the melee keep (repulse stays off until that gap) and, on the last 90px of the close, takes one contact hit per
     touch cadence. Casts outside the arc still spend the cooldown and hit nothing. Orbit stays out of the bonded group (one shared orb list).
-    Gengar (dex 94) is not offered a melee move. Every searched group holds an attack buff: Maquinación when the
-    bonded attacks are special, Danza Espada (or Danza Dragón with `--dd`) when they are physical. The fourth slot
+    Gengar (dex 94) is not offered a melee move. Lengüetazo and every other `kind === 'melee'` move goes through
+    that floor. Picotazo Veneno is a projectile (speed 420, life 1.0) and is not melee. Every searched group holds
+    an attack buff: Maquinación when the lead attack is special, Danza Espada when it is physical. A mixed pair
+    follows the lead. `--dd` is Danza Dragón and only applies to a physical lead. The fourth slot
     is Harden or a third attack, and the higher composite score (then mean score, then survival time) wins. A melee
     group is published only when its bootstrap floor is strictly above the best ranged group's median and its mean
     is not worse.
@@ -128,7 +130,7 @@ evolution rows match the game's own `evolve()`.
 Physical and special split, from PokéSurvivor `e868b5eb3cd55499cd41de543ee032b48a344e71` (18 Oct 2026). Both engines use the same formulas; `parity.js` still passes.
 
 - `stats.js:17-43`. `guard(def) = clamp((75 / max(5, def || 75))^0.35, 0.78, 1.25)`. Damage taken is `guard(sd)` for a special hit and `guard(df)` for a physical one. `sideOf` is special when `sa > pa`, otherwise physical. `fit` is that side's multiplier over `atk` (`atk` is still `max(pa, sa)`). On-side moves hit as hard as before this commit. Pure damage and traps skip the guard.
-- `moves.js`. Non-buff moves have `cat` physical or special. Danza Espada and Danza Dragón buff `patk` only. Maquinación (`nasty-plot`) buffs `satk` (0.13, 5 stacks, 7 s) and is a normal-pool move. A published group bonds Maquinación when its attacks are special (or `sa > pa` when the sides tie). A physical group bonds Danza Espada. `--dd` is Danza Dragón and only applies to a physical group. `--np` forces Maquinación.
+- `moves.js`. Non-buff moves have `cat` physical or special. Danza Espada and Danza Dragón buff `patk` only. Maquinación (`nasty-plot`) buffs `satk` (0.13, 5 stacks, 7 s) and is a normal-pool move. A published group bonds Maquinación when the lead attack is special, and Danza Espada when that lead is physical. A mixed pair follows the lead. `--dd` is Danza Dragón and only applies to a physical lead. `--np` forces Maquinación. Sustituto is a turret (`dmg` 14, `rate` 0.4, `moves.js`): its shots count as dealt damage, and the published best move skips turrets, buffs and rows that dealt nothing.
 - `player.js` `atkFor` and `combat.js` hits. Outgoing damage is `atk * fit(mon, cat) * (1 + the matching side buff)`, then `typeK * guard(enemy)`. Incoming combat damage, including hazards, is multiplied by the player's guard before the type chart. Weather chip and lava are not combat hits.
 - `enemy.js`. Enemies strike with `sideOf`. A boss heal is at most `0.4 * rd / 6` and a boss shield at most `1.2 * rd / 6` (one shield while `shieldT > 2`). Poison percent HP uses `maxHp` up to 60,000 and `60000 * sqrt(maxHp / 60000)` above that. Normal enemies and the 900 s bosses stay under that line.
 - `spawner.js:82`. At most 3 alive healers, shielders and summoners. A full type is re-rolled from the same tier; an empty remainder spawns nothing and does not advance the spawn counter.

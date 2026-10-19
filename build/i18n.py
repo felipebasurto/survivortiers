@@ -665,10 +665,10 @@ STR: dict[str, tuple[str, str]] = {
                    "física y Maquinación, y cada una sube su lado.",
                    "Maquinación raises only special attack and has its own counter. In a mixed group you can take a physical dance "
                    "and Maquinación, and each one raises its side."),
-    "pv_buff_rec": ("Nuestra recomendación: Danza Espada si tu Pokémon pega más con ataques físicos, y Maquinación si pega más con "
-                    "especiales. Así no acabas con una danza que no sube nada.",
-                    "Our recommendation: Swords Dance if your Pokémon hits harder with physical moves, and Maquinación if it hits "
-                    "harder with special ones. That way you don't end up with a dance that raises nothing."),
+    "pv_buff_rec": ("Nuestra recomendación: Maquinación si el ataque que abre el grupo es especial, y Danza Espada si es físico. "
+                    "En un grupo mixto manda ese primer ataque.",
+                    "Our recommendation: Maquinación when the move that opens the group is special, and Swords Dance when it is "
+                    "physical. In a mixed group, that lead attack decides."),
     "pv_buff_link": ("Arma tu grupo en el planificador de build", "Build your group in the build planner"),
     "pv_buff_cap_note": ("Valores del juego en el commit {commit}.", "Values from the game at commit {commit}."),
 
@@ -748,10 +748,8 @@ STR: dict[str, tuple[str, str]] = {
                 "No las lleves juntas.",
                 "Swords Dance and Dragon Dance share the physical attack counter: they don't add up, and only the last one to fire "
                 "counts. Don't take both."),
-    "bp_swapped": ("Su build recomendada tenía {from}, pero la mayoría de sus ataques son especiales: la cambiamos por Maquinación. "
-                   "La build de la ficha se simuló antes del reparto físico y especial.",
-                   "Its recommended build had {from}, but most of its attacks are special: we swapped in "
-                   "Maquinación. The build on its sheet was simulated before the physical and special split."),
+    "bp_swapped": ("Su build recomendada tenía {from}. El ataque que abre el grupo es del otro lado, así que aquí va {to}.",
+                   "Its recommended build had {from}. The move that opens the group is the other side, so this one uses {to}."),
     "bp_item_h": ("Objeto", "Item"),
     "bp_item_none": ("Sin objeto", "No item"),
     "bp_item_best": ("Recomendado", "Recommended"),

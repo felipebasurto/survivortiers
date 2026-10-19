@@ -81,16 +81,26 @@ check('cada build recomendada: sin repetidos, máximo 2 potenciadores, ids en el
   }
 });
 
-check('el cambio de danza solo ocurre si la mayoría de ataques es especial', () => {
+check('el cambio de danza sigue al ataque que abre el grupo', () => {
   for (const dex of swaps) {
     const rec = tools.recommended(dex, species, game);
     const d9 = species.d[String(dex)][9];
     const attacks = d9[2].slice(0, d9[2].length - d9[5]);
-    const spec = attacks.filter(id => game.moves[id].c === 'special').length;
-    const phys = attacks.length - spec;
-    assert.ok(spec > phys || (spec === phys && tools.sideOf(...game.dex[String(dex)]) === 'special'), 'cambio sin motivo en ' + dex);
-    assert.equal(rec.swap.to, 'nasty-plot');
-    assert.ok(rec.group.includes('nasty-plot') && !rec.group.includes(rec.swap.from), 'el cambio no llegó al grupo ' + dex);
+    let lead = null;
+    for (const id of attacks) {
+      const cat = game.moves[id].c;
+      if (cat === 'physical' || cat === 'special') { lead = cat; break; }
+    }
+    if (!lead) lead = tools.sideOf(...game.dex[String(dex)]);
+    const from = game.moves[rec.swap.from];
+    if (lead === 'special') {
+      assert.equal(from.b.stat, 'patk', 'cambio sin motivo en ' + dex);
+      assert.equal(rec.swap.to, 'nasty-plot');
+    } else {
+      assert.equal(from.b.stat, 'satk', 'cambio sin motivo en ' + dex);
+      assert.equal(rec.swap.to, 'swords-dance');
+    }
+    assert.ok(rec.group.includes(rec.swap.to) && !rec.group.includes(rec.swap.from), 'el cambio no llegó al grupo ' + dex);
   }
 });
 

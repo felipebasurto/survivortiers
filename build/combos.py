@@ -138,17 +138,20 @@ def _special_species() -> dict[int, bool]:
     return {int(p["dex"]): float(p["sa"]) > float(p["pa"]) for p in raw}
 
 
-def _attack_buff(attacks: list[str], searched: str | None, cats: dict[str, str], special: bool,
+def _attack_buff(attacks: list[str], _searched: str | None, cats: dict[str, str], special: bool,
                  available: list[str]) -> str | None:
-    """Maquinación when the bonded attacks are special. Danza Espada does not raise them."""
-    spec = sum(cats.get(a) == "special" for a in attacks)
-    phys = sum(cats.get(a) == "physical" for a in attacks)
-    if spec > phys or (spec == phys and special):
-        want = "nasty-plot"
-    elif searched in ("dragon-dance", "swords-dance"):
-        want = searched
-    else:
-        want = "swords-dance"
+    """Maquinación when the lead attack is special. A physical lead, including a mixed pair, uses Danza Espada.
+
+    The lead is the first bonded attack with a category. A group with no category falls back to
+    the species side (`sa > pa`). `--dd` stays a sim flag; the published physical buff is Danza Espada.
+    """
+    lead = ""
+    for attack in attacks:
+        cat = cats.get(attack) or ""
+        if cat in ("physical", "special"):
+            lead = cat
+            break
+    want = "nasty-plot" if lead == "special" or (not lead and special) else "swords-dance"
     if want in available:
         return want
     return next((b for b in ATTACK_BUFFS if b in available), None)
@@ -165,7 +168,9 @@ def _search_picks() -> dict[int, tuple[list[str], bool, str | None]]:
     """dex -> (attack ids, whether the winning group also bonds Harden, attack-buff id).
 
     The sim scores status+Hex, dash pairs, and the top attack pairs. Every group holds an attack
-    buff: Maquinación when those attacks are special, Danza Espada (or Danza Dragón) otherwise.
+    buff: Maquinación when the lead attack is special, Danza Espada when it is physical. A mixed
+    pair follows that lead. Lengüetazo and every other `kind == melee` move goes through the
+    floor rule below. Picotazo Veneno is a projectile (reach 420) and is not melee.
     Harden wins the fourth slot only when that shape beats the third attack.
 
     Rank is median score, then mean score, then median seconds, when the score columns exist.

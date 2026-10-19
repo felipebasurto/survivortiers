@@ -114,12 +114,29 @@ def row_metric(row: dict, score_key: str, fallback: str) -> float:
     return float(row[fallback])
 
 
+def _attacking_row(row: dict) -> bool:
+    """Published best move is an attack the build would bond.
+
+    Sustituto is a turret (moves.js): the doll shoots, so its dealt damage is real and the
+    composite score can rank it first. That row stays in the sweep. It is not the best move.
+    A buff, or a row that dealt nothing, is not either.
+    """
+    if row.get("kind") in ("buff", "turret", "orbit") or row.get("start") == "substitute":
+        return False
+    dealt = row.get("median_dealt")
+    if dealt not in (None, "") and float(dealt) <= 0:
+        return False
+    return True
+
+
 def winner_by_dex(sweep: list[dict]) -> dict[int, dict]:
     best: dict[int, dict] = {}
     for row in sweep:
         dex = int(row["dex"])
         # Gengar never keeps Golpe Cuerpo or any other melee move.
         if dex == 94 and row.get("kind") == "melee":
+            continue
+        if not _attacking_row(row):
             continue
         key = (
             -row_metric(row, "median_score", "median_s"),

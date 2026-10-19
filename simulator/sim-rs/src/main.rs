@@ -190,13 +190,20 @@ fn read_partners(path: &str) -> HashMap<u32, Vec<String>> {
         // dex,name,start,kind,n,median_s,... (name may hold no commas in this data)
         let time: f64 = c[5].parse().unwrap();
         let score = c.get(16).and_then(|s| s.parse().ok()).unwrap_or(time);
+        // A move that never lands is not a partner. Missing column (older sweeps) stays eligible.
+        let dealt: f64 = c.get(15).and_then(|s| s.parse().ok()).unwrap_or(1.0);
+        if dealt <= 0.0 {
+            continue;
+        }
         rows.push((c[0].parse().unwrap(), c[2].to_string(), c[3].to_string(), score));
         let _ = n;
     }
     rows.sort_by(|a, b| a.0.cmp(&b.0).then(b.3.partial_cmp(&a.3).unwrap()).then(a.1.cmp(&b.1)));
     let mut m: HashMap<u32, Vec<String>> = HashMap::new();
     for (d, mv, kind, _) in rows {
-        if kind == "orbit" {
+        // Orbit shares one orb list. Sustituto is a turret (moves.js): its shots deal damage,
+        // but it is not an attack the build bonds. Buffs are the other slots.
+        if kind == "orbit" || kind == "buff" || kind == "turret" {
             continue;
         }
         m.entry(d).or_default().push(mv);
@@ -239,7 +246,7 @@ fn partner_pool(data: &Data, mon: &Mon, start: usize) -> Vec<usize> {
             if mon.dex == 94 && m.kind == Kind::Melee {
                 return false;
             }
-            if m.kind == Kind::Orbit {
+            if m.kind == Kind::Orbit || !publishable_attack(m) {
                 return false;
             }
             m.kind.simulated() || m.levels[0].xk != 0
@@ -258,26 +265,23 @@ fn partner_pool(data: &Data, mon: &Mon, start: usize) -> Vec<usize> {
     ids
 }
 
-/// Maquinación when the bonded attacks are special (or sa > pa on a tie). Danza Espada does not
-/// raise special moves. `--np` forces it; `--dd` is Dragon Dance and only applies to a physical group.
+/// Maquinación when the lead attack is special. A physical lead, including a mixed pair,
+/// bonds Danza Espada: Danza Espada does not raise special moves, and the lead is the move
+/// that is up for most of the rift window. A lead with no category falls through to the
+/// next attack, then to `sa > pa`. `--np` forces Maquinación. `--dd` is Dragon Dance and
+/// only applies when this returns false.
 fn use_nasty(data: &Data, mon: &Mon, start: usize, comps: &[usize], cfg: &Cfg) -> bool {
     if cfg.np {
         return true;
     }
-    let mut phys = 0;
-    let mut spec = 0;
     for ix in std::iter::once(start).chain(comps.iter().copied()) {
         match data.moves[ix].levels[0].cat {
-            2 => spec += 1,
-            1 => phys += 1,
+            2 => return true,
+            1 => return false,
             _ => {}
         }
     }
-    if spec != phys {
-        spec > phys
-    } else {
-        mon.sa > mon.pa
-    }
+    mon.sa > mon.pa
 }
 
 /// The fixed main group for this primary: a synergistic partner first, then the next best solo attacks.
@@ -429,6 +433,12 @@ fn castable(m: &data::Move) -> bool {
     m.kind != Kind::Orbit && (m.kind.simulated() || m.levels[0].xk != 0)
 }
 
+/// A move the published build can call its attack. Sustituto (`turret`, moves.js) shoots
+/// for the player, so its dealt damage is real, but it is not that attack. Buffs neither.
+fn publishable_attack(m: &data::Move) -> bool {
+    m.kind_name != "buff" && m.kind_name != "turret"
+}
+
 fn level_dps(l: &data::MoveLvl) -> f64 {
     let cd = if l.cd.is_finite() && l.cd > 0.0 { l.cd } else { 1.0 };
     let n = if l.count.is_finite() && l.count > 0.0 { l.count } else { 1.0 };
@@ -452,7 +462,7 @@ const PAIR_TOP: usize = 6;
 fn attack_list(data: &Data, mon: &Mon) -> Vec<usize> {
     let mut atk: Vec<usize> = mon.pool.iter().copied().filter(|&ix| {
         let m = &data.moves[ix];
-        castable(m) && !(mon.dex == 94 && m.kind == Kind::Melee)
+        castable(m) && publishable_attack(m) && !(mon.dex == 94 && m.kind == Kind::Melee)
     }).collect();
     if !atk.contains(&mon.start) && castable(&data.moves[mon.start]) {
         atk.push(mon.start);
@@ -557,8 +567,8 @@ fn dedup_specs(specs: Vec<Spec>) -> Vec<Spec> {
 /// that top six (a dash pair can beat a higher-tier lead by tens of seconds).
 /// The winner is whichever group has the higher median, then the higher mean.
 /// A synergy partner is only the recommendation when it actually wins that comparison.
-/// Every group holds an attack buff (bit 1). The move is Maquinación when those attacks are
-/// special, otherwise Danza Espada. The fourth slot is Harden
+/// Every group holds an attack buff (bit 1). The move is Maquinación when the lead attack is
+/// special, otherwise Danza Espada. A mixed pair follows that lead. The fourth slot is Harden
 /// (`buffs` 3, one partner) or a third attack (`buffs` 1). Harden is not the default:
 /// both shapes are scored and the higher median, then mean, wins.
 /// Gengar's list has already dropped melee.
@@ -767,11 +777,39 @@ fn sweep(data: &Data, cfg: &Cfg) {
     let mut best: Vec<(&Row, usize, Option<&Row>)> = groups
         .iter_mut()
         .map(|g| {
-            if g[0].mon.dex == 94 {
-                g.retain(|r| data.moves[r.start].kind != Kind::Melee);
+            // Best move is an attack. Sustituto stays in the long CSV (its turret shots
+            // are real damage) and is dropped here, along with any row that dealt nothing.
+            let mut picked: Vec<&Row> = g
+                .iter()
+                .copied()
+                .filter(|&r| {
+                    let m = &data.moves[r.start];
+                    publishable_attack(m)
+                        && r.s.median_dealt > 0.0
+                        && !(r.mon.dex == 94 && m.kind == Kind::Melee)
+                })
+                .collect();
+            if picked.is_empty() {
+                picked = g
+                    .iter()
+                    .copied()
+                    .filter(|&r| {
+                        let m = &data.moves[r.start];
+                        publishable_attack(m) && !(r.mon.dex == 94 && m.kind == Kind::Melee)
+                    })
+                    .collect();
             }
-            g.sort_by(|a, b| cmp_run(&a.s, &b.s).then_with(|| mv(a).cmp(mv(b))));
-            (g[0], g.len(), g.get(1).copied())
+            if picked.is_empty() {
+                picked = g
+                    .iter()
+                    .copied()
+                    .filter(|&r| !(r.mon.dex == 94 && data.moves[r.start].kind == Kind::Melee))
+                    .collect();
+            }
+            picked.sort_by(|a, b| cmp_run(&a.s, &b.s).then_with(|| mv(a).cmp(mv(b))));
+            let n = picked.len();
+            let alt = picked.get(1).copied();
+            (picked[0], n, alt)
         })
         .collect();
     best.sort_by(|a, b| cmp_run(&a.0.s, &b.0.s).then(a.0.mon.dex.cmp(&b.0.mon.dex)));
