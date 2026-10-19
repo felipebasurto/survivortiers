@@ -120,6 +120,7 @@ def agent_check(base: str, body_by_url: dict[str, str], err, notes: list[str], n
         return root + url[len(site_url):] if url.startswith(site_url) else url
 
     code, body = fetch(base + "robots.txt")
+    robots = body.decode("utf8", "replace")
     if code != 200 or b"Sitemap:" not in body:
         err(f"robots.txt: responde {code} o no enlaza el sitemap")
     for path in ("llms.txt", "llms-full.txt", "sitemap.xml", "data/ranking.csv", "data/meta.json", "data/gachas.json"):
@@ -177,9 +178,105 @@ def agent_check(base: str, body_by_url: dict[str, str], err, notes: list[str], n
         if '"@type": "Dataset"' not in html:
             err(f"{base}{lang}: falta el JSON-LD Dataset")
     notes.append(f"agentes: llms.txt con {len(local_links)} enlaces, sitemap con {expected} entradas")
+    sitemap_check(base, sitemap, body_by_url, err, notes)
+    for bot in agents.ALLOWED_BOTS:
+        if f"User-agent: {bot}\nAllow: /" not in robots:
+            err(f"robots.txt: falta permitir a {bot}")
+    if legal.UPDATED_COMMIT not in llms:
+        err("llms.txt: falta el parche al que está puesto al día el sitio")
 
 
 LD_RE = re.compile(r'<script type="application/ld\+json">\s*(.*?)\s*</script>', re.S)
+
+
+NO_JS_PHRASES = re.compile(r"necesita JavaScript|needs JavaScript", re.I)
+MIN_VISIBLE_CHARS = 300  # texto que un rastreador lee sin ejecutar JavaScript (sin script, style ni noscript)
+META_DESC = re.compile(r'<meta name="description" content="([^"]*)">')
+FRESH_LINE = {"es": "Actualizado al parche del", "en": "Updated to the"}
+
+
+def visible_text(html: str) -> str:
+    html = re.sub(r"<(script|style|noscript|template)\b.*?</\1>", " ", html, flags=re.S | re.I)
+    return " ".join(html_lib.unescape(re.sub(r"<[^>]+>", " ", html)).split())
+
+
+def sitemap_check(base: str, sitemap: str, body_by_url: dict[str, str], err, notes: list[str]) -> None:
+    """Cada URL del sitemap existe en el sitio construido, con lastmod y las tres alternativas hreflang."""
+    locs = re.findall(r"<loc>([^<]+)</loc>", sitemap)
+    if len(locs) != len(set(locs)):
+        err("sitemap.xml: URL repetidas")
+    for entry in re.findall(r"<url>.*?</url>", sitemap, re.S):
+        if not re.search(r"<lastmod>\d{4}-\d{2}-\d{2}</lastmod>", entry) or entry.count("<xhtml:link") != 3:
+            err(f"sitemap.xml: entrada sin lastmod o sin hreflang: {entry[:90]}")
+            break
+    broken = []
+    for loc in locs:
+        url = base + loc.removeprefix(legal.SITE_URL + "/")
+        if url in body_by_url or url + ".html" in body_by_url:
+            continue
+        code, _ = fetch(url)
+        if code != 200:
+            broken.append((loc, code))
+    if broken:
+        err(f"sitemap.xml: {len(broken)} URL no resuelven en el sitio ({broken[:3]})")
+    notes.append(f"sitemap: {len(locs)} URL, todas resuelven")
+
+
+def seo_check(base: str, body_by_url: dict[str, str], index: list[dict], err, notes: list[str]) -> None:
+    """Lo que ve un buscador o un asistente de IA que no ejecuta JavaScript: título, descripción, canónica y hreflang en
+    cada página indexable, texto real en cada una, línea de actualización y la portada con su texto y su JSON-LD."""
+    titles: dict[str, str] = {}
+    pages = {u: h for u, h in body_by_url.items() if u.startswith(base) and h and not u.endswith("404.html")}
+    for url, html in pages.items():
+        title = re.search(r"<title>([^<]+)</title>", html)
+        desc = META_DESC.search(html)
+        canon = re.search(r'<link rel="canonical" href="([^"]+)">', html)
+        if not title or not title.group(1).strip():
+            err(f"{url}: título vacío")
+        elif title.group(1) in titles and canon and titles[title.group(1)] != canon.group(1):
+            err(f"{url}: título repetido con la página {titles[title.group(1)]}")
+        elif canon:
+            titles[title.group(1)] = canon.group(1)
+        if not desc or not html_lib.unescape(desc.group(1)).strip():
+            err(f"{url}: meta description vacía")
+        if not canon or not canon.group(1).startswith(legal.SITE_URL + "/"):
+            err(f"{url}: falta la canónica absoluta")
+        if not all(f'<link rel="alternate" hreflang="{code}" href="{legal.SITE_URL}/' in html for code in ("es", "en", "x-default")):
+            err(f"{url}: faltan los hreflang es, en y x-default")
+        text = visible_text(html)
+        if len(text) < MIN_VISIBLE_CHARS or NO_JS_PHRASES.search(text):
+            err(f"{url}: sin texto propio fuera de JavaScript ({len(text)} caracteres)")
+        lang = "en" if url.startswith(base + "en/") else "es"
+        if FRESH_LINE[lang] not in text or f"({legal.UPDATED_COMMIT})" not in text:
+            err(f"{url}: falta la línea «{FRESH_LINE[lang]} …»")
+    top = sorted(index, key=lambda p: p["r"][0])[:30]
+    for lang, key in (("", "name"), ("en/", "nameEn")):
+        html = body_by_url.get(f"{base}{lang}", "")
+        lede = re.search(r'<p class="tagline">(.*?)</p>', html, re.S)
+        lede_text = html_lib.unescape(re.sub(r"<[^>]+>", "", lede.group(1))) if lede else ""
+        if not lede or html.index('<p class="tagline">') > html.index('id="tierlist"'):
+            err(f"{base}{lang}: falta el párrafo de la portada antes de la tier list")
+        missing = [p[key] for p in top[:5] if p[key] not in lede_text]
+        if missing or legal.UPDATED_COMMIT not in lede_text:
+            err(f"{base}{lang}: el párrafo de la portada no nombra a los cinco primeros o el parche ({missing})")
+        table = re.search(r'<section class="top30".*?</section>', html, re.S)
+        links = re.findall(r'<th scope="row"><a href="[^"]*pokemon/(\d+)-', table.group(0)) if table else []
+        if [int(d) for d in links] != [p["dex"] for p in top]:
+            err(f"{base}{lang}: la tabla de los 30 mejores no enlaza a las fichas en orden")
+        ld = [json.loads(m.replace("<\\/", "</")) for m in LD_RE.findall(html)]
+        types = {n["@type"] for d in ld for n in d.get("@graph", [d])}
+        if not {"WebSite", "ItemList", "Dataset"} <= types:
+            err(f"{base}{lang}: JSON-LD de la portada incompleto ({sorted(types)})")
+    for url, html in pages.items():
+        if re.search(r"/pokemon/\d+-[a-z0-9-]+/$", url):
+            ld = [json.loads(m.replace("<\\/", "</")) for m in LD_RE.findall(html)]
+            faq = next((d for d in ld if d.get("@type") == "FAQPage"), None)
+            if not faq or not faq.get("dateModified") or not faq.get("mainEntity"):
+                err(f"{url}: falta el FAQPage con dateModified")
+            tier = re.search(r"\btier [SABCD]\b|\b[SABCD] tier\b", html_lib.unescape(re.search(r"<title>([^<]+)</title>", html).group(1)))
+            if not tier:
+                err(f"{url}: el título no lleva el tier")
+    notes.append(f"SEO: {len(pages)} páginas con título, descripción, canónica, hreflang, texto y actualización")
 
 
 def landing_check(base: str, body_by_url: dict[str, str], err, notes: list[str]) -> None:
@@ -207,7 +304,7 @@ def landing_check(base: str, body_by_url: dict[str, str], err, notes: list[str])
                 err(f"{url}: la lista visible no coincide con el ItemList del JSON-LD")
             if html.index('<p class="ql-lede">') > html.index('<section class="ql-list"'):
                 err(f"{url}: la respuesta no va antes de la lista")
-            if f"commit {legal.GAME_COMMIT[:7]}" not in html and f"commit {legal.GAME_COMMIT}" not in html:
+            if f"({legal.UPDATED_COMMIT})" not in html:
                 err(f"{url}: falta la línea de datos del juego")
             if page.key != "passives" and not re.search(r'<p class="ql-lede">[^<]*' + re.escape(html_lib.unescape(items[0]["name"])), html):
                 err(f"{url}: la primera línea no nombra al primero de la lista")
@@ -686,8 +783,12 @@ def main() -> int:
                 f"(faltan {sorted(set(dexes) - ficha_ids[lang])[:5]}, sobran {sorted(ficha_ids[lang] - set(dexes))[:5]})")
         tpl = body_by_url.get(f"{base}{lang}pokemon/", "")
         if not (tpl.count('id="ficha"') == 1 and 'id="i18n"' in tpl and 'id="tpl-types"' in tpl
-                and 'id="tpl-regions"' in tpl and 'id="slugs"' in tpl and 'name="robots" content="noindex"' in tpl):
+                and 'id="tpl-regions"' in tpl and 'id="slugs"' in tpl):
             err(f"{lang}pokemon/: falta algo de la plantilla de ficha")
+        if f'<link rel="canonical" href="{legal.SITE_URL}/{lang}">' not in tpl:
+            err(f"{lang}pokemon/: la canónica de la plantilla debe ser la portada del idioma")
+        if tpl.count('<ol class="slug-list">') != 1 or len(re.findall(r'<li><a href="[^"]*pokemon/\d+-', tpl)) != len(dexes):
+            err(f"{lang}pokemon/: la plantilla no lista las {len(dexes)} fichas en HTML")
         if len(re.findall(r'<span data-t="', tpl)) != 18 or len(re.findall(r'<span data-gen="', tpl)) != 9:
             err(f"{lang}pokemon/: tipos o regiones incompletos en la plantilla")
 
@@ -748,6 +849,7 @@ def main() -> int:
     notes.append(f"páginas rastreadas: {sum(1 for p in seen.values() if p)}; sprites enlazados: {len(sprite_refs)}")
     agent_check(base, body_by_url, err, notes, len(index))
     landing_check(base, body_by_url, err, notes)
+    seo_check(base, body_by_url, index, err, notes)
     landing_browser_check(base, err, notes)
     browser_check(base, index, args, err, notes)
     theme_check(base, err, notes)

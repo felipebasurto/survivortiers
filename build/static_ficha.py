@@ -243,7 +243,6 @@ def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, detail: list,
     if n_boost > len(ids):
         raise ValueError(f"{entry['dex']}: más potenciadores que ataques en el grupo")
     buff_ids = ids[-n_boost:] if n_boost else []
-    atk_ids = ids[:-n_boost] if n_boost else list(ids)
     attacks, buffs = group_names(L, detail, moves)
     p_pull, pulls = odds
     if not p_pull or not pulls:

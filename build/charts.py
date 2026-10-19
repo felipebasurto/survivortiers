@@ -7,7 +7,6 @@ Cada función recibe el idioma (i18n.Lang) y devuelve un <figure> o un fragmento
 """
 from __future__ import annotations
 
-import math
 import re
 import statistics
 from collections.abc import Callable
