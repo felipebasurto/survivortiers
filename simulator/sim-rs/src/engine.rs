@@ -360,6 +360,8 @@ fn weighted_kind(pairs: &[(Wx, f64)], roll: f64) -> Wx {
 }
 
 mod kinds;
+#[cfg(test)]
+mod kind_tests;
 pub use kinds::damp;
 
 // ---------------------------------------------------------------- rules

@@ -136,13 +136,15 @@ impl<'a, M: MathFns> Match<'a, M> {
             }
             // Spin: every 0.13 s hit everything around the player, `count` times. Damage uses the live atkFor.
             // `tick` carries the remainder (the game's 60 fps frame hides the 1/20 s step; a plain reset
-            // would stretch 0.13 s to 0.15 s).
+            // would stretch 0.13 s to 0.15 s). Only the first hit starts clean.
             12 => {
                 self.fields[i].tick -= dt;
                 if self.fields[i].tick > 0.0 {
                     return false;
                 }
-                self.fields[i].tick += SPIN_EVERY;
+                // The game's field starts with `next: 0` and resets it, so the first hit carries no remainder.
+                self.fields[i].tick = if self.fields[i].i == 0 { SPIN_EVERY } else { self.fields[i].tick + SPIN_EVERY };
+                self.fields[i].i += 1;
                 let atk = self.atk_for(mv.cat, mv.ty);
                 let (px, py) = (self.pl.x, self.pl.y);
                 self.blast_ex(px, py, r, mv.dmg, atk, mv, 40.0, 0.0);
