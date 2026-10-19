@@ -28,6 +28,7 @@ class SearchPicks(unittest.TestCase):
 
     def test_marshadow_shadow_ball_aura_sphere_and_hex(self):
         # Maquinación rescore: Shadow Ball + Aura Sphere + Hex beats the Hex-led tie.
+        # Lick is melee, so the melee-risk rule does not publish it.
         self.assertEqual(self.attacks(802), ["shadow-ball", "aura-sphere", "hex"])
 
     def test_dash_pair_can_lead(self):
