@@ -72,7 +72,8 @@ test('melee hits the enemy in the arc and misses the one behind', () => {
     data,
   });
   const dealt = again.hits.reduce((sum, hit) => sum + hit.amount, 0);
-  assert.ok(Math.abs(dealt - tackle.dmg) < 1e-6);
+  // The dummy is single-type normal and Tackle is normal: player.js MONO_K 1.2.
+  assert.ok(Math.abs(dealt - tackle.dmg * 1.2) < 1e-6);
   assert.equal(again.hits.length, 1);
 });
 
