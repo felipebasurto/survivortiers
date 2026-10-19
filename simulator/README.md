@@ -91,14 +91,14 @@ Group mode also models, from the game source (`js/` in JPTER78/pokesurvivor):
     companion still pulls the bot in to the melee keep (repulse stays off until that gap). That hold is the bot's
     policy, not a game rule. Casts outside the arc still spend the cooldown and hit nothing. Orbit stays out of the
     bonded group because `step_orbs` keeps a single orb list for the active move (combat.js does allow an orbit in
-    any slot). Gengar (dex 94) is not banned inside the sim. The publisher's build rule, in `build/combos.py` and
-    `build/make_definitive.py`, drops a Gengar melee group. Lengüetazo and every other `kind === 'melee'` move goes
-    through the ×0.75 cut. Picotazo Veneno is a projectile (speed 420, life 1.0) and is not melee. Every searched group holds
-    an attack buff: Maquinación when the lead attack is special, Danza Espada when it is physical. A mixed pair
-    follows the lead. `--dd` is Danza Dragón and only applies to a physical lead. The fourth slot
-    is Harden or a third attack, and the higher composite score (then mean score, then survival time) wins. A melee
-    group is published only when its bootstrap floor is strictly above the best ranged group's median and its mean
-    is not worse.
+    any slot). Lengüetazo and every other `kind === 'melee'` move goes through the ×0.75 cut.
+    Owner rules live in `data/owner_rules.json` and are read by the engine (`sim-rs/src/rules.rs`), the publisher
+    (`build/owner_rules.py`, `build/picks.py`) and `sim/repertorio.js`: a melee run's score is multiplied by
+    `melee_score_factor` (the sim overrates melee), Gengar (dex 94) never gets a melee move, and Sustituto is never an attack. Picotazo Veneno is a projectile (speed 420, life 1.0) and is not melee. Every searched group is one
+    category (all physical or all special) and holds the matching attack buff: Danza Espada for physical,
+    Maquinación for special. `--dd` is Danza Dragón and only applies to a physical group. The fourth slot is Harden
+    or a third attack of the same category; both shapes are simulated and the better one by score (then mean score,
+    then survival time) is published. A tie is not broken by attack count.
   - Dash invulnerability is `max(invuln, 0.3)` (systems/combat.js:311). Lava sets invuln to 0 and then hurts
     (entities/player.js:352). Cooldown cuts shorten the dash's own cooldown.
   - `--swap` is a second slot at level 1. Switching clamps that slot's timers to 35% of base cd and ignores cdMul
@@ -144,7 +144,7 @@ Physical and special split, from PokéSurvivor `5a23d49a99a795f9262d2fb24a9842f0
 - `levelup.js:42-144` `offer`. A new move weighs 10 (up to 6, on-side weight 2). A ready evolution weighs 40 and is shown first. Each upgradable move weighs 8. Five of the nine stat cards weigh 4 while a move slot is open (20 together) and 7 when the four slots are full; a stat that unlocks an evolution weighs 14 and is always offered. A missing bond member that shows up is learned and that level is spent. The sim does not learn a move outside the fixed group, so a missed offer spends the level on a second weighted draw of upgrades and those stat cards. Two buffs already known drop further buffs. Parity keeps the uniform three-card shuffle.
 - `judgment.js`. At t ≥ 1800 in a rift run, Sentencia caps speed (`capSpd`), Arceus pursues (`chase k`) and his touch and hazards are pure damage (`touchPct`, ignoring guard and reduction). A legendary arrives every 5 s at double the previous HP and damage. The published rank is 900 s, so this does not move the tier list. Map-side judgment legends do not grant rift bonds.
 
-The ranking score of a run is `time * damage dealt * (1 + kills)`. Damage dealt is the post-type, post-guard, post-crit amount before the shield, and it does not include burn or poison damage over time (the game does not add those to `dmgDealt`). A run that survives without dealing damage scores 0. Displayed medians stay in seconds. Order, bootstrap jitter and the sim piece of the ensemble use the score.
+The ranking score of a run is `time * sqrt(dps / (dps + 80) * kpm / (kpm + 40))` (`sim-rs/src/stats.rs` `run_score`; 80 and 40 are scale constants of the score, not game numbers). Damage dealt is the post-type, post-guard, post-crit amount before the shield, and it does not include burn or poison damage over time (the game does not add those to `dmgDealt`). A run that survives without dealing damage scores 0, so surviving alone never ranks. Displayed medians stay in seconds. Order, bootstrap jitter and the sim piece of the ensemble use the score.
 
 Known bias (estimates): the bot does not dodge, so sustain (Synthesis `rgn`, Vigor `hp`, Leftovers) still looks strong. Incoming damage is ×0.75 whenever a melee move is in the active group (player.js:254). A melee group is published only when its bootstrap floor is strictly above the best ranged group's median and its mean is not worse. Gengar never publishes Golpe Cuerpo or any other melee move; that filter is the owner's build rule in the publisher, not an engine ban. The step is `1/20` s so `parity.js` stays bit-exact (`game.js:610` steps at about `1/60`, clamped at `1/30`). An audit measurement at `DT = 1/60` moved mean median survival from 77.1–77.4 s to 80.3 s (+3 s, +4%) and shuffled ranks by 38, inside the 42.6-rank seed noise of a 40-seed block. A published 200-seed resim at `1/60` is about three times the runtime and was not run. A check that ignores half of each combat hit (`--dodge 0.5`) lengthens runs and does not move Power or Reflexes ahead of Synthesis. The pasivas page ranks cards by the game's coin reward (game.js:295-301, coinMul 1) and takes Baya Zidra only at or below 70% HP.
 build/passives.py `priority` lists the eight stat cards in this coin order on the Build card and marks the lead attack's evolution card; `compute` (the policy's pick sequence) only feeds the summaries. The rift walk is time-at-current-speed, not pathing.
@@ -172,8 +172,8 @@ from the game (103 moves, 38 of them new; dragon has 4 attacks in the game, ever
   `node validate/game_scenarios.js` (the vendored `combat.js` and `projectile.js` on the same scenes as the Rust tests).
 - Not modelled: boss-priority targeting, manual aim, coop ghost casts, prop damage, lava ticks while stunned, the ±0.03
   projectile jitter, homing toward `cy()` (the sim has no heights), wall cuts for the plain beam kind (charge and quake do cut).
-- The solo sweep and the site tier list are not regenerated. Group search ranks partners from the solo sweep, so new moves are
-  unranked until it is rerun: regenerate the solo sweep first, then the group search.
+- Regeneration order (`build/regen.py --sim`): solo screen, solo refine, solo contend, group screen, group refine, start
+  sweep, start rank. Group search takes its partners from the solo screen, so it always runs after it.
 
 Any change to `sim/match.js` or `sim/rules.js` has to be mirrored in `sim-rs/src/engine.rs` and re-checked with `parity.js`.
 

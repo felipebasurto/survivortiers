@@ -61,7 +61,7 @@ COMMENT = (
     "# Ranking from the sim only. The sheet (stats, moves, type defence, hitbox) and the v4 table "
     "stay in the file and do not move a rank. The order is the bootstrap of the sim score: "
     "time times the geometric mean of a saturating damage rate and a saturating kill rate. "
-    "A run that deals no damage scores 0. Overlapping score intervals are ties. "
+    "A run that deals no damage scores 0. Overlapping score intervals show as the rank band, not as a winner. "
     "S is the top of that order, except melee_locked (every remaining Repertorio draw is still melee). "
     "best_move is an attacking move from the solo sweep. "
     "start_median_s is the Repertorio opening. start_noshop_s is the starter alone and is not ranked."

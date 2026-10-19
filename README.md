@@ -11,8 +11,15 @@ Web: https://survivortiers.pages.dev
 | `data/` | Entradas: ranking definitivo (`ranking_definitive.csv`), `pokedex_export.json`, nombres y textos de ataques en inglés (`species_names_en.csv`, `lang_en_moves.json`), `CREDITS.md` y licencia del juego (copiados del commit `a9b21f0`), y `move_tierlist_v4.csv` |
 | `sprites/` | Los 966 sprites (SpriteCollab, CC BY-NC 4.0). **No van en `site/`**: las páginas los piden a jsDelivr, que sirve este repositorio (`legal.SPRITE_CDN`). `sprites/shiny/` tiene los 958 sprites shiny (ver `build/shiny_sprites.py`) |
 | `src/` | Estáticos escritos a mano: `style.css`, `app.js` (tier list, colección, vista shiny, demos), `collection.js` (lee el comando de la consola y las filas shiny, sin DOM), `share.js` (codec del enlace `#c=`, v1 y v2), `ficha.js` (dibuja la ficha), `fonts/`, `img/` (iconos de interfaz y créditos) y `_headers` |
-| `build/catalog.py` | Valida y genera `build/out/` (datos intermedios y `public/`, los JSON del navegador). **Falla** si falta artista o licencia de algún sprite, si los conteos por tier no son 30/90/200/300/346 o si los pools de gacha no suman 966 |
+| `build/catalog.py` | Valida y genera `build/out/` (datos intermedios y `public/`, los JSON del navegador). **Falla** si falta artista o licencia de algún sprite, si los conteos por tier no son los de `data/tiers.json` o si los pools de gacha no suman 966 |
 | `build/game_moves.py` | Datos de movimientos copiados del juego en `GAME_REF` (5a23d49): la lista física (`js/data/moves.js:620-630`), los textos de los potenciadores y Maquinación, que aún no tiene puesto. `test_game_moves.py` los compara con el juego si `POKESURVIVOR_DIR` apunta a una copia |
+| `data/owner_rules.json`, `build/owner_rules.py` | Reglas de la persona que lleva el proyecto, en un solo archivo que leen Python, Rust (`simulator/sim-rs/src/rules.rs`) y JS (`simulator/sim/repertorio.js`, `src/tools.js`): el potenciador de cada categoría, los ataques que nunca cuentan (Sustituto), la penalización al cuerpo a cuerpo y que Gengar no lo usa. Son decisiones, no números del juego |
+| `build/picks.py` | La única lógica de selección: mejor ataque de cada especie, grupos válidos (misma categoría, potenciador de esa categoría), Fortaleza contra tercer ataque, intervalos. `combos.py`, `make_definitive.py` y `regen.py` la usan |
+| `data/tiers.json`, `build/tiers.py` | Tamaño de cada tier y bandas: el único sitio donde viven los cortes |
+| `build/regen.py` | Una orden para los datos publicados: `--check` reconstruye el ranking y lo compara con git; `--sim` repite el motor por etapas |
+| `build/stability.py` | Cuánto se solapan los 30 primeros entre bloques de semillas disjuntos |
+| `build/sitefixture.py` | Las pruebas que necesitan el sitio generado lo generan primero (o se saltan con un aviso claro) |
+| `build/sync_lang_en.py` | Completa `data/lang_en_moves.json` con los nombres de ataques del juego |
 | `build/render.py` | Genera `site/` entero: 6 páginas por idioma, la plantilla `pokemon/index.html` de cada idioma, `404.html`, `style.css`, `app.js`, la letra, `data/` y `_headers`. Unos 25 archivos y menos de 2 MB |
 | `build/pack.py` | Empaqueta `src/` en `site/`: iconos dentro del CSS, CSS y JS minificados, JSON copiados |
 | `build/i18n.py` | Todos los textos en español e inglés, validados al importar |
@@ -71,14 +78,14 @@ El sitio es estático y no tiene API: los datos son JSON y CSV en `/data/`, sin 
 
 ## Actualizar el ranking
 
-1. Regenera `ranking_definitive.csv` con el análisis y cópialo a `data/`.
-2. Si cambia el juego: actualiza `data/pokedex_export.json`, `data/CREDITS.md` y `data/GAME_LICENSE.txt`, y el commit en `build/legal.py` (`GAME_COMMIT`).
-3. `python3 build/move_tierlist_v4.py --game /ruta/al/juego` para los ataques.
-4. Rehaz los resúmenes de las fichas que cambiaron (ver «Resúmenes de la ficha»).
-5. Si cambian los movimientos o los Pokémon del juego: `node build/export_game_stats.js /ruta/al/juego` regenera `data/game_stats.json`.
-5. `python3 build/catalog.py && python3 build/render.py && python3 build/check_site.py …`.
+1. Si cambia el juego: sube `GAME_COMMIT` en `build/legal.py` y `GAME_REF` en `build/game_moves.py`, y regenera `data/pokedex_export.json` (`build/import_game_combat.py`), `data/game_stats.json` (`node build/export_game_stats.js /ruta/al/juego`), `data/move_pool.json`, `data/move_mechanics.json` y `data/move_icons.json`.
+2. Si cambian las reglas de la persona del proyecto, edita solo `data/owner_rules.json` y recompila el simulador (`cargo build --release` en `simulator/sim-rs`).
+3. `python3 build/regen.py --sim` repite el motor en orden: barrido en solitario, afinado, finalistas, búsqueda de grupos y apertura. Tarda horas; una etapa con salida existente se salta (`--force`, `--from ETAPA`).
+4. `python3 build/regen.py` reescribe `data/ranking_definitive.csv`; `--facts` rehace además `facts.parquet` y los resúmenes (ver «Resúmenes de la ficha»). Lee los textos que cambiaron.
+5. `python3 build/move_tierlist_v4.py --game /ruta/al/juego` para la tabla de ataques.
+6. `python3 build/catalog.py && python3 build/render.py && python3 build/check_site.py …`. `python3 build/regen.py --check` y los tests corren también en GitHub Actions (`.github/workflows/tests.yml`).
 
-Si cambian los tamaños de tier (`TIER_CUTS`) o los conteos esperados, ajusta `build/catalog.py`.
+Los cortes de tier están en `data/tiers.json`; no los repitas en otro sitio.
 
 ## Páginas de consulta
 
