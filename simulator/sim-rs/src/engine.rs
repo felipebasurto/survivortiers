@@ -65,6 +65,15 @@ fn collide_enemy(terrain: &mut Option<Box<Terr>>, e: &mut Enemy, ox: f64, oy: f6
 /// player.js Player.MONO_K.
 pub const MONO_K: f64 = 1.2;
 
+/// player.js monoType: only single-type Pokémon, only with their own type.
+pub fn mono_factor(types: &[u8], ty: u8) -> f64 {
+    if types.len() == 1 && types[0] == ty {
+        MONO_K
+    } else {
+        1.0
+    }
+}
+
 pub struct Opts {
     pub seed: u32,
     pub seconds: f64,
@@ -351,6 +360,7 @@ fn weighted_kind(pairs: &[(Wx, f64)], roll: f64) -> Wx {
 }
 
 mod kinds;
+pub use kinds::damp;
 
 // ---------------------------------------------------------------- rules
 
@@ -1856,7 +1866,7 @@ impl<'a, M: MathFns> Match<'a, M> {
             2 => self.st.satk,
             _ => 1.0,
         };
-        let mono = if self.mon.types.len() == 1 && self.mon.types[0] == ty { MONO_K } else { 1.0 };
+        let mono = mono_factor(&self.mon.types, ty);
         self.st.atk * fit * side * mono
     }
 

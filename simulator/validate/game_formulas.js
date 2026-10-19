@@ -1,5 +1,5 @@
 /**
- * Runs the vendored PokéSurvivor sources (commit e868b5e) on scripted cases and
+ * Runs the vendored PokéSurvivor sources (commit 5a23d49) on scripted cases and
  * compares them with `pokesim formulas`.
  *
  *   node simulator/validate/game_formulas.js [path-to-pokesim]
@@ -11,7 +11,7 @@ const path = require("path");
 const { execFileSync } = require("child_process");
 
 const ROOT = path.resolve(__dirname, "../..");
-const GAME = path.join(ROOT, "simulator/vendor/pokesurvivor-e868b5e");
+const GAME = path.join(ROOT, "simulator/vendor/pokesurvivor-5a23d49");
 
 global.G = {
   U: {
@@ -36,6 +36,16 @@ function load(rel) {
   eval(src);
 }
 
+{
+  const saved = global.G;
+  global.G = {};
+  global.window = global;
+  eval(fs.readFileSync(path.join(GAME, "js/core/util.js"), "utf8"));
+  const damp = global.G.U.damp;
+  delete global.window;
+  global.G = saved;
+  G.U.damp = damp;
+}
 load("js/data/types.js");
 load("js/systems/stats.js");
 load("js/systems/levelup.js");
@@ -104,7 +114,7 @@ function gameBuff() {
   pl.baseAtk = 100;
   pl.atkMul = 1;
   pl.dmgReduce = 0;
-  pl.mon = { pa: 120, sa: 40, atk: 120, name: "x" };
+  pl.mon = { pa: 120, sa: 40, atk: 120, name: "x", types: ["normal", "flying"] };
   pl.addBuff("patk", 0.5, 7, 3);
   pl.addBuff("patk", 0.5, 7, 3);
   pl.addBuff("patk", 0.5, 7, 3);
@@ -123,6 +133,28 @@ function gameBuff() {
   tick.call(pl, 0.02);
   const expired = pl.atkFor({ cat: "physical" });
   return { physical, special, expired, reduction: pl.reduction, stacks: pl.buffs.def.n };
+}
+
+function gameMono() {
+  const cases = [
+    [["psychic"], "psychic"],
+    [["psychic"], "ghost"],
+    [["grass", "poison"], "grass"],
+    [["fire"], "fire"],
+  ];
+  return cases.map(([own, atk]) => {
+    const pl = Object.create(G.Player.prototype);
+    pl.baseAtk = 100;
+    pl.atkMul = 1;
+    pl.buffs = { atk: { n: 0, amount: 0 }, patk: { n: 0, amount: 0 }, satk: { n: 0, amount: 0 } };
+    pl.mon = { pa: 100, sa: 100, atk: 100, types: own };
+    return { own: own.join("/"), atk, v: pl.atkFor({ cat: "none", type: atk }) / 100 };
+  });
+}
+
+function gameDamp() {
+  const cases = [[0, 100, 6, 0.05], [10, -4, 3.5, 0.2], [1, 1, 5, 1]];
+  return cases.map(([a, b, rate, dt]) => ({ a, b, rate, dt, v: G.U.damp(a, b, rate, dt) }));
 }
 
 function offerWeights() {
@@ -183,6 +215,8 @@ function gameReport() {
     capSpd: [100, 130, 180, 260].map(spd => ({ spd, v: capSpd(spd) })),
     touch: [0, 420, 600, 900].map(arena => ({ arena, v: touchFn(arena) })),
     hit: hits,
+    mono: gameMono(),
+    damp: gameDamp(),
     judgmentAt: at,
     cap: G.Spawner.CAP,
     surge0: 32,
@@ -216,6 +250,9 @@ function main() {
     check(`taken ${game.hit[i].atk}`, game.hit[i].taken, rust.hit[i].taken);
     check(`dealt ${game.hit[i].atk}`, game.hit[i].dealt, rust.hit[i].dealt);
   }
+  for (let i = 0; i < game.mono.length; i++) check(`mono ${game.mono[i].own} ${game.mono[i].atk}`, game.mono[i].v, rust.mono[i].v);
+  for (let i = 0; i < game.damp.length; i++) check(`damp ${i}`, game.damp[i].v, rust.damp[i].v);
+  if (game.mono[0].v !== 1.2 || game.mono[1].v !== 1 || game.mono[2].v !== 1) fails.push(`mono ${JSON.stringify(game.mono)}`);
   if (game.judgmentAt !== 1800) fails.push(`judgment AT ${game.judgmentAt}`);
   if (game.cap !== 64) fails.push(`cap ${game.cap}`);
   if (!(game.buff.physical > game.buff.special * 2)) fails.push(`patk ${game.buff.physical} vs special ${game.buff.special}`);

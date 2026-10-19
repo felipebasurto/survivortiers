@@ -1167,14 +1167,32 @@ fn formulas_cmd(data: &Data) {
         .into_iter()
         .map(|t| format!("{{\"arena\":{},\"v\":{}}}", num(t), num(engine::judgment_chase_k(t))))
         .collect();
+    let mono: Vec<String> = [
+        (&["psychic"][..], "psychic"),
+        (&["psychic"][..], "ghost"),
+        (&["grass", "poison"][..], "grass"),
+        (&["fire"][..], "fire"),
+    ]
+    .into_iter()
+    .map(|(own, atk)| {
+        let types: Vec<u8> = own.iter().map(|n| ty(n)).collect();
+        format!("{{\"own\":\"{}\",\"atk\":\"{atk}\",\"v\":{}}}", own.join("/"), num(engine::mono_factor(&types, ty(atk))))
+    })
+    .collect();
+    let damps: Vec<String> = [(0.0, 100.0, 6.0, 0.05), (10.0, -4.0, 3.5, 0.2), (1.0, 1.0, 5.0, 1.0)]
+        .into_iter()
+        .map(|(a, b, r, dt)| format!("{{\"a\":{},\"b\":{},\"rate\":{},\"dt\":{},\"v\":{}}}", num(a), num(b), num(r), num(dt), num(engine::damp(a, b, r, dt))))
+        .collect();
     println!(
-        "{{\"guard\":[{}],\"spawn\":[{}],\"capSpd\":[{}],\"touch\":[{}],\"chase\":[{}],\"hit\":[{}]}}",
+        "{{\"guard\":[{}],\"spawn\":[{}],\"capSpd\":[{}],\"touch\":[{}],\"chase\":[{}],\"hit\":[{}],\"mono\":[{}],\"damp\":[{}]}}",
         guards.join(","),
         spawns.join(","),
         caps.join(","),
         touch.join(","),
         chase.join(","),
-        hits.join(",")
+        hits.join(","),
+        mono.join(","),
+        damps.join(",")
     );
 }
 

@@ -30,7 +30,7 @@ pub(super) const REBOUND_LIFE: f64 = 0.5;
 pub(super) const HOMING_LOCK: f64 = 340.0;
 
 /// util.js damp(a, b, rate, dt).
-pub(super) fn damp(a: f64, b: f64, rate: f64, dt: f64) -> f64 {
+pub fn damp(a: f64, b: f64, rate: f64, dt: f64) -> f64 {
     b + (a - b) * libm::exp(-rate * dt)
 }
 
