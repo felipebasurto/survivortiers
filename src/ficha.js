@@ -12,7 +12,7 @@
   const EN = T.en;
   const TOTAL = 966;
   const FICHA_BOX = 170;
-  const CUTS = [['S', 1, 30], ['A', 31, 120], ['B', 121, 320], ['C', 321, 620], ['D', 621, 966]];
+  let CUTS = [];
   const PILLARS = ['stats', 'moves', 'typedef', 'size'];
   const METHODS = ['sheet', 'simStart', 'simBest', 'lateMax', 'lateFresh'];
   const FLAGS = [[1, 'potion', 'flag_status'], [2, 'sword', 'flag_melee'], [4, 'trophy', 'flag_capped'], [8, 'sparkle', 'flag_types']];
@@ -57,7 +57,7 @@
 
   // Vista ampliada: entre 1 y 966 el margen de un Pokémon ocupa pocos píxeles. La barra enseña solo una ventana
   // alrededor de su margen, con al menos 20 puestos a cada lado (o lo ancho que sea el margen).
-  const RANK_TICKS = [1, 30, 120, 320, 620, 966];
+  let RANK_TICKS = [];
   function zoomWindow(lo, hi) {
     const pad = Math.max(20, hi - lo);
     return [Math.max(1, lo - pad), Math.min(TOTAL, hi + pad)];
@@ -533,7 +533,9 @@
   const id = baked || Number(new URLSearchParams(location.search).get('id'));
   // Sin resúmenes la ficha se dibuja igual: el bloque es un extra.
   const summaries = getJSON('summaries-' + (EN ? 'en' : 'es') + '.json').catch(() => ({}));
-  Promise.all([getJSON('pokemon-index.json'), getJSON('species.json'), getJSON('moves.json'), getJSON('moves_unranked.json'), summaries]).then(([index, species, moves, unranked, texts]) => {
+  Promise.all([getJSON('pokemon-index.json'), getJSON('species.json'), getJSON('moves.json'), getJSON('moves_unranked.json'), summaries, getJSON('tiers.json')]).then(([index, species, moves, unranked, texts, tierFile]) => {
+    CUTS = tierFile.cuts;
+    RANK_TICKS = [1, ...CUTS.map(c => c[2])];
     const i = index.findIndex(p => p.dex === id);
     const d = species.d[id];
     if (i < 0 || !d) { missing(); return; }

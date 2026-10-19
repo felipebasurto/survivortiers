@@ -29,6 +29,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import summary_facts  # noqa: E402
+import tiers  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 PATH = ROOT / "data" / "summaries.json"
@@ -38,7 +39,7 @@ HUGE_R = 24.6               # body radius from which a hitbox is "huge" (median 
 DRIVER_MIN = 10             # places a factor must move the species to be named as a reason for its rank
 MAX_LEN = 240               # characters of plain text per language
 TIERS = "SABCD"
-TIER_BANDS = {"S": (1, 30), "A": (31, 120), "B": (121, 320), "C": (321, 620), "D": (621, 966)}
+TIER_BANDS = tiers.BANDS
 THRESHOLDS = {"high": HIGH, "low": LOW, "hugeRadius": HUGE_R, "driverMin": DRIVER_MIN, "maxLen": MAX_LEN}
 DRIVER_HEADS = ("up", "down")
 

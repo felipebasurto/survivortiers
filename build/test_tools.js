@@ -8,7 +8,7 @@ const path = require('node:path');
 
 const tools = require(path.join(__dirname, '..', 'src', 'tools.js'));
 const bundle = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
-const { game, species, index, slugs, matrix } = bundle;
+const { game, species, index, slugs, matrix, rules } = bundle;
 
 const failures = [];
 const check = (name, fn) => {
@@ -70,7 +70,7 @@ check('la cobertura reproduce d[9][0] y d[9][1] de cada build fija', () => {
 const swaps = [];
 check('cada build recomendada: sin repetidos, máximo 2 potenciadores, ids en el grupo del Pokémon', () => {
   for (const p of index) {
-    const rec = tools.recommended(p.dex, species, game);
+    const rec = tools.recommended(p.dex, species, game, rules);
     const pool = tools.poolOf(p.types, game.pool);
     const known = new Set([...pool, ...species.d[String(p.dex)][9][2]]);
     const ids = rec.group.filter(Boolean);
@@ -84,7 +84,7 @@ check('cada build recomendada: sin repetidos, máximo 2 potenciadores, ids en el
 
 check('el cambio de danza sigue al ataque que abre el grupo', () => {
   for (const dex of swaps) {
-    const rec = tools.recommended(dex, species, game);
+    const rec = tools.recommended(dex, species, game, rules);
     const d9 = species.d[String(dex)][9];
     const attacks = d9[2].slice(0, d9[2].length - d9[5]);
     let lead = null;
@@ -96,10 +96,10 @@ check('el cambio de danza sigue al ataque que abre el grupo', () => {
     const from = game.moves[rec.swap.from];
     if (lead === 'special') {
       assert.equal(from.b.stat, 'patk', 'cambio sin motivo en ' + dex);
-      assert.equal(rec.swap.to, 'nasty-plot');
+      assert.equal(rec.swap.to, rules.special_buff);
     } else {
       assert.equal(from.b.stat, 'satk', 'cambio sin motivo en ' + dex);
-      assert.equal(rec.swap.to, 'swords-dance');
+      assert.equal(rec.swap.to, rules.physical_buff);
     }
     assert.ok(rec.group.includes(rec.swap.to) && !rec.group.includes(rec.swap.from), 'el cambio no llegó al grupo ' + dex);
   }
@@ -107,7 +107,7 @@ check('el cambio de danza sigue al ataque que abre el grupo', () => {
 
 check('la URL de una build recomendada se lee igual', () => {
   for (const p of index) {
-    const rec = tools.recommended(p.dex, species, game);
+    const rec = tools.recommended(p.dex, species, game, rules);
     const st = { dex: p.dex, group: rec.group, item: rec.item, cards: rec.cards };
     const search = '?' + tools.encodeState(st);
     const back = tools.decodeState(search, game, species, index, p.dex);
@@ -166,13 +166,13 @@ check('cartas del planificador: cuatro, en orden de prioridad, y con la que evol
     const pos = picks.map(id => order.indexOf(id));
     assert.deepEqual(pos, [...pos].sort((a, b) => a - b), 'fuera de orden en ' + p.dex);
     if (gate) assert.ok(picks.includes(gate), 'falta la carta que evoluciona en ' + p.dex);
-    assert.deepEqual(tools.recommended(p.dex, species, game).cards, picks, String(p.dex));
+    assert.deepEqual(tools.recommended(p.dex, species, game, rules).cards, picks, String(p.dex));
   }
 });
 
 check('la danza de la build recomendada se elige por categoría, sin Danza Espada fija', () => {
   for (const p of index) {
-    const rec = tools.recommended(p.dex, species, game);
+    const rec = tools.recommended(p.dex, species, game, rules);
     const boosts = tools.boostsOf(game.moves, rec.group.filter(Boolean));
     for (const b of boosts) if (b === 'swords-dance') {
       const attacks = tools.attacksOf(game.moves, rec.group.filter(Boolean));

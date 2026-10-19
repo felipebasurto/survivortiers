@@ -10,12 +10,13 @@ de tipo contra el rival × clima, y los ataques normales nunca son super efectiv
 Qué elige, de los ataques que ofrece el juego a ese Pokémon (POOL.normal + POOL de sus tipos):
   1. Si la búsqueda de grupo fijo tiene una fila para esa especie
      (`simulator/results/fixed_group/group_search.csv`), los ataques del grupo con mejor mediana
-     (y, si empatan, mejor media). Ahí entran Hex con quemadura, veneno o ralentización, las
+     (si empatan, mejor media, bajas y daño). Ahí entran Hex con quemadura, veneno o ralentización, las
      parejas de los mejores ataques y las parejas de dos dashes, y gana el que más aguanta.
-     El potenciador de ataque entra en todo grupo buscado: Danza Espada si el ataque que abre
-     es físico, Maquinación si es especial. Un grupo mixto sigue a ese primer ataque. El cuarto
-     hueco es Fortaleza o un tercer ataque, el que puntúa más. Los cuerpos a cuerpo se publican
-     igual que el resto cuando su intervalo no pierde. Gengar no lleva cuerpo a cuerpo.
+     El grupo es de una sola categoría y lleva el potenciador de ataque que le corresponde: Danza
+     Espada si los ataques son físicos, Maquinación si son especiales. El cuarto hueco es Fortaleza
+     o un tercer ataque, el que puntúa más. La puntuación es la de la simulación (aguantar, daño y
+     bajas); un cuerpo a cuerpo la multiplica por 0,8 y Gengar no lleva ninguno. Sustituto nunca
+     es un ataque. La elección sale de build/picks.py, la misma que usa el ranking.
   2. Si no hay búsqueda, hueco 1 es el mejor ataque de la simulación (`best_move`). Si ese ataque
      tiene un compañero de sinergia (Hex con estado, o dos dashes), el hueco 2 es ese compañero
      a distancia cuando hay uno; si no, el de más cobertura.
@@ -38,6 +39,7 @@ import json
 from pathlib import Path
 
 import owner_rules
+import picks
 
 DATA = Path(__file__).resolve().parent.parent / "data"
 
@@ -91,21 +93,14 @@ def _coverage(matrix: dict, types: list[str], enemies: list[list[str]], cache: d
     return cache[key]
 
 
-# Buffs the fixed group can hold. Anything else in a searched group name is an attack.
-BUFF_IDS = frozenset({"dragon-dance", "swords-dance", "harden", "agility", "nasty-plot"})
-# Gengar (dex 94) never keeps a melee move. Golpe Cuerpo is body-slam.
-_MELEE = frozenset({
-    "bite", "body-slam", "bug-bite", "karate-chop", "lick", "metal-claw", "tackle", "vine-whip", "wing-attack",
-})
-# Written by `pokesim synergy` (seeds 1-200, 900 s, terrain, status, rift bond).
+# Written by `pokesim synergy` and refined by build/regen.py (fresh seeds, then the contenders on many).
 SEARCH_CSV = DATA.parent / "simulator" / "results" / "fixed_group" / "group_search.csv"
 
 
 def _synergy_flags() -> dict[str, tuple[bool, bool, bool]]:
     """move id -> (hex > 1, applies burn/poison/slow, dash). Level 1 of v3, same fields the sim pairs on."""
-    raw = json.loads((DATA.parent / "simulator" / "v3" / "v3_data.json").read_text(encoding="utf8"))
     out = {}
-    for mid, move in raw["moves"].items():
+    for mid, move in picks._v3_moves().items():
         level = move["levels"][0]
         status = any(float(level.get(k) or 0) > 0 for k in ("burn", "poison", "slow"))
         out[mid] = (float(level.get("hex") or 0) > 1, status, move["kind"] == "dash")
@@ -120,105 +115,34 @@ def _pairs(a: str, b: str, flags: dict[str, tuple[bool, bool, bool]]) -> bool:
     return (ha and sb) or (hb and sa) or (da and db)
 
 
-def _move_kinds() -> dict[str, str]:
-    raw = json.loads((DATA.parent / "simulator" / "v3" / "v3_data.json").read_text(encoding="utf8"))
-    return {mid: move["kind"] for mid, move in raw["moves"].items()}
-
-
-def _has_melee(attacks: list[str], kinds: dict[str, str]) -> bool:
-    return any(kinds.get(a) == "melee" for a in attacks)
-
-
-def _move_cats() -> dict[str, str]:
-    raw = json.loads((DATA.parent / "simulator" / "v3" / "v3_data.json").read_text(encoding="utf8"))
-    return {mid: (move["levels"][0].get("cat") or "") for mid, move in raw["moves"].items()}
-
-
 def _special_species() -> dict[int, bool]:
     raw = json.loads((DATA / "pokedex_export.json").read_text(encoding="utf8"))
     return {int(p["dex"]): float(p["sa"]) > float(p["pa"]) for p in raw}
 
 
-def _attack_buff(attacks: list[str], _searched: str | None, cats: dict[str, str], special: bool,
-                 available: list[str]) -> str | None:
-    """Maquinación when the lead attack is special. A physical lead, including a mixed pair, uses Danza Espada.
-
-    The lead is the first bonded attack with a category. A group with no category falls back to
-    the species side (`sa > pa`). `--dd` stays a sim flag; the published physical buff is Danza Espada.
-    """
-    lead = ""
-    for attack in attacks:
-        cat = cats.get(attack) or ""
-        if cat in ("physical", "special"):
-            lead = cat
-            break
-    want = owner_rules.attack_buff(lead, special)
+def _attack_buff(attacks: list[str], cats: dict[str, str], special: bool, available: list[str]) -> str | None:
+    """The attack buff that matches the group's attacks. A searched group never mixes categories, so
+    the buff is its category's. A group with no category falls back to the species side (`sa > pa`)."""
+    cat = owner_rules.group_category(attacks, cats) or ("special" if special else "physical")
+    want = owner_rules.attack_buff(cat)
     if want in available:
         return want
     return next((b for b in ATTACK_BUFFS if b in available), None)
 
 
-def _metric(row: dict, score_key: str, fallback: str) -> float:
-    raw = row.get(score_key)
-    if raw not in (None, ""):
-        return float(raw)
-    return float(row[fallback])
-
-
 def _search_picks() -> dict[int, tuple[list[str], bool, str | None]]:
     """dex -> (attack ids, whether the winning group also bonds Harden, attack-buff id).
 
-    The sim scores status+Hex, dash pairs, and the top attack pairs. Every group holds an attack
-    buff: Maquinación when the lead attack is special, Danza Espada when it is physical. A mixed
-    pair follows that lead. Lengüetazo and every other `kind == melee` move goes through the
-    floor rule below. Picotazo Veneno is a projectile (reach 420) and is not melee.
-    Harden wins the fourth slot only when that shape beats the third attack.
-
-    Rank is median score, then mean score, then median seconds, when the score columns exist.
-    Groups whose score intervals overlap are ties. The page names the one with fewer attacks.
-    Melee is scored the same way as any other attack. Gengar never keeps a melee move.
+    The pick is build/picks.best_groups over the searched groups: highest adjusted median score,
+    never Sustituto, never melee for Gengar, one category per group with its matching buff,
+    Fortaleza or a third attack in the fourth slot, whichever scored higher.
     """
     if not SEARCH_CSV.exists():
         return {}
-    kinds = _move_kinds()
-    by_dex: dict[int, list[tuple]] = {}
-    with SEARCH_CSV.open(encoding="utf8", newline="") as f:
-        for row in csv.DictReader(line for line in f if not line.startswith("#")):
-            dex = int(row["dex"])
-            parts = row["group"].split("+")
-            buff = next((part for part in parts if part in ATTACK_BUFFS), None)
-            if buff is None:
-                continue
-            score = _metric(row, "median_score", "median_s")
-            mean = _metric(row, "mean_score", "mean_s")
-            floor = _metric(row, "score_lo", "boot_lo")
-            attacks = [part for part in parts if part not in BUFF_IDS]
-            if not owner_rules.allows_melee(dex) and (any(part in _MELEE for part in attacks) or _has_melee(attacks, kinds)):
-                continue
-            if len(attacks) < 2:
-                continue
-            hi = _metric(row, "score_hi", "boot_hi")
-            cand = (
-                (-score, -mean, -float(row["median_s"]), row["group"]),
-                attacks,
-                "harden" in parts or "agility" in parts,
-                floor,
-                score,
-                mean,
-                _has_melee(attacks, kinds),
-                buff,
-                hi,
-                len(attacks),
-            )
-            by_dex.setdefault(dex, []).append(cand)
     out = {}
-    for dex, cands in by_dex.items():
-        best = min(cands, key=lambda c: c[0])
-        # Overlapping score intervals are one result. Among them, the cheaper
-        # group (fewer attacks to unlock) is the one the page names.
-        tied = [c for c in cands if c[3] <= best[8] and best[3] <= c[8]]
-        chosen = min(tied, key=lambda c: (c[9], c[0]))
-        out[dex] = (chosen[1], chosen[2], chosen[7])
+    for dex, row in picks.best_groups(picks.load_rows(SEARCH_CSV)).items():
+        attacks, buff, fourth = picks.split_group(row["group"])
+        out[dex] = (attacks, fourth is not None, buff)
     return out
 
 
@@ -273,7 +197,7 @@ def compute_all(types_by_dex: dict[int, list[str]], best_move_by_dex: dict[int, 
     pool, mech, matrix, rows = _load()
     picks = _search_picks()
     flags = _synergy_flags()
-    cats = _move_cats()
+    cats = picks.categories()
     special = _special_species()
     boost = lambda mid: float((rows.get(mid) or {}).get("score_rel") or 0)
     everyone = list(types_by_dex.values())
@@ -285,7 +209,8 @@ def compute_all(types_by_dex: dict[int, list[str]], best_move_by_dex: dict[int, 
             ids.update(pool.get(t, []))
         attacks = sorted(
             i for i in ids
-            if mech[i]["kind"] != "buff" and (owner_rules.allows_melee(dex) or not (i in _MELEE or mech[i]["kind"] == "melee"))
+            if mech[i]["kind"] != "buff" and i not in owner_rules.NEVER_ATTACK
+            and (owner_rules.allows_melee(dex) or mech[i]["kind"] != "melee")
         )
         buffs = sorted(i for i in ids if mech[i]["kind"] == "buff")
         best = best_move_by_dex[dex]
@@ -293,7 +218,7 @@ def compute_all(types_by_dex: dict[int, list[str]], best_move_by_dex: dict[int, 
             # el ataque inicial propio de la especie (p. ej. Confusión de Psyduck) no está en POOL, pero lo lleva desde el inicio
             attacks.append(best)
         preset, with_harden, searched_buff = picks.get(dex, ([], True, None))
-        preset = [m for m in preset if m in rows and (owner_rules.allows_melee(dex) or m not in _MELEE)]
+        preset = [m for m in preset if m in rows]
         for move in preset:
             if move not in attacks:
                 attacks.append(move)
@@ -306,7 +231,7 @@ def compute_all(types_by_dex: dict[int, list[str]], best_move_by_dex: dict[int, 
         ranked = pick_attacks(attacks, best, rows, mech, matrix, everyone, cache, n_atk + ALT_SLOTS,
                               preset if searched else None, None if searched else flags)
         trio, alts = ranked[:n_atk], ranked[n_atk:]
-        atk_buff = _attack_buff(trio, searched_buff, cats, special.get(dex, False), buffs)
+        atk_buff = _attack_buff(trio, cats, special.get(dex, False), buffs)
         # 2+2 keeps Harden. The three-attack Hex group the search can still pick does not.
         want = (atk_buff, BUFFS[1]) if with_harden or not searched else (atk_buff,)
         boosts = [b for b in want if b in buffs] or ([max(buffs, key=boost)] if buffs else [])

@@ -13,11 +13,12 @@ import statistics
 from collections.abc import Callable
 from html import escape
 
+import tiers
 from catalog import METHOD_KEYS
 from i18n import NBSP, Lang
 
 TOTAL = 966
-TIER_CUTS = [("S", 1, 30), ("A", 31, 120), ("B", 121, 320), ("C", 321, 620), ("D", 621, 966)]
+TIER_CUTS = tiers.CUTS
 TIERS = [t for t, _, _ in TIER_CUTS]
 PILLAR_KEYS = ("stats", "moves", "typedef", "size")
 AGREE_MIN = 0.5  # inicio de la escala del gráfico de coincidencia
@@ -87,7 +88,7 @@ def _band_body(L: Lang, r: dict) -> str:
     segs = "".join(f'<i class="rb-seg t-{t}{" on" if t == r["tier"] else ""}" style="flex:{b - a + 1}"></i>'
                    for t, a, b in TIER_CUTS)
     letters = "".join(f'<i class="t-{t}" style="flex:{b - a + 1}">{t}</i>' for t, a, b in TIER_CUTS)
-    ticks = "".join(f'<span style="left:{_pos(n):.2f}%">{n}</span>' for n in (1, 30, 120, 320, 620, 966))
+    ticks = "".join(f'<span style="left:{_pos(n):.2f}%">{n}</span>' for n in (1, *tiers.EDGES, tiers.TOTAL))
     span = max(_pos(hi) - _pos(lo), 0.5)
     return (f'<div class="rb-note rb-{side}" style="{note_style}"><b>{esc(L.t("band_rank", rank=rank))}</b>'
             f'<span>{esc(L.t("band_range", lo=lo, hi=hi))}</span></div>'
@@ -260,11 +261,11 @@ def ribbon(L: Lang, index: list[dict]) -> str:
         (hot if tier == "S" else gray).append(f"M{x(rank):.1f} {y(lo):.1f}V{max(y(hi), y(lo) + 1):.1f}")
         widths[tier].append(hi - lo)
     med = {t: round(statistics.median(v)) for t, v in widths.items()}
-    xt = "".join(f'<text x="{x(n):.1f}" y="{h - bottom + 16}" text-anchor="middle">{n}</text>' for n in (1, 120, 320, 620, 966))
-    yt = "".join(f'<text x="{left - 8}" y="{y(n) + 4:.1f}" text-anchor="end">{n}</text>' for n in (1, 320, 966))
+    xt = "".join(f'<text x="{x(n):.1f}" y="{h - bottom + 16}" text-anchor="middle">{n}</text>' for n in (1, *tiers.EDGES[1:], tiers.TOTAL))
+    yt = "".join(f'<text x="{left - 8}" y="{y(n) + 4:.1f}" text-anchor="end">{n}</text>' for n in (1, tiers.EDGES[2], tiers.TOTAL))
     tl = "".join(f'<text class="tl" x="{x((a + b) / 2):.1f}" y="{h - bottom + 34}" text-anchor="middle">{t}</text>'
                  for t, a, b in TIER_CUTS)
-    cuts = "".join(f'<path class="cut" d="M{x(n + .5):.1f} {h - bottom + 2}v5"/>' for n in (30, 120, 320, 620))
+    cuts = "".join(f'<path class="cut" d="M{x(n + .5):.1f} {h - bottom + 2}v5"/>' for n in tiers.EDGES)
     axes = (f'<text class="ax" x="{(left + w - right) / 2:.0f}" y="{h - 4}" text-anchor="middle">{esc(L.t("rib_x"))}</text>'
             f'<text class="ax" transform="translate(12 {(top + h - bottom) / 2:.0f}) rotate(-90)" text-anchor="middle">'
             f'{esc(L.t("rib_y"))}</text>')

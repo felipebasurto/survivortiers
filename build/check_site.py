@@ -37,6 +37,7 @@ import landing  # noqa: E402
 import legal  # noqa: E402
 import toolpages  # noqa: E402
 import theme  # noqa: E402
+import tiers  # noqa: E402
 from i18n import EN, ES  # noqa: E402
 
 try:
@@ -50,7 +51,7 @@ BEACON_URL = "https://static.cloudflareinsights.com/beacon.min.js"
 SPRITE_CDN_PREFIX = "https://cdn.jsdelivr.net/gh/felipebasurto/survivortiers@"
 # 8 páginas × 2 idiomas + 966 fichas × 2, más CSS, JSON y fuentes. Pages admite 20 000 archivos.
 MAX_FILES, MAX_BYTES = 4_000, 180_000_000
-EXPECTED_COUNTS = {"S": 30, "A": 90, "B": 200, "C": 300, "D": 346}
+EXPECTED_COUNTS = tiers.COUNTS
 SPANISH_WORDS = re.compile(r"\b(el|los|las|del|con|para|puesto|aguante|daño|ficha|partidas?|repeticiones|cuántos)\b", re.I)
 LANGS = ("", "en/")
 EXPECTED_GACHA = {"Paldea": 17.4, "Alola": 19.3, "Galar": 13.8, "Sinnoh": 14.0, "Kanto": 7.3, "Teselia": 12.8,

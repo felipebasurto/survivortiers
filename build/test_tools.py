@@ -72,6 +72,7 @@ class LeadBuffTest(unittest.TestCase):
         script = r"""
 const assert = require('node:assert/strict');
 const tools = require('./src/tools.js');
+const rules = require('./data/owner_rules.json');
 const game = {
   moves: {
     'shadow-ball': { c: 'special' },
@@ -86,7 +87,7 @@ function rec(dex, ids, nBoost, pa, sa) {
   game.dex[String(dex)] = [pa, sa];
   const species = { items: [], d: {} };
   species.d[String(dex)] = [0, 0, 0, 0, 0, 0, 0, 0, 0, [0, 0, ids, 0, 0, nBoost], [['pow', 'run', 'hp', 'cor'], null]];
-  return tools.recommended(dex, species, game);
+  return tools.recommended(dex, species, game, rules);
 }
 let r = rec(94, ['shadow-ball', 'lick', 'swords-dance', 'harden'], 2, 2, 1);
 assert.equal(r.swap.to, 'nasty-plot');
@@ -112,6 +113,7 @@ class ToolsNodeTest(unittest.TestCase):
         bundle = {
             "game": json.loads(json.dumps(gamestats.site_json())),
             "species": species,
+            "rules": json.loads((ROOT / "data" / "owner_rules.json").read_text(encoding="utf8")),
             "index": index,
             "matrix": gamestats.TYPE_MATRIX,
             "slugs": {str(p["dex"]): slugs.species_path(p["dex"], p["nameEn"]) for p in index},

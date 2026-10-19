@@ -41,6 +41,8 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import combos  # noqa: E402
 import owner_rules  # noqa: E402
+import picks  # noqa: E402
+import tiers  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 N = 966
@@ -64,10 +66,8 @@ COMMENT = (
     "best_move is an attacking move from the solo sweep. "
     "start_median_s is the Repertorio opening. start_noshop_s is the starter alone and is not ranked."
 )
-CUTS = (("S", 30), ("A", 90), ("B", 200), ("C", 300), ("D", 346))
-BANDS = {"S": (1, 30), "A": (31, 120), "B": (121, 320), "C": (321, 620), "D": (621, 966)}
-STAT_MIN = {"S": 0.6, "A": 0.4, "B": 0.2}
-TIER_OF = {rank: tier for tier, (lo, hi) in BANDS.items() for rank in range(lo, hi + 1)}
+CUTS = tuple(tiers.COUNTS.items())
+BANDS, STAT_MIN, TIER_OF = tiers.BANDS, tiers.STAT_MIN, tiers.TIER_OF
 
 
 def load_csv(path: Path) -> list[dict]:
@@ -109,61 +109,19 @@ def row_metric(row: dict, score_key: str, fallback: str) -> float:
     return float(row[fallback])
 
 
-def _attacking_row(row: dict) -> bool:
-    """An attacking move: not a buff, and the fight dealt damage.
-
-    Turret, orbit and melee stay in the candidate set. The score, not a copied
-    name filter, is what keeps a chip turret from winning.
-    """
-    dealt_raw = row.get("median_dealt")
-    dealt = float(dealt_raw) if dealt_raw not in (None, "") else None
-    return owner_rules.is_attack(row.get("kind") or "", dealt)
-
-
 def _ci(row: dict) -> tuple[float, float, float]:
-    score = row_metric(row, "median_score", "median_s")
-    lo_raw = row.get("score_lo")
-    hi_raw = row.get("score_hi")
-    if lo_raw in (None, ""):
-        lo_raw = row.get("boot_lo")
-    if hi_raw in (None, ""):
-        hi_raw = row.get("boot_hi")
-    if lo_raw in (None, "") or hi_raw in (None, ""):
-        return score, score, score
-    return score, float(lo_raw), float(hi_raw)
+    melee = row.get("kind") == "melee"
+    return picks.score_bounds(row, melee)
 
 
 def winner_by_dex(sweep: list[dict]) -> dict[int, dict]:
-    """One attacking move per species.
+    """One attacking move per species: the highest score after the owner rules (build/picks.py).
 
-    The highest median score is the reference. Any other attack whose score
-    interval overlaps that reference is a tie: seed noise does not pick a
-    winner. Among ties, the longer survival, then the higher kill count, then
-    the move id. A buff or a row that dealt nothing is not a candidate.
+    Sustituto, buffs and moves that dealt nothing are not candidates, Gengar keeps no melee move,
+    and a melee score takes the owner's penalty. There is no interval tie rule: the sweep already
+    refreshes the contenders on fresh seeds, and the band on the page shows what is left of the noise.
     """
-    pools: dict[int, list[dict]] = {}
-    for row in sweep:
-        dex = int(row["dex"])
-        if not owner_rules.allows_melee(dex) and row.get("kind") == "melee":
-            continue
-        if not _attacking_row(row):
-            continue
-        pools.setdefault(dex, []).append(row)
-    best: dict[int, dict] = {}
-    for dex, rows in pools.items():
-        ref = max(rows, key=lambda r: (_ci(r)[0], _ci(r)[1], -float(r["median_s"]), r["start"]))
-        _, ref_lo, ref_hi = _ci(ref)
-        ties = [r for r in rows if _ci(r)[1] <= ref_hi and ref_lo <= _ci(r)[2]]
-        chosen = min(
-            ties,
-            key=lambda r: (
-                -float(r["median_s"]),
-                -float(r.get("median_kills") or 0),
-                r["start"],
-            ),
-        )
-        best[dex] = chosen
-    return best
+    return picks.best_moves(sweep)
 
 
 def qualifies(row: dict, tier: str) -> bool:

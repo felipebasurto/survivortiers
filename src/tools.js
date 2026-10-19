@@ -116,8 +116,8 @@
     return order.filter(id => picks.includes(id));
   }
 
-  // Build recomendada de build/combos.py. El potenciador sigue al ataque que abre el grupo:
-  // especial → Maquinación, físico → Danza Espada. Un grupo mixto no vota por mayoría.
+  // Build recomendada de build/combos.py. El potenciador sigue al ataque que abre el grupo (los ids salen de
+  // data/owner_rules.json, el mismo archivo que lee el publicador): especial → Maquinación, físico → Danza Espada. Un grupo mixto no vota por mayoría.
   function leadSide(attacks, game, dex) {
     for (const id of attacks) {
       const cat = game.moves[id] && game.moves[id].c;
@@ -127,7 +127,7 @@
     return sideOf(pa, sa);
   }
 
-  function recommended(dex, species, game) {
+  function recommended(dex, species, game, rules) {
     const d = species.d[String(dex)];
     const ids = d[9][2];
     const nBoost = d[9][5];
@@ -138,12 +138,12 @@
     const fixed = boosts.map(id => {
       const stat = game.moves[id].b && game.moves[id].b.stat;
       if (stat === 'patk' && lead === 'special') {
-        swap = { from: id, to: 'nasty-plot' };
-        return 'nasty-plot';
+        swap = { from: id, to: rules.special_buff };
+        return rules.special_buff;
       }
       if (stat === 'satk' && lead === 'physical') {
-        swap = { from: id, to: 'swords-dance' };
-        return 'swords-dance';
+        swap = { from: id, to: rules.physical_buff };
+        return rules.physical_buff;
       }
       return id;
     });
@@ -353,7 +353,7 @@
     status.textContent = '';
   }
 
-  function planner(game, species, index) {
+  function planner(game, species, index, rules) {
     const root = document.getElementById('bp-app');
     const input = document.getElementById('bp-q');
     const datalist = document.getElementById('bp-list');
@@ -481,7 +481,7 @@
         if (w.k === 'none') return ['bad', t('bp_mismatch_none', { boost: moveName(game, w.boost), cat: t(w.cat === 'physical' ? 'bp_cat_phys_adj' : 'bp_cat_spec_adj') })];
         return ['note', t('bp_mismatch_some', { boost: moveName(game, w.boost), n: w.n, total: w.total })];
       });
-      const rec = recommended(st.dex, species, game);
+      const rec = recommended(st.dex, species, game, rules);
       if (rec.swap && st.group.includes(rec.swap.to)) msgs.push(['note', t('bp_swapped', { from: moveName(game, rec.swap.from), to: moveName(game, rec.swap.to) })]);
       warnBox.innerHTML = msgs.map(([cls, text]) => '<p class="bp-warn is-' + cls + '">' + esc(text) + '</p>').join('');
       const n = boostCount(-1);
@@ -528,7 +528,7 @@
     }
 
     function recommendedState(dex) {
-      const rec = recommended(dex, species, game);
+      const rec = recommended(dex, species, game, rules);
       return { dex, group: rec.group, item: rec.item, cards: rec.cards };
     }
 
@@ -582,10 +582,10 @@
     root.hidden = false;
   }
 
-  Promise.all([getJSON('game-stats.json'), getJSON('species.json'), getJSON('pokemon-index.json')])
-    .then(([game, species, index]) => {
+  Promise.all([getJSON('game-stats.json'), getJSON('species.json'), getJSON('pokemon-index.json'), getJSON('owner_rules.json')])
+    .then(([game, species, index, rules]) => {
       if (page === 'buscador') finder(game, index);
-      else planner(game, species, index);
+      else planner(game, species, index, rules);
     })
     .catch(err => {
       const box = document.getElementById(page === 'buscador' ? 'tf-status' : 'bp-warn');

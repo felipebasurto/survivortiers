@@ -28,6 +28,7 @@ import game_moves  # noqa: E402
 import legal  # noqa: E402
 import objetos  # noqa: E402
 import summaries  # noqa: E402
+import tiers  # noqa: E402
 import summary_facts  # noqa: E402
 
 DATA = ROOT / "data"
@@ -37,9 +38,9 @@ PUBLIC = OUT / "public"  # lo que render.py copia a site/data/
 
 RANKING_CSV = "ranking_definitive.csv"
 VERSION = "definitivo"
-TIER_CUTS = [("S", 1, 30), ("A", 31, 120), ("B", 121, 320), ("C", 321, 620), ("D", 621, 966)]
-EXPECTED_COUNTS = {"S": 30, "A": 90, "B": 200, "C": 300, "D": 346}
-TOTAL = 966
+TIER_CUTS = tiers.CUTS
+EXPECTED_COUNTS = tiers.COUNTS
+TOTAL = tiers.TOTAL
 # Simulación de grupo fijo que usa el ranking (make_definitive.py): la mediana de cada Pokémon sale de sus partidas.
 SIM_RANK = ROOT / "simulator" / "results" / "fixed_group" / "g2p2" / "rank_200.csv"
 PRESETS = ("Kyurem", "Keldeo", "Pikachu")  # ejemplos del deslizador de la página Método
@@ -493,6 +494,8 @@ def main() -> int:
     write_json("species.json", species_details(entries, meta["simRange"], meta["simMedianSeconds"],
                                                combos.compute_all(dex_types, {e["dex"]: e["r"]["sim"]["best"]["id"] for e in entries})), public=True)
     write_json("moves.json", moves, public=True)
+    write_json("owner_rules.json", json.loads((DATA / "owner_rules.json").read_text(encoding="utf8")), public=True)
+    write_json("tiers.json", json.loads((DATA / "tiers.json").read_text(encoding="utf8")), public=True)
     write_json("moves_unranked.json", unranked, public=True)
     for lang in ("es", "en"):
         write_json(f"summaries-{lang}.json", summaries.public(texts, lang), public=True)
