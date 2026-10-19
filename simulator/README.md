@@ -77,7 +77,7 @@ Group mode also models, from the game source (`js/` in JPTER78/pokesurvivor):
     even when one of them sits outside that top 6. That top 6 is the better of the species'
     solo-sweep rank and the move-tier rank (`data/move_tierlist_v4.csv`), so a plain pair such as
     Shadow Ball + Aura Sphere is scored against Hex + Lick, and Aerial Ace + Quick Attack is
-    scored against a higher-tier lead. The higher median wins (mean breaks a tie).
+    scored against a higher-tier lead. The higher composite score wins (mean score, then survival time, breaks a tie).
     `results/fixed_group/group_search.csv` is that run.
     `build/combos.py` shows the winning attacks; it does not force the status partner.
     Hex is the only move with a status-conditional damage multiplier (`moves.js` `hex`).
