@@ -93,10 +93,10 @@ the key to verify the claim. The visible text is yours, but keep it close to the
    "tener un solo tipo de ataque", "cómo aguanta...") take "lo sube / lo baja / lo frena".
 
 ## Example (Kommo-o, dex 784; its claims include atk+, hb-, td+, m.start:dragon-rage, m.group:aura-sphere,
-## m.group:dragon-dance, m.alt:hyper-voice, i.best:luckyegg, up:best_move, up:stats, down:hitbox)
+## m.group:dragon-rage, m.alt:hyper-voice, i.best:luckyegg, up:stats, nodown)
 
 ```json
-{"dex": 784, "es": "[atk+|Pega fuerte] y [td+|aguanta bien los tipos rivales], pero tiene [hb-|hitbox grande]. Empieza con [m.start:dragon-rage|Furia Dragón] y vincula [m.group:aura-sphere|Esfera Aural] (o [m.alt:hyper-voice|Vozarrón]) y [m.group:dragon-dance|Danza Dragón]; lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Esfera Aural] y lo baja [down:hitbox|su hitbox grande].", "en": "[atk+|Hits hard] and [td+|shrugs off enemy types], but has a [hb-|big hitbox]. Start with [m.start:dragon-rage|Dragon Rage], bond [m.group:aura-sphere|Aura Sphere] (or [m.alt:hyper-voice|Hyper Voice]) and [m.group:dragon-dance|Dragon Dance]; carry [i.best:luckyegg|Lucky Egg]. What lifts it most is [up:best_move|Aura Sphere], and what holds it back most is [down:hitbox|its big hitbox]."}
+{"dex": 784, "es": "[atk+|Pega fuerte] y [td+|aguanta bien los tipos rivales], pero [hb-|hitbox grande]. Empieza con [m.start:dragon-rage|Furia Dragón] y vincula [m.group:aura-sphere|Esfera Aural] (o [m.alt:hyper-voice|Vozarrón]) y [m.group:dragon-rage|Furia Dragón]; lleva [i.best:luckyegg|Huevo Suerte]. Lo que más lo sube es [up:stats|sus estadísticas], y [nodown|nada lo frena] de verdad.", "en": "[atk+|Hits hard] and [td+|shrugs off enemy types], but a [hb-|big hitbox]. Start with [m.start:dragon-rage|Dragon Rage], bond [m.group:aura-sphere|Aura Sphere] (or [m.alt:hyper-voice|Hyper Voice]) and [m.group:dragon-rage|Dragon Rage]; carry [i.best:luckyegg|Lucky Egg]. What lifts it most is [up:stats|its stats], and [nodown|nothing holds it back] much."}
 ```
 
 Vary the sentence shapes between species; do not copy this example's wording for every one.
