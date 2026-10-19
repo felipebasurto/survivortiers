@@ -252,9 +252,9 @@ def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, detail: list,
         else f'<li>{esc(_move_name(L, moves, mid))} {damage_badge(L, moves[mid]["damage"])}</li>'
         for mid in ids)
     card_items = []
-    for i, (cid, name) in enumerate(zip(card_ids, card_names), 1):
+    for i, (cid, card_name) in enumerate(zip(card_ids, card_names), 1):
         once = f' <small class="bd-gate" title="{esc(L.t("build_card_once"))}">1×</small>' if cid == gate else ""
-        card_items.append(f'<li><b class="bd-n">{i}</b>{esc(name)}{once}</li>')
+        card_items.append(f'<li><b class="bd-n">{i}</b>{esc(card_name)}{once}</li>')
     card_top = "".join(card_items[:4])
     card_more = "".join(card_items[4:])
     card_block = (

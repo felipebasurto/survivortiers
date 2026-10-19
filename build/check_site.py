@@ -555,6 +555,7 @@ def main() -> int:
     sprite_bases: set[str] = set()
     sprite_refs: set[str] = set()
     ficha_ids: dict[str, set[int]] = {lang: set() for lang in LANGS}
+    names = {p["dex"]: (p["name"], p["nameEn"]) for p in index}
 
     def is_page(u: str) -> bool:
         return u.endswith(".html") or u.endswith("/")
@@ -629,6 +630,16 @@ def main() -> int:
         for img in page.imgs:
             if not img.get("src"):
                 err(f"{url}: imagen sin src")
+        ficha = re.search(r"/pokemon/(\d+)-[a-z0-9-]+/?$", urlparse(url).path)
+        if ficha and int(ficha.group(1)) in names:
+            dex = int(ficha.group(1))
+            want = names[dex][1 if english else 0]
+            h1 = re.search(r"<h1>(.*?)<span", body_by_url[url], re.S)
+            got = html_lib.unescape(h1.group(1)).strip() if h1 else None
+            if got != want:
+                err(f"{url}: el título es {got!r} y debería ser {want!r}")
+            if not any(want in (i.get("alt") or "") for i in page.imgs if i.get("class") == "px"):
+                err(f"{url}: el texto alternativo del sprite no nombra a {want!r}")
 
     # anclas
     for url, page in list(seen.items()):
