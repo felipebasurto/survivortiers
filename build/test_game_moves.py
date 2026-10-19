@@ -1,4 +1,4 @@
-"""Categoría física, especial o de estado y el potenciador nuevo, frente a js/data/moves.js del juego.
+"""Categoría física, especial o de estado y los potenciadores, frente a js/data/moves.js del juego.
 
     python3 -m unittest build/test_game_moves.py
 
@@ -19,7 +19,9 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "build"))
 
 import sitefixture  # noqa: E402
+import catalog  # noqa: E402
 import game_moves  # noqa: E402
+import gamestats  # noqa: E402
 
 DATA = ROOT / "data"
 OUT = ROOT / "build" / "out"
@@ -49,9 +51,18 @@ class DamageClassTests(unittest.TestCase):
         self.assertEqual(game_moves.damage_class("ember", "projectile"), "special")
         self.assertEqual(game_moves.damage_class("flamethrower", "cone"), "special")
 
-    def test_physical_ids_are_all_known_moves(self):
-        known = set(_ranked_ids()) | {u["id"] for u in game_moves.UNRANKED}
-        self.assertEqual(sorted(game_moves.physical_ids() - known), [])
+    def test_physical_ids_are_all_ranked_attacks(self):
+        self.assertEqual(sorted(game_moves.physical_ids() - set(_ranked_ids())), [])
+
+    def test_tier_list_is_every_attack_and_no_boost(self):
+        game = json.loads((DATA / "game_stats.json").read_text(encoding="utf8"))["moves"]
+        attacks = {mid for mid, m in game.items() if m["kind"] != "buff"}
+        self.assertEqual(set(_ranked_ids()), attacks)
+
+    def test_only_the_melee_kind_is_close_range(self):
+        with (DATA / "move_tierlist_v4.csv").open(encoding="utf8", newline="") as f:
+            for r in csv.DictReader(line for line in f if not line.startswith("#")):
+                self.assertEqual(r["category"] == "cuerpo a cuerpo", r["kind"] == "melee", r["move_id"])
 
     @unittest.skipUnless(os.environ.get("POKESURVIVOR_DIR"), "POKESURVIVOR_DIR no está definido")
     def test_physical_list_matches_game_source(self):
@@ -60,21 +71,40 @@ class DamageClassTests(unittest.TestCase):
         self.assertEqual(set(re.findall(r"'([^']+)'", block)), set(game_moves.physical_ids()))
 
 
-class UnrankedTests(unittest.TestCase):
-    def test_maquinacion_numbers_match_game_entry(self):
-        (nasty,) = [u for u in game_moves.UNRANKED if u["id"] == "nasty-plot"]
-        self.assertEqual(nasty["stat"][1], "special attack")
-        self.assertEqual(nasty["amount"], 0.13)
-        self.assertEqual(nasty["stacks"], 5)
-        self.assertEqual(nasty["dur"], 7)
-        self.assertEqual(nasty["cd"], 0.85)
-        self.assertEqual(nasty["kind"], "buff")
+class BoostTests(unittest.TestCase):
+    def test_every_game_boost_is_listed_with_game_numbers(self):
+        game = json.loads((DATA / "game_stats.json").read_text(encoding="utf8"))["moves"]
+        boosts = catalog.load_unranked()
+        self.assertEqual([b["id"] for b in boosts], list(gamestats.BOOST_ORDER))
+        self.assertEqual({b["id"] for b in boosts}, {mid for mid, m in game.items() if m["kind"] == "buff"})
+        for b in boosts:
+            g = game[b["id"]]["buff"]
+            for k in ("stat", "amount", "stacks", "dur", "cd", "max"):
+                self.assertEqual(b["buff"][k], g[k], (b["id"], k))
+            self.assertEqual(b["damage"], "status")
 
-    def test_danzas_and_maquinacion_have_notes(self):
-        for mid in ("swords-dance", "dragon-dance"):
+    def test_max_level_follows_the_buff_ladder(self):
+        # moves.js LADDERS.buff: +1 stack, ×1.4 amount, ×1.5 duration, +1 stack and ×1.4 amount.
+        for mid in gamestats.BOOST_ORDER:
+            b = gamestats.move(mid)["buff"]
+            top = b["max"]
+            self.assertEqual(top["level"], 5, mid)
+            self.assertEqual(top["stacks"], b["stacks"] + 2, mid)
+            self.assertAlmostEqual(top["amount"], b["amount"] * 1.4 * 1.4, places=4, msg=mid)
+            self.assertAlmostEqual(top["dur"], b["dur"] * 1.5, places=4, msg=mid)
+            self.assertEqual(top["cd"], b["cd"], mid)
+
+    @unittest.skipUnless(os.environ.get("POKESURVIVOR_DIR"), "POKESURVIVOR_DIR no está definido")
+    def test_buff_ladder_matches_game_source(self):
+        text = (Path(os.environ["POKESURVIVOR_DIR"]) / "js" / "data" / "moves.js").read_text(encoding="utf8")
+        block = re.search(r"\n    buff: \[(.*?)\n    \]", text, re.S).group(1)
+        self.assertEqual(re.findall(r"m: (\{[^}]*\})", block),
+                         ["{ stacks: 1 }", "{ amount: 1.40 }", "{ dur: 1.50 }", "{ stacks: 1, amount: 1.40 }"])
+
+    def test_attack_boosts_have_notes(self):
+        for mid in ("swords-dance", "dragon-dance", "nasty-plot"):
             self.assertIn(mid, game_moves.NOTES)
         self.assertTrue(all(game_moves.NOTES[m][0] and game_moves.NOTES[m][1] for m in game_moves.NOTES))
-        self.assertTrue(all(u["note"][0] and u["note"][1] for u in game_moves.UNRANKED))
 
 
 class BuildOutputTests(unittest.TestCase):
@@ -89,30 +119,18 @@ class BuildOutputTests(unittest.TestCase):
     def test_every_move_has_damage_class(self):
         moves = json.loads((OUT / "moves.json").read_text(encoding="utf8"))
         game = json.loads((DATA / "game_stats.json").read_text(encoding="utf8"))["moves"]
-        self.assertEqual(len(moves), len(game) - len(game_moves.UNRANKED))
+        self.assertEqual(len(moves), len(game) - len(gamestats.BOOST_ORDER))
         for m in moves:
-            self.assertIn(m["damage"], game_moves.DAMAGE_CLASSES, m["id"])
-            self.assertEqual(m["damage"] == "status", m["kind"] == "buff", m["id"])
+            self.assertIn(m["damage"], ("physical", "special"), m["id"])
+            self.assertNotEqual(m["kind"], "buff", m["id"])
 
-    def test_ranked_buffs_match_game_numbers(self):
-        game = json.loads((DATA / "game_stats.json").read_text(encoding="utf8"))["moves"]
-        moves = json.loads((OUT / "moves.json").read_text(encoding="utf8"))
-        buffs = [m for m in moves if "buff" in m]
-        self.assertEqual(len(buffs), 5)
-        for m in buffs:
-            g = game[m["id"]]["buff"]
-            b = m["buff"]
-            self.assertEqual(b["dur"], g["dur"], m["id"])
-            self.assertAlmostEqual(b["cd"], g["cd"], places=2, msg=m["id"])
-            self.assertEqual(b["stat"], g["stat"], m["id"])
-            self.assertAlmostEqual(b["amount"], g["amount"] * g["stacks"] * (100 if b["pct"] else 1), places=3, msg=m["id"])
-
-    def test_unranked_has_no_tier_or_score(self):
+    def test_boosts_have_no_tier_or_score(self):
         unranked = json.loads((OUT / "moves_unranked.json").read_text(encoding="utf8"))
-        self.assertEqual([u["id"] for u in unranked], ["nasty-plot"])
-        self.assertNotIn("tier", unranked[0])
-        self.assertNotIn("score", unranked[0])
-        self.assertEqual(unranked[0]["buff"]["cover"], 100)
+        self.assertEqual([u["id"] for u in unranked], list(gamestats.BOOST_ORDER))
+        for u in unranked:
+            self.assertNotIn("tier", u)
+            self.assertNotIn("score", u)
+            self.assertEqual(u["buff"]["cover"], 100, u["id"])
 
 
 if __name__ == "__main__":

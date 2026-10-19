@@ -739,7 +739,7 @@ def main() -> int:
             err("site/ lleva PNG: los sprites tienen que salir del CDN (og.png es la excepción: la imagen para compartir)")
 
     # ataques: barras en cada ataque y nada de jerga sin explicar
-    rows_expected = sum(2 if "buff" in m else 1 for m in moves)  # un valor por ataque; el potenciador suma tiempo activo
+    rows_expected = len(moves)  # una barra por ataque; los potenciadores no tienen puesto ni barra
     for lang in LANGS:
         url = f"{base}{lang}ataques.html"
         html = body_by_url.get(url, "")

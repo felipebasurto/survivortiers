@@ -101,7 +101,7 @@ Base URL: {u}
 - [Ranking (CSV)]({u}/data/ranking.csv): one row per Pokémon with rank, tier, rank range, method ranks and model columns. Best starting point for tables and analysis.
 - [Pokémon index (JSON)]({u}/data/pokemon-index.json): all {meta['total']} Pokémon with rank, tier, rank range and sort values.
 - [Species details (JSON)]({u}/data/species.json): per-Pokémon sheet data (starting and best move, simulated survival, move pair, coverage trio, official base stats).
-- [Moves (JSON)]({u}/data/moves.json): the 64 attacks and boosts, with tier, type, kind and game parameters.
+- [Moves (JSON)]({u}/data/moves.json): every attack, with tier, type, kind and game parameters. The six boosts are in [moves_unranked.json]({u}/data/moves_unranked.json).
 - [Gacha banners (JSON)]({u}/data/gachas.json): the nine banners, pool sizes, S and A rates and the chance of an S or A pull.
 - [Method and metadata (JSON)]({u}/data/meta.json): tier cut-offs, weights, stability and method agreement numbers.
 
@@ -235,16 +235,19 @@ def llms_full_txt(meta: dict) -> str:
         "",
         "### data/moves.json",
         "",
-        "Array of 64 attacks and boosts. Fields:",
+        "Array of every attack in the game (no boosts). Fields:",
         "",
         "- id: move id (kebab-case, English name). name: Spanish name. en: `{name, evolvesTo, needsCard}` in English.",
-        "- category: Spanish label, one of `cuerpo a cuerpo` (melee), `distancia` (ranged), `estadística` (boost).",
-        "- tier and rank: move tier (S–D) and position in the move list. score: relative score from the move tier list (higher is better), for moves that have one.",
-        "- type: type key. kind: attack shape (melee, projectile, beam, nova, aura, orbit, boomerang, mine, meteor, dash, cone, chain, trail, turret, or buff).",
+        "- category: Spanish label: `cuerpo a cuerpo` for the melee kind (the only kind the game treats apart: +20 % damage and range, and 25 % less damage taken while it is in the active slot), `distancia` for every other attack.",
+        "- tier and rank: move tier (S–C) and position within its category. score: the move's effect on the solo sim score with the species factored out (1 is the median attack, higher is better).",
+        "- type: type key. kind: attack shape as the game names it in js/data/moves.js.",
         "- evolvesTo / needsCard: level-up card mechanics (a move that evolves into another, and the boost card it needs), or null.",
         "- mech: game parameters: `homing` (follows targets), `pierce` (goes through enemies), `count` (number of projectiles).",
-        "- damage: `physical`, `special` or `status` (boosts, which deal no damage). Physical is the game's fixed list (js/data/moves.js at 5a23d49); the rest that deal damage are special.",
-        "- note: `{es, en}` short text for boosts that change with the physical/special split, or absent.",
+        "- damage: `physical` or `special`. Physical is the game's fixed list (js/data/moves.js at 5a23d49); the rest are special.",
+        "",
+        "### data/moves_unranked.json",
+        "",
+        "The six boosts, with no tier or score: the tier list ranks attacks. Same id, name, en, type, kind and damage (`status`) fields, plus `buff`: `stat` (patk, satk, spd, def, regen), `amount` per stack, `stacks`, `dur` and `cd` at level 1, `cover` (percent of the time it can be up), and `max` with the same numbers at the top level with every upgrade. `note` is an `{es, en}` text for the attack boosts, or absent.",
         "",
         "### data/gachas.json",
         "",

@@ -320,38 +320,34 @@ def _method(L: Lang, home: str) -> str:
 # Los potenciadores y su tope vienen de data/game_stats.json (commit 5a23d49). Tope de dos potenciadores:
 # js/systems/levelup.js:46-56. Danza Espada y Danza Dragón comparten el contador de ataque físico (patk) y Maquinación
 # el de especial (satk): js/entities/player.js:42-50 y :99-102, y js/systems/combat.js:201-202.
-NUM_HEAD = ("pv_buff_th_cd", "pv_buff_th_dur", "pv_buff_th_max")
-BOOST_LABEL = {"patk": "pv_buff_cat_phys", "satk": "pv_buff_cat_spec", "spd": "pv_buff_stat_spd",
-               "def": "pv_buff_stat_def", "regen": "pv_buff_stat_regen"}
-
-
-def _amount(value: float, stat: str, L: Lang, digits: int) -> str:
-    if stat == "regen":
-        return f"+{L.dec(value, digits)} HP/s"
-    return f"+{L.dec(value * 100, 0)}{'' if L.en else NBSP}%"
+NUM_HEAD = ("pv_buff_th_cd", "pv_buff_th_dur", "pv_buff_th_max", "pv_buff_th_top")
 
 
 def _boost_rows(L: Lang) -> str:
     rows = []
+    sec = NBSP if not L.en else " "
     for mid in gamestats.BOOST_ORDER:
         m = gamestats.move(mid)
-        b = m["buff"]
+        b, top = m["buff"], m["buff"]["max"]
         name = m["en"] if L.en else m["name"]
-        digits = 1 if b["stat"] == "regen" else 0
-        per = _amount(b["amount"], b["stat"], L, digits)
-        top = _amount(b["amount"] * b["stacks"], b["stat"], L, digits)
+        per = gamestats.boost_amount(L, b["amount"], b["stat"])
+        full = gamestats.boost_amount(L, b["amount"] * b["stacks"], b["stat"])
+        upgraded = L.t("pv_buff_top", amt=gamestats.boost_amount(L, top["amount"] * top["stacks"], b["stat"]),
+                       dur=L.dec(top["dur"], 1))
         rows.append(
             f'<tr><th scope="row">{escape(name)}</th>'
-            f'<td data-label="{escape(L.t("pv_buff_th_stat"))}">{escape(L.t(BOOST_LABEL[b["stat"]]))} {escape(per)}</td>'
-            f'<td class="num" data-label="{escape(L.t("pv_buff_th_cd"))}">{L.dec(b["cd"], 2)}{NBSP if not L.en else " "}s</td>'
-            f'<td class="num" data-label="{escape(L.t("pv_buff_th_dur"))}">{b["dur"]}{NBSP if not L.en else " "}s</td>'
-            f'<td class="num" data-label="{escape(L.t("pv_buff_th_max"))}">{escape(top)}</td></tr>')
+            f'<td data-label="{escape(L.t("pv_buff_th_stat"))}">{escape(L.t(gamestats.BOOST_LABEL[b["stat"]]))} {escape(per)}</td>'
+            f'<td class="num" data-label="{escape(L.t("pv_buff_th_cd"))}">{L.dec(b["cd"], 2)}{sec}s</td>'
+            f'<td class="num" data-label="{escape(L.t("pv_buff_th_dur"))}">{b["dur"]}{sec}s</td>'
+            f'<td class="num" data-label="{escape(L.t("pv_buff_th_max"))}">{escape(full)}</td>'
+            f'<td class="num" data-label="{escape(L.t("pv_buff_th_top"))}">{escape(upgraded)}</td></tr>')
     return "".join(rows)
 
 
 def _boosts(L: Lang, home: str) -> str:
     cells = []
-    for k in ("pv_buff_th_boost", "pv_buff_th_stat", "pv_buff_th_cd", "pv_buff_th_dur", "pv_buff_th_max"):
+    for k in ("pv_buff_th_boost", "pv_buff_th_stat", "pv_buff_th_cd", "pv_buff_th_dur", "pv_buff_th_max",
+              "pv_buff_th_top"):
         cls = ' class="num"' if k in NUM_HEAD else ""
         cells.append(f'<th scope="col"{cls}>{escape(L.t(k))}</th>')
     head = "".join(cells)
@@ -363,7 +359,6 @@ def _boosts(L: Lang, home: str) -> str:
             f'<tbody>{_boost_rows(L)}</tbody></table></div>'
             f'<p class="pv-cap">{escape(L.t("pv_buff_cap_note", commit=gamestats.COMMIT))}</p>'
             f'<ul class="pv-rules">{rules}</ul>'
-            f'<p class="pv-rec">{escape(L.t("pv_buff_rec"))}</p>'
             f'<p class="pv-link"><a href="{home}{toolpages.folder(L, "planner")}">'
             f'{escape(L.t("pv_buff_link"))} →</a></p></section>')
 

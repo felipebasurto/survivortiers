@@ -323,7 +323,7 @@ def render_index(c: Ctx, pokemon: list[dict], meta: dict) -> str:
 FICHA_KEYS = (
     "crumb_home", "legendary", "stars_alt", "sprite_alt", "ficha_title", "ficha_desc", "flag_status", "flag_melee",
     "pager_aria", "dex_no", "tier", "f_missing", "t_band", "t_pillars", "t_methods", "t_sim",
-    "band_rank", "band_range", "band_alt", "t_learn", "learn_start", "t_build", "build_start", "build_best", "build_boost", "build_alt", "build_items", "build_cards", "build_card_hint", "build_card_n", "build_card_once", "build_card_more", "build_super", "build_neutral",
+    "band_rank", "band_range", "band_alt", "t_learn", "learn_start", "learn_boosts", "t_build", "build_start", "build_best", "build_boost", "build_alt", "build_items", "build_cards", "build_card_hint", "build_card_n", "build_card_once", "build_card_more", "build_super", "build_neutral",
     "build_share", "build_copied", "build_slot", "build_brand", "build_group", "build_best_item", "build_more",
     "t_rank", "rank_how", "ficha_rank", "pill_stats", "pill_moves", "pill_typedef", "pill_size", "pillars_alt_item",
     "median", "m_sheet", "m_simStart", "m_simBest", "m_lateMax", "m_lateFresh", "methods_final", "methods_alt",
@@ -388,7 +388,9 @@ def render_species(c: Ctx, entry: dict, detail: list, moves: dict, prev: dict | 
 # Cada tipo de movimiento del juego se dibuja con uno de estos patrones (la animación de la tarjeta).
 KIND_FX = {"melee": "swing", "cone": "swing", "trail": "swing", "dash": "dash",
            "projectile": "shot", "beam": "beam", "chain": "chain", "boomerang": "shot", "turret": "shot",
-           "orbit": "ring", "aura": "ring", "nova": "ring", "mine": "drop", "meteor": "drop", "buff": "boost"}
+           "orbit": "ring", "aura": "ring", "nova": "ring", "mine": "drop", "meteor": "drop", "buff": "boost",
+           "homing": "home", "bounce": "chain", "charge": "beam", "spin": "ring", "quake": "drop", "vortex": "ring",
+           "shove": "ring", "stun": "drop"}
 LETTERS = "abcdefghijklmnopqrstuvwxyz"  # la rejilla de píxeles de moves.json usa letras para la paleta
 
 
@@ -473,11 +475,12 @@ def move_facts(L: Lang, m: dict) -> str:
         else:
             facts.append(L.t("mv_evolves", move=evo))
     if "buff" in m:
-        b = m["buff"]
+        b, top = m["buff"], m["buff"]["max"]
+        stat = L.t(gamestats.BOOST_LABEL[b["stat"]])
         facts.append(L.t("mv_buff", dur=L.dec(b["dur"], 0), cd=L.dec(b["cd"], 2)))
-        if "stacks" in b:
-            stat = b["statEn"] if L.en else b["stat"]
-            facts.append(L.t("mv_stacks", amt=L.dec(b["amount"] * 100, 0), stat=stat, n=b["stacks"]))
+        facts.append(L.t("mv_stacks", amt=gamestats.boost_amount(L, b["amount"], b["stat"]), stat=stat, n=b["stacks"]))
+        facts.append(L.t("mv_buff_max", ups=top["level"] - 1, amt=gamestats.boost_amount(L, top["amount"], b["stat"]),
+                         n=top["stacks"], dur=L.dec(top["dur"], 1)))
     if not facts:
         return ""
     return '<ul class="mv-facts">' + "".join(f"<li>{esc(f)}</li>" for f in facts) + "</ul>"
@@ -488,8 +491,7 @@ def move_card(L: Lang, m: dict, mon: dict, home: str) -> str:
     # Teledirigido y perforante se nombran aparte del proyectil normal: cambian cómo se usa el ataque.
     kind = L.t("mv_kind_" + {"home": "homing", "pierce": "pierce"}.get(move_fx(m), m["kind"]))
     if "score" in m:
-        bars = charts.buff_bars(L, m["score"], m["buff"]) if "buff" in m else charts.move_bars(L, m["score"])
-        meter = f'<div class="mv-meter">{bars}</div>'
+        meter = f'<div class="mv-meter">{charts.move_bars(L, m["score"])}</div>'
     else:
         meter = f'<p class="mv-pending">{esc(L.t("mv_unranked"))}</p>'
     note = m.get("note")
@@ -766,7 +768,7 @@ def main() -> int:
             shutil.rmtree(child) if child.is_dir() else child.unlink()
     ASSET_V = pack.build(SRC, SITE, OUT / "public")
     ordered = sorted(full, key=lambda e: e["dex"])
-    # Maquinación has no tier yet, so it lives in moves_unranked.json. Species pages still name it.
+    # Boosts have no tier, so they live in moves_unranked.json. Species pages still name them.
     moves_by = {m["id"]: m for m in moves}
     moves_by.update({m["id"]: m for m in unranked})
     odds = static_ficha.odds_table(full)

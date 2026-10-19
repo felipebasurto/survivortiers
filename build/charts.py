@@ -15,7 +15,7 @@ from html import escape
 
 import tiers
 from catalog import METHOD_KEYS
-from i18n import NBSP, Lang
+from i18n import Lang
 
 TOTAL = 966
 TIER_CUTS = tiers.CUTS
@@ -394,15 +394,6 @@ def _rel_row(label: str, rel: float, value: str, good: bool) -> str:
 def move_bars(L: Lang, score: float) -> str:
     """Una barra por ataque: su valor frente a un movimiento normal (1×). La raya vertical es el 1×."""
     return f'<div class="mb">{_rel_row(L.t("mv_value"), score, f"{L.dec(score, 2)}×", score >= 1)}</div>'
-
-
-def buff_bars(L: Lang, score: float, buff: dict) -> str:
-    """Un potenciador: su valor frente a 1× y el porcentaje del tiempo que está activo."""
-    cover = buff["cover"]
-    cover_row = (f'<div class="mb-row"><span class="mb-name">{esc(L.t("mv_cover"))}</span>'
-                 f'<span class="mb-track" aria-hidden="true"><i class="mb-fill" style="width:{cover}%"></i></span>'
-                 f'<em class="mb-val">{cover}{"" if L.en else NBSP}%</em></div>')
-    return f'<div class="mb">{_rel_row(L.t("mv_value"), score, f"{L.dec(score, 2)}×", score >= 1)}{cover_row}</div>'
 
 
 def move_scale(L: Lang) -> str:

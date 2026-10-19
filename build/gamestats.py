@@ -10,7 +10,7 @@ import json
 from pathlib import Path
 
 import legal
-from i18n import TYPE_NAMES
+from i18n import NBSP, TYPE_NAMES, Lang
 
 DATA = Path(__file__).resolve().parent.parent / "data"
 GAME = json.loads((DATA / "game_stats.json").read_text(encoding="utf8"))
@@ -22,6 +22,15 @@ TYPE_KEYS = tuple(TYPE_NAMES["es"])
 DANCE_IDS = ("swords-dance", "dragon-dance")  # las dos de ataque físico: comparten casilla de potenciador
 BOOST_ORDER = ("swords-dance", "dragon-dance", "nasty-plot", "agility", "harden", "aqua-ring")
 CAT_OF_STAT = {"patk": "physical", "satk": "special"}
+BOOST_LABEL = {"patk": "pv_buff_cat_phys", "satk": "pv_buff_cat_spec", "spd": "pv_buff_stat_spd",
+               "def": "pv_buff_stat_def", "regen": "pv_buff_stat_regen"}
+
+
+def boost_amount(L: Lang, value: float, stat: str) -> str:
+    """Lo que sube un potenciador: puntos de vida por segundo (regen) o un porcentaje (el resto)."""
+    if stat == "regen":
+        return f"+{L.dec(value, 1)} HP/s"
+    return f"+{L.dec(value * 100, 0)}{'' if L.en else NBSP}%"
 
 
 def game_url(path: str) -> str:

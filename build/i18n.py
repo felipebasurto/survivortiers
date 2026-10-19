@@ -194,6 +194,7 @@ STR: dict[str, tuple[str, str]] = {
                    "{n} moves: normal-type ones and those of its types, by overall tier (the same as on Moves). "
                    "They are not simulated with this Pokémon."),
     "learn_start": ("inicial", "start"),
+    "learn_boosts": ("Potenciadores", "Boosts"),
     "t_build": ("Build", "Build"),
     "build_start": ("Inicio", "Start"),
     "build_best": ("Mejor ataque", "Best move"),
@@ -342,7 +343,6 @@ STR: dict[str, tuple[str, str]] = {
     "cat_ranged": ("Distancia", "Ranged"),
     "cat_stat": ("Potenciadores", "Boosts"),
     "mv_value": ("Valor", "Value"),
-    "mv_cover": ("Tiempo activo", "Time active"),
     "mv_typical": ("normal", "typical"),
     "mv_better": ("mejor", "better"),
     "mv_worse": ("peor", "worse"),
@@ -369,10 +369,19 @@ STR: dict[str, tuple[str, str]] = {
     "mv_kind_pierce": ("Perforante", "Piercing"),
     "mv_kind_cone": ("Cono", "Cone"),
     "mv_kind_turret": ("Torreta", "Turret"),
-    "mv_unranked_h": ("Sin puesto todavía", "Not ranked yet"),
-    "mv_unranked": ("Aún sin puesto: la simulación del ranking no la ha medido. Sus cifras son las del juego, sin mejoras de nivel.",
-                    "Not ranked yet: the ranking simulation has not measured it. Its numbers are the game's, without level upgrades."),
-    "mv_stacks": ("Cada acumulación: +{amt}\u00a0% de {stat}, hasta {n}", "Each stack: +{amt}% {stat}, up to {n}"),
+    "mv_kind_bounce": ("Rebote", "Bounce"),
+    "mv_kind_charge": ("Rayo cargado", "Charged beam"),
+    "mv_kind_spin": ("Giro", "Spin"),
+    "mv_kind_quake": ("Onda por el suelo", "Ground wave"),
+    "mv_kind_vortex": ("Remolino", "Vortex"),
+    "mv_kind_shove": ("Empuje", "Shove"),
+    "mv_kind_stun": ("Aturdimiento", "Stun"),
+    "mv_unranked_h": ("Sin puesto", "Not ranked"),
+    "mv_unranked": ("Sin puesto: no hace daño por sí solo y la tier list mide ataques. Sus cifras son las del juego.",
+                    "Not ranked: it deals no damage on its own and the tier list measures attacks. Its numbers are the game's."),
+    "mv_stacks": ("Cada acumulación: {amt} de {stat}, hasta {n}", "Each stack: {amt} {stat}, up to {n}"),
+    "mv_buff_max": ("Con las {ups} mejoras: {amt} por acumulación, hasta {n}, y dura {dur} s",
+                    "With all {ups} upgrades: {amt} per stack, up to {n}, lasting {dur} s"),
     "mv_damage_h": ("Tipo de daño de cada ataque", "Damage type of each move"),
     "dmg_physical": ("Físico", "Physical"),
     "dmg_special": ("Especial", "Special"),
@@ -629,25 +638,25 @@ STR: dict[str, tuple[str, str]] = {
     "pv_buff_th_cd": ("Recarga", "Cooldown"),
     "pv_buff_th_dur": ("Dura", "Lasts"),
     "pv_buff_th_max": ("Máximo sin mejoras", "Max, no upgrades"),
+    "pv_buff_th_top": ("Con todas las mejoras", "Fully upgraded"),
+    "pv_buff_top": ("{amt}, {dur} s", "{amt}, {dur} s"),
     "pv_buff_cat_phys": ("ataque físico", "physical attack"),
     "pv_buff_cat_spec": ("ataque especial", "special attack"),
     "pv_buff_stat_spd": ("velocidad", "speed"),
     "pv_buff_stat_def": ("defensa", "defense"),
     "pv_buff_stat_regen": ("regeneración", "regeneration"),
-    "pv_buff_r1": ("Cada potenciador dura 7 s (Acua Aro, 8 s). Si vuelve a salir antes de que acabe, el tiempo empieza de nuevo.",
-                   "Each boost lasts 7 s (Aqua Ring, 8 s). If it fires again before it ends, the timer starts over."),
+    "pv_buff_r1": ("Sin mejoras, cada potenciador dura 7 s (Acua Aro, 8 s); la mejora de duración lo alarga un 50 %. "
+                   "Si vuelve a salir antes de que acabe, el tiempo empieza de nuevo.",
+                   "Without upgrades each boost lasts 7 s (Aqua Ring, 8 s); the duration upgrade adds 50%. "
+                   "If it fires again before it ends, the timer starts over."),
     "pv_buff_r2": ("Danza Espada y Danza Dragón solo suben el ataque físico y comparten el contador de acumulaciones. "
-                   "El porcentaje por acumulación lo pone la última que se lanza: no se suman. Por eso no lleves las dos.",
+                   "El porcentaje por acumulación lo pone la última que se lanza: no se suman.",
                    "Swords Dance and Dragon Dance raise only physical attack and share the stack counter. The percentage per stack "
-                   "is set by the last one to fire: they don't add up. That's why you don't take both."),
+                   "is set by the last one to fire: they don't add up."),
     "pv_buff_r3": ("Maquinación sube solo el ataque especial y tiene su propio contador. En un grupo mixto puedes llevar una danza "
                    "física y Maquinación, y cada una sube su lado.",
                    "Maquinación raises only special attack and has its own counter. In a mixed group you can take a physical dance "
                    "and Maquinación, and each one raises its side."),
-    "pv_buff_rec": ("Nuestra recomendación: Maquinación si el ataque que abre el grupo es especial, y Danza Espada si es físico. "
-                    "En un grupo mixto manda ese primer ataque.",
-                    "Our recommendation: Maquinación when the move that opens the group is special, and Swords Dance when it is "
-                    "physical. In a mixed group, that lead attack decides."),
     "pv_buff_link": ("Arma tu grupo en el planificador de build", "Build your group in the build planner"),
     "pv_buff_cap_note": ("Valores del juego en el commit {commit}.", "Values from the game at commit {commit}."),
 

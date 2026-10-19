@@ -10,7 +10,6 @@ from __future__ import annotations
 import csv
 import json
 import os
-import re
 import shutil
 import statistics
 import struct
@@ -25,6 +24,7 @@ import combos  # noqa: E402
 import passives  # noqa: E402
 import credits as credits_mod  # noqa: E402
 import game_moves  # noqa: E402
+import gamestats  # noqa: E402
 import legal  # noqa: E402
 import objetos  # noqa: E402
 import summaries  # noqa: E402
@@ -89,31 +89,6 @@ def png_size(path: Path) -> tuple[int, int]:
     return struct.unpack(">II", head[16:24])
 
 
-BUFF_RE = re.compile(
-    r"^(?P<type>[^,]+), potenciador: hasta \+(?P<amount>\d+(?:,\d+)?)(?P<pct> %)? de (?P<stat>.+?) "
-    r"con todas las acumulaciones a nivel máximo, dura (?P<dur>\d+) s con recarga de (?P<cd>\d+(?:,\d+)?) s "
-    r"\(cobertura (?P<cover>\d+) %\)\. Fusionado con tus ataques multiplica su valor "
-    r"×(?P<g5>\d+(?:,\d+)?) / ×(?P<g10>\d+(?:,\d+)?) / ×(?P<g15>\d+(?:,\d+)?) a los minutos 5 / 10 / 15; "
-    r"alternándolo en otro hueco, ×(?P<weave>\d+(?:,\d+)?) al minuto 15\.$"
-)
-STAT_IDS = {"ataque físico": "patk", "ataque especial": "satk", "velocidad": "spd", "defensa": "def",
-            "regeneración": "regen", "vida": "hp"}
-
-
-def _num(text: str) -> float:
-    return float(text.replace(",", "."))
-
-
-def _buff(r: dict) -> dict:
-    """Cifras de un potenciador, leídas de su descripción en el CSV (que es donde las deja move_tierlist_v4.py)."""
-    m = BUFF_RE.match(r["blurb"])
-    if not m:
-        raise CatalogError(f"descripción de potenciador no reconocida: {r['move_id']}")
-    return {"stat": STAT_IDS[m["stat"]], "amount": _num(m["amount"]), "pct": bool(m["pct"]), "dur": int(m["dur"]),
-            "cd": _num(m["cd"]), "cover": int(m["cover"]),
-            "fused": [_num(m["g5"]), _num(m["g10"]), _num(m["g15"])], "weave": _num(m["weave"])}
-
-
 def load_moves() -> list[dict]:
     rows = _read_csv(DATA / "move_tierlist_v4.csv")
     if not rows:
@@ -138,7 +113,7 @@ def load_moves() -> list[dict]:
         # El valor de la tier list (score_rel): 1 es un movimiento normal, más es mejor. Es lo que ordena cada tier.
         move["score"] = round(float(r["score_rel"]), 2)
         if r["kind"] == "buff":
-            move["buff"] = _buff(r)
+            raise CatalogError(f"{r['move_id']}: la tier list solo lleva ataques (los potenciadores salen del juego)")
         icon = icons.get(r["move_id"])
         if icon is None:
             raise CatalogError(f"sin icono del juego para {r['move_id']!r} (node build/export_move_icons.js)")
@@ -153,33 +128,36 @@ def load_moves() -> list[dict]:
             raise CatalogError(f"{r['move_id']}: el juego dice {mech['kind']}, la tier list {r['kind']}")
         move["mech"] = {"homing": mech["homing"], "pierce": mech["pierce"], "count": mech["count"]}
         move["damage"] = game_moves.damage_class(r["move_id"], r["kind"])
-        if r["move_id"] in game_moves.NOTES:
-            es, en_note = game_moves.NOTES[r["move_id"]]
-            move["note"] = {"es": es, "en": en_note}
         moves.append(move)
     return moves
 
 
 def load_unranked() -> list[dict]:
-    """Movimientos del juego que aún no tienen puesto (game_moves.UNRANKED): sin tier ni valor, para no mezclarlos
-    con los de moves.json (la ficha cuenta y lista por tier)."""
+    """Los potenciadores del juego (data/game_stats.json, en el orden de gamestats.BOOST_ORDER): sin tier ni valor,
+    porque la tier list mide ataques; van aparte de moves.json (la ficha cuenta y lista por tier)."""
     icons = json.loads((DATA / "move_icons.json").read_text(encoding="utf8"))
+    game = gamestats.GAME["moves"]
+    buffs = [mid for mid, m in game.items() if m["kind"] == "buff"]
+    if sorted(buffs) != sorted(gamestats.BOOST_ORDER):
+        raise CatalogError(f"potenciadores del juego {sorted(buffs)} ≠ gamestats.BOOST_ORDER")
     out = []
-    for ref in game_moves.UNRANKED:
-        icon = icons.get(ref["id"])
+    for mid in gamestats.BOOST_ORDER:
+        g = game[mid]
+        icon = icons.get(mid)
         if icon is None:
-            raise CatalogError(f"sin icono del juego para {ref['id']!r} (node build/export_move_icons.js)")
-        if (icon["type"], icon["kind"]) != (ref["type"], ref["kind"]):
-            raise CatalogError(f"{ref['id']}: el juego dice {icon['type']}/{icon['kind']}, el dato {ref['type']}/{ref['kind']}")
-        dur, cd = ref["dur"], ref["cd"]
-        out.append({
-            "id": ref["id"], "name": ref["name"][0], "en": {"name": ref["name"][1]}, "type": ref["type"],
-            "kind": ref["kind"], "damage": game_moves.damage_class(ref["id"], ref["kind"]),
-            "note": {"es": ref["note"][0], "en": ref["note"][1]},
-            "buff": {"stat": ref["stat"][0], "statEn": ref["stat"][1], "amount": ref["amount"], "stacks": ref["stacks"],
-                     "dur": dur, "cd": cd, "cover": round(100 * min(1.0, dur / cd))},
-            "icon": {"size": icon["size"], "pal": icon["pal"], "rows": icon["rows"]},
-        })
+            raise CatalogError(f"sin icono del juego para {mid!r} (node build/export_move_icons.js)")
+        if (icon["type"], icon["kind"]) != (g["type"], g["kind"]):
+            raise CatalogError(f"{mid}: el icono dice {icon['type']}/{icon['kind']}, game_stats {g['type']}/{g['kind']}")
+        b = g["buff"]
+        move = {"id": mid, "name": g["name"], "en": {"name": g["en"]}, "type": g["type"], "kind": g["kind"],
+                "damage": game_moves.damage_class(mid, g["kind"]),
+                "buff": {"stat": b["stat"], "amount": b["amount"], "stacks": b["stacks"], "dur": b["dur"], "cd": b["cd"],
+                         "cover": round(100 * min(1.0, b["dur"] / b["cd"])), "max": b["max"]},
+                "icon": {"size": icon["size"], "pal": icon["pal"], "rows": icon["rows"]}}
+        if mid in game_moves.NOTES:
+            es, en_note = game_moves.NOTES[mid]
+            move["note"] = {"es": es, "en": en_note}
+        out.append(move)
     return out
 
 

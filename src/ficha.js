@@ -250,15 +250,20 @@
   function learn(p, d, moves) {
     const pool = learnPool(p, moves);
     const group = new Set(d[9][2]);
-    return LEARN_TIERS.map(tier => {
+    const chips = ms => ms.map(m => '<li class="lt-move' + (m.id === d[2] ? ' start' : '') + (group.has(m.id) ? ' in-build' : '') +
+      '" style="--tc:' + (TYPE_COLOR[m.type] || ITEM_COLOR) + '"><img class="lt-ico" src="' + iconUrl(m) +
+      '" alt="" width="32" height="32">' + esc(EN ? m.en.name : m.name) + dmgTag(m) +
+      (m.id === d[2] ? ' <em>' + esc(t('learn_start')) + '</em>' : '') + '</li>').join('');
+    const rows = LEARN_TIERS.map(tier => {
       const ms = pool.filter(m => m.tier === tier).sort((a, b) => b.score - a.score);
       if (!ms.length) return '';
-      const chips = ms.map(m => '<li class="lt-move' + (m.id === d[2] ? ' start' : '') + (group.has(m.id) ? ' in-build' : '') +
-        '" style="--tc:' + (TYPE_COLOR[m.type] || ITEM_COLOR) + '"><img class="lt-ico" src="' + iconUrl(m) +
-        '" alt="" width="32" height="32">' + esc(EN ? m.en.name : m.name) + dmgTag(m) +
-        (m.id === d[2] ? ' <em>' + esc(t('learn_start')) + '</em>' : '') + '</li>').join('');
-      return '<div class="lt-row"><span class="tier-badge ' + tier + '">' + tier + '</span><ul class="lt-moves">' + chips + '</ul></div>';
-    }).join('');
+      return '<div class="lt-row"><span class="tier-badge ' + tier + '">' + tier + '</span><ul class="lt-moves">' + chips(ms) + '</ul></div>';
+    });
+    // Boosts have no tier (the tier list ranks attacks): one row of their own, in the game's order.
+    const boosts = pool.filter(m => !m.tier);
+    if (boosts.length) rows.push('<div class="lt-row boosts"><span class="lt-label">' + esc(t('learn_boosts')) +
+      '</span><ul class="lt-moves">' + chips(boosts) + '</ul></div>');
+    return rows.join('');
   }
 
   // Build recomendada (build/combos.py): inicio, grupo fijo (el que más aguanta en la búsqueda, o el mejor ataque
@@ -539,7 +544,7 @@
     const i = index.findIndex(p => p.dex === id);
     const d = species.d[id];
     if (i < 0 || !d) { missing(); return; }
-    // Unranked moves (Maquinación) are not in the tier list, but a bonded group can still use one.
+    // Boosts are not in the tier list, but a bonded group can still use one.
     moves = moves.concat(unranked);
     const byId = new Map(moves.map(m => [m.id, m]));
     const moveName = mid => { const m = byId.get(mid); return m ? (EN ? m.en.name : m.name) : mid; };

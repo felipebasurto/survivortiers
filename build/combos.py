@@ -188,7 +188,6 @@ def compute_all(types_by_dex: dict[int, list[str]], best_move_by_dex: dict[int, 
     flags = _synergy_flags()
     cats = picks.categories()
     special = _special_species()
-    boost = lambda mid: float((rows.get(mid) or {}).get("score_rel") or 0)
     everyone = list(types_by_dex.values())
     out: dict[int, dict] = {}
     cache: dict = {}
@@ -217,7 +216,7 @@ def compute_all(types_by_dex: dict[int, list[str]], best_move_by_dex: dict[int, 
                               preset if found else None, None if found else flags)
         trio, alts = ranked[:n_atk], ranked[n_atk:]
         want = searched_buffs if found else [_attack_buff(trio, cats, special.get(dex, False), buffs), FALLBACK_DEF]
-        boosts = [b for b in want if b in buffs] or ([max(buffs, key=boost)] if buffs else [])
+        boosts = [b for b in want if b in buffs]
         group = trio + boosts
         super_hits, neutral_hits = _coverage(matrix, [rows[i]["type"] for i in trio], everyone, cache)
         n = len(everyone)

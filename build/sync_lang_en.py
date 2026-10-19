@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Adds every move of data/game_stats.json to data/lang_en_moves.json ('moves': Spanish name -> English).
+"""Adds every move of data/game_stats.json, and the move it evolves into, to data/lang_en_moves.json
+('moves': Spanish name -> English).
 
 game_stats.json already carries the English name the game shows (js/data/lang-en.js through
 build/export_game_stats.js). Entries already in the file are checked, not overwritten.
@@ -20,13 +21,15 @@ def main() -> None:
     lang = json.loads(path.read_text(encoding="utf8"))
     stats = json.loads((DATA / "game_stats.json").read_text(encoding="utf8"))
     added = 0
-    for move in stats["moves"].values():
-        have = lang["moves"].get(move["name"])
+    names = [(m["name"], m["en"]) for m in stats["moves"].values()]
+    names += [(m["evo"]["name"], m["evo"]["en"]) for m in stats["moves"].values() if "evo" in m]
+    for es, en in names:
+        have = lang["moves"].get(es)
         if have is None:
-            lang["moves"][move["name"]] = move["en"]
+            lang["moves"][es] = en
             added += 1
-        elif have != move["en"]:
-            raise SystemExit(f"{move['name']}: {have!r} in lang_en_moves.json, {move['en']!r} in game_stats.json")
+        elif have != en:
+            raise SystemExit(f"{es}: {have!r} in lang_en_moves.json, {en!r} in game_stats.json")
     lang["moves"] = dict(sorted(lang["moves"].items()))
     path.write_text(json.dumps(lang, ensure_ascii=False, indent=1) + "\n", encoding="utf8")
     print(f"lang_en_moves.json: {added} moves added, {len(lang['moves'])} in total")

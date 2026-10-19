@@ -1,6 +1,8 @@
 /* Exporta a data/game_stats.json lo que las herramientas del sitio (buscador por tipos y planificador de build)
  * leen del juego en un commit concreto:
- *   moves   por movimiento: kind, type, cat ('physical' | 'special' | null para potenciadores), y stat del potenciador
+ *   moves   por movimiento: kind, type, cat ('physical' | 'special' | null para potenciadores), y las cifras del
+ *           potenciador a nivel 1 y, en `max`, a nivel máximo (G.Moves.instance con todas las mejoras de su escalera);
+ *           `evo`, el nombre del movimiento evolucionado en español e inglés
  *   pool    G.Moves.POOL: los movimientos que ofrece cada tipo
  *   dex     por Pokémon: [pa, sa, df, sd] de js/data/pokedex.js (ver tools/fetch_stats.py en el juego)
  *
@@ -28,7 +30,14 @@ vm.runInContext(fs.readFileSync(path.join(JS, 'data', 'lang-en.js'), 'utf8'), ct
 const moves = {};
 for (const m of G.Moves.ALL) {
   const entry = { name: m.name, en: english[m.name] || m.name, type: m.type, kind: m.kind, cat: m.cat ?? null };
-  if (m.kind === 'buff') entry.buff = { stat: m.stat, amount: m.amount, cd: m.cd, dur: m.dur, stacks: m.stacks };
+  const evo = G.Moves.EVO[m.id];
+  if (evo) entry.evo = { name: evo[0], en: english[evo[0]] || evo[0] };
+  if (m.kind === 'buff') {
+    const top = G.Moves.instance(m.id, m.maxLvl);
+    entry.buff = { stat: m.stat, amount: m.amount, cd: m.cd, dur: m.dur, stacks: m.stacks,
+                   max: { level: m.maxLvl, amount: +top.amount.toFixed(4), cd: +top.cd.toFixed(4),
+                          dur: +top.dur.toFixed(4), stacks: top.stacks } };
+  }
   moves[m.id] = entry;
 }
 

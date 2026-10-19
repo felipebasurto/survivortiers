@@ -10,7 +10,9 @@ el cribado mide todos los ataques del catálogo de cada Pokémon. Sin reglas del
   survive_s   mediana de los segundos que aguanta.
   kills       mediana de bajas.
 
-Los potenciadores no se miden con este barrido: sus filas se copian tal cual del CSV anterior.
+Solo lleva ataques. Los potenciadores no hacen daño y este barrido no los mide; sus cifras salen del juego
+(data/game_stats.json) en build/catalog.py. «Cuerpo a cuerpo» es la forma melee, la única que el juego trata aparte
+(moves.js:603 y player.js:258); el resto va en «distancia».
 Los nombres, evoluciones y cartas salen de js/data/moves.js del juego.
 
     python3 build/move_tierlist_v4.py --game /ruta/al/juego
@@ -33,8 +35,7 @@ FIT_ROUNDS = 200
 OUT = ROOT / "data" / "move_tierlist_v4.csv"
 MIN_SPECIES = 5
 
-CLOSE_KINDS = {"melee", "aura", "dash", "trail", "orbit", "spin", "shove"}
-CAT_CLOSE, CAT_RANGED, CAT_STAT = "cuerpo a cuerpo", "distancia", "estadística"
+CAT_CLOSE, CAT_RANGED = "cuerpo a cuerpo", "distancia"
 TIER_SHARE = (("S", 0.15), ("A", 0.40), ("B", 0.70))
 HEADER = ["category", "tier", "rank", "move_id", "name", "type", "kind", "score_rel", "dps", "survive_s", "kills",
           "evolves_to", "needs_card", "blurb"]
@@ -126,11 +127,11 @@ def blurb(r: dict, med: dict, evo: tuple | None, need_name: dict) -> str:
                "daño en la media" if dps_rel >= 0.85 else "daño inferior" if dps_rel >= 0.55 else "daño muy inferior")
     live_txt = ("te mantiene vivo mucho más" if live_rel >= 1.5 else "te mantiene vivo más" if live_rel >= 1.15 else
                 "aguante en la media" if live_rel >= 0.85 else "te expone más" if live_rel >= 0.55 else "te expone mucho")
-    why = ("Obliga a pelear dentro del enjambre, por eso el aguante pesa tanto." if r["cat"] == CAT_CLOSE
-           else "Golpea desde lejos, así que el daño recibido depende menos del movimiento.")
+    why = (" Mientras está en el hueco activo, solo o en un grupo, recibes un 25 % menos de daño."
+           if r["cat"] == CAT_CLOSE else "")
     evo_txt = f" Evoluciona a {evo[0]} con la carta {need_name[evo[1]]}." if evo else ""
     return (f"{TYPE_ES[r['type']]}, {KIND_ES[r['kind']]}: {dps_txt} ({_rel(dps_rel)}× la mediana de los ataques) y "
-            f"{live_txt} ({_rel(live_rel)}×). {why}{evo_txt}")
+            f"{live_txt} ({_rel(live_rel)}×).{why}{evo_txt}")
 
 
 def main() -> None:
@@ -152,13 +153,10 @@ def main() -> None:
     for mid in attacks:
         kind = game[mid]["kind"]
         rows.append({"id": mid, "kind": kind, "type": game[mid]["type"],
-                     "cat": CAT_CLOSE if kind in CLOSE_KINDS else CAT_RANGED, **stats[mid]})
+                     "cat": CAT_CLOSE if kind == "melee" else CAT_RANGED, **stats[mid]})
     med = {k: st.median(r[k] for r in rows) for k in ("dps", "survive_s")}
     close = assign_tiers([r for r in rows if r["cat"] == CAT_CLOSE])
     ranged = assign_tiers([r for r in rows if r["cat"] == CAT_RANGED])
-
-    with (ROOT / "data" / "move_tierlist_v4.csv").open(encoding="utf8", newline="") as f:
-        stat_rows = [r for r in csv.DictReader(f) if r["category"] == CAT_STAT]
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     with args.out.open("w", newline="", encoding="utf8") as f:
@@ -171,10 +169,7 @@ def main() -> None:
                             round(r["score_rel"], 3), round(r["dps"]), round(r["survive_s"], 1), round(r["kills"], 1),
                             evo[0] if evo else "", names["need"][evo[1]] if evo else "",
                             blurb(r, med, evo, names["need"])])
-        for r in stat_rows:
-            w.writerow([r["category"], r["tier"], r["rank"], r["move_id"], r["name"], r["type"], "buff",
-                        r["score_rel"], "", "", "", "", "", r["blurb"]])
-    print(f"{args.out}: {len(close)} cuerpo a cuerpo, {len(ranged)} distancia, {len(stat_rows)} estadística")
+    print(f"{args.out}: {len(close)} cuerpo a cuerpo, {len(ranged)} distancia")
     for lst in (close, ranged):
         print([(r["tier"], names["names"][r["id"]]) for r in lst[:6]])
 

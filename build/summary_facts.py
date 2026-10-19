@@ -81,7 +81,7 @@ def base_records() -> dict[str, dict]:
     dex_list = [int(r["dex"]) for r in rows]
     px = {p["dex"]: p for p in json.loads((DATA / "pokedex_export.json").read_text(encoding="utf8"))}
     moves = {m["id"]: m for m in catalog.load_moves()}
-    # Maquinación is in the game and in a bonded group, but it has no tier-list row yet.
+    # Boosts are in the game and in bonded groups, but the tier list only ranks attacks.
     for m in catalog.load_unranked():
         moves.setdefault(m["id"], m)
     cards_es = {k: v["title"] for k, v in json.loads((DATA / "card_icons.json").read_text(encoding="utf8")).items()}

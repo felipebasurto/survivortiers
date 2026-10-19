@@ -6,14 +6,22 @@
    "en": "Tackle",
    "type": "normal",
    "kind": "melee",
-   "cat": "physical"
+   "cat": "physical",
+   "evo": {
+    "name": "Derribo",
+    "en": "Take Down"
+   }
   },
   "quick-attack": {
    "name": "Ataque Rápido",
    "en": "Quick Attack",
    "type": "normal",
    "kind": "dash",
-   "cat": "physical"
+   "cat": "physical",
+   "evo": {
+    "name": "Velocidad Extrema",
+    "en": "Extreme Speed"
+   }
   },
   "swords-dance": {
    "name": "Danza Espada",
@@ -26,7 +34,14 @@
     "amount": 0.13,
     "cd": 0.85,
     "dur": 7,
-    "stacks": 5
+    "stacks": 5,
+    "max": {
+     "level": 5,
+     "amount": 0.2548,
+     "cd": 0.85,
+     "dur": 10.5,
+     "stacks": 7
+    }
    }
   },
   "nasty-plot": {
@@ -40,7 +55,14 @@
     "amount": 0.13,
     "cd": 0.85,
     "dur": 7,
-    "stacks": 5
+    "stacks": 5,
+    "max": {
+     "level": 5,
+     "amount": 0.2548,
+     "cd": 0.85,
+     "dur": 10.5,
+     "stacks": 7
+    }
    }
   },
   "agility": {
@@ -54,7 +76,14 @@
     "amount": 0.1,
     "cd": 0.85,
     "dur": 7,
-    "stacks": 5
+    "stacks": 5,
+    "max": {
+     "level": 5,
+     "amount": 0.196,
+     "cd": 0.85,
+     "dur": 10.5,
+     "stacks": 7
+    }
    }
   },
   "harden": {
@@ -68,7 +97,14 @@
     "amount": 0.07,
     "cd": 0.85,
     "dur": 7,
-    "stacks": 5
+    "stacks": 5,
+    "max": {
+     "level": 5,
+     "amount": 0.1372,
+     "cd": 0.85,
+     "dur": 10.5,
+     "stacks": 7
+    }
    }
   },
   "ember": {
@@ -76,49 +112,77 @@
    "en": "Ember",
    "type": "fire",
    "kind": "projectile",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Llamarada",
+    "en": "Fire Blast"
+   }
   },
   "flamethrower": {
    "name": "Lanzallamas",
    "en": "Flamethrower",
    "type": "fire",
    "kind": "cone",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Sofoco",
+    "en": "Overheat"
+   }
   },
   "fire-spin": {
    "name": "Giro Fuego",
    "en": "Fire Spin",
    "type": "fire",
    "kind": "orbit",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Fuego Sagrado",
+    "en": "Sacred Fire"
+   }
   },
   "heat-wave": {
    "name": "Onda Ígnea",
    "en": "Heat Wave",
    "type": "fire",
    "kind": "nova",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Erupción",
+    "en": "Eruption"
+   }
   },
   "water-gun": {
    "name": "Pistola Agua",
    "en": "Water Gun",
    "type": "water",
    "kind": "projectile",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Escaldar",
+    "en": "Scald"
+   }
   },
   "bubble": {
    "name": "Burbuja",
    "en": "Bubble",
    "type": "water",
    "kind": "nova",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Surf",
+    "en": "Surf"
+   }
   },
   "hydro-pump": {
    "name": "Hidrobomba",
    "en": "Hydro Pump",
    "type": "water",
    "kind": "beam",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Hidrocañón",
+    "en": "Hydro Cannon"
+   }
   },
   "aqua-ring": {
    "name": "Acua Aro",
@@ -131,7 +195,14 @@
     "amount": 1.6,
     "cd": 0.9,
     "dur": 8,
-    "stacks": 4
+    "stacks": 4,
+    "max": {
+     "level": 5,
+     "amount": 3.136,
+     "cd": 0.9,
+     "dur": 12,
+     "stacks": 6
+    }
    }
   },
   "vine-whip": {
@@ -139,217 +210,341 @@
    "en": "Vine Whip",
    "type": "grass",
    "kind": "melee",
-   "cat": "physical"
+   "cat": "physical",
+   "evo": {
+    "name": "Latigazo",
+    "en": "Power Whip"
+   }
   },
   "razor-leaf": {
    "name": "Hoja Afilada",
    "en": "Razor Leaf",
    "type": "grass",
    "kind": "boomerang",
-   "cat": "physical"
+   "cat": "physical",
+   "evo": {
+    "name": "Lluevehojas",
+    "en": "Leaf Storm"
+   }
   },
   "leaf-storm": {
    "name": "Tormenta Floral",
    "en": "Petal Blizzard",
    "type": "grass",
    "kind": "orbit",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Danza Pétalo",
+    "en": "Petal Dance"
+   }
   },
   "giga-drain": {
    "name": "Hierba Lazo",
    "en": "Grass Knot",
    "type": "grass",
    "kind": "aura",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Planta Feroz",
+    "en": "Frenzy Plant"
+   }
   },
   "thunder-shock": {
    "name": "Impactrueno",
    "en": "Thunder Shock",
    "type": "electric",
    "kind": "projectile",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Trueno",
+    "en": "Thunder"
+   }
   },
   "discharge": {
    "name": "Chispazo",
    "en": "Discharge",
    "type": "electric",
    "kind": "aura",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Campo Eléctrico",
+    "en": "Electric Terrain"
+   }
   },
   "thunderbolt": {
    "name": "Rayo",
    "en": "Thunderbolt",
    "type": "electric",
    "kind": "chain",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Electrocañón",
+    "en": "Zap Cannon"
+   }
   },
   "confusion": {
    "name": "Confusión",
    "en": "Confusion",
    "type": "psychic",
    "kind": "projectile",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Psicocarga",
+    "en": "Psyshock"
+   }
   },
   "psybeam": {
    "name": "Psicorrayo",
    "en": "Psybeam",
    "type": "psychic",
    "kind": "beam",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Premonición",
+    "en": "Future Sight"
+   }
   },
   "psychic": {
    "name": "Psíquico",
    "en": "Psychic",
    "type": "psychic",
    "kind": "nova",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Vasta Fuerza",
+    "en": "Expanding Force"
+   }
   },
   "sludge": {
    "name": "Residuos",
    "en": "Sludge",
    "type": "poison",
    "kind": "projectile",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Bomba Lodo",
+    "en": "Sludge Bomb"
+   }
   },
   "mud-shot": {
    "name": "Disparo Lodo",
    "en": "Mud Shot",
    "type": "ground",
    "kind": "nova",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Tierra Viva",
+    "en": "Earth Power"
+   }
   },
   "gust": {
    "name": "Tornado",
    "en": "Gust",
    "type": "flying",
    "kind": "orbit",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Vendaval",
+    "en": "Hurricane"
+   }
   },
   "wing-attack": {
    "name": "Ataque Ala",
    "en": "Wing Attack",
    "type": "flying",
    "kind": "melee",
-   "cat": "physical"
+   "cat": "physical",
+   "evo": {
+    "name": "Pájaro Osado",
+    "en": "Brave Bird"
+   }
   },
   "body-slam": {
    "name": "Golpe Cuerpo",
    "en": "Body Slam",
    "type": "normal",
    "kind": "melee",
-   "cat": "physical"
+   "cat": "physical",
+   "evo": {
+    "name": "Gigaimpacto",
+    "en": "Giga Impact"
+   }
   },
   "hyper-voice": {
    "name": "Vozarrón",
    "en": "Hyper Voice",
    "type": "normal",
    "kind": "nova",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Alboroto",
+    "en": "Uproar"
+   }
   },
   "poison-sting": {
    "name": "Picotazo Veneno",
    "en": "Poison Sting",
    "type": "poison",
    "kind": "projectile",
-   "cat": "physical"
+   "cat": "physical",
+   "evo": {
+    "name": "Puya Nociva",
+    "en": "Poison Jab"
+   }
   },
   "toxic": {
    "name": "Tóxico",
    "en": "Toxic",
    "type": "poison",
    "kind": "trail",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Gas Venenoso",
+    "en": "Poison Gas"
+   }
   },
   "bulldoze": {
    "name": "Terratemblor",
    "en": "Bulldoze",
    "type": "ground",
    "kind": "aura",
-   "cat": "physical"
+   "cat": "physical",
+   "evo": {
+    "name": "Terremoto",
+    "en": "Earthquake"
+   }
   },
   "bug-bite": {
    "name": "Picadura",
    "en": "Bug Bite",
    "type": "bug",
    "kind": "melee",
-   "cat": "physical"
+   "cat": "physical",
+   "evo": {
+    "name": "Tijera X",
+    "en": "X-Scissor"
+   }
   },
   "string-shot": {
    "name": "Disparo Demora",
    "en": "String Shot",
    "type": "bug",
    "kind": "mine",
-   "cat": "physical"
+   "cat": "physical",
+   "evo": {
+    "name": "Red Viscosa",
+    "en": "Sticky Web"
+   }
   },
   "bug-buzz": {
    "name": "Zumbido",
    "en": "Bug Buzz",
    "type": "bug",
    "kind": "aura",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Enjambre",
+    "en": "Swarm"
+   }
   },
   "rock-throw": {
    "name": "Lanzarrocas",
    "en": "Rock Throw",
    "type": "rock",
    "kind": "projectile",
-   "cat": "physical"
+   "cat": "physical",
+   "evo": {
+    "name": "Roca Afilada",
+    "en": "Stone Edge"
+   }
   },
   "rock-slide": {
    "name": "Avalancha",
    "en": "Rock Slide",
    "type": "rock",
    "kind": "meteor",
-   "cat": "physical"
+   "cat": "physical",
+   "evo": {
+    "name": "Trampa Rocas",
+    "en": "Stealth Rock"
+   }
   },
   "ice-beam": {
    "name": "Rayo Hielo",
    "en": "Ice Beam",
    "type": "ice",
    "kind": "beam",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Ventisca",
+    "en": "Blizzard"
+   }
   },
   "powder-snow": {
    "name": "Nieve Polvo",
    "en": "Powder Snow",
    "type": "ice",
    "kind": "aura",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Viento Hielo",
+    "en": "Icy Wind"
+   }
   },
   "karate-chop": {
    "name": "Golpe Kárate",
    "en": "Karate Chop",
    "type": "fighting",
    "kind": "melee",
-   "cat": "physical"
+   "cat": "physical",
+   "evo": {
+    "name": "A Bocajarro",
+    "en": "Close Combat"
+   }
   },
   "aura-sphere": {
    "name": "Esfera Aural",
    "en": "Aura Sphere",
    "type": "fighting",
    "kind": "projectile",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Onda Certera",
+    "en": "Focus Blast"
+   }
   },
   "lick": {
    "name": "Lengüetazo",
    "en": "Lick",
    "type": "ghost",
    "kind": "melee",
-   "cat": "physical"
+   "cat": "physical",
+   "evo": {
+    "name": "Puño Sombra",
+    "en": "Shadow Punch"
+   }
   },
   "shadow-ball": {
    "name": "Bola Sombra",
    "en": "Shadow Ball",
    "type": "ghost",
    "kind": "projectile",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Golpe Fantasma",
+    "en": "Phantom Force"
+   }
   },
   "dragon-rage": {
    "name": "Furia Dragón",
    "en": "Dragon Rage",
    "type": "dragon",
    "kind": "beam",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Cometa Draco",
+    "en": "Draco Meteor"
+   }
   },
   "dragon-dance": {
    "name": "Danza Dragón",
@@ -362,7 +557,14 @@
     "amount": 0.11,
     "cd": 0.7,
     "dur": 7,
-    "stacks": 5
+    "stacks": 5,
+    "max": {
+     "level": 5,
+     "amount": 0.2156,
+     "cd": 0.7,
+     "dur": 10.5,
+     "stacks": 7
+    }
    }
   },
   "fairy-wind": {
@@ -370,399 +572,627 @@
    "en": "Fairy Wind",
    "type": "fairy",
    "kind": "nova",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Fuerza Lunar",
+    "en": "Moonblast"
+   }
   },
   "dazzling-gleam": {
    "name": "Brillo Mágico",
    "en": "Dazzling Gleam",
    "type": "fairy",
    "kind": "aura",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Campo de Niebla",
+    "en": "Misty Terrain"
+   }
   },
   "metal-claw": {
    "name": "Garra Metal",
    "en": "Metal Claw",
    "type": "steel",
    "kind": "melee",
-   "cat": "physical"
+   "cat": "physical",
+   "evo": {
+    "name": "Cabeza de Hierro",
+    "en": "Iron Head"
+   }
   },
   "flash-cannon": {
    "name": "Foco Resplandor",
    "en": "Flash Cannon",
    "type": "steel",
    "kind": "beam",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Rayo Metálico",
+    "en": "Steel Beam"
+   }
   },
   "bite": {
    "name": "Mordisco",
    "en": "Bite",
    "type": "dark",
    "kind": "melee",
-   "cat": "physical"
+   "cat": "physical",
+   "evo": {
+    "name": "Triturar",
+    "en": "Crunch"
+   }
   },
   "dark-pulse": {
    "name": "Pulso Umbrío",
    "en": "Dark Pulse",
    "type": "dark",
    "kind": "nova",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Alarido",
+    "en": "Snarl"
+   }
   },
   "night-shade": {
    "name": "Tinieblas",
    "en": "Night Shade",
    "type": "dark",
    "kind": "aura",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Pesadilla",
+    "en": "Nightmare"
+   }
   },
   "bonemerang": {
    "name": "Huesomerang",
    "en": "Bonemerang",
    "type": "ground",
    "kind": "boomerang",
-   "cat": "physical"
+   "cat": "physical",
+   "evo": {
+    "name": "Ataque Óseo",
+    "en": "Bone Rush"
+   }
   },
   "psycho-cut": {
    "name": "Psicocorte",
    "en": "Psycho Cut",
    "type": "psychic",
    "kind": "boomerang",
-   "cat": "physical"
+   "cat": "physical",
+   "evo": {
+    "name": "Psicocolmillo",
+    "en": "Psychic Fangs"
+   }
   },
   "spikes": {
    "name": "Púas",
    "en": "Spikes",
    "type": "ground",
    "kind": "mine",
-   "cat": "physical"
+   "cat": "physical",
+   "evo": {
+    "name": "Fisura",
+    "en": "Fissure"
+   }
   },
   "toxic-spikes": {
    "name": "Púas Tóxicas",
    "en": "Toxic Spikes",
    "type": "poison",
    "kind": "mine",
-   "cat": "physical"
+   "cat": "physical",
+   "evo": {
+    "name": "Lanza Mugre",
+    "en": "Gunk Shot"
+   }
   },
   "hail": {
    "name": "Granizo",
    "en": "Hail",
    "type": "ice",
    "kind": "meteor",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Alud",
+    "en": "Avalanche"
+   }
   },
   "meteor-mash": {
    "name": "Puño Meteoro",
    "en": "Meteor Mash",
    "type": "steel",
    "kind": "meteor",
-   "cat": "physical"
+   "cat": "physical",
+   "evo": {
+    "name": "Bomba Imán",
+    "en": "Magnet Bomb"
+   }
   },
   "will-o-wisp": {
    "name": "Fuego Fatuo",
    "en": "Will-O-Wisp",
    "type": "fire",
    "kind": "turret",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Infierno",
+    "en": "Inferno"
+   }
   },
   "substitute": {
    "name": "Sustituto",
    "en": "Substitute",
    "type": "normal",
    "kind": "turret",
-   "cat": "physical"
+   "cat": "physical",
+   "evo": {
+    "name": "Doble Equipo",
+    "en": "Double Team"
+   }
   },
   "aerial-ace": {
    "name": "Golpe Aéreo",
    "en": "Aerial Ace",
    "type": "flying",
    "kind": "dash",
-   "cat": "physical"
+   "cat": "physical",
+   "evo": {
+    "name": "Acróbata",
+    "en": "Acrobatics"
+   }
   },
   "flame-wheel": {
    "name": "Rueda Fuego",
    "en": "Flame Wheel",
    "type": "fire",
    "kind": "trail",
-   "cat": "physical"
+   "cat": "physical",
+   "evo": {
+    "name": "Envite Ígneo",
+    "en": "Flare Blitz"
+   }
   },
   "bubble-beam": {
    "name": "Rayo Burbuja",
    "en": "Bubble Beam",
    "type": "water",
    "kind": "cone",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Acua Cola",
+    "en": "Aqua Tail"
+   }
   },
   "hex": {
    "name": "Infortunio",
    "en": "Hex",
    "type": "ghost",
    "kind": "chain",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Poltergeist",
+    "en": "Poltergeist"
+   }
   },
   "hyper-beam": {
    "name": "Hiperrayo",
    "en": "Hyper Beam",
    "type": "normal",
    "kind": "charge",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Rayo Prisma",
+    "en": "Prismatic Laser"
+   }
   },
   "rapid-spin": {
    "name": "Giro Rápido",
    "en": "Rapid Spin",
    "type": "normal",
    "kind": "spin",
-   "cat": "physical"
+   "cat": "physical",
+   "evo": {
+    "name": "Triataque",
+    "en": "Tri Attack"
+   }
   },
   "flame-charge": {
    "name": "Nitrocarga",
    "en": "Flame Charge",
    "type": "fire",
    "kind": "dash",
-   "cat": "physical"
+   "cat": "physical",
+   "evo": {
+    "name": "Golpe Calor",
+    "en": "Heat Crash"
+   }
   },
   "whirlpool": {
    "name": "Torbellino",
    "en": "Whirlpool",
    "type": "water",
    "kind": "vortex",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Salmuera",
+    "en": "Brine"
+   }
   },
   "seed-bomb": {
    "name": "Bomba Germen",
    "en": "Seed Bomb",
    "type": "grass",
    "kind": "bounce",
-   "cat": "physical"
+   "cat": "physical",
+   "evo": {
+    "name": "Mazazo",
+    "en": "Wood Hammer"
+   }
   },
   "energy-ball": {
    "name": "Energibola",
    "en": "Energy Ball",
    "type": "grass",
    "kind": "homing",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Gigadrenado",
+    "en": "Giga Drain"
+   }
   },
   "solar-beam": {
    "name": "Rayo Solar",
    "en": "Solar Beam",
    "type": "grass",
    "kind": "charge",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Cuchilla Solar",
+    "en": "Solar Blade"
+   }
   },
   "thunder-wave": {
    "name": "Onda Trueno",
    "en": "Thunder Wave",
    "type": "electric",
    "kind": "stun",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Voltio Cruel",
+    "en": "Volt Tackle"
+   }
   },
   "electro-ball": {
    "name": "Bola Voltio",
    "en": "Electro Ball",
    "type": "electric",
    "kind": "bounce",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Chispa",
+    "en": "Spark"
+   }
   },
   "extrasensory": {
    "name": "Paranormal",
    "en": "Extrasensory",
    "type": "psychic",
    "kind": "shove",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Psicoonda",
+    "en": "Psywave"
+   }
   },
   "mist-ball": {
    "name": "Bola Neblina",
    "en": "Mist Ball",
    "type": "psychic",
    "kind": "homing",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Resplandor",
+    "en": "Luster Purge"
+   }
   },
   "acid-spray": {
    "name": "Bomba Ácida",
    "en": "Acid Spray",
    "type": "poison",
    "kind": "bounce",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Onda Tóxica",
+    "en": "Sludge Wave"
+   }
   },
   "sand-tomb": {
    "name": "Bucle Arena",
    "en": "Sand Tomb",
    "type": "ground",
    "kind": "vortex",
-   "cat": "physical"
+   "cat": "physical",
+   "evo": {
+    "name": "Fuerza Equina",
+    "en": "High Horsepower"
+   }
   },
   "magnitude": {
    "name": "Magnitud",
    "en": "Magnitude",
    "type": "ground",
    "kind": "quake",
-   "cat": "physical"
+   "cat": "physical",
+   "evo": {
+    "name": "Taladradora",
+    "en": "Drill Run"
+   }
   },
   "whirlwind": {
    "name": "Remolino",
    "en": "Whirlwind",
    "type": "flying",
    "kind": "shove",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Huracán",
+    "en": "Hurricane"
+   }
   },
   "air-slash": {
    "name": "Tajo Aéreo",
    "en": "Air Slash",
    "type": "flying",
    "kind": "homing",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Ataque Aéreo",
+    "en": "Sky Attack"
+   }
   },
   "signal-beam": {
    "name": "Rayo Señal",
    "en": "Signal Beam",
    "type": "bug",
    "kind": "bounce",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Megacuerno",
+    "en": "Megahorn"
+   }
   },
   "u-turn": {
    "name": "Ida y Vuelta",
    "en": "U-turn",
    "type": "bug",
    "kind": "dash",
-   "cat": "physical"
+   "cat": "physical",
+   "evo": {
+    "name": "Sanguijuela",
+    "en": "Leech Life"
+   }
   },
   "rock-tomb": {
    "name": "Tumba Rocas",
    "en": "Rock Tomb",
    "type": "rock",
    "kind": "stun",
-   "cat": "physical"
+   "cat": "physical",
+   "evo": {
+    "name": "Testarazo",
+    "en": "Head Smash"
+   }
   },
   "ancient-power": {
    "name": "Poder Pasado",
    "en": "Ancient Power",
    "type": "rock",
    "kind": "orbit",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Tormenta de Diamantes",
+    "en": "Diamond Storm"
+   }
   },
   "power-gem": {
    "name": "Joya de Luz",
    "en": "Power Gem",
    "type": "rock",
    "kind": "bounce",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Rayo Meteórico",
+    "en": "Meteor Beam"
+   }
   },
   "ice-shard": {
    "name": "Canto Helado",
    "en": "Ice Shard",
    "type": "ice",
    "kind": "homing",
-   "cat": "physical"
+   "cat": "physical",
+   "evo": {
+    "name": "Carámbano",
+    "en": "Icicle Spear"
+   }
   },
   "freeze-dry": {
    "name": "Liofilización",
    "en": "Freeze-Dry",
    "type": "ice",
    "kind": "stun",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Frío Polar",
+    "en": "Sheer Cold"
+   }
   },
   "rolling-kick": {
    "name": "Patada Giro",
    "en": "Rolling Kick",
    "type": "fighting",
    "kind": "spin",
-   "cat": "physical"
+   "cat": "physical",
+   "evo": {
+    "name": "Patada Salto Alta",
+    "en": "High Jump Kick"
+   }
   },
   "vacuum-wave": {
    "name": "Onda Vacío",
    "en": "Vacuum Wave",
    "type": "fighting",
    "kind": "shove",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Puño Incremento",
+    "en": "Power-Up Punch"
+   }
   },
   "dynamic-punch": {
    "name": "Puño Dinámico",
    "en": "Dynamic Punch",
    "type": "fighting",
    "kind": "stun",
-   "cat": "physical"
+   "cat": "physical",
+   "evo": {
+    "name": "Megapuño",
+    "en": "Mega Punch"
+   }
   },
   "shadow-sneak": {
    "name": "Sombra Vil",
    "en": "Shadow Sneak",
    "type": "ghost",
    "kind": "homing",
-   "cat": "physical"
+   "cat": "physical",
+   "evo": {
+    "name": "Garra Umbría",
+    "en": "Shadow Claw"
+   }
   },
   "ominous-wind": {
    "name": "Viento Aciago",
    "en": "Ominous Wind",
    "type": "ghost",
    "kind": "vortex",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Golpe Umbrío",
+    "en": "Shadow Force"
+   }
   },
   "dragon-breath": {
    "name": "Dragoaliento",
    "en": "Dragon Breath",
    "type": "dragon",
    "kind": "cone",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Pulso Dragón",
+    "en": "Dragon Pulse"
+   }
   },
   "dragon-claw": {
    "name": "Garra Dragón",
    "en": "Dragon Claw",
    "type": "dragon",
    "kind": "melee",
-   "cat": "physical"
+   "cat": "physical",
+   "evo": {
+    "name": "Carga Dragón",
+    "en": "Dragon Rush"
+   }
   },
   "outrage": {
    "name": "Enfado",
    "en": "Outrage",
    "type": "dragon",
    "kind": "spin",
-   "cat": "physical"
+   "cat": "physical",
+   "evo": {
+    "name": "Dracoflecha",
+    "en": "Dragon Darts"
+   }
   },
   "draining-kiss": {
    "name": "Beso Drenaje",
    "en": "Draining Kiss",
    "type": "fairy",
    "kind": "homing",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Luz Lunar",
+    "en": "Moonlight"
+   }
   },
   "play-rough": {
    "name": "Carantoña",
    "en": "Play Rough",
    "type": "fairy",
    "kind": "melee",
-   "cat": "physical"
+   "cat": "physical",
+   "evo": {
+    "name": "Choque Anímico",
+    "en": "Spirit Break"
+   }
   },
   "disarming-voice": {
    "name": "Voz Cautivadora",
    "en": "Disarming Voice",
    "type": "fairy",
    "kind": "shove",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Encanto",
+    "en": "Charm"
+   }
   },
   "mirror-shot": {
    "name": "Disparo Espejo",
    "en": "Mirror Shot",
    "type": "steel",
    "kind": "bounce",
-   "cat": "special"
+   "cat": "special",
+   "evo": {
+    "name": "Metaláser",
+    "en": "Steel Beam"
+   }
   },
   "gyro-ball": {
    "name": "Giro Bola",
    "en": "Gyro Ball",
    "type": "steel",
    "kind": "spin",
-   "cat": "physical"
+   "cat": "physical",
+   "evo": {
+    "name": "Cuerpo Pesado",
+    "en": "Heavy Slam"
+   }
   },
   "sucker-punch": {
    "name": "Golpe Bajo",
    "en": "Sucker Punch",
    "type": "dark",
    "kind": "homing",
-   "cat": "physical"
+   "cat": "physical",
+   "evo": {
+    "name": "Juego Sucio",
+    "en": "Foul Play"
+   }
   },
   "night-slash": {
    "name": "Tajo Umbrío",
    "en": "Night Slash",
    "type": "dark",
    "kind": "spin",
-   "cat": "physical"
+   "cat": "physical",
+   "evo": {
+    "name": "Lariat Oscuro",
+    "en": "Darkest Lariat"
+   }
   }
  },
  "pool": {
