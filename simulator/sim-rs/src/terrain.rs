@@ -411,6 +411,11 @@ impl World {
         hit
     }
 
+    /// world.js isWall(): the tile under the point is a wall.
+    pub fn is_wall(&mut self, x: f64, y: f64) -> bool {
+        self.terrain_at(tile_of(x), tile_of(y)) == WALL
+    }
+
     /// world.js projectileBlock()
     pub fn projectile_block(&mut self, x: f64, y: f64, r: f64) -> Option<Block> {
         let (tx, ty) = (tile_of(x), tile_of(y));

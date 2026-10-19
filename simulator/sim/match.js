@@ -228,9 +228,12 @@ function runMatch(opts) {
     red: 0, cdMul: 1, regen: 0, melee: 1, patk: 1, satk: 1,
   };
 
-  function hitAtk(st, cat) {
+  // player.js atkFor: a single-type Pokémon hits 20 % harder with moves of its own type (MONO_K).
+  const MONO_K = 1.2;
+  function hitAtk(st, cat, type) {
     const side = cat === 'physical' ? st.patk : cat === 'special' ? st.satk : 1;
-    return st.atk * fit(mon, cat) * side;
+    const mono = mon.types.length === 1 && type === mon.types[0] ? MONO_K : 1;
+    return st.atk * fit(mon, cat) * side * mono;
   }
   let statDirty = true;
   let statSnow = false;
@@ -332,7 +335,7 @@ function runMatch(opts) {
     if (move.kind === 'melee') {
       for (const enemy of enemies) {
         if (inMelee(pl.x, pl.y, aim, move.arc, move.radius, enemy.x, enemy.y, enemy.r)) {
-          strike(enemy, move.dmg, hitAtk(st, move.cat), move.type, status, move.cat);
+          strike(enemy, move.dmg, hitAtk(st, move.cat, move.type), move.type, status, move.cat);
         }
       }
       return;
@@ -340,7 +343,7 @@ function runMatch(opts) {
     if (move.kind === 'beam') {
       for (const enemy of enemies) {
         if (inBeam(pl.x, pl.y, aim, move.radius, move.width, enemy.x, enemy.y, enemy.r)) {
-          strike(enemy, move.dmg, hitAtk(st, move.cat), move.type, status, move.cat);
+          strike(enemy, move.dmg, hitAtk(st, move.cat, move.type), move.type, status, move.cat);
         }
       }
       return;
@@ -369,7 +372,7 @@ function runMatch(opts) {
           dx: Math.cos(angle), dy: Math.sin(angle),
           dist: 0, dir: 1, max: move.radius, speed: move.speed,
           r: move.size || 6, hit: Object.create(null),
-          dmg: move.dmg, atk: hitAtk(st, move.cat), type: move.type, cat: move.cat, status,
+          dmg: move.dmg, atk: hitAtk(st, move.cat, move.type), type: move.type, cat: move.cat, status,
         });
       }
     }
@@ -388,7 +391,7 @@ function runMatch(opts) {
     for (let i = 0; i < n && cur; i++) {
       done.add(cur.id);
       const hex = hexMultiplier(move.hex, cur);
-      strike(cur, move.dmg * k * hex, hitAtk(st, move.cat), move.type, status, move.cat);
+      strike(cur, move.dmg * k * hex, hitAtk(st, move.cat, move.type), move.type, status, move.cat);
       k *= 0.85;
       let best = null;
       let bd = (move.radius || 0) * (move.radius || 0);
@@ -415,7 +418,7 @@ function runMatch(opts) {
       vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
       speed, r: move.size || 7, life: move.life,
       left: (move.pierce || 0) + 1, hit: Object.create(null),
-      dmg: move.dmg, atk: hitAtk(st, move.cat), type: move.type, cat: move.cat, status,
+      dmg: move.dmg, atk: hitAtk(st, move.cat, move.type), type: move.type, cat: move.cat, status,
       homing: move.homing || 0,
     });
     if (shots.length > 80) shots.shift();
@@ -621,7 +624,7 @@ function runMatch(opts) {
         if (overlap) {
           if (!orb.inside[enemy.id]) {
             orb.inside[enemy.id] = 1;
-            strike(enemy, move.dmg, hitAtk(st, move.cat), move.type, status, move.cat);
+            strike(enemy, move.dmg, hitAtk(st, move.cat, move.type), move.type, status, move.cat);
           }
         } else if (orb.inside[enemy.id]) {
           delete orb.inside[enemy.id];

@@ -485,14 +485,13 @@ struct Spec {
 const PAIR_TOP: usize = 4;
 
 fn attack_list(data: &Data, mon: &Mon) -> Vec<usize> {
-    let mut atk: Vec<usize> = mon.pool.iter().copied().filter(|&ix| {
-        let m = &data.moves[ix];
-        castable(m) && publishable_attack(m)
-    }).collect();
-    if !atk.contains(&mon.start) && castable(&data.moves[mon.start]) {
-        atk.push(mon.start);
-    }
-    atk
+    mon.start_choices(&data.moves)
+        .into_iter()
+        .filter(|&ix| {
+            let m = &data.moves[ix];
+            castable(m) && (ix == mon.start || publishable_attack(m))
+        })
+        .collect()
 }
 
 fn ensure_partners() {

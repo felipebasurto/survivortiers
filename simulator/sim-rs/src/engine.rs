@@ -62,6 +62,9 @@ fn collide_enemy(terrain: &mut Option<Box<Terr>>, e: &mut Enemy, ox: f64, oy: f6
     }
 }
 
+/// player.js Player.MONO_K.
+pub const MONO_K: f64 = 1.2;
+
 pub struct Opts {
     pub seed: u32,
     pub seconds: f64,
@@ -347,6 +350,8 @@ fn weighted_kind(pairs: &[(Wx, f64)], roll: f64) -> Wx {
     pairs[0].0
 }
 
+mod kinds;
+
 // ---------------------------------------------------------------- rules
 
 fn reach_of(m: &MoveLvl) -> f64 {
@@ -354,12 +359,19 @@ fn reach_of(m: &MoveLvl) -> f64 {
         Kind::Melee => m.radius,
         Kind::Projectile | Kind::Nova => m.speed * m.life,
         Kind::Beam | Kind::Orbit | Kind::Boomerang => m.radius,
-        Kind::Inert => 180.0,
+        // combat.js reach() of the 5a23d49 kinds. The other Inert kinds keep the old flat 180.
+        Kind::Inert => match m.xk {
+            9 | 10 => m.speed * m.life,
+            11 | 12 | 15 => m.radius + 20.0,
+            13 => or(m.count, 1.0).floor().max(1.0) * kinds::QSTEP + m.radius,
+            14 | 16 => 300.0,
+            _ => 180.0,
+        },
     }
 }
 
 fn keep_distance(m: &MoveLvl) -> f64 {
-    if m.kind == Kind::Melee {
+    if m.kind == Kind::Melee || (m.kind == Kind::Inert && matches!(m.xk, 12 | 15)) {
         0.55 * m.radius
     } else {
         0.75 * reach_of(m)
@@ -610,6 +622,8 @@ struct Enemy {
     cat: u8,
     /// Recent damage taken, bosses only (enemy.js RD_TAU = 6).
     rd: f64,
+    /// Seconds of stun left (enemy.js applyStun / stunT). Frozen enemies skip movement, attacks and contact.
+    stun_t: f64,
 }
 
 /// What one hit applies to an enemy: the move's slow, burn and poison values (applySlow,
@@ -639,6 +653,12 @@ struct Shot {
     knock: f64,
     /// Move category stamped at cast: 0 none, 1 physical, 2 special.
     cat: u8,
+    /// Rebounds left (combat.js rebound). 0 on every pre-5a23d49 move.
+    bounce: u32,
+    /// HP the player gets back per hit (Beso Drenaje, combat.js resolve p.drain).
+    drain: f64,
+    /// Seconds since the cast (projectile.js p.t). Only the rebound reads it.
+    age: f64,
 }
 
 struct Boom {
@@ -1263,7 +1283,8 @@ fn sep_brute(enemies: &mut [Enemy], push: f64, pos: &mut [[f64; 3]]) {
 
 // ---------------------------------------------------------------- match
 
-/// A ground or air effect of the extra kinds (combat.js `fields`): 2 meteor, 6 mine, 7 patch (trail), 8 turret.
+/// A ground or air effect of the extra kinds (combat.js `fields`): 2 meteor, 6 mine, 7 patch (trail), 8 turret,
+/// and the 5a23d49 fields 11 charge, 12 spin, 13 quake, 14 vortex, 16 stun zone (see `kinds`).
 struct Field<'a> {
     k: u8,
     x: f64,
@@ -1274,6 +1295,11 @@ struct Field<'a> {
     atk: f64,
     tick: f64,
     mv: &'a MoveLvl,
+    /// Spare slots for the 5a23d49 fields: hits or waves left, wave counter, aim cos and sin.
+    n: u32,
+    i: u32,
+    ca: f64,
+    sa: f64,
 }
 
 const BOSS_SLOTS: [(f64, f64, f64, f64); 5] =
@@ -1408,6 +1434,7 @@ fn special_enemy(
         g_spec: 1.0,
         cat: 1,
         rd: 0.0,
+        stun_t: 0.0,
     }
 }
 
@@ -1568,20 +1595,10 @@ pub fn spawn_per_second(t: f64) -> f64 {
     spawn_rate(&Libm, t)
 }
 
-/// One faithful hit: the HP and shield `hit_one` actually removes.
-/// `taken` is stats.js `guard` for the defending side. Weather is clear. No crit.
-pub fn faithful_hit_dealt(
-    hp: f64,
-    shield: f64,
-    dmg: f64,
-    atk: f64,
-    ty: u8,
-    combo: u16,
-    tm: &[Vec<f64>],
-    taken: f64,
-    cat: u8,
-) -> f64 {
-    let mut e = Enemy {
+/// An enemy with nothing set but its HP, shield, type combo and the defence guard of one side. The base of
+/// `faithful_hit_dealt` and of the scripted arenas in `scenario`.
+fn blank_enemy(hp: f64, shield: f64, combo: u16, cat: u8, taken: f64) -> Enemy {
+    Enemy {
         id: 0,
         dex: 0,
         x: 0.0,
@@ -1652,7 +1669,25 @@ pub fn faithful_hit_dealt(
         g_spec: if cat == 2 { taken } else { 1.0 },
         cat,
         rd: 0.0,
-    };
+        stun_t: 0.0,
+    }
+}
+
+/// One faithful hit: the HP and shield `hit_one` actually removes.
+/// One faithful hit: the HP and shield `hit_one` actually removes.
+/// `taken` is stats.js `guard` for the defending side. Weather is clear. No crit.
+pub fn faithful_hit_dealt(
+    hp: f64,
+    shield: f64,
+    dmg: f64,
+    atk: f64,
+    ty: u8,
+    combo: u16,
+    tm: &[Vec<f64>],
+    taken: f64,
+    cat: u8,
+) -> f64 {
+    let mut e = blank_enemy(hp, shield, combo, cat, taken);
     hit_one(true, &mut e, dmg, atk, ty, tm, &None, Status { slow: 0.0, burn: 0.0, poison: 0.0 }, 0.0, 0.0, 0.0, 0.0, &mut Rng::new(1), cat)
 }
 
@@ -1807,7 +1842,8 @@ impl<'a, M: MathFns> Match<'a, M> {
     }
 
     /// player.js atkFor. Fit and the side buff stay off `st.atk` so each companion uses its own cat.
-    fn atk_for(&self, cat: u8) -> f64 {
+    /// A single-type Pokémon hits 20 % harder with moves of its own type (player.js monoType, MONO_K).
+    fn atk_for(&self, cat: u8, ty: u8) -> f64 {
         let fit = if cat == 0 || self.mon.pa.is_nan() {
             1.0
         } else if cat == 2 {
@@ -1820,7 +1856,8 @@ impl<'a, M: MathFns> Match<'a, M> {
             2 => self.st.satk,
             _ => 1.0,
         };
-        self.st.atk * fit * side
+        let mono = if self.mon.types.len() == 1 && self.mon.types[0] == ty { MONO_K } else { 1.0 };
+        self.st.atk * fit * side * mono
     }
 
     fn hurt(&mut self, amount: f64, atk_ty: u8, cat: u8) {
@@ -2816,9 +2853,10 @@ impl<'a, M: MathFns> Match<'a, M> {
                 Kind::Boomerang => n.max(1.0) * 2.0,
                 Kind::Projectile => (l.pierce.max(0.0) + 1.0).min(4.0) * n.max(1.0),
                 Kind::Inert => match l.xk {
-                    1 | 2 | 3 | 4 => 4.0,
-                    8 => 3.0,
-                    5 => 2.0,
+                    1 | 2 | 3 | 4 | 11 | 12 => 4.0,
+                    8 | 13 | 14 | 15 => 3.0,
+                    5 | 16 => 2.0,
+                    9 | 10 => n.max(1.0),
                     _ => 1.4,
                 },
             };
@@ -2903,7 +2941,7 @@ impl<'a, M: MathFns> Match<'a, M> {
         };
         self.pl.aim = aim;
         let tm = &self.data.tmult;
-        let atk = self.atk_for(mv.cat);
+        let atk = self.atk_for(mv.cat, mv.ty);
         match mv.kind {
             Kind::Melee => {
                 let (px, py) = (self.pl.x, self.pl.y);
@@ -3011,7 +3049,7 @@ impl<'a, M: MathFns> Match<'a, M> {
     }
 
     fn push_shot(&mut self, angle: f64, mv: &MoveLvl) {
-        let (x, y, atk) = (self.pl.x, self.pl.y, self.atk_for(mv.cat));
+        let (x, y, atk) = (self.pl.x, self.pl.y, self.atk_for(mv.cat, mv.ty));
         self.push_shot_at(x, y, angle, mv, mv.speed, mv.life, atk);
     }
 
@@ -3037,6 +3075,9 @@ impl<'a, M: MathFns> Match<'a, M> {
             st,
             knock: or(mv.knock, 0.0),
             cat: mv.cat,
+            bounce: or(mv.bounce, 0.0) as u32,
+            drain: or(mv.drain, 0.0),
+            age: 0.0,
         });
         if self.shots.len() > 80 {
             self.shots.remove(0);
@@ -3051,10 +3092,17 @@ impl<'a, M: MathFns> Match<'a, M> {
 
     /// Hits every live enemy in the circle (combat.js blast / queryCircle: centre distance <= r + e.r).
     fn blast(&mut self, x: f64, y: f64, r: f64, dmg: f64, atk: f64, mv: &MoveLvl) {
+        let knock = if self.faith() { or(mv.knock, 0.0) } else { 0.0 };
+        self.blast_ex(x, y, r, dmg, atk, mv, knock, 0.0);
+    }
+
+    /// `blast` with the knock and stun of the call. A stun that is not 0 freezes what survives the hit for
+    /// that many seconds, 0.35 of it on a boss or judgment legend (combat.js stunzone, enemy.js applyStun).
+    #[allow(clippy::too_many_arguments)]
+    fn blast_ex(&mut self, x: f64, y: f64, r: f64, dmg: f64, atk: f64, mv: &MoveLvl, knock: f64, stun: f64) {
         let st = self.status_of(mv);
         let faithful = self.faith();
         let chance = if faithful { self.opts.ext.crit } else { 0.0 };
-        let knock = if faithful { or(mv.knock, 0.0) } else { 0.0 };
         let mut dealt = 0.0;
         {
             let mut rng = self.crit_rng.borrow_mut();
@@ -3064,6 +3112,9 @@ impl<'a, M: MathFns> Match<'a, M> {
                 if e.hp > 0.0 && len(e.x - x, e.y - y) <= r + e.r {
                     let (dx, dy) = (e.x - x, e.y - y);
                     dealt += hit_one(faithful, e, dmg, atk, mv.ty, tm, weather, st, knock, dx, dy, chance, &mut rng, mv.cat);
+                    if stun > 0.0 && e.hp > 0.0 {
+                        e.stun_t = jmax(e.stun_t, stun * if e.boss || e.judge { kinds::HEAVY_STUN } else { 1.0 });
+                    }
                 }
             }
         }
@@ -3072,7 +3123,7 @@ impl<'a, M: MathFns> Match<'a, M> {
     }
 
     fn cast_x(&mut self, mv: &'a MoveLvl, aim: f64, st: Status) -> bool {
-        let atk = self.atk_for(mv.cat);
+        let atk = self.atk_for(mv.cat, mv.ty);
         let (px, py) = (self.pl.x, self.pl.y);
         let count = or(mv.count, 1.0).floor().max(1.0);
         match mv.xk {
@@ -3110,7 +3161,7 @@ impl<'a, M: MathFns> Match<'a, M> {
                         Some(&k) => (self.enemies[k].x + self.fx.next() * 16.0 - 8.0, self.enemies[k].y + self.fx.next() * 12.0 - 6.0),
                         None => (px + self.fx.next() * 280.0 - 140.0, py + self.fx.next() * 220.0 - 110.0),
                     };
-                    self.fields.push(Field { k: 2, x, y, t: -(i as f64) * 0.09, life: 0.5, r: mv.radius, atk, tick: 0.0, mv });
+                    self.fields.push(Field { k: 2, x, y, t: -(i as f64) * 0.09, life: 0.5, r: mv.radius, atk, tick: 0.0, mv, n: 0, i: 0, ca: 0.0, sa: 0.0 });
                 }
             }
             // chain(): jumps to the nearest unhit enemy within radius, 15 % less each jump; hex x mv.hex on a status
@@ -3277,7 +3328,7 @@ impl<'a, M: MathFns> Match<'a, M> {
                 for _ in 0..count as usize {
                     let a = self.fx.next() * 6.2832;
                     let d = if count <= 1.0 { 0.0 } else { 18.0 + self.fx.next() * 28.0 };
-                    self.fields.push(Field { k: 6, x: px + a.cos() * d, y: py + a.sin() * d * 0.8, t: 0.0, life: or(mv.dur, 7.0), r: mv.radius, atk, tick: 0.0, mv });
+                    self.fields.push(Field { k: 6, x: px + a.cos() * d, y: py + a.sin() * d * 0.8, t: 0.0, life: or(mv.dur, 7.0), r: mv.radius, atk, tick: 0.0, mv, n: 0, i: 0, ca: 0.0, sa: 0.0 });
                 }
                 let max = 4 + 2 * count as usize;
                 let n = self.fields.iter().filter(|f| f.k == 6).count();
@@ -3293,7 +3344,7 @@ impl<'a, M: MathFns> Match<'a, M> {
                     return true;
                 }
                 self.patch_at = (px, py, self.t);
-                self.fields.push(Field { k: 7, x: px, y: py, t: 0.0, life: or(mv.dur, 3.0), r: mv.radius, atk, tick: 0.0, mv });
+                self.fields.push(Field { k: 7, x: px, y: py, t: 0.0, life: or(mv.dur, 3.0), r: mv.radius, atk, tick: 0.0, mv, n: 0, i: 0, ca: 0.0, sa: 0.0 });
                 let n = self.fields.iter().filter(|f| f.k == 7).count();
                 if n > 18 {
                     let mut drop = n - 18;
@@ -3303,7 +3354,7 @@ impl<'a, M: MathFns> Match<'a, M> {
             // turret(): left behind you, shoots the nearest enemy for a while; `count` at most
             8 => {
                 let a = aim + PI + (self.fx.next() * 1.2 - 0.6);
-                self.fields.push(Field { k: 8, x: px + a.cos() * 26.0, y: py + a.sin() * 20.0, t: 0.0, life: or(mv.dur, 6.0), r: 0.0, atk, tick: 0.3, mv });
+                self.fields.push(Field { k: 8, x: px + a.cos() * 26.0, y: py + a.sin() * 20.0, t: 0.0, life: or(mv.dur, 6.0), r: 0.0, atk, tick: 0.3, mv, n: 0, i: 0, ca: 0.0, sa: 0.0 });
                 let max = count as usize;
                 let n = self.fields.iter().filter(|f| f.k == 8).count();
                 if n > max {
@@ -3311,6 +3362,8 @@ impl<'a, M: MathFns> Match<'a, M> {
                     self.fields.retain(|f| if f.k == 8 && drop > 0 { drop -= 1; false } else { true });
                 }
             }
+            // homing, bounce, charge, spin, quake, vortex, shove, stun: engine/kinds.rs
+            9..=16 => return self.cast_new(mv, aim),
             _ => {}
         }
         true
@@ -3363,6 +3416,11 @@ impl<'a, M: MathFns> Match<'a, M> {
                             let a = (self.enemies[j].y - y).atan2(self.enemies[j].x - x);
                             self.push_shot_at(x, y, a, mv, or(mv.speed, 300.0), 1.4, atk);
                         }
+                    }
+                }
+                11 | 12 | 13 | 14 | 16 => {
+                    if self.step_new_field(i) {
+                        self.fields.remove(i);
                     }
                 }
                 _ => {}
@@ -3931,6 +3989,7 @@ impl<'a, M: MathFns> Match<'a, M> {
         let shots = &mut self.shots;
         let terrain = &mut self.terrain;
         let mut dealt = 0.0;
+        let mut healed = 0.0;
         // strike() only touches hp/shield, so positions stay fixed for the whole shot pass.
         let soa = &mut self.shot_soa;
         let lanes = soa.load(enemies);
@@ -3940,28 +3999,43 @@ impl<'a, M: MathFns> Match<'a, M> {
             let shot = &mut shots[i];
             // steer(): nearest() is pure, so it only matters for homing shots.
             let turn = shot.homing;
-            let near = if turn != 0.0 && !turn.is_nan() { nearest(enemies, shot.x, shot.y) } else { None };
-            if let Some(n) = near {
-                // js/entities/projectile.js: homing only locks onto enemies within 340 px.
-                if len(enemies[n].x - shot.x, enemies[n].y - shot.y) <= 340.0 {
-                    let desired = math.atan2(enemies[n].y - shot.y, enemies[n].x - shot.x);
-                    let current = math.atan2(shot.vy, shot.vx);
-                    let mut delta = desired - current;
-                    while delta > PI {
-                        delta -= PI * 2.0;
+            if faithful {
+                // projectile.js: velocity damped toward the nearest enemy inside 340 px, speed kept.
+                if turn > 0.0 {
+                    let near = nearest(enemies, shot.x, shot.y).filter(|&n| len(enemies[n].x - shot.x, enemies[n].y - shot.y) < kinds::HOMING_LOCK);
+                    if let Some(n) = near {
+                        let (tx, ty) = (enemies[n].x - shot.x, enemies[n].y - shot.y);
+                        let d = or(len(tx, ty), 1.0);
+                        let sp = len(shot.vx, shot.vy);
+                        shot.vx = kinds::damp(shot.vx, tx / d * sp, turn, dt);
+                        shot.vy = kinds::damp(shot.vy, ty / d * sp, turn, dt);
                     }
-                    while delta < -PI {
-                        delta += PI * 2.0;
+                }
+                shot.age += dt;
+            } else {
+                let near = if turn != 0.0 && !turn.is_nan() { nearest(enemies, shot.x, shot.y) } else { None };
+                if let Some(n) = near {
+                    // js/entities/projectile.js: homing only locks onto enemies within 340 px.
+                    if len(enemies[n].x - shot.x, enemies[n].y - shot.y) <= 340.0 {
+                        let desired = math.atan2(enemies[n].y - shot.y, enemies[n].x - shot.x);
+                        let current = math.atan2(shot.vy, shot.vx);
+                        let mut delta = desired - current;
+                        while delta > PI {
+                            delta -= PI * 2.0;
+                        }
+                        while delta < -PI {
+                            delta += PI * 2.0;
+                        }
+                        let max = turn * dt;
+                        if delta > max {
+                            delta = max;
+                        } else if delta < -max {
+                            delta = -max;
+                        }
+                        let angle = current + delta;
+                        shot.vx = math.cos(angle) * shot.speed;
+                        shot.vy = math.sin(angle) * shot.speed;
                     }
-                    let max = turn * dt;
-                    if delta > max {
-                        delta = max;
-                    } else if delta < -max {
-                        delta = -max;
-                    }
-                    let angle = current + delta;
-                    shot.vx = math.cos(angle) * shot.speed;
-                    shot.vy = math.sin(angle) * shot.speed;
                 }
             }
             shot.x += shot.vx * dt;
@@ -4004,6 +4078,39 @@ impl<'a, M: MathFns> Match<'a, M> {
                     {
                         let mut rng = crit_rng.borrow_mut();
                         dealt += hit_one(faithful, e, sd, sa, sty, tm, weather, sst, sk, svx, svy, chance, &mut rng, scat);
+                    }
+                    healed += shot.drain;
+                    if shot.bounce > 0 {
+                        // combat.js rebound: jump to the nearest enemy not hit yet within 220 px of this one,
+                        // a bounce is spent, 0.5 s of life comes back, and this shot is not consumed.
+                        let (hx, hy) = (enemies[k].x, enemies[k].y);
+                        let mut best = None;
+                        let mut bd = kinds::REBOUND_REACH * kinds::REBOUND_REACH;
+                        for o in enemies.iter() {
+                            if o.hp <= 0.0 || has(&shot.hit, o.id) {
+                                continue;
+                            }
+                            let d = (o.x - hx) * (o.x - hx) + (o.y - hy) * (o.y - hy);
+                            if d < bd {
+                                bd = d;
+                                best = Some((o.x, o.y));
+                            }
+                        }
+                        if let Some((bx, by)) = best {
+                            shot.bounce -= 1;
+                            let sp = or(len(shot.vx, shot.vy), 300.0);
+                            let (nx, ny) = (bx - hx, by - hy);
+                            let nn = or(len(nx, ny), 1.0);
+                            shot.vx = nx / nn * sp;
+                            shot.vy = ny / nn * sp;
+                            shot.x = hx;
+                            shot.y = hy;
+                            let back = jmin(shot.age, kinds::REBOUND_LIFE);
+                            shot.age -= back;
+                            shot.life += back;
+                            shot.left += 1.0;
+                            break;
+                        }
                     }
                     if shot.left <= 0.0 {
                         break;
@@ -4049,6 +4156,9 @@ impl<'a, M: MathFns> Match<'a, M> {
         }
         self.dealt += dealt;
         note_bell(&mut self.bell, bell_on, dealt);
+        if healed > 0.0 {
+            self.pl.hp = jmin(self.st.max_hp, self.pl.hp + healed);
+        }
         self.step_orbs();
     }
 
@@ -4080,7 +4190,7 @@ impl<'a, M: MathFns> Match<'a, M> {
         let now = self.t;
         let bell_on = self.opts.ext.item.bell;
         let (plx, ply, dt) = (self.pl.x, self.pl.y, self.dt);
-        let atk = self.atk_for(mv.cat);
+        let atk = self.atk_for(mv.cat, mv.ty);
         let mut dealt = 0.0;
         {
             let mut rng = self.crit_rng.borrow_mut();
@@ -4143,7 +4253,7 @@ impl<'a, M: MathFns> Match<'a, M> {
         let rehit = jmax(0.12, mv.cd);
         let now = self.t;
         let (plx, ply, dt) = (self.pl.x, self.pl.y, self.dt);
-        let atk = self.atk_for(mv.cat);
+        let atk = self.atk_for(mv.cat, mv.ty);
         let st = self.status_of(mv);
         let radius = mv.radius;
         let speed = or(mv.speed, 1.0);
@@ -4241,6 +4351,8 @@ impl<'a, M: MathFns> Match<'a, M> {
                 // chain / cone / mine / meteor still drop the orb on the body they hit
                 1 | 2 | 3 | 6 | 7 | 8 => (78.0 - plr - 16.0).clamp(34.0, 62.0),
                 4 => (pos(mv.radius, 80.0) - plr).clamp(16.0, 70.0),
+                // spin and shove hit a circle around the player, like a melee swing
+                12 | 15 => (pos(mv.radius, 60.0) - plr - 8.0).clamp(12.0, 72.0),
                 5 => (pos(mv.radius, 110.0) * 0.45).clamp(22.0, 70.0),
                 _ => (78.0 - plr - 16.0).clamp(34.0, 62.0),
             },
@@ -5148,6 +5260,7 @@ impl<'a, M: MathFns> Match<'a, M> {
             g_spec,
             cat,
             rd: 0.0,
+            stun_t: 0.0,
         };
         self.seq += 1;
         e.shot = or(e.def.shot_dmg, 10.0) * (e.dmg / or(e.def.dmg, 1.0));
@@ -5344,6 +5457,12 @@ impl<'a, M: MathFns> Match<'a, M> {
                 if e.shield_t <= 0.0 {
                     e.shield = 0.0;
                 }
+            }
+            // enemy.js update: a stunned enemy stays put after its status ticks. No movement, knock decay,
+            // contact, shot, jump or fuse, and combat.js resolve skips its touch damage too.
+            if e.stun_t > 0.0 {
+                e.stun_t -= dt;
+                continue;
             }
             let mut dx = plx - e.x;
             let mut dy = ply - e.y;
@@ -5743,16 +5862,17 @@ impl<'a, M: MathFns> Match<'a, M> {
 
 /// One closed run. Same contract as runMatch in sim/match.js (no presets,
 /// spawning and weather always on, recordHits/trace not supported).
-pub fn run_match<M: MathFns>(
-    math: &M,
-    data: &Data,
-    tables: &Tables,
-    mon: &Mon,
+/// Everything `run_match` sets up before its first step. Split out so a test can build a match and
+/// drive single systems (cast, fields, shots, enemies) against scripted enemies.
+fn init_match<'a, M: MathFns>(
+    math: &'a M,
+    data: &'a Data,
+    tables: &'a Tables,
+    mon: &'a Mon,
     start: usize,
-    opts: &Opts,
-) -> RunResult {
+    opts: &'a Opts,
+) -> Match<'a, M> {
     let dt = DT;
-    let max_time = opts.seconds;
     let knock_fade = math.pow(0.0015, dt);
     // stats.js guard of the player's defenses, before xp_for, so the parity pow order matches match.js.
     let g_phys = guard(math, mon.df);
@@ -5941,6 +6061,20 @@ pub fn run_match<M: MathFns>(
     if opts.ext.bosses {
         m.roll_bosses();
     }
+    m
+}
+
+pub fn run_match<M: MathFns>(
+    math: &M,
+    data: &Data,
+    tables: &Tables,
+    mon: &Mon,
+    start: usize,
+    opts: &Opts,
+) -> RunResult {
+    let dt = DT;
+    let max_time = opts.seconds;
+    let mut m = init_match(math, data, tables, mon, start, opts);
 
     while m.t < max_time && (m.pl.hp > 0.0 || m.arena_phase != 0) {
         let step = jmin(dt, max_time - m.t);

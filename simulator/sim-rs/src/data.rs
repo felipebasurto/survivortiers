@@ -33,7 +33,8 @@ pub enum Kind {
     Nova,
     Projectile,
     Boomerang,
-    /// buff, dash, cone, aura, chain, trail, mine, meteor, turret: never fired.
+    /// buff, dash, cone, aura, chain, trail, mine, meteor, turret, and the 5a23d49 kinds
+    /// (homing, bounce, charge, spin, quake, vortex, shove, stun): never fired on the parity path.
     Inert,
 }
 
@@ -97,7 +98,8 @@ pub struct MoveLvl {
     /// slow factor of the move (NaN when absent): enemy speed x (1 - slow) for 1.2 s after a hit.
     pub slow: f64,
     /// game kind the parity engine never fires (Kind::Inert), for the fixed-group mode:
-    /// 0 none/buff, 1 cone, 2 meteor, 3 chain, 4 aura, 5 dash, 6 mine, 7 trail, 8 turret
+    /// 0 none/buff, 1 cone, 2 meteor, 3 chain, 4 aura, 5 dash, 6 mine, 7 trail, 8 turret,
+    /// 9 homing, 10 bounce, 11 charge, 12 spin, 13 quake, 14 vortex, 15 shove, 16 stun
     pub xk: u8,
     pub hex: f64,
     pub drain: f64,
@@ -105,6 +107,14 @@ pub struct MoveLvl {
     pub range: f64,
     /// impulse on a non-boss (enemy.js hurt knock). NaN when the move has none.
     pub knock: f64,
+    /// rebounds a projectile makes (moves.js bounce, combat.js rebound). NaN when absent.
+    pub bounce: f64,
+    /// seconds a charge move glows before the beam leaves (moves.js charge). NaN when absent.
+    pub charge: f64,
+    /// px/s a vortex drags enemies toward its centre (moves.js pull). NaN when absent.
+    pub pull: f64,
+    /// seconds a stun zone freezes what it catches (moves.js stun). NaN when absent.
+    pub stun: f64,
     /// buff stat: 0 none, 1 atk, 2 spd, 3 def, 4 regen (moves.js aqua-ring),
     /// 5 patk (Swords Dance / Dragon Dance), 6 satk (Nasty Plot). moves.js at e868b5e.
     pub buff: u8,
@@ -241,6 +251,18 @@ pub struct Mon {
     pub bst: f64,
 }
 
+impl Mon {
+    /// starters.js startChoices: the pool without buffs, plus the stock start even when it is off-type
+    /// (Confusión on Psyduck) so the player can always go back to it.
+    pub fn start_choices(&self, moves: &[Move]) -> Vec<usize> {
+        let mut ids: Vec<usize> = self.pool.iter().copied().filter(|&ix| moves[ix].kind_name != "buff").collect();
+        if !ids.contains(&self.start) {
+            ids.push(self.start);
+        }
+        ids
+    }
+}
+
 pub struct Data {
     pub moves: Vec<Move>,
     pub move_ix: HashMap<String, usize>,
@@ -295,6 +317,14 @@ fn move_lvl(v: &Value) -> MoveLvl {
             "mine" => 6,
             "trail" => 7,
             "turret" => 8,
+            "homing" => 9,
+            "bounce" => 10,
+            "charge" => 11,
+            "spin" => 12,
+            "quake" => 13,
+            "vortex" => 14,
+            "shove" => 15,
+            "stun" => 16,
             _ => 0,
         },
         hex: num(v, "hex"),
@@ -302,6 +332,10 @@ fn move_lvl(v: &Value) -> MoveLvl {
         rate: num(v, "rate"),
         range: num(v, "range"),
         knock: num(v, "knock"),
+        bounce: num(v, "bounce"),
+        charge: num(v, "charge"),
+        pull: num(v, "pull"),
+        stun: num(v, "stun"),
         buff: match v.get("stat").and_then(Value::as_str) {
             Some("atk") => 1,
             Some("spd") => 2,
