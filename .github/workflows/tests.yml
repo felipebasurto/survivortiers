@@ -1,0 +1,58 @@
+name: tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: simulator/sim-rs
+      - name: cargo test
+        working-directory: simulator/sim-rs
+        run: cargo test --release
+
+  js:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: sim (Repertorio, rules, rank, match)
+        working-directory: simulator/sim
+        run: node --test test/*.test.js
+
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install numpy pyarrow
+      - name: ranking matches the committed sim CSVs
+        run: python3 build/regen.py --check
+      - name: facts and summaries match the data
+        run: |
+          python3 build/facts_export.py --check
+          python3 build/summary_pipeline.py check
+      - name: unit tests (the ones that read site/ render it first)
+        run: python3 -m unittest discover -s build -p "test_*.py"
+      - name: serve the rendered site and check it
+        run: |
+          export SPRITE_BASE=http://127.0.0.1:8765/_sprites/
+          python3 build/catalog.py
+          python3 build/render.py
+          python3 build/serve.py &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:8765/ >/dev/null && break; sleep 1; done
+          python3 build/check_site.py http://127.0.0.1:8765/
