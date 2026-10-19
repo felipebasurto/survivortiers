@@ -191,7 +191,7 @@ def run_sim(first: str | None, force: bool) -> None:
     started = first is None
     for name, output, fn in STAGES:
         started = started or name == first
-        if started and (force or first == name or not output.exists()):
+        if started and (force or first is not None or not output.exists()):
             print(f"== {name}", flush=True)
             fn()
         else:
