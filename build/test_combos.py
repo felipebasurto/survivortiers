@@ -33,8 +33,9 @@ class SearchPicks(unittest.TestCase):
 
     def test_dash_pair_can_lead(self):
         self.assertEqual(self.attacks(123), ["aerial-ace", "quick-attack"])
-        # Jumpluff's searched pair is Aerial Ace + Hyper Voice once the groups are rescored.
-        self.assertEqual(self.attacks(189), ["aerial-ace", "hyper-voice"])
+        # Jumpluff's vine whip cleared the melee floor: its bootstrap floor beats the best
+        # ranged median and the mean is not worse. Hyper Voice is the ranged runner-up.
+        self.assertEqual(self.attacks(189), ["aerial-ace", "vine-whip"])
         self.assertEqual(self.attacks(430), ["aerial-ace", "quick-attack"])
 
     def test_gengar_has_no_melee(self):
