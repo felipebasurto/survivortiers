@@ -23,9 +23,24 @@ fn sort(v: &mut [f64]) {
     v.sort_by(|a, b| a.partial_cmp(b).unwrap());
 }
 
+fn row_seed(values: &[f64]) -> u32 {
+    let mut h = 0x9E37_79B9u32;
+    for v in values {
+        let bits = v.to_bits();
+        h = h.wrapping_mul(0x0100_0193) ^ (bits as u32) ^ ((bits >> 32) as u32);
+    }
+    if h == 0 { 1 } else { h }
+}
+
 pub fn bootstrap_median(times: &[f64], reps: usize) -> (f64, f64) {
+    bootstrap_median_seeded(times, reps, 0xB007)
+}
+
+/// Same resample as `bootstrap_median`, with a seed that belongs to this row.
+/// Two builds that share a seed block stay paired; their intervals do not share one stream.
+pub fn bootstrap_median_seeded(times: &[f64], reps: usize, seed: u32) -> (f64, f64) {
     let n = times.len();
-    let mut roll = Rng::new(0xB007);
+    let mut roll = Rng::new(seed);
     let mut meds = Vec::with_capacity(reps);
     let mut sample = vec![0.0; n];
     for _ in 0..reps {
@@ -90,10 +105,11 @@ pub fn summarize(runs: &[RunResult]) -> Summary {
     sort(&mut dealt);
     sort(&mut kpm);
     sort(&mut levels);
-    let (boot_lo, boot_hi) = bootstrap_median(&times, 400);
+    let (boot_lo, boot_hi) = bootstrap_median_seeded(&times, 2000, row_seed(&times));
     let mut scores: Vec<f64> = runs.iter().map(run_score).collect();
+    let score_seed = row_seed(&scores);
     sort(&mut scores);
-    let (score_lo, score_hi) = bootstrap_median(&scores, 400);
+    let (score_lo, score_hi) = bootstrap_median_seeded(&scores, 2000, score_seed);
     let mut score_sum = 0.0;
     for s in &scores {
         score_sum += s;
@@ -146,10 +162,28 @@ pub fn summarize(runs: &[RunResult]) -> Summary {
     }
 }
 
-/// Survival without damage is worth nothing. `dealt` is the post-guard, pre-shield total.
+/// Survival with a damage-rate and a kill-rate gate.
+///
+/// `time * dealt * (1 + kills)` counted the same long fight three times, so a turret
+/// that chipped away for a few extra seconds outscored a real attack. Rates do not:
+/// damage per second and kills per minute each saturate, and a run that deals nothing
+/// scores 0. Time is the only unsaturating factor, so living longer still helps once
+/// the mon is actually fighting. `dealt` is HP and shield actually removed.
 pub fn run_score(r: &RunResult) -> f64 {
-    r.time * r.dealt * (1.0 + r.kills as f64)
+    if r.dealt <= 0.0 || r.time <= 0.0 {
+        return 0.0;
+    }
+    let dps = r.dealt / r.time;
+    let kpm = r.kills as f64 * 60.0 / r.time;
+    let dps_s = dps / (dps + DPS_REF);
+    let kpm_s = kpm / (kpm + KPM_REF);
+    r.time * (dps_s * kpm_s).sqrt()
 }
+
+/// A clear of ~80 damage per second, or ~40 kills per minute, is halfway to saturated.
+/// Below that, chip damage cannot win on lifetime alone.
+const DPS_REF: f64 = 80.0;
+const KPM_REF: f64 = 40.0;
 
 /// `num()` from the JS writers: round to 3 decimals, shortest round-trip text.
 pub fn num(v: f64) -> String {
@@ -168,5 +202,48 @@ pub fn csv_escape(text: &str) -> String {
         format!("\"{}\"", text.replace('"', "\"\""))
     } else {
         text.to_string()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn run(time: f64, dealt: f64, kills: u32) -> RunResult {
+        RunResult {
+            time,
+            kills,
+            bosses: 0,
+            coins: 0.0,
+            level: 1,
+            capped: false,
+            status_ignored: false,
+            hp: 0.0,
+            max_hp: 1.0,
+            hp_frac: 0.0,
+            dealt,
+        }
+    }
+
+    #[test]
+    fn no_damage_scores_zero() {
+        assert_eq!(run_score(&run(120.0, 0.0, 40)), 0.0);
+    }
+
+    #[test]
+    fn chip_turret_does_not_beat_a_shorter_real_attack() {
+        // Old product: 150 * 3000 * 31 = 13.95e6 vs 100 * 8000 * 61 = 48.8e6, attacker wins.
+        // The failure mode is a long chip fight against a shorter harder one when the
+        // product's time and kill factors pile up. Half the DPS for 1.8x the lifetime:
+        let turret = run_score(&run(180.0, 1800.0, 36));
+        let attack = run_score(&run(100.0, 8000.0, 70));
+        assert!(attack > turret, "attack {attack} turret {turret}");
+    }
+
+    #[test]
+    fn same_rates_prefer_the_longer_run() {
+        let short = run_score(&run(60.0, 4800.0, 40));
+        let long = run_score(&run(120.0, 9600.0, 80));
+        assert!(long > short);
     }
 }

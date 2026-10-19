@@ -11,7 +11,7 @@ from i18n import Lang
 
 PATCH_COMMIT = "e868b5e"
 GAME_REPO = "https://github.com/JPTER78/pokesurvivor"
-BANNER_KEY = "survivortiers.novedades.20261018"
+BANNER_KEY = "survivortiers.novedades.20261019"
 
 LEDE = (
     "Actualización del 18 de octubre de 2026. El ranking se recalcula desde cero: los puestos de antes ya no valen.",
@@ -46,6 +46,23 @@ JUDGMENT_FACTS = [
 ]
 
 SECTIONS = [
+    {
+        "id": "ranking",
+        "h": ("El ranking se rehizo", "The ranking was rebuilt"),
+        "body": [
+            ("La lista sale de partidas simuladas completas, no de una hoja de estadísticas congelada. Un Pokémon que "
+             "aguanta más queda arriba, y el daño y las bajas cuentan cuando de verdad está peleando. Aguantar sin pegar "
+             "no puntúa. Si dos builds quedan tan cerca que el azar de las semillas las empata, la ficha no dice que una "
+             "gane.",
+             "The list comes from full simulated runs, not from a frozen stat sheet. A Pokémon that lasts longer ranks "
+             "higher, and damage and knockouts count when it is actually fighting. Lasting without dealing damage scores "
+             "nothing. When two builds are so close that the seed noise ties them, the page does not call one the winner."),
+            ("El compañero de la simulación ahora esquiva avisos, se mueve para que el ataque llegue y recoge orbes. "
+             "Por eso los puestos de antes ya no valen: la misma especie puede haber cambiado de sitio.",
+             "The simulated partner now dodges warnings, moves so the attack connects and picks up orbs. That is why the "
+             "old positions no longer count: the same species may have moved."),
+        ],
+    },
     {
         "id": "fisico-especial",
         "h": ("Ataques físicos y especiales", "Physical and special moves"),
@@ -161,15 +178,15 @@ SECTIONS = [
 ]
 
 FOOT = (
-    'El texto sale del changelog del juego en el commit {commit}. La tier list se recalcula con esta versión; los puestos '
-    'de las fichas pueden cambiar hasta que termine. <a href="{repo}" rel="noopener">Código del juego en GitHub</a>.',
-    'The text comes from the game changelog at commit {commit}. The tier list is being recalculated for this version, so '
-    'positions on the pages may change until it finishes. <a href="{repo}" rel="noopener">Game code on GitHub</a>.',
+    'El texto sale del changelog del juego en el commit {commit}. La tier list de esta página ya es la nueva: los puestos '
+    'salen de las partidas simuladas con esa versión. <a href="{repo}" rel="noopener">Código del juego en GitHub</a>.',
+    'The text comes from the game changelog at commit {commit}. The tier list on this page is the new one: the positions '
+    'come from simulated runs on that version. <a href="{repo}" rel="noopener">Game code on GitHub</a>.',
 )
 
 BANNER = {
-    "text": ("El ranking se está recalculando por la actualización del 18 de octubre. Los puestos pueden cambiar.",
-             "The ranking is being recalculated for the October 18 update, so positions may change."),
+    "text": ("El ranking se rehizo. Los puestos de antes ya no valen.",
+             "The ranking was rebuilt. The old positions no longer count."),
     "link": ("Qué ha cambiado", "What changed"),
     "close": ("Cerrar aviso", "Dismiss notice"),
     "title": ("Novedades de {game} · {site}", "What's new in {game} · {site}"),

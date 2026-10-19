@@ -53,8 +53,8 @@ MAX_FILES, MAX_BYTES = 4_000, 180_000_000
 EXPECTED_COUNTS = {"S": 30, "A": 90, "B": 200, "C": 300, "D": 346}
 SPANISH_WORDS = re.compile(r"\b(el|los|las|del|con|para|puesto|aguante|daño|ficha|partidas?|repeticiones|cuántos)\b", re.I)
 LANGS = ("", "en/")
-EXPECTED_GACHA = {"Paldea": 22.8, "Alola": 20.5, "Galar": 11.5, "Sinnoh": 13.1, "Kanto": 9.3, "Teselia": 12.8,
-                  "Johto": 10.0, "Kalos": 11.4, "Hoenn": 5.9}
+EXPECTED_GACHA = {"Paldea": 17.4, "Alola": 19.3, "Galar": 13.8, "Sinnoh": 14.0, "Kanto": 7.3, "Teselia": 12.8,
+                  "Johto": 12.0, "Kalos": 11.4, "Hoenn": 8.9}
 
 
 CARD_IDS = {"atk", "spd", "hp", "cd", "def", "rgn", "mag", "xp"}

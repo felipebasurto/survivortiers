@@ -93,11 +93,11 @@ the key to verify the claim. The visible text is yours, but keep it close to the
    ataques que aprende") take "lo suben / lo bajan / lo frenan"; singular ones ("su hitbox", "su mejor ataque",
    "tener un solo tipo de ataque", "cómo aguanta...") take "lo sube / lo baja / lo frena".
 
-## Example (Kommo-o, dex 784; its claims include atk+, td+, m.start:dragon-rage, m.group:aura-sphere,
-## m.group:nasty-plot, m.alt:hyper-voice, i.best:luckyegg, up:best_move, up:stats)
+## Example (Kommo-o, dex 784; its claims include atk+, td+, m.start:dragon-rage, m.group:substitute,
+## m.group:nasty-plot, m.group:harden, i.best:luckyegg, up:best_move)
 
 ```json
-{"dex": 784, "es": "[atk+|Pega fuerte] y [td+|aguanta bien los tipos rivales]. Empieza con [m.start:dragon-rage|Furia Dragón] y vincula [m.group:aura-sphere|Esfera Aural] (o [m.alt:hyper-voice|Vozarrón]) y [m.group:nasty-plot|Maquinación]; lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Esfera Aural].", "en": "[atk+|Hits hard] and [td+|shrugs off enemy types]. Start with [m.start:dragon-rage|Dragon Rage], bond [m.group:aura-sphere|Aura Sphere] (or [m.alt:hyper-voice|Hyper Voice]) and [m.group:nasty-plot|Nasty Plot]; carry [i.best:luckyegg|Lucky Egg]. What lifts it most is [up:best_move|Aura Sphere]."}
+{"dex": 784, "es": "[atk+|Pega fuerte] y [td+|aguanta bien los tipos rivales]. Empieza con [m.start:dragon-rage|Furia Dragón] y vincula [m.group:substitute|Sustituto], [m.group:nasty-plot|Maquinación] y [m.group:harden|Fortaleza]; lleva [i.best:luckyegg|Huevo Suerte]. Lo que más lo sube es [up:best_move|Esfera Aural].", "en": "[atk+|Hits hard] and [td+|shrugs off enemy types]. Start with [m.start:dragon-rage|Dragon Rage] and bond [m.group:substitute|Substitute], [m.group:nasty-plot|Nasty Plot] and [m.group:harden|Harden]; carry [i.best:luckyegg|Lucky Egg]. What lifts it most is [up:best_move|Aura Sphere]."}
 ```
 
 Vary the sentence shapes between species; do not copy this example's wording for every one.

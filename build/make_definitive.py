@@ -40,6 +40,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import combos  # noqa: E402
+import owner_rules  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 N = 966
@@ -55,19 +56,13 @@ HEADER = (
     "start_noshop_s,rank_sim_noshop,melee_locked,repertoire_bans"
 )
 COMMENT = (
-    "# ensemble definitivo (estimacion): ficha 0.45 (stats/ataques/tipos/tamano) x sim con terreno y estado, "
-    "grupo fijo 2 ataques + Danza Espada o Maquinación y Fortaleza, vinculos al ganar la grieta, jefes, orbes de curacion "
-    "y todos los tipos de ataque (simulator/results/fixed_group/g2p2; mejor 45 / apertura 10) x v4, "
-    "media geometrica de percentiles, tope de tier por stats {'S': 0.6, 'A': 0.4, 'B': 0.2} y por tipos de ataque "
-    "{'S': 3}. start_median_s es la apertura con Repertorio y 3 Vetos (esperanza sobre el segundo ataque; "
-    "simulator/sim/repertorio.js). start_noshop_s es el ataque inicial a solas, sin esa tienda, y no entra en la nota. "
-    "S excluye melee_locked (cada apertura que queda sigue en cuerpo a cuerpo). "
-    "rank_v4_max es el final con la tienda de estadisticas al maximo, no esta apertura. "
-    "best_move y best_median_s son el barrido en solitario del motor actual "
-    "(terreno, estado y tipos extra, seeds 1-200, 900 s), no el grupo fijo. "
-    "El puesto de la sim pondera mediana de tiempo x dano infligido x (1 + bajas); "
-    "un combate que sobrevive sin pegar vale 0. Las columnas en segundos no cambian. "
-    "2000 sorteos, seed 20261014. Cifras de la sim: estimacion."
+    "# Ranking from the sim only. The sheet (stats, moves, type defence, hitbox) and the v4 table "
+    "stay in the file and do not move a rank. The order is the bootstrap of the sim score: "
+    "time times the geometric mean of a saturating damage rate and a saturating kill rate. "
+    "A run that deals no damage scores 0. Overlapping score intervals are ties. "
+    "S is the top of that order, except melee_locked (every remaining Repertorio draw is still melee). "
+    "best_move is an attacking move from the solo sweep. "
+    "start_median_s is the Repertorio opening. start_noshop_s is the starter alone and is not ranked."
 )
 CUTS = (("S", 30), ("A", 90), ("B", 200), ("C", 300), ("D", 346))
 BANDS = {"S": (1, 30), "A": (31, 120), "B": (121, 320), "C": (321, 620), "D": (621, 966)}
@@ -115,49 +110,66 @@ def row_metric(row: dict, score_key: str, fallback: str) -> float:
 
 
 def _attacking_row(row: dict) -> bool:
-    """Published best move is an attack the build would bond.
+    """An attacking move: not a buff, and the fight dealt damage.
 
-    Sustituto is a turret (moves.js): the doll shoots, so its dealt damage is real and the
-    composite score can rank it first. That row stays in the sweep. It is not the best move.
-    A buff, or a row that dealt nothing, is not either.
+    Turret, orbit and melee stay in the candidate set. The score, not a copied
+    name filter, is what keeps a chip turret from winning.
     """
-    if row.get("kind") in ("buff", "turret", "orbit") or row.get("start") == "substitute":
-        return False
-    dealt = row.get("median_dealt")
-    if dealt not in (None, "") and float(dealt) <= 0:
-        return False
-    return True
+    dealt_raw = row.get("median_dealt")
+    dealt = float(dealt_raw) if dealt_raw not in (None, "") else None
+    return owner_rules.is_attack(row.get("kind") or "", dealt)
+
+
+def _ci(row: dict) -> tuple[float, float, float]:
+    score = row_metric(row, "median_score", "median_s")
+    lo_raw = row.get("score_lo")
+    hi_raw = row.get("score_hi")
+    if lo_raw in (None, ""):
+        lo_raw = row.get("boot_lo")
+    if hi_raw in (None, ""):
+        hi_raw = row.get("boot_hi")
+    if lo_raw in (None, "") or hi_raw in (None, ""):
+        return score, score, score
+    return score, float(lo_raw), float(hi_raw)
 
 
 def winner_by_dex(sweep: list[dict]) -> dict[int, dict]:
-    best: dict[int, dict] = {}
+    """One attacking move per species.
+
+    The highest median score is the reference. Any other attack whose score
+    interval overlaps that reference is a tie: seed noise does not pick a
+    winner. Among ties, the longer survival, then the higher kill count, then
+    the move id. A buff or a row that dealt nothing is not a candidate.
+    """
+    pools: dict[int, list[dict]] = {}
     for row in sweep:
         dex = int(row["dex"])
-        # Gengar never keeps Golpe Cuerpo or any other melee move.
-        if dex == 94 and row.get("kind") == "melee":
+        if not owner_rules.allows_melee(dex) and row.get("kind") == "melee":
             continue
         if not _attacking_row(row):
             continue
-        key = (
-            -row_metric(row, "median_score", "median_s"),
-            -row_metric(row, "mean_score", "mean_s"),
-            -float(row["median_s"]),
-            row["start"],
+        pools.setdefault(dex, []).append(row)
+    best: dict[int, dict] = {}
+    for dex, rows in pools.items():
+        ref = max(rows, key=lambda r: (_ci(r)[0], _ci(r)[1], -float(r["median_s"]), r["start"]))
+        _, ref_lo, ref_hi = _ci(ref)
+        ties = [r for r in rows if _ci(r)[1] <= ref_hi and ref_lo <= _ci(r)[2]]
+        chosen = min(
+            ties,
+            key=lambda r: (
+                -float(r["median_s"]),
+                -float(r.get("median_kills") or 0),
+                r["start"],
+            ),
         )
-        cur = best.get(dex)
-        if cur is None or key < cur[0]:
-            best[dex] = (key, row)
-    return {dex: pair[1] for dex, pair in best.items()}
+        best[dex] = chosen
+    return best
 
 
 def qualifies(row: dict, tier: str) -> bool:
-    if tier in ("C", "D"):
-        return True
-    if float(row["pct_stats"]) < STAT_MIN[tier]:
-        return False
-    # melee_locked: Repertorio still plays a melee move on every remaining draw.
-    # A melee starter you can switch off is already priced into start_median_s.
-    if tier == "S" and (int(row["attack_types"]) < 3 or row.get("melee_locked") == "1"):
+    # Tiers are the sim order. The old stats and attack-type gates were the sheet.
+    # melee_locked is the repertoire: every remaining draw is still melee.
+    if tier == "S" and row.get("melee_locked") == "1":
         return False
     return True
 
@@ -264,22 +276,21 @@ def sim_arrays(base: list[dict], starts: dict[int, dict], winners: dict[int, dic
 
 
 def draw(start_s, slo, shi, best_s, blo, bhi, same, sheet, v4m, v4f):
+    """Rank on the sim score only.
+
+    The frozen sheet (including the hitbox pillar) and the v4 table used to be 45% and 25%
+    of the order. Both stay in the CSV so old columns still parse. They do not move a rank.
+    The band is the bootstrap of the sim interval, which is the seed noise we actually measured.
+    """
+    del sheet, v4m, v4f
     early_point = early_ranks(start_s, best_s)
-    late_point = late_ranks_for(v4m, v4f, 2 / 3)
-    point = np.exp((45 * np.log(pct(sheet)) + 30 * np.log(pct(early_point)) + 25 * np.log(pct(late_point))) / 100)
+    late_point = early_point
+    point = best_s
     rng = np.random.default_rng(SEED)
-    late_w = (2 / 3) + LATE_SPAN * np.linspace(-1, 1, 80)
-    late_bank = np.stack([late_ranks_for(v4m, v4f, float(w)) for w in late_w])
-    sim_w = 30 + SIM_AMP * np.linspace(-1, 1, 25)
-    st = slo + rng.random((REPEATS, N)) * np.maximum(shi - slo, 0)
     bt = blo + rng.random((REPEATS, N)) * np.maximum(bhi - blo, 0)
+    st = slo + rng.random((REPEATS, N)) * np.maximum(shi - slo, 0)
     bt[:, same] = st[:, same]
-    re = early_ranks(st, bt)
-    idx = np.arange(REPEATS)
-    sw = sim_w[(idx // 80) % 25]
-    lr = late_bank[idx % 80]
-    score = np.exp((45 * np.log(pct(sheet)) + sw[:, None] * np.log(pct(re)) + (55 - sw)[:, None] * np.log(pct(lr))) / 100)
-    fr = ranks_of(score)
+    fr = ranks_of(bt)
     return early_point, late_point, point, fr
 
 

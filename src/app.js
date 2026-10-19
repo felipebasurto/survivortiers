@@ -31,7 +31,7 @@
       loadFailAll: m => 'No se pudieron cargar los datos: ' + m,
       count: (n, total) => n + ' de ' + total,
       legY: 'Legendarios', legN: 'No legendarios',
-      cardTitle: (name, dex, rank, tier) => name + ' · nº ' + dex + ' · puesto ' + rank + ' · tier ' + tier,
+      cardTitle: (name, dex, rank, tier, lo, hi) => name + ' · nº ' + dex + ' · puesto ' + rank + ' · entre ' + lo + ' y ' + hi + ' · tier ' + tier,
       pct: v => v + NBSP + '%',
       notJson: 'Eso no es JSON. Copia el resultado entero, de la { a la }.',
       notCollection: 'Eso no es una colección.',
@@ -98,7 +98,7 @@
       loadFailAll: m => 'Could not load the data: ' + m,
       count: (n, total) => n + ' of ' + total,
       legY: 'Legendary', legN: 'Not legendary',
-      cardTitle: (name, dex, rank, tier) => name + ' · no. ' + dex + ' · rank ' + rank + ' · tier ' + tier,
+      cardTitle: (name, dex, rank, tier, lo, hi) => name + ' · no. ' + dex + ' · rank ' + rank + ' · ' + lo + ' to ' + hi + ' · tier ' + tier,
       pct: v => v + '%',
       notJson: 'That is not JSON. Copy the whole result, from { to }.',
       notCollection: 'That is not a collection.',
@@ -183,12 +183,13 @@
 
   // ---------------------------------------------------------------- tarjetas
   function card(p, extraClass, extraHtml) {
-    const [rank, tier] = p.r;
+    const [rank, tier, lo, hi] = p.r;
     const cls = 'mon' + (extraClass ? ' ' + extraClass : '');
-    const title = TEXT.cardTitle(monName(p), p.dex, rank, tier);
+    const title = TEXT.cardTitle(monName(p), p.dex, rank, tier, lo, hi);
+    const band = lo != null && hi != null ? '<small>' + lo + '–' + hi + '</small>' : '';
     return '<a class="' + cls + '" href="' + monPath(p) + '" data-dex="' + p.dex + '" title="' + esc(title) + '">' +
       '<span class="sp"><img class="px" src="' + sprites + p.dex + spriteExt + '" width="' + p.w * SCALE + '" height="' + p.h * SCALE +
-      '" alt="" loading="lazy" decoding="async"></span><span class="nm">' + esc(monName(p)) + '</span><span class="rk">' + rank + '</span>' +
+      '" alt="" loading="lazy" decoding="async"></span><span class="nm">' + esc(monName(p)) + '</span><span class="rk">' + rank + band + '</span>' +
       (extraHtml || '') + '</a>';
   }
 
@@ -1790,7 +1791,7 @@
   }
 
   // Aviso del ranking: se muestra hasta que alguien lo cierra; la marca va en localStorage y cambia con la actualización.
-  const PATCH_KEY = 'survivortiers.novedades.20261018';
+  const PATCH_KEY = 'survivortiers.novedades.20261019';
   function initPatchNote() {
     const note = $('#patch-note');
     if (!note) return;

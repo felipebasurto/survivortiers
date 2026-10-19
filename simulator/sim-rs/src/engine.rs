@@ -2,7 +2,7 @@
 //! operation order follow the JS exactly; `Replay` math proves it.
 
 use crate::data::*;
-use crate::math::MathFns;
+use crate::math::{Libm, MathFns};
 use crate::rng::Rng;
 use crate::terrain::{steer, tile_of, Block, Liquid, Path, World, PATH_EVERY};
 use std::cell::RefCell;
@@ -32,6 +32,9 @@ pub enum Bot {
     Line,
     /// Orbit the nearest enemy at the move's keep distance. Not the parity bot.
     Kite,
+    /// Kite, dodge telegraphs and collect orbs. Used for published ranks.
+    /// The parity path stays on Repulse so `parity.js` does not move.
+    Play,
 }
 
 struct Terr {
@@ -209,7 +212,7 @@ pub struct RunResult {
     pub hp: f64,
     pub max_hp: f64,
     pub hp_frac: f64,
-    /// Sum of hit amounts after type, guard and crit, before the shield. DoT is not included
+    /// HP and shield actually removed. Overkill is not counted. DoT is not included
     /// (combat.js adds the hit to `dmgDealt`, not the burn or poison ticks).
     pub dealt: f64,
 }
@@ -766,6 +769,10 @@ pub fn hex_multiplier(hex: f64, burn: f64, poison: f64, slow: f64) -> f64 {
 }
 
 /// stats.js:21. `def || 75`, then clamp((75 / max(5, def))^0.35, 0.78, 1.25).
+pub fn defense_guard(def: f64) -> f64 {
+    guard(&Libm, def)
+}
+
 fn guard<M: MathFns>(math: &M, def: f64) -> f64 {
     let base = if def.is_nan() || def == 0.0 { 75.0 } else { def };
     let d = base.max(5.0);
@@ -938,8 +945,13 @@ fn hit_one(
     if crit_chance > 0.0 && crit_rng.next() < crit_chance {
         amount *= 1.5;
     }
+    let before_hp = e.hp;
+    let before_sh = e.shield;
     raw_hurt(e, amount, knock, dx, dy);
-    amount
+    // Credit HP and shield actually removed. Overkill on a 1-HP swarm enemy is not damage.
+    let hp_lost = (before_hp - e.hp.max(0.0)).max(0.0);
+    let sh_lost = (before_sh - e.shield.max(0.0)).max(0.0);
+    hp_lost + sh_lost
 }
 
 fn note_bell(bell: &mut f64, on: bool, dealt: f64) {
@@ -1445,8 +1457,13 @@ struct Match<'a, M: MathFns> {
     enemies: Vec<Enemy>,
     shots: Vec<Shot>,
     booms: Vec<Boom>,
-    orbs: Vec<Orb>,
-    e_shots: Vec<EShot>,
+        orbs: Vec<Orb>,
+        /// Learned attacks that were not in the planned group. (move index, cooldown).
+        extras: Vec<(usize, f64)>,
+        /// One orbit that is not the lead move: (move index, level index).
+        side_orbit: Option<(usize, usize)>,
+        side_orbs: Vec<Orb>,
+        e_shots: Vec<EShot>,
     hazards: Vec<Hazard>,
     spawn_n: u32,
     acc: f64,
@@ -1544,6 +1561,99 @@ fn xp_for<M: MathFns>(math: &M, level: u32) -> f64 {
 
 fn spawn_rate<M: MathFns>(math: &M, t: f64) -> f64 {
     (1.6 + t * 0.028 + math.pow(t / 60.0, 1.6) * 0.5) * 0.24
+}
+
+/// spawner.js rate(t). Enemies per second.
+pub fn spawn_per_second(t: f64) -> f64 {
+    spawn_rate(&Libm, t)
+}
+
+/// One faithful hit: the HP and shield `hit_one` actually removes.
+/// `taken` is stats.js `guard` for the defending side. Weather is clear. No crit.
+pub fn faithful_hit_dealt(
+    hp: f64,
+    shield: f64,
+    dmg: f64,
+    atk: f64,
+    ty: u8,
+    combo: u16,
+    tm: &[Vec<f64>],
+    taken: f64,
+    cat: u8,
+) -> f64 {
+    let mut e = Enemy {
+        id: 0,
+        dex: 0,
+        x: 0.0,
+        y: 0.0,
+        r: 12.0,
+        combo,
+        ty0: 0,
+        xp: 0.0,
+        beh: crate::data::Beh::Chase,
+        spd: 0.0,
+        dmg: 0.0,
+        hp,
+        max: hp.max(1.0),
+        touch: 0.0,
+        kx: 0.0,
+        ky: 0.0,
+        phase: Phase::Walk,
+        pt: 0.0,
+        shot_cd: 0.0,
+        skill: 0.0,
+        heal_cd: 0.0,
+        shield_cd: 0.0,
+        jump: None,
+        fuse: 0.0,
+        shield,
+        shield_t: 0.0,
+        shot: 0.0,
+        cx: 0.0,
+        cy: 0.0,
+        ai: Rng::new(1),
+        def: crate::data::Def {
+            beh: crate::data::Beh::Chase,
+            hp: 1.0,
+            spd: 1.0,
+            dmg: 1.0,
+            xp: 1.0,
+            shot_dmg: 0.0,
+            shot_cd: 1.0,
+            range: 0.0,
+            zones: 0.0,
+            fan_n: 0.0,
+        },
+        fly: false,
+        water: false,
+        fire: false,
+        sand_safe: false,
+        snow_safe: false,
+        los: (0.0, false),
+        side_t: 0.0,
+        side: 0.0,
+        stuck_t: 0.0,
+        lava_t: 0.0,
+        slow: 0.0,
+        slow_t: 0.0,
+        burn: 0.0,
+        burn_t: 0.0,
+        burn_tick: 0.0,
+        poison: 0.0,
+        poison_t: 0.0,
+        poison_tick: 0.0,
+        boss: false,
+        legend: false,
+        elite: false,
+        lag_t: 0.0,
+        judge: false,
+        dps_acc: 0.0,
+        g_phys: if cat == 1 { taken } else { 1.0 },
+        g_spec: if cat == 2 { taken } else { 1.0 },
+        cat,
+        rd: 0.0,
+    };
+    hit_one(true, &mut e, dmg, atk, ty, tm, &None, Status { slow: 0.0, burn: 0.0, poison: 0.0 }, 0.0, 0.0, 0.0, 0.0, &mut Rng::new(1), cat)
 }
 
 /// Whether a move level carries a status the sim does not apply (the status_ignored flag). With
@@ -2658,9 +2768,84 @@ impl<'a, M: MathFns> Match<'a, M> {
         }
         if let Some(i) = best {
             self.learned[i] = true;
-            true
-        } else {
-            false
+            return true;
+        }
+        // The bond member was not in the offer. A player still takes a new attack when a
+        // slot is open (levelup.js new-move weight 10). One slot stays reserved for each
+        // planned attack that has not been offered yet, so the group can still be finished.
+        if self.extra_room() {
+            if let Some(ix) = self.best_offered_attack(&offered) {
+                self.extras.push((ix, 0.0));
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Slots left after the starter, learned bonds, extras, and unlearned attack partners.
+    fn extra_room(&self) -> bool {
+        let known = 1 + self.learned.iter().filter(|on| **on).count() + self.extras.len();
+        let reserved = self.bond_order.iter().enumerate().filter(|(i, b)| {
+            **b < 100 && !self.learned.get(*i).copied().unwrap_or(false)
+        }).count();
+        known + reserved < 4
+    }
+
+    fn best_offered_attack(&self, offered: &[usize]) -> Option<usize> {
+        let mut best: Option<(usize, f64)> = None;
+        for &ix in offered {
+            if self.extras.iter().any(|(e, _)| *e == ix) {
+                continue;
+            }
+            let l = &self.data.moves[ix].levels[0];
+            let dmg = if l.dmg.is_finite() { l.dmg } else { 0.0 };
+            if dmg <= 0.0 || l.buff != 0 && dmg <= 0.0 {
+                continue;
+            }
+            if self.data.moves[ix].kind_name == "buff" {
+                continue;
+            }
+            let cd = if l.cd.is_finite() && l.cd > 0.0 { l.cd } else { 1.0 };
+            let n = if l.count.is_finite() && l.count > 0.0 { l.count } else { 1.0 };
+            // A single-target shot cannot hold the spawn rate. Prefer a swing, beam,
+            // orbit or pierce that clears the arc in front of the bot.
+            let mv = &self.data.moves[ix];
+            let aoe = match mv.levels[0].kind {
+                Kind::Melee | Kind::Orbit => 4.0,
+                Kind::Beam | Kind::Nova => 5.0,
+                Kind::Boomerang => n.max(1.0) * 2.0,
+                Kind::Projectile => (l.pierce.max(0.0) + 1.0).min(4.0) * n.max(1.0),
+                Kind::Inert => match l.xk {
+                    1 | 2 | 3 | 4 => 4.0,
+                    8 => 3.0,
+                    5 => 2.0,
+                    _ => 1.4,
+                },
+            };
+            let score = dmg * aoe / cd;
+            if best.map(|(_, s)| score > s).unwrap_or(true) {
+                best = Some((ix, score));
+            }
+        }
+        best.map(|(ix, _)| ix)
+    }
+
+    fn cast_extras(&mut self) {
+        let n = self.extras.len();
+        for i in 0..n {
+            if self.extras[i].1 > 0.0 {
+                self.extras[i].1 -= self.dt;
+                continue;
+            }
+            let ix = self.extras[i].0;
+            let mv = &self.data.moves[ix].levels[0];
+            let (cd, kind) = (mv.cd, mv.kind);
+            self.extras[i].1 = self.cooled(cd);
+            if kind == Kind::Orbit {
+                self.side_orbit = Some((ix, 0));
+            } else if !self.cast_mv(mv) {
+                self.extras[i].1 = 0.05;
+            }
         }
     }
 
@@ -2691,6 +2876,11 @@ impl<'a, M: MathFns> Match<'a, M> {
                 let extra = self.opts.ext.xkinds && kind == Kind::Inert && xk != 0;
                 if kind != Kind::Orbit && !extra {
                     self.life_orb();
+                }
+                // A companion orbit cannot share the lead's orb list (combat.js keeps one set per move).
+                if kind == Kind::Orbit {
+                    self.side_orbit = Some((self.comps[i].0, self.comps[i].1.saturating_sub(1)));
+                    continue;
                 }
                 if !self.cast_mv(mv) {
                     self.comps[i].2 = 0.05;
@@ -3003,7 +3193,42 @@ impl<'a, M: MathFns> Match<'a, M> {
                 if !self.enemies.iter().any(|e| e.hp > 0.0 && len(e.x - px, e.y - py) < mv.radius + 60.0) {
                     return false;
                 }
-                let (ca, sa) = (aim.cos(), aim.sin());
+                // A lunge at the nearest body lands inside the pack. Prefer the heading
+                // whose landing spot is not already crowded; the hit test is unchanged.
+                let open = self.open_heading(px, py);
+                let mut best_a = aim;
+                let mut best_s = f64::NEG_INFINITY;
+                let options = [aim, open.1.atan2(open.0), self.pl.diry.atan2(self.pl.dirx)];
+                for &a in &options {
+                    if !a.is_finite() {
+                        continue;
+                    }
+                    let (c, s) = (a.cos(), a.sin());
+                    let lx = px + c * mv.radius;
+                    let ly = py + s * mv.radius;
+                    let mut crowd = 0.0;
+                    let mut hits = 0.0;
+                    for e in &self.enemies {
+                        if e.hp <= 0.0 {
+                            continue;
+                        }
+                        if len(e.x - lx, e.y - ly) < 64.0 {
+                            crowd += 1.0;
+                        }
+                        let ex = e.x - px;
+                        let ey = e.y - py;
+                        let along = ex * c + ey * s;
+                        if along > 0.0 && along < mv.radius + e.r && (-ex * s + ey * c).abs() < or(mv.width, 34.0) * 0.5 + e.r {
+                            hits += 1.0;
+                        }
+                    }
+                    let score = hits * 2.0 - crowd * 3.5;
+                    if score > best_s {
+                        best_s = score;
+                        best_a = a;
+                    }
+                }
+                let (ca, sa) = (best_a.cos(), best_a.sin());
                 let mut l = 0.0;
                 let mut d = 8.0;
                 let pr = self.pl.r;
@@ -3831,11 +4056,13 @@ impl<'a, M: MathFns> Match<'a, M> {
         // setActive clears orbs; a swapped-away orbit must not keep hitting.
         if self.slot == 1 {
             self.orbs.clear();
+            self.step_side_orbs();
             return;
         }
         let mv = self.st.mv;
         if mv.kind != Kind::Orbit {
             self.orbs.clear();
+            self.step_side_orbs();
             return;
         }
         let st = self.status_of(mv);
@@ -3894,6 +4121,66 @@ impl<'a, M: MathFns> Match<'a, M> {
         }
         self.dealt += dealt;
         note_bell(&mut self.bell, bell_on, dealt);
+        self.step_side_orbs();
+    }
+
+    /// Orbit that is not the lead. combat.js allows an orbit in any slot; the lead keeps `orbs`.
+    fn step_side_orbs(&mut self) {
+        let Some((ix, lvl)) = self.side_orbit else {
+            return;
+        };
+        let m = &self.data.moves[ix];
+        let lv = lvl.min(m.max_lvl.saturating_sub(1));
+        let mv = &m.levels[lv];
+        let count = or(mv.count, 1.0);
+        while (self.side_orbs.len() as f64) < count {
+            let a = (self.side_orbs.len() as f64 / count) * PI * 2.0;
+            self.side_orbs.push(Orb { angle: a, inside: Vec::new(), log: Vec::new() });
+        }
+        let math = self.math;
+        let chance = self.opts.ext.crit;
+        let knock = or(mv.knock, 0.0);
+        let rehit = jmax(0.12, mv.cd);
+        let now = self.t;
+        let (plx, ply, dt) = (self.pl.x, self.pl.y, self.dt);
+        let atk = self.atk_for(mv.cat);
+        let st = self.status_of(mv);
+        let radius = mv.radius;
+        let speed = or(mv.speed, 1.0);
+        let size = or(mv.size, 8.0);
+        let (dmg, ty, cat) = (mv.dmg, mv.ty, mv.cat);
+        let mut dealt = 0.0;
+        {
+            let mut rng = self.crit_rng.borrow_mut();
+            let weather = &self.weather;
+            let tm = &self.data.tmult;
+            for orb in self.side_orbs.iter_mut() {
+                orb.angle += speed * dt;
+                let x = plx + math.cos(orb.angle) * radius;
+                let y = ply + math.sin(orb.angle) * radius;
+                for e in self.enemies.iter_mut() {
+                    if e.hp <= 0.0 {
+                        continue;
+                    }
+                    if len(e.x - x, e.y - y) >= size + e.r {
+                        continue;
+                    }
+                    let last = orb.log.iter().find(|(id, _)| *id == e.id).map(|(_, t)| *t).unwrap_or(-99.0);
+                    if now - last < rehit {
+                        continue;
+                    }
+                    if let Some(p) = orb.log.iter_mut().find(|(id, _)| *id == e.id) {
+                        p.1 = now;
+                    } else {
+                        orb.log.push((e.id, now));
+                    }
+                    let (dx, dy) = (e.x - x, e.y - y);
+                    dealt += hit_one(true, e, dmg, atk, ty, tm, weather, st, knock, dx, dy, chance, &mut rng, cat);
+                }
+            }
+        }
+        self.dealt += dealt;
+        note_bell(&mut self.bell, self.opts.ext.item.bell, dealt);
     }
 
     // ------------------------------------------------ bot
@@ -3936,7 +4223,525 @@ impl<'a, M: MathFns> Match<'a, M> {
         if best.is_finite() { Some(best) } else { None }
     }
 
+    /// Gap the Play bot wants from the nearest enemy, in pixels of air (after both radii).
+    /// Melee and orbit step inside the swing. A turret stays inside its range and out of contact.
+    /// A buff has nothing to hit, so it holds a wide kite.
+    fn attack_keep(mv: &MoveLvl, plr: f64) -> f64 {
+        let pos = |x: f64, d: f64| if x.is_finite() && x > 0.0 { x } else { d };
+        match mv.kind {
+            Kind::Melee => (pos(mv.radius, 60.0) - plr - 8.0).clamp(12.0, 72.0),
+            Kind::Projectile | Kind::Nova | Kind::Beam | Kind::Boomerang => {
+                // pickup.js magnet starts at 78. A keep past that leaves the corpse's
+                // orb on the ground, so the run never levels. Air gap so the body
+                // (about 16px) plus the player still sits inside the magnet.
+                (78.0 - plr - 16.0).clamp(34.0, 62.0)
+            }
+            Kind::Orbit => (pos(mv.radius, 62.0) - plr - 4.0).clamp(14.0, 80.0),
+            Kind::Inert => match mv.xk {
+                // chain / cone / mine / meteor still drop the orb on the body they hit
+                1 | 2 | 3 | 6 | 7 | 8 => (78.0 - plr - 16.0).clamp(34.0, 62.0),
+                4 => (pos(mv.radius, 80.0) - plr).clamp(16.0, 70.0),
+                5 => (pos(mv.radius, 110.0) * 0.45).clamp(22.0, 70.0),
+                _ => (78.0 - plr - 16.0).clamp(34.0, 62.0),
+            },
+        }
+    }
+
+    fn play_keep(&self) -> f64 {
+        let mut keep = Self::attack_keep(self.st.mv, self.pl.r);
+        let crowd = self.near_crowd(36.0);
+        if crowd <= 2 {
+            if let Some(rad) = self.bonded_melee_radius(true) {
+                keep = keep.min((rad - self.pl.r - 8.0).clamp(12.0, 72.0));
+            }
+            for i in 0..self.comps.len() {
+                if !self.bonded(i as u8) {
+                    continue;
+                }
+                let mv = self.comp_lvl(i);
+                if mv.kind == Kind::Orbit {
+                    keep = keep.min(Self::attack_keep(mv, self.pl.r));
+                }
+            }
+        }
+        keep
+    }
+
+    fn near_crowd(&self, gap_max: f64) -> usize {
+        let (px, py, pr) = (self.pl.x, self.pl.y, self.pl.r);
+        self.enemies
+            .iter()
+            .filter(|e| e.hp > 0.0 && len(e.x - px, e.y - py) - e.r - pr < gap_max)
+            .count()
+    }
+
+    /// Escape a shot that will pass through the player in the next 0.7 s.
+    /// The player is treated as standing still; the caller is about to step aside.
+    fn shot_escape(px: f64, py: f64, pr: f64, sx: f64, sy: f64, vx: f64, vy: f64, sr: f64) -> Option<(f64, f64, f64)> {
+        let sp2 = vx * vx + vy * vy;
+        if sp2 < 1.0 {
+            return None;
+        }
+        let t = ((px - sx) * vx + (py - sy) * vy) / sp2;
+        if t < 0.0 || t > 0.7 {
+            return None;
+        }
+        let cx = sx + vx * t;
+        let cy = sy + vy * t;
+        let dx = px - cx;
+        let dy = py - cy;
+        let dist = (dx * dx + dy * dy).sqrt();
+        let hit = sr + pr + 10.0;
+        if dist >= hit {
+            return None;
+        }
+        let (ex, ey) = if dist > 1.0 {
+            (dx / dist, dy / dist)
+        } else {
+            let sp = sp2.sqrt();
+            (-vy / sp, vx / sp)
+        };
+        Some((ex, ey, (hit - dist) / t.max(0.05)))
+    }
+
+    /// True when enemies within 220px cover almost every direction. Steering away from
+    /// the nearest body then points back into the ring, so the caller breaks out instead.
+    fn flanked(&self, px: f64, py: f64) -> bool {
+        let mut angs: Vec<f64> = Vec::new();
+        for e in &self.enemies {
+            if e.hp <= 0.0 {
+                continue;
+            }
+            let dx = e.x - px;
+            let dy = e.y - py;
+            let d = len(dx, dy);
+            if d > 1.0 && d < 260.0 {
+                angs.push(dy.atan2(dx));
+            }
+        }
+        if angs.len() < 6 {
+            return false;
+        }
+        angs.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        let mut biggest = 0.0_f64;
+        for i in 0..angs.len() {
+            let a = angs[i];
+            let b = if i + 1 == angs.len() { angs[0] + PI * 2.0 } else { angs[i + 1] };
+            biggest = biggest.max(b - a);
+        }
+        // Under ~80° of open arc the nearest-body flee points back into the pack.
+        biggest < 1.4
+    }
+
+    /// Direction through the widest opening inside 280px. Used when the pack is a ring.
+    fn widest_gap(&self, px: f64, py: f64) -> (f64, f64) {
+        let math = self.math;
+        let mut angs: Vec<f64> = Vec::new();
+        for e in &self.enemies {
+            if e.hp <= 0.0 {
+                continue;
+            }
+            let dx = e.x - px;
+            let dy = e.y - py;
+            let d = len(dx, dy);
+            if d > 1.0 && d < 280.0 {
+                angs.push(dy.atan2(dx));
+            }
+        }
+        if angs.is_empty() {
+            return (1.0, 0.0);
+        }
+        angs.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        let mut best = 0.0_f64;
+        let mut mid = 0.0_f64;
+        for i in 0..angs.len() {
+            let a = angs[i];
+            let b = if i + 1 == angs.len() { angs[0] + PI * 2.0 } else { angs[i + 1] };
+            let gap = b - a;
+            if gap > best {
+                best = gap;
+                mid = a + gap * 0.5;
+            }
+        }
+        (math.cos(mid), math.sin(mid))
+    }
+
+    /// Unit aim: circle the pack. A straight flee runs into the spawn ring
+    /// (spawner.js places the next wave just outside the view, and enemy.js
+    /// puts stragglers ahead of the player's velocity).
+    fn orbit_aim(&self, px: f64, py: f64, pr: f64, keep: f64) -> (f64, f64) {
+        let mut cx = 0.0;
+        let mut cy = 0.0;
+        let mut wsum = 0.0;
+        let mut near_dx = 0.0;
+        let mut near_dy = 0.0;
+        let mut near_gap = f64::INFINITY;
+        let mut near_spd = 60.0;
+        let mut n = 0usize;
+        for e in &self.enemies {
+            if e.hp <= 0.0 {
+                continue;
+            }
+            let dx = e.x - px;
+            let dy = e.y - py;
+            let dist = len(dx, dy);
+            if dist < 1.0 || dist > 460.0 {
+                continue;
+            }
+            let gap = dist - e.r - pr;
+            let w = 1.0 / dist;
+            cx += dx * w;
+            cy += dy * w;
+            wsum += w;
+            n += 1;
+            if gap < near_gap {
+                near_gap = gap;
+                near_dx = dx;
+                near_dy = dy;
+                near_spd = if e.phase == Phase::Dash { e.spd * 3.4 } else { e.spd };
+            }
+        }
+        if n == 0 || wsum <= 0.0 {
+            return if self.pl.dirx == 0.0 && self.pl.diry == 0.0 {
+                (1.0, 0.0)
+            } else {
+                (self.pl.dirx, self.pl.diry)
+            };
+        }
+        let nd = or(len(near_dx, near_dy), 1e-6);
+        let nux = near_dx / nd;
+        let nuy = near_dy / nd;
+        let cd = or(len(cx, cy), 1e-6);
+        let cux = cx / cd;
+        let cuy = cy / cd;
+        let tx = -cuy;
+        let ty = cux;
+        let sign = if self.pl.dirx * tx + self.pl.diry * ty >= 0.0 { 1.0 } else { -1.0 };
+        let mut fx = tx * sign;
+        let mut fy = ty * sign;
+        let ttc = if near_gap <= 0.0 { 0.0 } else { near_gap / near_spd.max(1.0) };
+        if self.flanked(px, py) && self.pl.inv <= 0.08 {
+            let (gx, gy) = self.widest_gap(px, py);
+            fx = gx;
+            fy = gy;
+        } else if self.pl.inv > 0.08 {
+            // Hurt i-frames (player.js 0.45s). Stay on the tangent.
+        } else if ttc < 0.45 || near_gap < keep * 0.7 || near_gap < 20.0 {
+            fx -= nux * 1.25;
+            fy -= nuy * 1.25;
+        } else if near_gap > keep * 1.35 && ttc > 0.9 {
+            fx += cux * 0.65;
+            fy += cuy * 0.65;
+        }
+        let mag = or(len(fx, fy), 1e-6);
+        (fx / mag, fy / mag)
+    }
+
+    /// Heading with the fewest bodies in front. Hysteresis on the current direction
+    /// stops the choice flipping every reaction tick.
+    fn open_heading(&self, px: f64, py: f64) -> (f64, f64) {
+        let math = self.math;
+        let (dx0, dy0) = (self.pl.dirx, self.pl.diry);
+        let mut best_s = f64::NEG_INFINITY;
+        let mut best = if dx0 == 0.0 && dy0 == 0.0 { (1.0, 0.0) } else { (dx0, dy0) };
+        for k in 0..16 {
+            let a = k as f64 * (PI / 8.0);
+            let c = math.cos(a);
+            let s = math.sin(a);
+            let mut score = (dx0 * c + dy0 * s) * 1.6;
+            for e in &self.enemies {
+                if e.hp <= 0.0 {
+                    continue;
+                }
+                let dx = e.x - px;
+                let dy = e.y - py;
+                let d = len(dx, dy);
+                if d < 1.0 || d > 340.0 {
+                    continue;
+                }
+                let dot = (dx * c + dy * s) / d;
+                if dot <= 0.15 {
+                    continue;
+                }
+                let near = 1.0 - d / 340.0;
+                score -= near * near * (0.3 + dot) * 4.2;
+                if d - e.r - self.pl.r < 90.0 && dot > 0.4 {
+                    score -= 4.0;
+                }
+            }
+            if score > best_s {
+                best_s = score;
+                best = (c, s);
+            }
+        }
+        best
+    }
+
+    /// Published bot. Orbits the pack at magnet range (pickup.js, 78px) so shots,
+    /// melee and XP orbs all connect. A straight flee runs into the spawn ring
+    /// (spawner.js) and into stragglers placed ahead of that velocity (enemy.js).
+    /// The tangent is also what makes a runner's lead-aim miss. Threats it answers:
+    /// charger aim then dash, ranged and fan shots, beamer and zoner telegraphs,
+    /// bomber and jumper zones, and Sentencia's warned circles and beams (judgment.js).
+    /// Orbs are pickup.js.
+    fn decide_play(&mut self) {
+        self.pl.react -= self.dt;
+        if self.pl.react > 0.0 {
+            return;
+        }
+        let (px, py, pr) = (self.pl.x, self.pl.y, self.pl.r);
+        let keep = self.play_keep();
+        let math = self.math;
+        let mut ax = 0.0;
+        let mut ay = 0.0;
+        let mut urgent = false;
+        let mut cx = 0.0;
+        let mut cy = 0.0;
+        let mut cn = 0.0;
+        let mut near: Option<usize> = None;
+        let mut near_d = f64::INFINITY;
+        for (i, e) in self.enemies.iter().enumerate() {
+            if e.hp <= 0.0 {
+                continue;
+            }
+            let dx = e.x - px;
+            let dy = e.y - py;
+            let dist = or(len(dx, dy), 1e-6);
+            if dist < 240.0 {
+                cx += e.x;
+                cy += e.y;
+                cn += 1.0;
+            }
+            if dist < near_d {
+                near_d = dist;
+                near = Some(i);
+            }
+            let gap = dist - e.r - pr;
+            let ux = dx / dist;
+            let uy = dy / dist;
+            // A ring of small repulses cancels and the player stands in the pack.
+            // Separation is handled once, against the nearest body, below.
+            if !e.beh.no_touch() && gap < 14.0 {
+                let w = 1.4 + (14.0 - gap) * 0.2;
+                ax -= ux * w;
+                ay -= uy * w;
+                urgent = true;
+            }
+            if e.phase == Phase::Aim || (e.phase == Phase::Dash && gap < 90.0) {
+                // The dash goes along the line to the player. Step off that line.
+                let tx = -uy;
+                let ty = ux;
+                let sign = if cn > 1.0 {
+                    let mx = cx / cn - px;
+                    let my = cy / cn - py;
+                    if tx * mx + ty * my > 0.0 { -1.0 } else { 1.0 }
+                } else {
+                    1.0
+                };
+                let w = if e.phase == Phase::Aim { 2.6 } else { 2.0 };
+                ax += tx * sign * w;
+                ay += ty * sign * w;
+                urgent = true;
+            }
+        }
+        if self.judging {
+            let dx = self.arceus_x - px;
+            let dy = self.arceus_y - py;
+            let dist = or(len(dx, dy), 1e-6);
+            let gap = dist - self.arceus_r - pr;
+            if gap < 90.0 {
+                let w = ((90.0 - gap) / 12.0).max(0.4);
+                ax -= dx / dist * w;
+                ay -= dy / dist * w;
+                if gap < 20.0 {
+                    urgent = true;
+                }
+            }
+        }
+        for s in &self.e_shots {
+            if let Some((ex, ey, w)) = Self::shot_escape(px, py, pr, s.x, s.y, s.vx, s.vy, s.r) {
+                ax += ex * w;
+                ay += ey * w;
+                if w > 1.5 {
+                    urgent = true;
+                }
+            }
+        }
+        for h in &self.hazards {
+            let soon = h.delay - h.t;
+            let live = h.t >= h.delay;
+            let winding = !live && soon < 0.85;
+            if !live && !winding {
+                continue;
+            }
+            let w = if live { 4.0 } else if soon < 0.4 { 3.2 } else { 1.3 };
+            if h.kind == HKind::Zone {
+                let dx = px - h.x;
+                let dy = py - h.y;
+                let dist = or(len(dx, dy), 1e-6);
+                let reach = h.r + pr * 0.6 + 12.0;
+                if dist < reach {
+                    ax += dx / dist * w;
+                    ay += dy / dist * w;
+                    urgent = true;
+                }
+            } else {
+                let ca = math.cos(h.angle);
+                let sa = math.sin(h.angle);
+                let rdx = px - h.x;
+                let rdy = py - h.y;
+                let along = rdx * ca + rdy * sa;
+                let perp = -rdx * sa + rdy * ca;
+                let half = h.w / 2.0 + pr + 8.0;
+                if along > -24.0 && along < h.len + 24.0 && perp.abs() < half {
+                    let sign = if perp >= 0.0 { 1.0 } else { -1.0 };
+                    ax += -sa * sign * w;
+                    ay += ca * sign * w;
+                    urgent = true;
+                }
+            }
+        }
+        let (hx, hy) = self.orbit_aim(px, py, pr, keep);
+        let s = self.st.spd.max(40.0);
+        let mut fx = hx * s;
+        let mut fy = hy * s;
+        let min_gap = near.map(|n| {
+            let e = &self.enemies[n];
+            near_d - e.r - pr
+        });
+        // Telegraph and shot dodges add to the orbit. They do not replace it,
+        // or a warned beam turns the circle into a straight line into the next spawn.
+        fx += ax * s * 0.85;
+        fy += ay * s * 0.85;
+        let safe = min_gap.map(|g| g > 24.0).unwrap_or(true) && !urgent;
+        if safe && !self.pickups.is_empty() {
+            let hurt = self.pl.hp < self.st.max_hp * 0.72;
+            let mut best = f64::INFINITY;
+            let mut bx = 0.0;
+            let mut by = 0.0;
+            for p in &self.pickups {
+                let dx = p.x - px;
+                let dy = p.y - py;
+                let d = len(dx, dy);
+                if d > 200.0 || d < 1.0 {
+                    continue;
+                }
+                let pen = match p.kind {
+                    3 => 0.45,
+                    1 => if hurt { 0.28 } else { 1.6 },
+                    2 => 0.55,
+                    _ => 1.0,
+                };
+                let score = d * pen;
+                if score < best {
+                    best = score;
+                    bx = dx / d;
+                    by = dy / d;
+                }
+            }
+            if best.is_finite() {
+                // Orbs only pull inside 78px (pickup.js). Step toward one that is
+                // already near the circle; don't abandon the orbit for a far gem.
+                let align = bx * hx + by * hy;
+                let mut w = if align > 0.15 { 0.85 } else { 0.28 };
+                if hurt {
+                    w += 0.45;
+                }
+                fx += bx * s * w;
+                fy += by * s * w;
+            }
+        }
+        if let Some(n) = near {
+            let e = &self.enemies[n];
+            let dx = e.x - px;
+            let dy = e.y - py;
+            let dist = or(len(dx, dy), 1e-6);
+            let gap = dist - e.r - pr;
+            let chase = if e.phase == Phase::Dash { e.spd * 3.4 } else { e.spd };
+            let ttc = if gap <= 0.0 { 0.0 } else { gap / chase.max(1.0) };
+            if self.pl.inv <= 0.08 && (gap < 28.0 || ttc < 0.4) {
+                let ux = dx / dist;
+                let uy = dy / dist;
+                let mag = len(fx, fy).max(1.0);
+                let away = -fx * ux - fy * uy;
+                let need = (chase / s).clamp(0.55, 0.92);
+                if away < mag * need {
+                    fx -= ux * (mag * need - away + mag * 0.25);
+                    fy -= uy * (mag * need - away + mag * 0.25);
+                }
+                urgent = true;
+            }
+        }
+        let mag = len(fx, fy);
+        if mag < 1e-6 {
+            self.pl.dirx = 0.0;
+            self.pl.diry = 0.0;
+        } else {
+            self.pl.dirx = fx / mag;
+            self.pl.diry = fy / mag;
+        }
+        // steer() will turn 90° into the pack when the escape ray hits a wall.
+        // Score clearance and bodies together so a corner doesn't become a dive.
+        if self.pl.dirx != 0.0 || self.pl.diry != 0.0 {
+            let (dx, dy) = (self.pl.dirx, self.pl.diry);
+            (self.pl.dirx, self.pl.diry) = self.play_dir(px, py, pr, dx, dy);
+        }
+        self.pl.react = if urgent { 0.05 } else { 0.10 };
+    }
+
+    /// Wanted heading, deflected only as far as a clear ray requires, and never
+    /// toward a body if some other clear ray exists.
+    fn play_dir(&mut self, px: f64, py: f64, pr: f64, wantx: f64, wanty: f64) -> (f64, f64) {
+        if self.terrain.is_none() {
+            return (wantx, wanty);
+        }
+        let avoid = match self.terrain.as_ref().unwrap().world.liquid {
+            Liquid::Water => !self.mon.types.contains(&T_WATER),
+            Liquid::Lava => !self.mon.types.contains(&T_FIRE),
+        };
+        let foes: Vec<(f64, f64)> = self.enemies.iter().filter(|e| e.hp > 0.0).map(|e| (e.x, e.y)).collect();
+        let t = self.terrain.as_mut().unwrap();
+        let base = wanty.atan2(wantx);
+        let mut best_s = f64::NEG_INFINITY;
+        let mut best = (wantx, wanty);
+        for k in 0..16 {
+            let off = (k as f64 / 2.0).ceil() * (PI / 16.0) * if k % 2 == 0 { 1.0 } else { -1.0 };
+            let a = base + off;
+            let c = a.cos();
+            let s = a.sin();
+            let mut clear = 0.0;
+            let mut d = 10.0;
+            while d <= 100.0 {
+                if !t.world.fits(px + c * d, py + s * d, pr * 0.9, avoid) {
+                    break;
+                }
+                clear = d;
+                d += 18.0;
+            }
+            let mut pen = 0.0;
+            for (ex, ey) in &foes {
+                let dx = ex - px;
+                let dy = ey - py;
+                let dist = len(dx, dy);
+                if dist < 150.0 && dist > 1.0 && (dx * c + dy * s) / dist > 0.45 {
+                    pen += (150.0 - dist) / 150.0;
+                }
+            }
+            let align = c * wantx + s * wanty;
+            let score = align * 1.4 + clear / 100.0 - pen * 2.8;
+            if score > best_s {
+                best_s = score;
+                best = (c, s);
+            }
+        }
+        best
+    }
+
     fn decide(&mut self) {
+        if self.opts.bot == Bot::Play {
+            self.decide_play();
+            return;
+        }
         let mut keep = keep_distance(self.st.mv);
         // A bonded melee move is only useful inside its swing. Close to that keep instead of
         // holding the ranged lead's kite distance (which let the swing whiff and still grant DR).
@@ -5027,6 +5832,9 @@ pub fn run_match<M: MathFns>(
         shots: Vec::with_capacity(96),
         booms: Vec::new(),
         orbs: Vec::new(),
+        extras: Vec::new(),
+        side_orbit: None,
+        side_orbs: Vec::new(),
         e_shots: Vec::new(),
         hazards: Vec::new(),
         spawn_n: 0,
@@ -5265,6 +6073,9 @@ pub fn run_match<M: MathFns>(
                 }
                 if !m.comps.is_empty() {
                     m.cast_comps();
+                }
+                if !m.extras.is_empty() {
+                    m.cast_extras();
                 }
             } else {
                 m.alt_cd -= step;

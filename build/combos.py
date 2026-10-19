@@ -12,11 +12,10 @@ Qué elige, de los ataques que ofrece el juego a ese Pokémon (POOL.normal + POO
      (`simulator/results/fixed_group/group_search.csv`), los ataques del grupo con mejor mediana
      (y, si empatan, mejor media). Ahí entran Hex con quemadura, veneno o ralentización, las
      parejas de los mejores ataques y las parejas de dos dashes, y gana el que más aguanta.
-     El potenciador de ataque entra en todo grupo buscado: Danza Espada si los ataques son físicos,
-     Maquinación si son especiales (Danza Espada ya no les sube el daño). El cuarto hueco es Fortaleza
-     o un tercer ataque, el que aguante más. Un cuerpo a cuerpo solo se publica si su suelo de bootstrap
-     queda por encima de la mediana del mejor grupo a distancia y su media no es peor. Gengar (dex 94)
-     no lleva cuerpo a cuerpo.
+     El potenciador de ataque entra en todo grupo buscado: Danza Espada si el ataque que abre
+     es físico, Maquinación si es especial. Un grupo mixto sigue a ese primer ataque. El cuarto
+     hueco es Fortaleza o un tercer ataque, el que puntúa más. Los cuerpos a cuerpo se publican
+     igual que el resto cuando su intervalo no pierde. Gengar no lleva cuerpo a cuerpo.
   2. Si no hay búsqueda, hueco 1 es el mejor ataque de la simulación (`best_move`). Si ese ataque
      tiene un compañero de sinergia (Hex con estado, o dos dashes), el hueco 2 es ese compañero
      a distancia cuando hay uno; si no, el de más cobertura.
@@ -37,6 +36,8 @@ from __future__ import annotations
 import csv
 import json
 from pathlib import Path
+
+import owner_rules
 
 DATA = Path(__file__).resolve().parent.parent / "data"
 
@@ -151,7 +152,7 @@ def _attack_buff(attacks: list[str], _searched: str | None, cats: dict[str, str]
         if cat in ("physical", "special"):
             lead = cat
             break
-    want = "nasty-plot" if lead == "special" or (not lead and special) else "swords-dance"
+    want = owner_rules.attack_buff(lead, special)
     if want in available:
         return want
     return next((b for b in ATTACK_BUFFS if b in available), None)
@@ -174,9 +175,8 @@ def _search_picks() -> dict[int, tuple[list[str], bool, str | None]]:
     Harden wins the fourth slot only when that shape beats the third attack.
 
     Rank is median score, then mean score, then median seconds, when the score columns exist.
-    A group that contains a melee move is kept only when its bootstrap floor sits strictly above
-    the best ranged group's median and its mean is at least as high. The floor and the median are
-    of that same score. A tie, or a mean-only edge, is not enough. Gengar (dex 94) never keeps a melee move.
+    Groups whose score intervals overlap are ties. The page names the one with fewer attacks.
+    Melee is scored the same way as any other attack. Gengar never keeps a melee move.
     """
     if not SEARCH_CSV.exists():
         return {}
@@ -193,10 +193,11 @@ def _search_picks() -> dict[int, tuple[list[str], bool, str | None]]:
             mean = _metric(row, "mean_score", "mean_s")
             floor = _metric(row, "score_lo", "boot_lo")
             attacks = [part for part in parts if part not in BUFF_IDS]
-            if dex == 94 and (any(part in _MELEE for part in attacks) or _has_melee(attacks, kinds)):
+            if not owner_rules.allows_melee(dex) and (any(part in _MELEE for part in attacks) or _has_melee(attacks, kinds)):
                 continue
             if len(attacks) < 2:
                 continue
+            hi = _metric(row, "score_hi", "boot_hi")
             cand = (
                 (-score, -mean, -float(row["median_s"]), row["group"]),
                 attacks,
@@ -206,22 +207,17 @@ def _search_picks() -> dict[int, tuple[list[str], bool, str | None]]:
                 mean,
                 _has_melee(attacks, kinds),
                 buff,
+                hi,
+                len(attacks),
             )
             by_dex.setdefault(dex, []).append(cand)
     out = {}
     for dex, cands in by_dex.items():
-        ranged = [c for c in cands if not c[6]]
-        melee = [c for c in cands if c[6]]
-        best_r = min(ranged, key=lambda c: c[0]) if ranged else None
-        best_m = min(melee, key=lambda c: c[0]) if melee else None
-        chosen = best_r
-        if best_m is not None and (
-            best_r is None
-            or (best_m[3] > best_r[4] and best_m[5] >= best_r[5])
-        ):
-            chosen = best_m
-        if chosen is None:
-            continue
+        best = min(cands, key=lambda c: c[0])
+        # Overlapping score intervals are one result. Among them, the cheaper
+        # group (fewer attacks to unlock) is the one the page names.
+        tied = [c for c in cands if c[3] <= best[8] and best[3] <= c[8]]
+        chosen = min(tied, key=lambda c: (c[9], c[0]))
         out[dex] = (chosen[1], chosen[2], chosen[7])
     return out
 
@@ -279,7 +275,7 @@ def compute_all(types_by_dex: dict[int, list[str]], best_move_by_dex: dict[int, 
     flags = _synergy_flags()
     cats = _move_cats()
     special = _special_species()
-    boost = lambda mid: float(rows[mid]["score_rel"] or 0)
+    boost = lambda mid: float((rows.get(mid) or {}).get("score_rel") or 0)
     everyone = list(types_by_dex.values())
     out: dict[int, dict] = {}
     cache: dict = {}
@@ -287,17 +283,17 @@ def compute_all(types_by_dex: dict[int, list[str]], best_move_by_dex: dict[int, 
         ids = set(pool["normal"])
         for t in types:
             ids.update(pool.get(t, []))
-        attacks = sorted(i for i in ids if mech[i]["kind"] != "buff" and not (dex == 94 and (i in _MELEE or mech[i]["kind"] == "melee")))
+        attacks = sorted(
+            i for i in ids
+            if mech[i]["kind"] != "buff" and (owner_rules.allows_melee(dex) or not (i in _MELEE or mech[i]["kind"] == "melee"))
+        )
         buffs = sorted(i for i in ids if mech[i]["kind"] == "buff")
-        # nasty-plot is a normal-pool move (moves.js). The exported pool predates it.
-        if "nasty-plot" not in buffs:
-            buffs.append("nasty-plot")
         best = best_move_by_dex[dex]
         if best not in attacks and best in rows:
             # el ataque inicial propio de la especie (p. ej. Confusión de Psyduck) no está en POOL, pero lo lleva desde el inicio
             attacks.append(best)
         preset, with_harden, searched_buff = picks.get(dex, ([], True, None))
-        preset = [m for m in preset if m in rows and not (dex == 94 and m in _MELEE)]
+        preset = [m for m in preset if m in rows and (owner_rules.allows_melee(dex) or m not in _MELEE)]
         for move in preset:
             if move not in attacks:
                 attacks.append(move)

@@ -210,6 +210,7 @@ textarea {
 .mon .sp img { max-width: 100%; max-height: 58px; object-fit: contain; object-position: center bottom; }
 .mon .nm { font: 500 .75rem/1.2 var(--sans); text-align: center; overflow-wrap: anywhere; }
 .mon .rk { font: .8125rem var(--ui); color: var(--ink-2); font-variant-numeric: tabular-nums lining-nums; }
+.mon .rk small { display: block; margin-top: 1px; font: 500 .62rem/1.1 var(--ui); letter-spacing: -.02em; opacity: .8; }
 .mon.dim { display: none; }
 .tier.hidden { display: none; }
 .field select { border: 0; box-shadow: var(--notch); background: var(--bg); color: var(--ink); padding: 10px 12px; margin: 2px;
@@ -259,6 +260,7 @@ textarea {
 .rankline .ico { width: 24px; height: 24px; margin: 0; color: var(--tier-A); }
 .rankline strong { font: 700 1.9rem/1 var(--ui); font-variant-numeric: tabular-nums lining-nums; }
 .rankline span { color: var(--ink-2); font: .95rem var(--ui); font-variant-numeric: tabular-nums lining-nums; }
+.rankline .rankband { margin-left: 4px; font-size: .8rem; }
 /* Resumen bajo el nombre (build/summaries.py): una línea por frase, con el icono de cada dato delante de su palabra.
    Lo bueno se subraya en verde y lo malo en rojo, como una barra de vida. */
 .ficha-head:has(.sm) .ficha-sprite { grid-row: span 2; align-self: start; }

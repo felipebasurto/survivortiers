@@ -173,7 +173,11 @@
     const dex = Number(q.get(PARAM.dex));
     const known = index.some(p => p.dex === dex);
     const start = known ? dex : fallbackDex;
-    const pool = poolOf(index.find(p => p.dex === start).types, game.pool);
+    const mon = index.find(p => p.dex === start);
+    const pool = poolOf(mon.types, game.pool);
+    // The published build can include this species' own start move, which is not always in the type pool.
+    const built = (species.d[String(start)] && species.d[String(start)][9][2]) || [];
+    for (const id of built) pool.add(id);
     const seen = new Set();
     const group = (q.get(PARAM.group) || '').split(',').slice(0, PLAN_SLOTS).map(id => {
       if (!id || id === '-' || seen.has(id) || !pool.has(id) || !game.moves[id]) return null;

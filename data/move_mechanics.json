@@ -17,6 +17,12 @@
   "pierce": 0,
   "count": 0
  },
+ "nasty-plot": {
+  "kind": "buff",
+  "homing": 0,
+  "pierce": 0,
+  "count": 0
+ },
  "agility": {
   "kind": "buff",
   "homing": 0,

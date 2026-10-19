@@ -1,0 +1,9 @@
+{
+  "gengar_dex": 94,
+  "physical_buff": "swords-dance",
+  "special_buff": "nasty-plot",
+  "mixed_follows": "lead",
+  "fourth_slot": ["harden", "third-attack"],
+  "rank_on": ["survival", "damage", "kills"],
+  "zero_damage_score": 0
+}

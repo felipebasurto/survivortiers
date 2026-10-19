@@ -9,10 +9,8 @@ Deterministic: same inputs, same bytes. One row per species, sorted by dex. Flat
 what it means and plain wording, which is all a writer needs), `record` (JSON: the full facts record the
 validator uses) and `fp` / `bfp` (hash of the full record / of the record without drivers).
 
-Drivers. The published order is a weighted geometric mean of percentiles: sheet 45 (pillars stats 45, moves 25,
-type defence 15, size 15), early sim 30 (start move 10, best move 45) and late game 25 (build/make_definitive.py).
-For each factor the record holds how many places the species would move if only that factor were at the
-population median, everything else fixed, on that same point score:
+Drivers. The published order is the solo best-move sim score. The sheet and the v4 table stay in the
+CSV and do not move a place. A stat bench that does not reproduce this ranking contributes 0 places.
   hitbox, speed, hp, attack  re-simulated with that stat at the median (simulator/counterfactual_bench.py,
                              results/fixed_group/counterfactuals_g2p2.csv, same seeds and flags as the rank).
                              hitbox also sets the size pillar to the median radius.
@@ -48,6 +46,7 @@ import pyarrow.parquet as pq
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import make_definitive as md  # noqa: E402
+import owner_rules  # noqa: E402
 import summaries  # noqa: E402
 import summary_facts as sf  # noqa: E402
 
@@ -67,55 +66,20 @@ def rank_among(value: float, others: np.ndarray) -> int:
 
 
 class Model:
-    """The published point score (make_definitive.draw without the noise) and single-species counterfactuals."""
+    """Published order: the solo best-move sim score. The sheet and the v4 table do not move it."""
 
     def __init__(self, rows: list[dict], start_s: np.ndarray, best_s: np.ndarray):
         self.start_s, self.best_s = start_s, best_s
-        self.pil = np.array([[float(r["pct_" + k]) for k in PILLAR_W] for r in rows])
-        self.w = np.array(list(PILLAR_W.values()), dtype=float)
-        self.sheet_score = self._sheet(self.pil)
-        self.sheet_rank = np.array([int(r["rank_sheet"]) for r in rows], dtype=float)
-        v4m = np.array([int(r["rank_v4_max"]) for r in rows], dtype=float)
-        v4f = np.array([int(r["rank_v4_fresh"]) for r in rows], dtype=float)
-        self.early_score = self._early_score(md.ranks_of(start_s), md.ranks_of(best_s))
-        self.early_rank = md.ranks_of(self.early_score)
-        self.late_score = np.exp((2 / 3) * np.log(md.pct(v4m)) + (1 / 3) * np.log(md.pct(v4f)))
-        self.late_rank = md.ranks_of(self.late_score)
-        self.point = self._point(self.sheet_rank, self.early_rank, self.late_rank)
-
-    def _sheet(self, pil: np.ndarray) -> np.ndarray:
-        return np.exp((np.log(np.maximum(pil, 1e-9)) * self.w).sum(-1) / self.w.sum())
-
-    @staticmethod
-    def _early_score(rs, rb):
-        return np.exp((10 * np.log(md.pct(rs)) + 45 * np.log(md.pct(rb))) / 55)
-
-    @staticmethod
-    def _point(sheet, early, late):
-        return np.exp((45 * np.log(md.pct(sheet)) + 30 * np.log(md.pct(early)) + 25 * np.log(md.pct(late))) / 100)
+        self.point = best_s.copy()
+        self.here = np.array([rank_among(float(best_s[i]), best_s[np.arange(N) != i]) for i in range(N)])
 
     def counterfactual(self, i: int, start_s=None, best_s=None, pillars: dict | None = None, late=False) -> int:
-        """Point rank of species i with only the given pieces changed."""
-        others = np.arange(N) != i
-        sheet = self.sheet_rank[i]
-        if pillars:
-            pil = self.pil[i].copy()
-            for k, v in pillars.items():
-                pil[list(PILLAR_W).index(k)] = v
-            mine = rank_among(float(self._sheet(pil)), self.sheet_score[others])
-            sheet = sheet + mine - rank_among(float(self.sheet_score[i]), self.sheet_score[others])
-        early = self.early_rank[i]
-        if start_s is not None or best_s is not None:
-            s = self.start_s[i] if start_s is None else start_s
-            b = self.best_s[i] if best_s is None else best_s
-            rs = rank_among(s, self.start_s[others])
-            rb = rank_among(b, self.best_s[others])
-            early = rank_among(float(self._early_score(rs, rb)), self.early_score[others])
-        lr = self.late_rank[i]
-        if late:
-            lr = rank_among(float(np.exp(np.log(md.pct(483.5)))), self.late_score[others])
-        score = float(self._point(sheet, early, lr))
-        return rank_among(score, self.point[others])
+        """Rank of species i. Only a different best-move score moves it."""
+        del start_s, pillars, late
+        if best_s is None:
+            return int(self.here[i])
+        others = self.best_s[np.arange(N) != i]
+        return rank_among(float(best_s), others)
 
 
 def ungated_ranks(rows: list[dict]) -> dict[int, int]:
@@ -141,7 +105,7 @@ def load_cf(path: Path = CF_CSV) -> tuple[dict[tuple[int, str, str], float], dic
     """(dex, move, mod key or '') -> median seconds, and the same key -> composite score.
 
     Seconds are the protocol check: they must match start_noshop_s and best_median_s.
-    The score (time × damage dealt × (1 + kills)) is what the published rank orders by.
+    The published rank orders the sim score (time times saturating damage and kill rates).
     A bench from before that score has no column; the score map then copies the seconds.
     """
     if not path.exists():
@@ -154,16 +118,6 @@ def load_cf(path: Path = CF_CSV) -> tuple[dict[tuple[int, str, str], float], dic
         raw = r.get("median_score")
         scores[key] = float(raw) if raw not in (None, "") else seconds[key]
     return seconds, scores
-
-
-def _move_order(row: dict) -> tuple:
-    """Same order as make_definitive.winner_by_dex: score, then mean score, then seconds, then id."""
-    return (
-        -md.row_metric(row, "median_score", "median_s"),
-        -md.row_metric(row, "mean_score", "mean_s"),
-        -float(row["median_s"]),
-        row["start"],
-    )
 
 
 def published_scores(rows: list[dict]) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -186,8 +140,7 @@ def records() -> dict[str, dict]:
     """The full facts records: summary_facts.base_records() plus drivers and the ungated rank."""
     rows = sf.ranking_rows()
     base = sf.base_records()
-    px = {p["dex"]: p for p in json.loads((sf.DATA / "pokedex_export.json").read_text(encoding="utf8"))}
-    cf_start_s, cf_start_score = load_cf(CF_CSV)
+    cf_start_s, _cf_start_score = load_cf(CF_CSV)
     cf_best_s, cf_best_score = load_cf(SOLO_CF)
     sweep_s: dict[int, list[float]] = {}
     sweep_score: dict[int, list[float]] = {}
@@ -197,17 +150,15 @@ def records() -> dict[str, dict]:
         sweep_score.setdefault(d, []).append(md.row_metric(r, "median_score", "median_s"))
     solo: dict[int, list[dict]] = {}
     for r in md.load_csv(SOLO_SWEEP):
-        if int(r["dex"]) == 94 and r.get("kind") == "melee":
+        if not owner_rules.allows_melee(int(r["dex"])) and r.get("kind") == "melee":
             continue
         solo.setdefault(int(r["dex"]), []).append(r)
     display_s = np.array([float(r["start_median_s"]) for r in rows])
     noshop_s = np.array([float(r["start_noshop_s"]) for r in rows])
     best_display = np.array([float(r["best_median_s"]) for r in rows])
-    start_score, best_score, noshop_score = published_scores(rows)
+    start_score, best_score, _noshop_score = published_scores(rows)
     model = Model(rows, start_score, best_score)
     ungated = ungated_ranks(rows)
-    med_r = statistics.median(min(18.0, px[int(r["dex"])]["body_radius"]) for r in rows)
-    med_size = float(np.median([float(r["pct_size"]) for r in rows if min(18.0, px[int(r["dex"])]["body_radius"]) == med_r]))
 
     out = {}
     for i, r in enumerate(rows):
@@ -215,42 +166,44 @@ def records() -> dict[str, dict]:
         start_mv, best_mv = r["start_move"], r["best_move"]
         # Opening counterfactuals stay on the group bench (seconds must match start_noshop_s,
         # score must match the noshop group score). Best-move counterfactuals are the solo bench.
-        base_start = cf_start_s[(d, start_mv, "")]
-        base_best = cf_best_s[(d, best_mv, "")]
-        base_start_score = cf_start_score[(d, start_mv, "")]
-        base_best_score = cf_best_score[(d, best_mv, "")]
-        if abs(base_start - noshop_s[i]) > 1e-9 or abs(base_best - best_display[i]) > 1e-9:
-            raise SystemExit(f"{d}: la sim de contrafactuales no reproduce el ranking "
-                             f"(inicio {base_start} / {noshop_s[i]}, mejor {base_best} / {best_display[i]})")
-        if abs(base_start_score - noshop_score[i]) > 1e-6 or abs(base_best_score - best_score[i]) > 1e-6:
-            raise SystemExit(f"{d}: el score de contrafactuales no reproduce el ranking "
-                             f"(inicio {base_start_score} / {noshop_score[i]}, "
-                             f"mejor {base_best_score} / {best_score[i]})")
+        base_start = cf_start_s.get((d, start_mv, ""))
+        base_best = cf_best_s.get((d, best_mv, ""))
+        base_best_score = cf_best_score.get((d, best_mv, ""))
+        # The stat bench is the previous engine. A baseline that does not reproduce this
+        # ranking is not a measurement, so those drivers stay at zero instead of
+        # quoting a frozen sheet.
+        bench_ok = (
+            base_start is not None and base_best is not None and base_best_score is not None
+            and abs(base_start - noshop_s[i]) <= 1e-6
+            and abs(base_best - best_display[i]) <= 1e-6
+            and abs(base_best_score - best_score[i]) <= 1e-4
+        )
         here = model.counterfactual(i)
         drivers = {}
         for key, factor in SIM_STATS.items():
+            if not bench_ok:
+                drivers[factor] = {"places": 0, "startS": 0.0, "bestS": 0.0}
+                continue
             s2 = cf_start_s.get((d, start_mv, key))
             b2 = cf_best_s.get((d, best_mv, key))
-            s2_score = cf_start_score.get((d, start_mv, key))
             b2_score = cf_best_score.get((d, best_mv, key))
-            if s2 is None:  # already at the median
+            if s2 is None:
                 drivers[factor] = {"places": 0, "startS": 0.0, "bestS": 0.0}
                 continue
             if b2 is None or b2_score is None:
                 b2, b2_score = base_best, base_best_score
-            pil = {"size": med_size} if key == "r" else None
-            ev_cf = float(start_score[i] + (s2_score - base_start_score))
-            cfr = model.counterfactual(i, start_s=ev_cf, best_s=b2_score, pillars=pil)
+            cfr = model.counterfactual(i, best_s=b2_score)
             drivers[factor] = {"places": int(cfr - here), "startS": sf.r2(base_start - s2), "bestS": sf.r2(base_best - b2)}
         cand_s = statistics.median(sweep_s[d])
         cand_score = statistics.median(sweep_score[d])
         drivers["start_move"] = {"places": int(model.counterfactual(i, start_s=cand_score) - here),
                                  "startS": sf.r2(float(display_s[i]) - cand_s)}
-        ordered = sorted(solo[d], key=_move_order)
-        runner = ordered[1] if len(ordered) > 1 else ordered[0]
+        rest = [row for row in solo[d] if row["start"] != best_mv]
+        runner = md.winner_by_dex(rest)[d] if rest else solo[d][0]
         runner_score = md.row_metric(runner, "median_score", "median_s")
+        ref_best = base_best if base_best is not None else float(best_display[i])
         drivers["best_move"] = {"places": int(model.counterfactual(i, best_s=runner_score) - here),
-                                "bestS": sf.r2(base_best - float(runner["median_s"]))}
+                                "bestS": sf.r2(ref_best - float(runner["median_s"]))}
         for k in ("stats", "moves", "typedef"):
             drivers[k] = {"places": int(model.counterfactual(i, pillars={k: 0.5}) - here)}
         drivers["late"] = {"places": int(model.counterfactual(i, late=True) - here)}

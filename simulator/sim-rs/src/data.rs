@@ -398,15 +398,8 @@ impl Data {
                 bst: num(p, "bst"),
             })
             .collect::<Vec<Mon>>();
-        // moves.js poolFor puts every normal move in every pool. nasty-plot landed in
-        // e868b5e after this export was written, so it is missing from `pool` until here.
-        let nasty_ix = move_ix["nasty-plot"];
-        let mut dex = dex;
-        for mon in &mut dex {
-            if !mon.pool.contains(&nasty_ix) {
-                mon.pool.push(nasty_ix);
-            }
-        }
+        // nasty-plot is in each pool in v3_data.json. moves.js poolFor puts every
+        // normal move in every pool, and the export now includes Maquinación there.
 
         let tiers = raw["tiers"]
             .as_array()

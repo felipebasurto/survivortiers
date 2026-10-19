@@ -6,32 +6,75 @@ test_pasivas.py recalcula cada cifra desde el CSV y falla si no cuadra. Cada tex
 """
 from __future__ import annotations
 
+import csv
 import json
 import re
 from html import escape
 from pathlib import Path
+from statistics import median
 
 import gamestats
 import toolpages
 from i18n import Lang, NBSP
 
 DATA = Path(__file__).resolve().parent.parent / "data"
+RANK_CSV = Path(__file__).resolve().parent.parent / "simulator" / "results" / "fixed_group" / "pasivas_rank_g2p2.csv"
 ICONS = json.loads((DATA / "card_icons.json").read_text(encoding="utf8"))
 ITEM_ICONS = json.loads((DATA / "item_icons.json").read_text(encoding="utf8"))
 MOVE_ICONS = json.loads((DATA / "move_icons.json").read_text(encoding="utf8"))
 ICON_LETTERS = "abcdefghijklmnopqrstuvwxyz"
 
 # Orden de cogida: de más a menos monedas. fill es el índice de carta de simulator/pasivas_rank.py.
-CARDS = [
-    {"id": "rgn", "name": ("Síntesis", "Synthesis"), "fill": "5", "coin": 6.1, "surv": 5.6, "kpm": -0.5},
-    {"id": "hp", "name": ("Vigor", "Vigor"), "fill": "2", "coin": 1.6, "surv": 2.2, "kpm": -0.4},
-    {"id": "atk", "name": ("Potencia", "Power"), "fill": "0", "coin": 0.0, "surv": 0.0, "kpm": 0.0},
-    {"id": "def", "name": ("Coraza", "Armor"), "fill": "3", "coin": 0.0, "surv": -0.4, "kpm": -0.9},
-    {"id": "cd", "name": ("Reflejos", "Reflexes"), "fill": "4", "coin": 0.0, "surv": -0.5, "kpm": 0.8},
-    {"id": "spd", "name": ("Carrera", "Sprint"), "fill": "1", "coin": 0.0, "surv": -0.6, "kpm": -1.5},
-    {"id": "xp", "name": ("Aprendizaje", "Learning"), "fill": "7", "coin": -0.7, "surv": -1.3, "kpm": -0.6},
-    {"id": "mag", "name": ("Imán", "Magnet"), "fill": "6", "coin": -3.1, "surv": -2.0, "kpm": -1.0},
+# coin / surv / kpm se miden en pasivas_rank_g2p2.csv (mediana de la subida frente a la base).
+_CARD_META = [
+    {"id": "rgn", "name": ("Síntesis", "Synthesis"), "fill": "5"},
+    {"id": "hp", "name": ("Vigor", "Vigor"), "fill": "2"},
+    {"id": "atk", "name": ("Potencia", "Power"), "fill": "0"},
+    {"id": "def", "name": ("Coraza", "Armor"), "fill": "3"},
+    {"id": "cd", "name": ("Reflejos", "Reflexes"), "fill": "4"},
+    {"id": "spd", "name": ("Carrera", "Sprint"), "fill": "1"},
+    {"id": "xp", "name": ("Aprendizaje", "Learning"), "fill": "7"},
+    {"id": "mag", "name": ("Imán", "Magnet"), "fill": "6"},
 ]
+
+
+def _card_lifts() -> dict[str, dict[str, float]]:
+    """Median percent lift of each stat card versus the no-card row. Same definition as test_pasivas."""
+    rows = list(csv.DictReader(RANK_CSV.open(encoding="utf8")))
+    by: dict[tuple[str, str, str], dict] = {}
+    for row in rows:
+        by.setdefault((row["item"], row["fill"], row.get("heal_below", "")), {})[(row["dex"], row["move"])] = row
+    base = by[("none", "", "0.70")]
+    out = {}
+    for meta in _CARD_META:
+        treat = by[("none", meta["fill"], "0.70")]
+        stats = {}
+        for field, key in (("median_coins", "coin"), ("median_s", "surv"), ("median_kpm", "kpm")):
+            vals = []
+            for k, b in base.items():
+                if k not in treat:
+                    continue
+                b0 = float(b[field])
+                if b0 <= 0:
+                    continue
+                vals.append((float(treat[k][field]) - b0) / b0)
+            stats[key] = round(100 * median(vals), 1)
+        out[meta["fill"]] = stats
+    return out
+
+
+def _cards() -> list[dict]:
+    lifts = _card_lifts()
+    cards = []
+    for meta in _CARD_META:
+        row = dict(meta)
+        row.update(lifts[meta["fill"]])
+        cards.append(row)
+    cards.sort(key=lambda c: (-c["coin"], -c["surv"], -c["kpm"], c["fill"]))
+    return cards
+
+
+CARDS = _cards()
 
 # levelup.js:26-27. Cura el 45% de la vida máxima de golpe. Se coge solo con hp/maxHp <= 0.70.
 ZIDRA = {

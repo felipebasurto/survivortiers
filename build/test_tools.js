@@ -72,11 +72,12 @@ check('cada build recomendada: sin repetidos, máximo 2 potenciadores, ids en el
   for (const p of index) {
     const rec = tools.recommended(p.dex, species, game);
     const pool = tools.poolOf(p.types, game.pool);
+    const known = new Set([...pool, ...species.d[String(p.dex)][9][2]]);
     const ids = rec.group.filter(Boolean);
     assert.equal(new Set(ids).size, ids.length, 'repetido en ' + p.dex);
     assert.ok(ids.length <= tools.PLAN_SLOTS, 'más de cuatro en ' + p.dex);
     assert.ok(tools.boostsOf(game.moves, ids).length <= tools.BOOST_CAP, 'más de dos potenciadores en ' + p.dex);
-    for (const id of ids) assert.ok(pool.has(id), id + ' fuera del grupo de ' + p.dex);
+    for (const id of ids) assert.ok(known.has(id), id + ' fuera del grupo de ' + p.dex);
     if (rec.swap) swaps.push(p.dex);
   }
 });

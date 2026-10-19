@@ -45,10 +45,14 @@ def task_lines() -> list[str]:
 
 
 def order_key(row: dict) -> tuple:
+    """Coins first. A tie breaks on survival, then kills per minute, then the fill index."""
+    kpm = row.get("median_kpm")
+    kpm_v = float(kpm) if kpm not in (None, "") else float(row.get("median_kills") or 0)
     return (
         -float(row["median_coins"]),
         -float(row["median_s"]),
-        -float(row["mean_s"]),
+        -float(row.get("mean_s") or 0),
+        -kpm_v,
         int(row["fill"]),
     )
 

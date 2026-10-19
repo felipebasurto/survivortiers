@@ -76,16 +76,22 @@ struct Cfg {
     heal_below: f64,
     /// fraction of combat damage ignored. 0 = the bot eats every hit.
     dodge: f64,
+    /// `--bot` was passed. Otherwise a faithful run uses Play.
+    bot_set: bool,
     /// stat index:count pairs. Start with that many and do not take more. 7 = Aprendizaje.
     locks: Vec<(u8, u32)>,
     /// Score status+Hex groups, not only the solo-sorted partner.
     synergy: bool,
     no_synergy: bool,
+    /// First seed is `seed0 + 1`. The same block is used for every build (common random numbers).
+    seed0: u32,
+    /// Print the group-search size and exit.
+    count: bool,
     rest: Vec<String>,
 }
 
 fn parse(args: &[String]) -> Cfg {
-    let mut c = Cfg { seeds: 200, seconds: 900.0, bot: Bot::Repulse, cards: true, terrain: false, status: false, out: None, group: 0, dd: false, np: false, agi: false, xkinds: false, legacy: false, item: "none".into(), fill: vec![], buffs: None, comps: None, swap: false, crit: 0.0, full_cards: false, stop: 0, heal_below: 0.0, dodge: 0.0, locks: vec![], synergy: false, no_synergy: false, rest: vec![] };
+    let mut c = Cfg { seeds: 200, seconds: 900.0, bot: Bot::Repulse, cards: true, terrain: false, status: false, out: None, group: 0, dd: false, np: false, agi: false, xkinds: false, legacy: false, item: "none".into(), fill: vec![], buffs: None, comps: None, swap: false, crit: 0.0, full_cards: false, stop: 0, heal_below: 0.0, dodge: 0.0, locks: vec![], synergy: false, no_synergy: false, bot_set: false, seed0: 0, count: false, rest: vec![] };
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
@@ -93,16 +99,23 @@ fn parse(args: &[String]) -> Cfg {
                 i += 1;
                 c.seeds = args[i].parse().expect("--seeds");
             }
+            "--seed0" => {
+                i += 1;
+                c.seed0 = args[i].parse().expect("--seed0");
+            }
+            "--count" => c.count = true,
             "--seconds" => {
                 i += 1;
                 c.seconds = args[i].parse().expect("--seconds");
             }
             "--bot" => {
                 i += 1;
+                c.bot_set = true;
                 c.bot = match args[i].as_str() {
                     "repulse" => Bot::Repulse,
                     "line" => Bot::Line,
                     "kite" => Bot::Kite,
+                    "play" => Bot::Play,
                     b => panic!("unknown bot {b}"),
                 };
             }
@@ -193,7 +206,7 @@ fn read_partners(path: &str) -> HashMap<u32, Vec<String>> {
         let score = c.get(16).and_then(|s| s.parse().ok()).unwrap_or(time);
         // A move that never lands is not a partner. Missing column (older sweeps) stays eligible.
         let dealt: f64 = c.get(15).and_then(|s| s.parse().ok()).unwrap_or(1.0);
-        if dealt <= 0.0 {
+        if dealt <= 0.0 || c[3] == "buff" {
             continue;
         }
         rows.push((c[0].parse().unwrap(), c[2].to_string(), c[3].to_string(), score));
@@ -201,12 +214,7 @@ fn read_partners(path: &str) -> HashMap<u32, Vec<String>> {
     }
     rows.sort_by(|a, b| a.0.cmp(&b.0).then(b.3.partial_cmp(&a.3).unwrap()).then(a.1.cmp(&b.1)));
     let mut m: HashMap<u32, Vec<String>> = HashMap::new();
-    for (d, mv, kind, _) in rows {
-        // Orbit shares one orb list. Sustituto is a turret (moves.js): its shots deal damage,
-        // but it is not an attack the build bonds. Buffs are the other slots.
-        if kind == "orbit" || kind == "buff" || kind == "turret" {
-            continue;
-        }
+    for (d, mv, _kind, _) in rows {
         m.entry(d).or_default().push(mv);
     }
     m
@@ -243,9 +251,9 @@ fn partner_pool(data: &Data, mon: &Mon, start: usize) -> Vec<usize> {
                 return false;
             }
             let m = &data.moves[ix];
-            // Orbit shares one orb list (engine step_orbs). Gengar's melee ban is an owner
-            // build rule in the publisher, not a filter here.
-            if m.kind == Kind::Orbit || !publishable_attack(m) {
+            // A second orbit uses its own orb list (step_side_orbs). Gengar's melee ban
+            // is the publisher's rule (build/owner_rules.py), not a second copy here.
+            if !publishable_attack(m) {
                 return false;
             }
             m.kind.simulated() || m.levels[0].xk != 0
@@ -257,6 +265,22 @@ fn partner_pool(data: &Data, mon: &Mon, start: usize) -> Vec<usize> {
         syn(a).cmp(&syn(b)).then(rank(a).cmp(&rank(b))).then(data.moves[a].id.cmp(&data.moves[b].id))
     });
     ids
+}
+
+/// Buff ids from data/owner_rules.json. One file for the publisher and the sim.
+fn owner_buffs() -> (&'static str, &'static str) {
+    use std::sync::OnceLock;
+    static IDS: OnceLock<(String, String)> = OnceLock::new();
+    let (physical, special) = IDS.get_or_init(|| {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data/owner_rules.json");
+        let text = std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
+        let v: serde_json::Value = serde_json::from_str(&text).expect("owner_rules.json");
+        (
+            v["physical_buff"].as_str().unwrap().to_string(),
+            v["special_buff"].as_str().unwrap().to_string(),
+        )
+    });
+    (physical, special)
 }
 
 /// Maquinación when the lead attack is special. A physical lead, including a mixed pair,
@@ -327,13 +351,15 @@ fn bot_name(b: Bot) -> &'static str {
         Bot::Repulse => "repulse",
         Bot::Line => "line",
         Bot::Kite => "kite",
+        Bot::Play => "play",
     }
 }
 
 fn run_species(data: &Data, tables: &Tables, mon: &Mon, start: usize, cfg: &Cfg) -> Summary {
     let ext = ext_for(data, mon, start, cfg);
     let runs: Vec<RunResult> = (1..=cfg.seeds)
-        .map(|seed| {
+        .map(|i| {
+            let seed = cfg.seed0 + i;
             let opts = Opts { seed, seconds: cfg.seconds, cards: cfg.cards, bot: cfg.bot, terrain: cfg.terrain, trace: false, status: cfg.status, ext: ext.clone() };
             run_match(&Libm, data, tables, mon, start, &opts)
         })
@@ -407,7 +433,7 @@ fn read_old_rank(path: &str) -> HashMap<u32, usize> {
 }
 
 fn cmp_desc(a: f64, b: f64) -> std::cmp::Ordering {
-    b.partial_cmp(&a).unwrap()
+    b.total_cmp(&a)
 }
 
 fn finite_pos(x: f64) -> bool {
@@ -422,15 +448,20 @@ fn is_applier(l: &data::MoveLvl) -> bool {
     finite_pos(l.burn) || finite_pos(l.poison) || finite_pos(l.slow)
 }
 
-/// Attacks the bonded group can cast. Orbit stays out (one shared orb list).
+/// Attacks the bonded group can cast, orbit included. A buff is not an attack.
 fn castable(m: &data::Move) -> bool {
-    m.kind != Kind::Orbit && (m.kind.simulated() || m.levels[0].xk != 0)
+    publishable_attack(m) && (m.kind.simulated() || m.levels[0].xk != 0 || m.kind == Kind::Orbit)
 }
 
-/// A move the published build can call its attack. Sustituto (`turret`, moves.js) shoots
-/// for the player, so its dealt damage is real, but it is not that attack. Buffs neither.
+/// An attacking move: it deals damage and it is not a buff. Turret, orbit and melee
+/// qualify. A move that deals nothing cannot be "best" because its run score is 0.
 fn publishable_attack(m: &data::Move) -> bool {
-    m.kind_name != "buff" && m.kind_name != "turret"
+    if m.kind_name == "buff" {
+        return false;
+    }
+    let l = &m.levels[0];
+    let dmg = if l.dmg.is_finite() { l.dmg } else { 0.0 };
+    dmg > 0.0 && l.buff == 0
 }
 
 fn level_dps(l: &data::MoveLvl) -> f64 {
@@ -451,7 +482,7 @@ struct Spec {
 /// a move takes the better of the two ranks. Six is enough to cover the attacks
 /// that actually win a fixed group (Shadow Ball and Aura Sphere sit here for Marshadow)
 /// without the full pool cross product.
-const PAIR_TOP: usize = 6;
+const PAIR_TOP: usize = 4;
 
 fn attack_list(data: &Data, mon: &Mon) -> Vec<usize> {
     let mut atk: Vec<usize> = mon.pool.iter().copied().filter(|&ix| {
@@ -537,6 +568,12 @@ fn top_attacks(data: &Data, mon: &Mon, atk: &[usize]) -> Vec<usize> {
         solo_pos(a).min(tier_pos(a)).cmp(&solo_pos(b).min(tier_pos(b))).then(data.moves[a].id.cmp(&data.moves[b].id))
     });
     ranked.truncate(PAIR_TOP);
+    if !ranked.contains(&mon.start) && atk.contains(&mon.start) {
+        if ranked.len() == PAIR_TOP {
+            ranked.pop();
+        }
+        ranked.push(mon.start);
+    }
     ranked
 }
 
@@ -551,35 +588,31 @@ fn dedup_specs(specs: Vec<Spec>) -> Vec<Spec> {
     out
 }
 
-/// Every fixed group worth scoring for a species that has a synergy relation
-/// (Hex with burn/poison/slow, or two dashes).
+/// Every species gets a real group search. The cross is pruned: the top attacks
+/// (solo sweep or the move-tier list, whichever ranks the move higher), both
+/// leads, Harden against one third attack, Hex with its best appliers, and dash
+/// pairs. A species with fewer than two attacks has nothing to bond.
 ///
-/// Status + Hex, both leads, and the three strongest appliers as two appliers + Hex
-/// + Swords Dance, as before. Plus every ordered pair among the top `PAIR_TOP`
-/// attacks with Swords Dance and Harden — the same 2+2 shape as the published
-/// rank. Plus every ordered pair of dashes, even when Quick Attack is outside
-/// that top six (a dash pair can beat a higher-tier lead by tens of seconds).
-/// The winner is whichever group has the higher median, then the higher mean.
-/// A synergy partner is only the recommendation when it actually wins that comparison.
-/// Every group holds an attack buff (bit 1). The move is Maquinación when the lead attack is
-/// special, otherwise Danza Espada. A mixed pair follows that lead. The fourth slot is Harden
-/// (`buffs` 3, one partner) or a third attack (`buffs` 1). Harden is not the default:
-/// both shapes are scored and the higher median, then mean, wins.
-/// Gengar may be searched with a melee move. The publisher drops that build.
+/// Every group holds an attack buff (bit 1). The move is Maquinación when the lead
+/// attack is special, otherwise Danza Espada. A mixed pair follows that lead. The
+/// fourth slot is Harden (`buffs` 3) or a third attack (`buffs` 1). Gengar may be
+/// searched with a melee move. The publisher drops that build (`owner_rules`).
 fn synergy_specs(data: &Data, mon: &Mon) -> Vec<Spec> {
     let atk = attack_list(data, mon);
-    let linked = atk.iter().any(|&a| atk.iter().any(|&b| a != b && pairs_with(data, a, b)));
-    let pay: Vec<usize> = atk.iter().copied().filter(|&ix| is_payoff(&data.moves[ix].levels[0])).collect();
-    let mut app: Vec<usize> = atk.iter().copied().filter(|&ix| is_applier(&data.moves[ix].levels[0])).collect();
-    if !linked && (pay.is_empty() || app.is_empty()) {
+    if atk.len() < 2 {
         return vec![];
     }
+    let pay: Vec<usize> = atk.iter().copied().filter(|&ix| is_payoff(&data.moves[ix].levels[0])).collect();
+    let mut app: Vec<usize> = atk.iter().copied().filter(|&ix| is_applier(&data.moves[ix].levels[0])).collect();
     app.sort_by(|&a, &b| {
         level_dps(&data.moves[b].levels[0])
             .partial_cmp(&level_dps(&data.moves[a].levels[0]))
             .unwrap_or(std::cmp::Ordering::Equal)
             .then(data.moves[a].id.cmp(&data.moves[b].id))
     });
+    // Two payoffs and three appliers. The full cross is the same shape and a lot of seeds.
+    let pay: Vec<usize> = pay.into_iter().take(2).collect();
+    app.truncate(3);
     let mut out = Vec::new();
     if !pay.is_empty() && !app.is_empty() {
         for &p in &pay {
@@ -664,12 +697,13 @@ fn group_name(data: &Data, mon: &Mon, start: usize, comps: &[usize], buffs: u8, 
         parts.push(data.moves[c].id.clone());
     }
     if buffs & 1 != 0 {
+        let (physical, special) = owner_buffs();
         let buff = if use_nasty(data, mon, start, comps, cfg) {
-            "nasty-plot"
+            special
         } else if cfg.dd {
             "dragon-dance"
         } else {
-            "swords-dance"
+            physical
         };
         parts.push(buff.to_string());
     }
@@ -948,13 +982,16 @@ fn with_mods(mon: &Mon, mods: &str) -> Mon {
 }
 
 fn cfg_clone(c: &Cfg) -> Box<Cfg> {
-    Box::new(Cfg { seeds: c.seeds, seconds: c.seconds, bot: c.bot, cards: c.cards, terrain: c.terrain, status: c.status, out: None, group: c.group, dd: c.dd, np: c.np, agi: c.agi, xkinds: c.xkinds, legacy: c.legacy, item: c.item.clone(), fill: c.fill.clone(), buffs: c.buffs, comps: c.comps.clone(), swap: c.swap, crit: c.crit, full_cards: c.full_cards, stop: c.stop, heal_below: c.heal_below, dodge: c.dodge, locks: c.locks.clone(), synergy: c.synergy, no_synergy: c.no_synergy, rest: vec![] })
+    Box::new(Cfg { seeds: c.seeds, seconds: c.seconds, bot: c.bot, cards: c.cards, terrain: c.terrain, status: c.status, out: None, group: c.group, dd: c.dd, np: c.np, agi: c.agi, xkinds: c.xkinds, legacy: c.legacy, item: c.item.clone(), fill: c.fill.clone(), buffs: c.buffs, comps: c.comps.clone(), swap: c.swap, crit: c.crit, full_cards: c.full_cards, stop: c.stop, heal_below: c.heal_below, dodge: c.dodge, locks: c.locks.clone(), synergy: c.synergy, no_synergy: c.no_synergy, bot_set: c.bot_set, seed0: c.seed0, count: c.count, rest: vec![] })
 }
 
 fn cmp_run(a: &Summary, b: &Summary) -> std::cmp::Ordering {
+    // A total order. Overlapping score intervals are still a tie on the page
+    // (build/combos.py); folding that test into the sort is not transitive.
     cmp_desc(a.median_score, b.median_score)
         .then(cmp_desc(a.mean_score, b.mean_score))
         .then(cmp_desc(a.median_s, b.median_s))
+        .then(cmp_desc(a.median_kills, b.median_kills))
 }
 
 fn score_tail(s: &Summary) -> String {
@@ -963,10 +1000,19 @@ fn score_tail(s: &Summary) -> String {
 
 fn synergy_cmd(data: &Data, cfg: &Cfg) {
     let mut jobs = Vec::new();
+    let mut covered = 0usize;
     for mon in &data.dex {
-        for spec in synergy_specs(data, mon) {
+        let specs = synergy_specs(data, mon);
+        if !specs.is_empty() {
+            covered += 1;
+        }
+        for spec in specs {
             jobs.push(Job { mon, start: spec.start, comps: Some(spec.comps), buffs: Some(spec.buffs) });
         }
+    }
+    if cfg.count {
+        println!("species {covered} groups {}", jobs.len());
+        return;
     }
     eprintln!(
         "synergy: {} groups x {} seeds, {} threads (terrain, status, group {})",
@@ -1058,6 +1104,81 @@ fn rank(data: &Data, cfg: &Cfg) {
     eprintln!("wrote {path}");
 }
 
+fn formulas_cmd(data: &Data) {
+    fn ty(name: &str) -> u8 {
+        data::TYPES.iter().position(|t| *t == name).unwrap() as u8
+    }
+    fn combo_for(data: &Data, names: &[&str]) -> u16 {
+        let want: Vec<u8> = names.iter().copied().map(ty).collect();
+        if let Some(mon) = data.dex.iter().find(|m| m.types == want) {
+            return mon.combo;
+        }
+        data.dex
+            .iter()
+            .find(|m| {
+                let mut a = m.types.clone();
+                let mut b = want.clone();
+                a.sort();
+                b.sort();
+                a == b
+            })
+            .unwrap_or_else(|| panic!("no species with types {names:?}"))
+            .combo
+    }
+    let num = |v: f64| format!("{:.10}", v);
+    let mut hits = Vec::new();
+    let cases = [
+        ("ghost", &["psychic"][..], 40.0, 1.2, 80.0, 40.0, 30.0, 10.0, 2u8),
+        ("fire", &["grass", "steel"][..], 55.0, 1.0, 75.0, 75.0, 20.0, 0.0, 1u8),
+        ("water", &["fire"][..], 12.0, 2.5, 200.0, 40.0, 100.0, 50.0, 2u8),
+        ("normal", &["ghost"][..], 80.0, 1.0, 50.0, 50.0, 5.0, 0.0, 1u8),
+        ("dragon", &["fairy"][..], 90.0, 0.8, 10.0, 120.0, 8.0, 4.0, 1u8),
+    ];
+    for (atk, defs, dmg, atk_mul, df, sd, hp, shield, cat) in cases {
+        let def = if cat == 2 { sd } else { df };
+        let taken = engine::defense_guard(def);
+        let combo = combo_for(data, defs);
+        let dealt = engine::faithful_hit_dealt(hp, shield, dmg, atk_mul, ty(atk), combo, &data.tmult, taken, cat);
+        let mult = data.tmult[ty(atk) as usize][combo as usize];
+        hits.push(format!(
+            "{{\"atk\":\"{atk}\",\"def\":\"{}\",\"mult\":{},\"taken\":{},\"dealt\":{}}}",
+            defs.join("/"),
+            num(mult),
+            num(taken),
+            num(dealt)
+        ));
+    }
+    let guards: Vec<String> = [0.0, 5.0, 75.0, 150.0, 400.0]
+        .into_iter()
+        .map(|d| format!("{{\"def\":{},\"v\":{}}}", num(d), num(engine::defense_guard(d))))
+        .collect();
+    let spawns: Vec<String> = [0.0, 32.0, 60.0, 105.0, 180.0, 600.0]
+        .into_iter()
+        .map(|t| format!("{{\"t\":{},\"rate\":{}}}", num(t), num(engine::spawn_per_second(t))))
+        .collect();
+    let caps: Vec<String> = [100.0, 130.0, 180.0, 260.0]
+        .into_iter()
+        .map(|s| format!("{{\"spd\":{},\"v\":{}}}", num(s), num(engine::cap_spd(s))))
+        .collect();
+    let touch: Vec<String> = [0.0, 420.0, 600.0, 900.0]
+        .into_iter()
+        .map(|t| format!("{{\"arena\":{},\"v\":{}}}", num(t), num(engine::judgment_touch_pct(t))))
+        .collect();
+    let chase: Vec<String> = [0.0, 100.0, 300.0, 600.0]
+        .into_iter()
+        .map(|t| format!("{{\"arena\":{},\"v\":{}}}", num(t), num(engine::judgment_chase_k(t))))
+        .collect();
+    println!(
+        "{{\"guard\":[{}],\"spawn\":[{}],\"capSpd\":[{}],\"touch\":[{}],\"chase\":[{}],\"hit\":[{}]}}",
+        guards.join(","),
+        spawns.join(","),
+        caps.join(","),
+        touch.join(","),
+        chase.join(","),
+        hits.join(",")
+    );
+}
+
 fn find<'a>(data: &'a Data, dex: &str, mv: &str) -> (&'a Mon, usize) {
     let dex: u32 = dex.parse().expect("dex");
     let mon = data.dex.iter().find(|m| m.dex == dex).expect("dex not found");
@@ -1094,17 +1215,23 @@ fn main() {
         cfg.status = true;
         cfg.terrain = true;
     }
+    // Faithful runs (status, extra kinds, or a fixed group) play with the kite bot.
+    // `--bot repulse` keeps the old policy for a before/after check. Parity never sets these.
+    if !cfg.bot_set && (cfg.status || cfg.xkinds || cfg.group > 0) {
+        cfg.bot = Bot::Play;
+    }
     let data = Data::load("v3/v3_data.json");
     let t0 = Instant::now();
     match cfg.rest.first().map(String::as_str) {
         Some("sweep") => sweep(&data, &cfg),
+        Some("formulas") => formulas_cmd(&data),
         Some("rank") => rank(&data, &cfg),
         Some("synergy") => synergy_cmd(&data, &cfg),
         Some("tasks") => tasks_cmd(&data, &cfg),
         Some("run") => {
             let (mon, start) = find(&data, &cfg.rest[1], &cfg.rest[2]);
-            let opts = Opts { seed: cfg.rest[3].parse().unwrap(), seconds: cfg.seconds, cards: cfg.cards, bot: cfg.bot, terrain: cfg.terrain, trace: false, status: cfg.status, ext: Ext::default() };
-            let opts = Opts { trace: cfg.out.is_some(), ..opts };
+            let ext = ext_for(&data, mon, start, &cfg);
+            let opts = Opts { seed: cfg.rest[3].parse().unwrap(), seconds: cfg.seconds, cards: cfg.cards, bot: cfg.bot, terrain: cfg.terrain, trace: cfg.out.is_some(), status: cfg.status, ext };
             print_result(&run_match(&Libm, &data, &Tables::new(), mon, start, &opts));
             if let Some(path) = cfg.out.as_ref().filter(|p| p.ends_with(".json")) {
                 // Compact trace for a browser replay: [t, hp, x, y, enemies, shots, enemy shots],

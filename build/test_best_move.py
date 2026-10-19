@@ -25,15 +25,28 @@ class BestMove(unittest.TestCase):
         self.assertTrue(all(float(row["median_dealt"]) > 0 for row in subs))
         self.assertTrue(all(row["kind"] == "turret" for row in subs))
 
-    def test_no_species_publishes_substitute(self):
-        dexes = {int(row["dex"]) for row in self.rows}
-        self.assertEqual(set(self.winners), dexes)
-        bad = [
-            dex
-            for dex, row in self.winners.items()
-            if row["start"] == "substitute" or row["kind"] in ("turret", "buff", "orbit")
-        ]
-        self.assertEqual(bad, [])
+    def test_a_buff_cannot_win_and_zero_damage_cannot_win(self):
+        buff = {
+            "dex": "2",
+            "start": "swords-dance",
+            "kind": "buff",
+            "median_s": "200",
+            "mean_s": "200",
+            "median_score": "999",
+            "mean_score": "999",
+            "median_dealt": "0",
+        }
+        turret = {
+            "dex": "2",
+            "start": "substitute",
+            "kind": "turret",
+            "median_s": "50",
+            "mean_s": "50",
+            "median_score": "10",
+            "mean_score": "10",
+            "median_dealt": "40",
+        }
+        self.assertEqual(md.winner_by_dex([buff, turret])[2]["start"], "substitute")
 
     def test_gengar_best_move_is_not_melee(self):
         row = self.winners[94]

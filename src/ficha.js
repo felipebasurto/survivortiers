@@ -429,6 +429,7 @@
     const rarity = '<span class="rarity r' + p.rarity + '" role="img" aria-label="' + rarityName + '" title="' + rarityName + '">' +
       '<svg class="rball" viewBox="0 0 12 12" aria-hidden="true"><use href="#rball-' + p.rarity + '"/></svg></span>';
     const legendary = p.legendary ? '<span class="chip">' + esc(t('legendary')) + '</span>' : '';
+    const lo = p.r[2], hi = p.r[3];
     const rankTitle = esc(t('ficha_rank', { rank, total: TOTAL }));
     return '<header class="ficha-head">' +
       '<div class="ficha-sprite" style="--tc:' + (TYPE_COLOR[p.types[0]] || '#888') + ';--tc2:' + (TYPE_COLOR[p.types[1] || p.types[0]] || '#888') + '">' +
@@ -436,7 +437,8 @@
       '<span class="tier-badge medal ' + tier + '" title="' + esc(t('tier', { t: tier })) + '">' + tier + '</span></div>' +
       '<div class="fh-main"><h1>' + esc(name) + ' <span class="fh-game">' + esc(t('fh_game')) + '</span> ' + otherName + '<small class="fh-dex">' + esc(t('dex_no', { dex: p.dex })) + '</small></h1>' +
       '<div class="facts">' + pills + rarity + legendary + tpl('tpl-regions', 'data-gen', p.bannerId) + '</div>' +
-      '<p class="rankline" title="' + rankTitle + '" aria-label="' + rankTitle + '"><i class="ico ico-trophy" aria-hidden="true"></i><strong>' + rank + '</strong><span>/ ' + TOTAL + '</span></p>' +
+      '<p class="rankline" title="' + rankTitle + '" aria-label="' + rankTitle + '"><i class="ico ico-trophy" aria-hidden="true"></i><strong>' + rank + '</strong><span>/ ' + TOTAL + '</span>' +
+      (lo != null && hi != null ? '<span class="rankband">' + esc(t('band_range', { lo, hi })) + '</span>' : '') + '</p>' +
       '<p class="fresh">' + esc(t('fresh')) + '</p>' +
       '</div>' + (sum || '') + '</header>';
   }
@@ -478,7 +480,7 @@
 
   function render(p, d, range, moveName, prev, next, moves, medians, items, cards, text) {
     const name = EN ? p.nameEn : p.name;
-    const [rank, tier] = p.r;
+    const [rank, tier, lo, hi] = p.r;
     const back = '<a class="back" href="' + home + 'index.html"><b aria-hidden="true">‹</b>' + esc(t('crumb_home')) + '</a>';
     const stats = panel('stats', 'heart', t('t_base'), statSpark(d[8]), baseStats(d, medians, name));
     const learnable = panel('moves', 'sword', t('t_learn'), '<b class="fx-n">' + learnPool(p, moves).length + '</b>', learn(p, d, moves));

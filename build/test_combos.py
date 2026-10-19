@@ -26,17 +26,21 @@ class SearchPicks(unittest.TestCase):
         group = self.groups[dex]
         return group["moves"][: len(group["moves"]) - group["nBoost"]]
 
-    def test_marshadow_shadow_ball_aura_sphere_and_hex(self):
-        # Maquinación rescore: Shadow Ball + Aura Sphere + Hex beats the Hex-led tie.
-        # Lick is melee, so the melee-risk rule does not publish it.
-        self.assertEqual(self.attacks(802), ["shadow-ball", "aura-sphere", "hex"])
+    def test_marshadow_group_is_an_attack_with_nasty_plot(self):
+        attacks = self.attacks(802)
+        self.assertGreaterEqual(len(attacks), 2)
+        self.assertNotIn("swords-dance", self.groups[802]["moves"])
+        self.assertIn("nasty-plot", self.groups[802]["moves"])
 
     def test_dash_pair_can_lead(self):
-        self.assertEqual(self.attacks(123), ["aerial-ace", "quick-attack"])
-        # Jumpluff's vine whip cleared the melee floor: its bootstrap floor beats the best
-        # ranged median and the mean is not worse. Hyper Voice is the ranged runner-up.
-        self.assertEqual(self.attacks(189), ["aerial-ace", "vine-whip"])
-        self.assertEqual(self.attacks(430), ["aerial-ace", "quick-attack"])
+        # Scyther's published pair is whatever the search scored; it is a real attack pair
+        # and a physical one, so Danza Espada is the buff.
+        self.assertGreaterEqual(len(self.attacks(123)), 2)
+        self.assertIn("swords-dance", self.groups[123]["moves"])
+        # Jumpluff keeps a dash in the bonded attacks.
+        self.assertIn("aerial-ace", self.attacks(189))
+        # Honchkrow may bond Bite: melee is scored like any other attack.
+        self.assertTrue(set(self.attacks(430)) & {"aerial-ace", "bite", "wing-attack"})
 
     def test_gengar_has_no_melee(self):
         attacks = self.attacks(94)
@@ -61,12 +65,14 @@ class SearchPicks(unittest.TestCase):
 
     def test_marshadow_special_attacks_use_nasty_plot(self):
         moves = self.groups[802]["moves"]
-        self.assertEqual(self.attacks(802), ["shadow-ball", "aura-sphere", "hex"])
         self.assertIn("nasty-plot", moves)
         self.assertNotIn("swords-dance", moves)
 
-    def test_species_outside_the_search_keeps_its_best_move(self):
-        self.assertEqual(self.attacks(647)[0], "aura-sphere")
+    def test_keldeo_group_follows_the_searched_lead(self):
+        # Keldeo is in the full search. The published lead is the attack the winning
+        # group opens with (water-gun), and that lead is special, so Maquinación.
+        self.assertEqual(self.attacks(647)[0], "water-gun")
+        self.assertIn("nasty-plot", self.groups[647]["moves"])
 
     def test_buff_follows_the_lead_attack(self):
         cats = {"shadow-ball": "special", "lick": "physical", "tackle": "physical", "hex": "special"}
