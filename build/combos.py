@@ -73,10 +73,10 @@ NORMAL_MIN_GAIN = 0.02
 
 
 def total_damage(row: dict, mech: dict) -> float:
-    """Daño de un ataque contando todos sus proyectiles: dps_m15 (de un solo proyectil) × disparos por lanzamiento.
+    """Daño de un ataque contando todos sus proyectiles: dps (daño por segundo de la simulación, de un solo proyectil) × disparos por lanzamiento.
     «count» de move_mechanics.json son los proyectiles de ráfagas, abanicos, órbitas, bumeranes, meteoros y minas, y los
     saltos de las cadenas; los ataques de un solo golpe, rayo o aura cuentan 1."""
-    return float(row["dps_m15"] or 0) * max(1, mech["count"])
+    return float(row["dps"] or 0) * max(1, mech["count"])
 
 
 def _coverage(matrix: dict, types: list[str], enemies: list[list[str]], cache: dict) -> tuple[int, int]:

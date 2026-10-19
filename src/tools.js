@@ -4,7 +4,7 @@
    potenciadores, enlaces) se exporta a Node para test_tools.js; el DOM solo se toca en las dos páginas.
    Reglas del juego: js/data/types.js (SOFT, MIN, MAX), js/systems/levelup.js:46-56 (tope de dos potenciadores),
    js/entities/player.js:42-50 y 99-102 (físico con patk, especial con satk), js/game.js:140-145 (Repertorio) y
-   js/data/moves.js:429-431 (lista de movimientos físicos). */
+   js/data/moves.js:620-630 (lista de movimientos físicos). */
 (() => {
   'use strict';
 

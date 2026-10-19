@@ -64,7 +64,7 @@ METHOD = {
     "repeats": 2000,
 }
 METHOD_KEYS = ("sheet", "simStart", "simBest", "lateMax", "lateFresh")
-# Combate del juego (js/data/pokedex.js @ e868b5e, en data/pokedex_export.json; lo importa build/import_game_combat.py).
+# Combate del juego (js/data/pokedex.js @ 5a23d49, en data/pokedex_export.json; lo importa build/import_game_combat.py).
 # pa/sa: multiplicador del daño físico/especial; df/sd: Defensa y Defensa Especial base.
 COMBAT_KEYS = ("pa", "sa", "df", "sd")
 
@@ -141,7 +141,7 @@ def load_moves() -> list[dict]:
                        "needsCard": en(r["needs_card"], "cards")}}
         # El valor de la tier list (score_rel): 1 es un movimiento normal, más es mejor. Es lo que ordena cada tier.
         move["score"] = round(float(r["score_rel"]), 2)
-        if not r["dps_m15"]:
+        if r["kind"] == "buff":
             move["buff"] = _buff(r)
         icon = icons.get(r["move_id"])
         if icon is None:
@@ -166,7 +166,7 @@ def load_moves() -> list[dict]:
 
 def load_unranked() -> list[dict]:
     """Movimientos del juego que aún no tienen puesto (game_moves.UNRANKED): sin tier ni valor, para no mezclarlos
-    con los 64 de moves.json (la ficha cuenta y lista por tier)."""
+    con los de moves.json (la ficha cuenta y lista por tier)."""
     icons = json.loads((DATA / "move_icons.json").read_text(encoding="utf8"))
     out = []
     for ref in game_moves.UNRANKED:

@@ -1,5 +1,5 @@
 {
- "commit": "e868b5e",
+ "commit": "5a23d49",
  "moves": {
   "tackle": {
    "name": "Placaje",
@@ -497,6 +497,272 @@
    "type": "ghost",
    "kind": "chain",
    "cat": "special"
+  },
+  "hyper-beam": {
+   "name": "Hiperrayo",
+   "en": "Hyper Beam",
+   "type": "normal",
+   "kind": "charge",
+   "cat": "special"
+  },
+  "rapid-spin": {
+   "name": "Giro Rápido",
+   "en": "Rapid Spin",
+   "type": "normal",
+   "kind": "spin",
+   "cat": "physical"
+  },
+  "flame-charge": {
+   "name": "Nitrocarga",
+   "en": "Flame Charge",
+   "type": "fire",
+   "kind": "dash",
+   "cat": "physical"
+  },
+  "whirlpool": {
+   "name": "Torbellino",
+   "en": "Whirlpool",
+   "type": "water",
+   "kind": "vortex",
+   "cat": "special"
+  },
+  "seed-bomb": {
+   "name": "Bomba Germen",
+   "en": "Seed Bomb",
+   "type": "grass",
+   "kind": "bounce",
+   "cat": "physical"
+  },
+  "energy-ball": {
+   "name": "Energibola",
+   "en": "Energy Ball",
+   "type": "grass",
+   "kind": "homing",
+   "cat": "special"
+  },
+  "solar-beam": {
+   "name": "Rayo Solar",
+   "en": "Solar Beam",
+   "type": "grass",
+   "kind": "charge",
+   "cat": "special"
+  },
+  "thunder-wave": {
+   "name": "Onda Trueno",
+   "en": "Thunder Wave",
+   "type": "electric",
+   "kind": "stun",
+   "cat": "special"
+  },
+  "electro-ball": {
+   "name": "Bola Voltio",
+   "en": "Electro Ball",
+   "type": "electric",
+   "kind": "bounce",
+   "cat": "special"
+  },
+  "extrasensory": {
+   "name": "Paranormal",
+   "en": "Extrasensory",
+   "type": "psychic",
+   "kind": "shove",
+   "cat": "special"
+  },
+  "mist-ball": {
+   "name": "Bola Neblina",
+   "en": "Mist Ball",
+   "type": "psychic",
+   "kind": "homing",
+   "cat": "special"
+  },
+  "acid-spray": {
+   "name": "Bomba Ácida",
+   "en": "Acid Spray",
+   "type": "poison",
+   "kind": "bounce",
+   "cat": "special"
+  },
+  "sand-tomb": {
+   "name": "Bucle Arena",
+   "en": "Sand Tomb",
+   "type": "ground",
+   "kind": "vortex",
+   "cat": "physical"
+  },
+  "magnitude": {
+   "name": "Magnitud",
+   "en": "Magnitude",
+   "type": "ground",
+   "kind": "quake",
+   "cat": "physical"
+  },
+  "whirlwind": {
+   "name": "Remolino",
+   "en": "Whirlwind",
+   "type": "flying",
+   "kind": "shove",
+   "cat": "special"
+  },
+  "air-slash": {
+   "name": "Tajo Aéreo",
+   "en": "Air Slash",
+   "type": "flying",
+   "kind": "homing",
+   "cat": "special"
+  },
+  "signal-beam": {
+   "name": "Rayo Señal",
+   "en": "Signal Beam",
+   "type": "bug",
+   "kind": "bounce",
+   "cat": "special"
+  },
+  "u-turn": {
+   "name": "Ida y Vuelta",
+   "en": "U-turn",
+   "type": "bug",
+   "kind": "dash",
+   "cat": "physical"
+  },
+  "rock-tomb": {
+   "name": "Tumba Rocas",
+   "en": "Rock Tomb",
+   "type": "rock",
+   "kind": "stun",
+   "cat": "physical"
+  },
+  "ancient-power": {
+   "name": "Poder Pasado",
+   "en": "Ancient Power",
+   "type": "rock",
+   "kind": "orbit",
+   "cat": "special"
+  },
+  "power-gem": {
+   "name": "Joya de Luz",
+   "en": "Power Gem",
+   "type": "rock",
+   "kind": "bounce",
+   "cat": "special"
+  },
+  "ice-shard": {
+   "name": "Canto Helado",
+   "en": "Ice Shard",
+   "type": "ice",
+   "kind": "homing",
+   "cat": "physical"
+  },
+  "freeze-dry": {
+   "name": "Liofilización",
+   "en": "Freeze-Dry",
+   "type": "ice",
+   "kind": "stun",
+   "cat": "special"
+  },
+  "rolling-kick": {
+   "name": "Patada Giro",
+   "en": "Rolling Kick",
+   "type": "fighting",
+   "kind": "spin",
+   "cat": "physical"
+  },
+  "vacuum-wave": {
+   "name": "Onda Vacío",
+   "en": "Vacuum Wave",
+   "type": "fighting",
+   "kind": "shove",
+   "cat": "special"
+  },
+  "dynamic-punch": {
+   "name": "Puño Dinámico",
+   "en": "Dynamic Punch",
+   "type": "fighting",
+   "kind": "stun",
+   "cat": "physical"
+  },
+  "shadow-sneak": {
+   "name": "Sombra Vil",
+   "en": "Shadow Sneak",
+   "type": "ghost",
+   "kind": "homing",
+   "cat": "physical"
+  },
+  "ominous-wind": {
+   "name": "Viento Aciago",
+   "en": "Ominous Wind",
+   "type": "ghost",
+   "kind": "vortex",
+   "cat": "special"
+  },
+  "dragon-breath": {
+   "name": "Dragoaliento",
+   "en": "Dragon Breath",
+   "type": "dragon",
+   "kind": "cone",
+   "cat": "special"
+  },
+  "dragon-claw": {
+   "name": "Garra Dragón",
+   "en": "Dragon Claw",
+   "type": "dragon",
+   "kind": "melee",
+   "cat": "physical"
+  },
+  "outrage": {
+   "name": "Enfado",
+   "en": "Outrage",
+   "type": "dragon",
+   "kind": "spin",
+   "cat": "physical"
+  },
+  "draining-kiss": {
+   "name": "Beso Drenaje",
+   "en": "Draining Kiss",
+   "type": "fairy",
+   "kind": "homing",
+   "cat": "special"
+  },
+  "play-rough": {
+   "name": "Carantoña",
+   "en": "Play Rough",
+   "type": "fairy",
+   "kind": "melee",
+   "cat": "physical"
+  },
+  "disarming-voice": {
+   "name": "Voz Cautivadora",
+   "en": "Disarming Voice",
+   "type": "fairy",
+   "kind": "shove",
+   "cat": "special"
+  },
+  "mirror-shot": {
+   "name": "Disparo Espejo",
+   "en": "Mirror Shot",
+   "type": "steel",
+   "kind": "bounce",
+   "cat": "special"
+  },
+  "gyro-ball": {
+   "name": "Giro Bola",
+   "en": "Gyro Ball",
+   "type": "steel",
+   "kind": "spin",
+   "cat": "physical"
+  },
+  "sucker-punch": {
+   "name": "Golpe Bajo",
+   "en": "Sucker Punch",
+   "type": "dark",
+   "kind": "homing",
+   "cat": "physical"
+  },
+  "night-slash": {
+   "name": "Tajo Umbrío",
+   "en": "Night Slash",
+   "type": "dark",
+   "kind": "spin",
+   "cat": "physical"
   }
  },
  "pool": {
@@ -509,7 +775,9 @@
    "harden",
    "body-slam",
    "hyper-voice",
-   "substitute"
+   "substitute",
+   "hyper-beam",
+   "rapid-spin"
   ],
   "fire": [
    "ember",
@@ -517,89 +785,125 @@
    "fire-spin",
    "heat-wave",
    "will-o-wisp",
-   "flame-wheel"
+   "flame-wheel",
+   "flame-charge"
   ],
   "water": [
    "water-gun",
    "bubble",
    "hydro-pump",
    "aqua-ring",
-   "bubble-beam"
+   "bubble-beam",
+   "whirlpool"
   ],
   "grass": [
    "vine-whip",
    "razor-leaf",
    "leaf-storm",
-   "giga-drain"
+   "giga-drain",
+   "seed-bomb",
+   "energy-ball",
+   "solar-beam"
   ],
   "electric": [
    "thunder-shock",
    "discharge",
-   "thunderbolt"
+   "thunderbolt",
+   "thunder-wave",
+   "electro-ball"
   ],
   "psychic": [
    "confusion",
    "psybeam",
    "psychic",
-   "psycho-cut"
+   "psycho-cut",
+   "extrasensory",
+   "mist-ball"
   ],
   "poison": [
    "sludge",
    "poison-sting",
    "toxic",
-   "toxic-spikes"
+   "toxic-spikes",
+   "acid-spray"
   ],
   "ground": [
    "mud-shot",
    "bulldoze",
    "bonemerang",
-   "spikes"
+   "spikes",
+   "sand-tomb",
+   "magnitude"
   ],
   "flying": [
    "gust",
    "wing-attack",
-   "aerial-ace"
+   "aerial-ace",
+   "whirlwind",
+   "air-slash"
   ],
   "bug": [
    "bug-bite",
    "string-shot",
-   "bug-buzz"
+   "bug-buzz",
+   "signal-beam",
+   "u-turn"
   ],
   "rock": [
    "rock-throw",
-   "rock-slide"
+   "rock-slide",
+   "rock-tomb",
+   "ancient-power",
+   "power-gem"
   ],
   "ice": [
    "ice-beam",
    "powder-snow",
-   "hail"
+   "hail",
+   "ice-shard",
+   "freeze-dry"
   ],
   "fighting": [
    "karate-chop",
-   "aura-sphere"
+   "aura-sphere",
+   "rolling-kick",
+   "vacuum-wave",
+   "dynamic-punch"
   ],
   "ghost": [
    "lick",
    "shadow-ball",
-   "hex"
+   "hex",
+   "shadow-sneak",
+   "ominous-wind"
   ],
   "dragon": [
    "dragon-rage",
-   "dragon-dance"
+   "dragon-dance",
+   "dragon-breath",
+   "dragon-claw",
+   "outrage"
   ],
   "fairy": [
    "fairy-wind",
-   "dazzling-gleam"
+   "dazzling-gleam",
+   "draining-kiss",
+   "play-rough",
+   "disarming-voice"
   ],
   "steel": [
    "metal-claw",
    "flash-cannon",
-   "meteor-mash"
+   "meteor-mash",
+   "mirror-shot",
+   "gyro-ball"
   ],
   "dark": [
    "bite",
    "dark-pulse",
-   "night-shade"
+   "night-shade",
+   "sucker-punch",
+   "night-slash"
   ]
  },
  "dex": {

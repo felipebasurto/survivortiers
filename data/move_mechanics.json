@@ -388,5 +388,233 @@
   "homing": 0,
   "pierce": 0,
   "count": 4
+ },
+ "hyper-beam": {
+  "kind": "charge",
+  "homing": 0,
+  "pierce": 0,
+  "count": 0
+ },
+ "rapid-spin": {
+  "kind": "spin",
+  "homing": 0,
+  "pierce": 0,
+  "count": 3
+ },
+ "flame-charge": {
+  "kind": "dash",
+  "homing": 0,
+  "pierce": 0,
+  "count": 0
+ },
+ "whirlpool": {
+  "kind": "vortex",
+  "homing": 0,
+  "pierce": 0,
+  "count": 0
+ },
+ "seed-bomb": {
+  "kind": "bounce",
+  "homing": 0,
+  "pierce": 0,
+  "count": 0
+ },
+ "energy-ball": {
+  "kind": "homing",
+  "homing": 5,
+  "pierce": 0,
+  "count": 0
+ },
+ "solar-beam": {
+  "kind": "charge",
+  "homing": 0,
+  "pierce": 0,
+  "count": 0
+ },
+ "thunder-wave": {
+  "kind": "stun",
+  "homing": 0,
+  "pierce": 0,
+  "count": 0
+ },
+ "electro-ball": {
+  "kind": "bounce",
+  "homing": 0,
+  "pierce": 0,
+  "count": 0
+ },
+ "extrasensory": {
+  "kind": "shove",
+  "homing": 0,
+  "pierce": 0,
+  "count": 0
+ },
+ "mist-ball": {
+  "kind": "homing",
+  "homing": 5,
+  "pierce": 0,
+  "count": 0
+ },
+ "acid-spray": {
+  "kind": "bounce",
+  "homing": 0,
+  "pierce": 0,
+  "count": 0
+ },
+ "sand-tomb": {
+  "kind": "vortex",
+  "homing": 0,
+  "pierce": 0,
+  "count": 0
+ },
+ "magnitude": {
+  "kind": "quake",
+  "homing": 0,
+  "pierce": 0,
+  "count": 6
+ },
+ "whirlwind": {
+  "kind": "shove",
+  "homing": 0,
+  "pierce": 0,
+  "count": 0
+ },
+ "air-slash": {
+  "kind": "homing",
+  "homing": 4,
+  "pierce": 0,
+  "count": 2
+ },
+ "signal-beam": {
+  "kind": "bounce",
+  "homing": 0,
+  "pierce": 0,
+  "count": 0
+ },
+ "u-turn": {
+  "kind": "dash",
+  "homing": 0,
+  "pierce": 0,
+  "count": 0
+ },
+ "rock-tomb": {
+  "kind": "stun",
+  "homing": 0,
+  "pierce": 0,
+  "count": 0
+ },
+ "ancient-power": {
+  "kind": "orbit",
+  "homing": 0,
+  "pierce": 0,
+  "count": 3
+ },
+ "power-gem": {
+  "kind": "bounce",
+  "homing": 0,
+  "pierce": 0,
+  "count": 0
+ },
+ "ice-shard": {
+  "kind": "homing",
+  "homing": 7,
+  "pierce": 0,
+  "count": 0
+ },
+ "freeze-dry": {
+  "kind": "stun",
+  "homing": 0,
+  "pierce": 0,
+  "count": 0
+ },
+ "rolling-kick": {
+  "kind": "spin",
+  "homing": 0,
+  "pierce": 0,
+  "count": 3
+ },
+ "vacuum-wave": {
+  "kind": "shove",
+  "homing": 0,
+  "pierce": 0,
+  "count": 0
+ },
+ "dynamic-punch": {
+  "kind": "stun",
+  "homing": 0,
+  "pierce": 0,
+  "count": 0
+ },
+ "shadow-sneak": {
+  "kind": "homing",
+  "homing": 6,
+  "pierce": 0,
+  "count": 0
+ },
+ "ominous-wind": {
+  "kind": "vortex",
+  "homing": 0,
+  "pierce": 0,
+  "count": 0
+ },
+ "dragon-breath": {
+  "kind": "cone",
+  "homing": 0,
+  "pierce": 0,
+  "count": 7
+ },
+ "dragon-claw": {
+  "kind": "melee",
+  "homing": 0,
+  "pierce": 0,
+  "count": 0
+ },
+ "outrage": {
+  "kind": "spin",
+  "homing": 0,
+  "pierce": 0,
+  "count": 4
+ },
+ "draining-kiss": {
+  "kind": "homing",
+  "homing": 5,
+  "pierce": 0,
+  "count": 0
+ },
+ "play-rough": {
+  "kind": "melee",
+  "homing": 0,
+  "pierce": 0,
+  "count": 0
+ },
+ "disarming-voice": {
+  "kind": "shove",
+  "homing": 0,
+  "pierce": 0,
+  "count": 0
+ },
+ "mirror-shot": {
+  "kind": "bounce",
+  "homing": 0,
+  "pierce": 0,
+  "count": 0
+ },
+ "gyro-ball": {
+  "kind": "spin",
+  "homing": 0,
+  "pierce": 0,
+  "count": 3
+ },
+ "sucker-punch": {
+  "kind": "homing",
+  "homing": 6,
+  "pierce": 0,
+  "count": 0
+ },
+ "night-slash": {
+  "kind": "spin",
+  "homing": 0,
+  "pierce": 0,
+  "count": 3
  }
 }

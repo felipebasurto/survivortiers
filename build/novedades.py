@@ -1,7 +1,9 @@
-"""Página Novedades: la actualización de PokéSurvivor del 18-10-2026 (commit e868b5e de JPTER78/pokesurvivor).
+"""Página Novedades: las actualizaciones de PokéSurvivor del 18 y el 19-10-2026 (commit 5a23d49 de JPTER78/pokesurvivor).
 
-Cada cifra y cada regla sale del código del commit (js/systems/stats.js, levelup.js, judgment.js, enemy.js, spawner.js,
-gamepad.js, settings.js) o de su changelog. Si cambia el juego, cambia esta página a mano.
+Cada cifra y cada regla sale del código del commit o de su changelog (js/data/changelog.js). Del 19-10: js/data/moves.js
+(cabecera, POOL, PHYSICAL), js/data/upgrades.js:20, js/data/starters.js:52-66, js/entities/player.js:101-105 y 124-127.
+Del 18-10: js/systems/stats.js, levelup.js, judgment.js, enemy.js, spawner.js, gamepad.js, settings.js.
+Si cambia el juego, cambia esta página a mano.
 """
 from __future__ import annotations
 
@@ -9,13 +11,15 @@ from html import escape
 
 from i18n import Lang
 
-PATCH_COMMIT = "e868b5e"
+PATCH_COMMIT = "5a23d49"
 GAME_REPO = "https://github.com/JPTER78/pokesurvivor"
-BANNER_KEY = "survivortiers.novedades.20261019"
+BANNER_KEY = "survivortiers.novedades.20261019b"
 
 LEDE = (
-    "Actualización del 18 de octubre de 2026. El ranking se recalcula desde cero: los puestos de antes ya no valen.",
-    "October 18, 2026 update. The ranking is recalculated from scratch: the old positions no longer count.",
+    "Dos actualizaciones seguidas: la del 18 de octubre de 2026 (físico y especial) y la del 19 (38 ataques nuevos). "
+    "El ranking se recalcula con las dos: los puestos de antes ya no valen.",
+    "Two updates in a row: October 18, 2026 (physical and special) and October 19 (38 new moves). "
+    "The ranking is recalculated with both: the old positions no longer count.",
 )
 
 H1 = ("Novedades", "What's new")
@@ -45,7 +49,73 @@ JUDGMENT_FACTS = [
       "Judgment legendaries run at least 80% of the speed of the fastest player in the run.")),
 ]
 
-SECTIONS = [
+
+KINDS_19 = [
+    (("Persiguen", "Chase"), ("Disparos que van detrás del enemigo.", "Shots that go after the enemy.")),
+    (("Rebotan", "Bounce"), ("Un proyectil que salta de enemigo en enemigo.", "One shot that jumps from enemy to enemy.")),
+    (("Se cargan", "Charge"), ("Se carga unos segundos y sale un rayo enorme.", "It charges for a few seconds and fires a huge beam.")),
+    (("Giran", "Spin"), ("Giras golpeando todo lo que tienes alrededor varias veces seguidas.",
+                         "You spin and hit everything around you several times in a row.")),
+    (("Onda por el suelo", "Ground wave"), ("Una onda avanza en línea y va explotando.", "A wave moves along a line and keeps exploding.")),
+    (("Remolino", "Vortex"), ("Atrae a los enemigos al centro y los va dañando.", "It pulls enemies to its center and keeps hurting them.")),
+    (("Empujón", "Shove"), ("Una onda alrededor que daña y aparta a los enemigos.", "A wave around you that hurts and pushes enemies away.")),
+    (("Aturdir", "Stun"), ("Una zona con aviso que daña y deja a los enemigos quietos unos segundos.",
+                           "A marked zone that hurts and freezes enemies in place for a few seconds.")),
+]
+
+SECTIONS_19 = [
+    {
+        "id": "ataques-nuevos",
+        "h": ("38 ataques nuevos", "38 new moves"),
+        "body": [
+            ("Roca, Lucha, Dragón y Hada tenían solo dos ataques; ahora cada tipo tiene al menos cuatro. Dragón se queda "
+             "en cuatro ataques, porque el quinto de su lista, Danza Dragón, es un potenciador y no pega. Entre los nuevos "
+             "están Hiperrayo, Rayo Solar, Magnitud, Torbellino, Onda Trueno, Enfado, Carantoña y Golpe Bajo, y cada uno "
+             "evoluciona con su carta.",
+             "Rock, Fighting, Dragon and Fairy had only two moves; now every type has at least four. Dragon stays at four "
+             "attacks, because the fifth in its list, Dragon Dance, is a boost and does not hit. The new ones include Hyper "
+             "Beam, Solar Beam, Magnitude, Whirlpool, Thunder Wave, Outrage, Play Rough and Sucker Punch, and each one "
+             "evolves with its card."),
+            ("Cada uno es físico o especial: Enfado, Carantoña y Golpe Bajo son físicos; Hiperrayo, Rayo Solar y Torbellino, "
+             "especiales. Los 38 están en la tier list de ataques y en el simulador del ranking.",
+             "Each one is physical or special: Outrage, Play Rough and Sucker Punch are physical; Hyper Beam, Solar Beam "
+             "and Whirlpool are special. All 38 are in the move tier list and in the ranking simulator."),
+        ],
+    },
+    {
+        "id": "formas-de-atacar",
+        "h": ("Formas nuevas de atacar", "New ways to attack"),
+        "body": [
+            ("Los ataques nuevos traen ocho formas de atacar que no existían:",
+             "The new moves bring eight ways to attack that did not exist before:"),
+        ],
+        "kinds": KINDS_19,
+    },
+    {
+        "id": "movimiento-inicial",
+        "h": ("Movimiento inicial", "Starting move"),
+        "body": [
+            ("Mejora nueva: cuesta 400 monedas una vez por Pokémon, y a partir de ahí eliges gratis con qué ataque "
+             "empieza la partida. Valen sus ataques, sin potenciadores, y siempre el de serie, aunque no sea de su tipo "
+             "(como Confusión en Psyduck), para poder volver a él. No es Repertorio, que es otra mejora.",
+             "New upgrade: it costs 400 coins once per Pokémon, and from then on you choose for free which move the run "
+             "starts with. Its own moves count, without boosts, and always the default one, even if it is not of its "
+             "type (like Confusion on Psyduck), so you can go back to it. It is not Repertoire, which is a separate upgrade."),
+        ],
+    },
+    {
+        "id": "monotipos",
+        "h": ("Monotipos y cambio de ataque", "Single types and switching"),
+        "list": [
+            ("Los Pokémon de un solo tipo pegan un 20 % más con los ataques de su tipo, a cambio de tener menos variedad.",
+             "Single-type Pokémon deal 20% more damage with moves of their type, in exchange for having less variety."),
+            ("Al aprender un ataque nuevo ya no cambias a él solo: sigues con el que usabas y cambias cuando quieras.",
+             "Learning a new move no longer switches to it on its own: you keep the one you were using and switch whenever you want."),
+        ],
+    },
+]
+
+SECTIONS = SECTIONS_19 + [
     {
         "id": "ranking",
         "h": ("El ranking se rehizo", "The ranking was rebuilt"),
@@ -162,7 +232,7 @@ SECTIONS = [
         ],
     },
     {
-        "id": "ranking",
+        "id": "tablas",
         "h": ("Ranking", "Leaderboards"),
         "list": [
             ("Todos los rankings empiezan de cero: hoy, semana, mes, año e histórico. Los récords de huir de Arceus ya no "
@@ -185,15 +255,15 @@ FOOT = (
 )
 
 BANNER = {
-    "text": ("El ranking se rehizo. Los puestos de antes ya no valen.",
-             "The ranking was rebuilt. The old positions no longer count."),
+    "text": ("38 ataques nuevos y el ranking se rehizo. Los puestos de antes ya no valen.",
+             "38 new moves and the ranking was rebuilt. The old positions no longer count."),
     "link": ("Qué ha cambiado", "What changed"),
     "close": ("Cerrar aviso", "Dismiss notice"),
     "title": ("Novedades de {game} · {site}", "What's new in {game} · {site}"),
-    "desc": ("Qué cambia en {game} con la actualización del 18 de octubre de 2026: ataques físicos y especiales, "
-             "Maquinación, jefes, la Sentencia de Arceus y el mando.",
-             "What changes in {game} with the October 18, 2026 update: physical and special moves, Nasty Plot, bosses, "
-             "Arceus' Judgment and the controller."),
+    "desc": ("Qué cambia en {game} con las actualizaciones del 18 y el 19 de octubre de 2026: 38 ataques nuevos, "
+             "Movimiento inicial, ataques físicos y especiales, Maquinación, jefes y la Sentencia de Arceus.",
+             "What changes in {game} with the October 18 and 19, 2026 updates: 38 new moves, Starting move, physical "
+             "and special moves, Nasty Plot, bosses and Arceus' Judgment."),
 }
 
 
@@ -215,6 +285,11 @@ def _table(L: Lang, t: dict) -> str:
             f'<tbody>{rows}</tbody></table></div>')
 
 
+def _kinds(L: Lang, kinds) -> str:
+    rows = "".join(f"<li><b>{escape(_pick(L, name))}</b>: {escape(_pick(L, text))}</li>" for name, text in kinds)
+    return f'<ul class="nv-list">{rows}</ul>'
+
+
 def _facts(L: Lang, facts) -> str:
     cards = "".join(
         f'<article class="nv-fact"><b class="nv-num">{escape(_pick(L, num))}</b>'
@@ -233,6 +308,8 @@ def _section(L: Lang, i: int, s: dict) -> str:
         parts.append(_table(L, s["table"]))
     for text in s.get("after", []):
         parts.append(f"<p>{escape(_pick(L, text))}</p>")
+    if "kinds" in s:
+        parts.append(_kinds(L, s["kinds"]))
     if "facts" in s:
         parts.append(_facts(L, s["facts"]))
     if "list" in s:

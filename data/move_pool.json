@@ -8,7 +8,9 @@
   "harden",
   "body-slam",
   "hyper-voice",
-  "substitute"
+  "substitute",
+  "hyper-beam",
+  "rapid-spin"
  ],
  "fire": [
   "ember",
@@ -16,88 +18,124 @@
   "fire-spin",
   "heat-wave",
   "will-o-wisp",
-  "flame-wheel"
+  "flame-wheel",
+  "flame-charge"
  ],
  "water": [
   "water-gun",
   "bubble",
   "hydro-pump",
   "aqua-ring",
-  "bubble-beam"
+  "bubble-beam",
+  "whirlpool"
  ],
  "grass": [
   "vine-whip",
   "razor-leaf",
   "leaf-storm",
-  "giga-drain"
+  "giga-drain",
+  "seed-bomb",
+  "energy-ball",
+  "solar-beam"
  ],
  "electric": [
   "thunder-shock",
   "discharge",
-  "thunderbolt"
+  "thunderbolt",
+  "thunder-wave",
+  "electro-ball"
  ],
  "psychic": [
   "confusion",
   "psybeam",
   "psychic",
-  "psycho-cut"
+  "psycho-cut",
+  "extrasensory",
+  "mist-ball"
  ],
  "poison": [
   "sludge",
   "poison-sting",
   "toxic",
-  "toxic-spikes"
+  "toxic-spikes",
+  "acid-spray"
  ],
  "ground": [
   "mud-shot",
   "bulldoze",
   "bonemerang",
-  "spikes"
+  "spikes",
+  "sand-tomb",
+  "magnitude"
  ],
  "flying": [
   "gust",
   "wing-attack",
-  "aerial-ace"
+  "aerial-ace",
+  "whirlwind",
+  "air-slash"
  ],
  "bug": [
   "bug-bite",
   "string-shot",
-  "bug-buzz"
+  "bug-buzz",
+  "signal-beam",
+  "u-turn"
  ],
  "rock": [
   "rock-throw",
-  "rock-slide"
+  "rock-slide",
+  "rock-tomb",
+  "ancient-power",
+  "power-gem"
  ],
  "ice": [
   "ice-beam",
   "powder-snow",
-  "hail"
+  "hail",
+  "ice-shard",
+  "freeze-dry"
  ],
  "fighting": [
   "karate-chop",
-  "aura-sphere"
+  "aura-sphere",
+  "rolling-kick",
+  "vacuum-wave",
+  "dynamic-punch"
  ],
  "ghost": [
   "lick",
   "shadow-ball",
-  "hex"
+  "hex",
+  "shadow-sneak",
+  "ominous-wind"
  ],
  "dragon": [
   "dragon-rage",
-  "dragon-dance"
+  "dragon-dance",
+  "dragon-breath",
+  "dragon-claw",
+  "outrage"
  ],
  "fairy": [
   "fairy-wind",
-  "dazzling-gleam"
+  "dazzling-gleam",
+  "draining-kiss",
+  "play-rough",
+  "disarming-voice"
  ],
  "steel": [
   "metal-claw",
   "flash-cannon",
-  "meteor-mash"
+  "meteor-mash",
+  "mirror-shot",
+  "gyro-ball"
  ],
  "dark": [
   "bite",
   "dark-pulse",
-  "night-shade"
+  "night-shade",
+  "sucker-punch",
+  "night-slash"
  ]
 }

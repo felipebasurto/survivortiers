@@ -317,7 +317,7 @@ def _method(L: Lang, home: str) -> str:
             f'<p><a href="{home}metodo.html">{escape(L.t("pv_method_link"))} →</a></p></div></details>')
 
 
-# Los potenciadores y su tope vienen de data/game_stats.json (commit e868b5e). Tope de dos potenciadores:
+# Los potenciadores y su tope vienen de data/game_stats.json (commit 5a23d49). Tope de dos potenciadores:
 # js/systems/levelup.js:46-56. Danza Espada y Danza Dragón comparten el contador de ataque físico (patk) y Maquinación
 # el de especial (satk): js/entities/player.js:42-50 y :99-102, y js/systems/combat.js:201-202.
 NUM_HEAD = ("pv_buff_th_cd", "pv_buff_th_dur", "pv_buff_th_max")

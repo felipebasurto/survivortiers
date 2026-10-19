@@ -1,14 +1,14 @@
 """Datos de movimientos que vienen del juego (JPTER78/pokesurvivor) y no del análisis de ataques.
 
 La categoría física o especial sale de data/game_stats.json (build/export_game_stats.js, commit GAME_REF), que
-la lee de js/data/moves.js:429-435. Los textos y el potenciador sin puesto sí están copiados a mano de ese commit.
+la lee de js/data/moves.js:620-630. Los textos y el potenciador sin puesto sí están copiados a mano de ese commit.
 """
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
-GAME_REF = "e868b5e"
+GAME_REF = "5a23d49"
 
 _GAME_STATS = json.loads((Path(__file__).resolve().parent.parent / "data" / "game_stats.json").read_text(encoding="utf8"))
 
@@ -45,8 +45,19 @@ NOTES = {
     ),
 }
 
-# js/data/moves.js:139-141 (Maquinación, en e868b5e). Es nueva y todavía no tiene puesto: la simulación del ranking
-# no la ha medido, así que no lleva tier ni valor. Sus cifras son las base del juego, sin mejoras de nivel.
+# Sustituto (js/data/moves.js:445, kind turret) hace daño en el juego, pero para el ranking no es un ataque
+# (data/owner_rules.json): no se publica como mejor movimiento ni entra en un grupo.
+_SUBSTITUTE_NOTE = (
+    "Deja una torreta que dispara sola. En el ranking no cuenta como ataque: nunca es el mejor movimiento de un "
+    "Pokémon ni entra en su grupo.",
+    "Leaves a turret that fires on its own. In the ranking it does not count as an attack: it is never a Pokémon's "
+    "best move and never in its group.",
+)
+NOTES["substitute"] = _SUBSTITUTE_NOTE
+
+# js/data/moves.js:196 (Maquinación, en 5a23d49). No tiene puesto en la tier list de potenciadores, que sale del
+# análisis anterior y no la midió; el ranking sí la lleva en los grupos especiales (data/owner_rules.json).
+# Sus cifras son las base del juego, sin mejoras de nivel.
 UNRANKED = [
     {
         "id": "nasty-plot", "name": ("Maquinación", "Nasty Plot"), "type": "normal", "kind": "buff",

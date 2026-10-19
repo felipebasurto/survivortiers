@@ -3,13 +3,13 @@
 pa y sa (multiplicador del daño de sus ataques físicos y especiales; atk es el mayor de los dos),
 df y sd (Defensa y Defensa Especial base).
 
-Fuente: js/data/pokedex.js de JPTER78/pokesurvivor en el commit de --commit (e868b5e por defecto), una línea
+Fuente: js/data/pokedex.js de JPTER78/pokesurvivor en el commit de --commit (5a23d49 por defecto), una línea
 por Pokémon. El script solo añade esas cuatro claves. Antes comprueba que el commit del checkout es el pedido y
 que hp, spd, atk, nombre, tipos, rareza y generación coinciden con el export que ya hay; si no coinciden, el juego
 cambió y el export hay que regenerarlo entero.
 
     git clone https://github.com/JPTER78/pokesurvivor /ruta/pokesurvivor
-    git -C /ruta/pokesurvivor checkout e868b5e
+    git -C /ruta/pokesurvivor checkout 5a23d49
     python3 build/import_game_combat.py --game /ruta/pokesurvivor
 """
 from __future__ import annotations
@@ -24,7 +24,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 EXPORT = ROOT / "data" / "pokedex_export.json"
 GAME_FILE = Path("js") / "data" / "pokedex.js"
-DEFAULT_COMMIT = "e868b5e"
+DEFAULT_COMMIT = "5a23d49"
 NEW_KEYS = ("pa", "sa", "df", "sd")
 LINE = re.compile(r'^\s*(\{"dex":.*\}),?\s*$')
 SAME = ("hp", "spd", "atk", "name", "types", "rarity", "gen")

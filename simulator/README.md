@@ -130,7 +130,7 @@ evolution rows match the game's own `evolve()`.
 `--legacy-group` restores the old behaviour (bonded from t=0, no rifts, bosses, heal orbs or extra kinds). Default runs
 (no `--group`) are unchanged and still pass `parity.js`; the JS engine does not have group mode.
 
-Physical and special split, from PokéSurvivor `e868b5eb3cd55499cd41de543ee032b48a344e71` (18 Oct 2026). Both engines use the same formulas; `parity.js` still passes.
+Physical and special split, from PokéSurvivor `5a23d49a99a795f9262d2fb24a9842f0858a0b50` (19 Oct 2026). Both engines use the same formulas; `parity.js` still passes.
 
 - `stats.js:17-43`. `guard(def) = clamp((75 / max(5, def || 75))^0.35, 0.78, 1.25)`. Damage taken is `guard(sd)` for a special hit and `guard(df)` for a physical one. `sideOf` is special when `sa > pa`, otherwise physical. `fit` is that side's multiplier over `atk` (`atk` is still `max(pa, sa)`). On-side moves hit as hard as before this commit. Pure damage and traps skip the guard.
 - `moves.js`. Non-buff moves have `cat` physical or special. Danza Espada and Danza Dragón buff `patk` only. Maquinación (`nasty-plot`) buffs `satk` (0.13, 5 stacks, 7 s) and is a normal-pool move. A published group bonds Maquinación when the lead attack is special, and Danza Espada when that lead is physical. A mixed pair follows the lead. `--dd` is Danza Dragón and only applies to a physical lead. `--np` forces Maquinación. Sustituto is a turret (`dmg` 14, `rate` 0.4, `moves.js`): its shots count as dealt damage, and the published best move skips turrets, buffs and rows that dealt nothing.

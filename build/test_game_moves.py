@@ -32,7 +32,7 @@ def _ranked_ids() -> dict[str, str]:
 
 class DamageClassTests(unittest.TestCase):
     def test_physical_list_is_complete(self):
-        self.assertEqual(len(game_moves.physical_ids()), 24)
+        self.assertEqual(len(game_moves.physical_ids()), 41)
 
     def test_every_ranked_move_gets_a_class(self):
         for mid, kind in _ranked_ids().items():
@@ -83,7 +83,8 @@ class BuildOutputTests(unittest.TestCase):
 
     def test_every_move_has_damage_class(self):
         moves = json.loads((OUT / "moves.json").read_text(encoding="utf8"))
-        self.assertEqual(len(moves), 64)
+        game = json.loads((DATA / "game_stats.json").read_text(encoding="utf8"))["moves"]
+        self.assertEqual(len(moves), len(game) - len(game_moves.UNRANKED))
         for m in moves:
             self.assertIn(m["damage"], game_moves.DAMAGE_CLASSES, m["id"])
             self.assertEqual(m["damage"] == "status", m["kind"] == "buff", m["id"])
