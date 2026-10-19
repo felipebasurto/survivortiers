@@ -26,14 +26,14 @@ class SearchPicks(unittest.TestCase):
         group = self.groups[dex]
         return group["moves"][: len(group["moves"]) - group["nBoost"]]
 
-    def test_marshadow_shadow_ball_hex_and_aura_sphere(self):
-        # Same median and mean as Shadow Ball + Hex + Swords Dance + Harden.
-        # The group name breaks the tie, so the third attack takes the fourth slot.
-        self.assertEqual(self.attacks(802), ["shadow-ball", "hex", "aura-sphere"])
+    def test_marshadow_shadow_ball_aura_sphere_and_hex(self):
+        # Maquinación rescore: Shadow Ball + Aura Sphere + Hex beats the Hex-led tie.
+        self.assertEqual(self.attacks(802), ["shadow-ball", "aura-sphere", "hex"])
 
     def test_dash_pair_can_lead(self):
         self.assertEqual(self.attacks(123), ["aerial-ace", "quick-attack"])
-        self.assertEqual(self.attacks(189), ["aerial-ace", "quick-attack"])
+        # Jumpluff's searched pair is Aerial Ace + Hyper Voice once the groups are rescored.
+        self.assertEqual(self.attacks(189), ["aerial-ace", "hyper-voice"])
         self.assertEqual(self.attacks(430), ["aerial-ace", "quick-attack"])
 
     def test_gengar_has_no_melee(self):
@@ -59,7 +59,7 @@ class SearchPicks(unittest.TestCase):
 
     def test_marshadow_special_attacks_use_nasty_plot(self):
         moves = self.groups[802]["moves"]
-        self.assertEqual(self.attacks(802), ["shadow-ball", "hex", "aura-sphere"])
+        self.assertEqual(self.attacks(802), ["shadow-ball", "aura-sphere", "hex"])
         self.assertIn("nasty-plot", moves)
         self.assertNotIn("swords-dance", moves)
 

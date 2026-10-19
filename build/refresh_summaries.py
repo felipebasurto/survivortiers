@@ -22,6 +22,7 @@ import summary_facts as sf  # noqa: E402
 POS = ("atk+", "spd+", "hp+", "hb+", "td+")
 NEG = ("atk-", "spd-", "hp-", "td-")
 BUFFS = {"buff"}
+ATTACK_BUFFS = ("nasty-plot", "swords-dance", "dragon-dance")
 
 
 def _i_sound(word: str) -> bool:
@@ -104,6 +105,10 @@ def _build(f: dict, claims: list[dict], lang: str, groups: int, alt: bool) -> st
             continue
         (boosts if kind.get(c["key"].split(":", 1)[1]) in BUFFS else attacks).append(c)
     chosen = (attacks or boosts)[:groups]
+    # The attack buff is part of the bonded group. Harden can stay off the sentence.
+    buff = next((c for c in boosts if c["key"].split(":", 1)[1] in ATTACK_BUFFS), None)
+    if groups and buff is not None and buff not in chosen:
+        chosen.append(buff)
     spare = next((c for c in claims if c["key"].startswith("m.alt:")), None) if alt else None
 
     def M(c: dict) -> str:
