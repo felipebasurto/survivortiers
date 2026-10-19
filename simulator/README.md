@@ -84,13 +84,15 @@ Group mode also models, from the game source (`js/` in JPTER78/pokesurvivor):
     Hex is the only move with a status-conditional damage multiplier (`moves.js` `hex`).
     `--no-synergy` restores the old partner sort (Hex/status or two dashes first, then solo order)
     and skips the extra groups.
-    The melee damage cut (×0.75, player.js:238) applies only while a melee move is in the active group: the starter
-    always, a companion only after that bond. On the ranking path the cut applies only while an enemy is inside that
-    swing, so a ranged lead does not collect it from kite range. A bonded melee companion also pulls the bot in to
-    the melee keep (repulse stays off until that gap) and, on the last 90px of the close, takes one contact hit per
-    touch cadence. Casts outside the arc still spend the cooldown and hit nothing. Orbit stays out of the bonded group (one shared orb list).
-    Gengar (dex 94) is not offered a melee move. Lengüetazo and every other `kind === 'melee'` move goes through
-    that floor. Picotazo Veneno is a projectile (speed 420, life 1.0) and is not melee. Every searched group holds
+    The melee damage cut (×0.75, player.js:254) applies whenever a melee move is in the active group: the starter
+    always, a companion only after that bond. It is not gated on an enemy standing in the swing. There is no extra
+    contact hit while closing in; body overlap already uses the game's touch cooldown (combat.js:666). A bonded melee
+    companion still pulls the bot in to the melee keep (repulse stays off until that gap). That hold is the bot's
+    policy, not a game rule. Casts outside the arc still spend the cooldown and hit nothing. Orbit stays out of the
+    bonded group because `step_orbs` keeps a single orb list for the active move (combat.js does allow an orbit in
+    any slot). Gengar (dex 94) is not banned inside the sim. The publisher's build rule, in `build/combos.py` and
+    `build/make_definitive.py`, drops a Gengar melee group. Lengüetazo and every other `kind === 'melee'` move goes
+    through the ×0.75 cut. Picotazo Veneno is a projectile (speed 420, life 1.0) and is not melee. Every searched group holds
     an attack buff: Maquinación when the lead attack is special, Danza Espada when it is physical. A mixed pair
     follows the lead. `--dd` is Danza Dragón and only applies to a physical lead. The fourth slot
     is Harden or a third attack, and the higher composite score (then mean score, then survival time) wins. A melee
@@ -110,7 +112,7 @@ Group mode also models, from the game source (`js/` in JPTER78/pokesurvivor):
   - Knockback uses Enemy.hurt (entities/enemy.js:100) on the ranking path, including into lava. Direct hits round
     and the shield absorbs first.
   - Altars last 25 s (systems/interact.js POWER_TIME). Kind is `floor(hash(tx,ty,seed+910)*4)` (world.js:154):
-    Furia ×2 atk, Rayo ×1.45 speed, Prisa ×0.6 cooldown, Imán unused. The bot triggers one it walks into; it does not path.
+    Furia ×2 atk, Rayo ×1.45 speed, Prisa ×0.6 cooldown, Imán ×4 magnet (interact.js:22). The bot triggers one it walks into; it does not path.
   - Shell Bell heals 4% of dealt damage, buffer cap 4 (player.js:295). Rocky Helmet is 15+4×level with knock 80 on
     body contact only (combat.js:668). Focus Sash saves at 1 HP once per 60 s (player.js:248).
   - Orbit rehit is `max(0.12, cd)` with no cooldown multiplier (combat.js:486). Turret rate and trail ticks ignore it too.
@@ -119,7 +121,7 @@ Group mode also models, from the game source (`js/` in JPTER78/pokesurvivor):
     equipped at the start sits in that same 0.7 bucket, so later Coraza cards eat it. Parity (no item) still stops at 0.7.
   - Leftovers adds 1.5 % of max HP once, at equip (items.js:14). The sim equips at t=0, so that is base HP, not HP after Vigor.
   - Vigor and Síntesis have no `max` in levelup.js. The ranking path allows 250, which a 900 s run does not reach.
-    Parity keeps the old caps (HP 99, regen 10). Imán is offered but XP is granted on the kill, so the radius does nothing.
+    Parity keeps the old caps (HP 99, regen 10). On the faithful path a kill drops an orb (pickup.js). The magnet starts at 78 and collects inside 15px. Parity still grants the XP on the kill.
 
 Numbers from this sim are estimates. The type chart (soft ×1.6/0.6/0.3, clamp [0.3, 2.4]) and the exported melee and
 evolution rows match the game's own `evolve()`.
@@ -133,16 +135,19 @@ Physical and special split, from PokéSurvivor `e868b5eb3cd55499cd41de543ee032b4
 - `moves.js`. Non-buff moves have `cat` physical or special. Danza Espada and Danza Dragón buff `patk` only. Maquinación (`nasty-plot`) buffs `satk` (0.13, 5 stacks, 7 s) and is a normal-pool move. A published group bonds Maquinación when the lead attack is special, and Danza Espada when that lead is physical. A mixed pair follows the lead. `--dd` is Danza Dragón and only applies to a physical lead. `--np` forces Maquinación. Sustituto is a turret (`dmg` 14, `rate` 0.4, `moves.js`): its shots count as dealt damage, and the published best move skips turrets, buffs and rows that dealt nothing.
 - `player.js` `atkFor` and `combat.js` hits. Outgoing damage is `atk * fit(mon, cat) * (1 + the matching side buff)`, then `typeK * guard(enemy)`. Incoming combat damage, including hazards, is multiplied by the player's guard before the type chart. Weather chip and lava are not combat hits.
 - `enemy.js`. Enemies strike with `sideOf`. A boss heal is at most `0.4 * rd / 6` and a boss shield at most `1.2 * rd / 6` (one shield while `shieldT > 2`). Poison percent HP uses `maxHp` up to 60,000 and `60000 * sqrt(maxHp / 60000)` above that. Normal enemies and the 900 s bosses stay under that line.
-- `spawner.js:82`. At most 3 alive healers, shielders and summoners. A full type is re-rolled from the same tier; an empty remainder spawns nothing and does not advance the spawn counter.
-- `sprites.js` `playerRadius`. Collision radius is `min(18, body radius)`. Idle-frame heights are not in this repo, so the extra shrink below 18 is not applied. Enemy radii are unchanged.
-- `levelup.js` `pickWeighted`, group mode only. Each level-up draws up to 6 new moves from the species pool (on-side moves, ties and buffs weigh 2, the weak side weighs 1) and offers 3 cards against the non-move lump of weight 28. A missing bond member that shows up is learned and that level is spent. Two buffs already known drop further buffs. An unlearned member holds the queue. Solo and parity runs do not roll this.
+- `spawner.js:79-90` and `enemy.js:620-650`. At most 3 alive healers, shielders and summoners. A healer restores `7% * min(2.5, (atk/baseAtk)^0.35)`, and a boss heals at most `0.4 * rd / 6`. A shielder refreshes the nearest 6: normal enemies to `max(shield, 35%)` with `shieldT = 8`, and a boss is skipped while `shieldT > 2` and otherwise shielded by at most `1.2 * rd / 6`.
+- `enemies.js:129-153` and `:203-215`. On the faithful path each tier rolls 7 species once per run: one support, one warning attacker from the second tier on, then the fastest plain becomes the runner (`spd × 1.6`, `hp × 0.7`). Old tiers weigh 3, new ones 10. Parity still draws from the whole tier and turns a random 1/7 of the plain enemies into a runner.
+- `spawner.js:25,107-108,159`. The first surge is at 32 s; later surges are `rand(38, 56)`. Wild XP is `round(xp * 5.6)`, then `round(that * 1.6)` for an elite. Parity keeps the 10–30 s opening surge and the unrounded product.
+- `pickup.js:73-95` and `enemy.js:967-978`, faithful path only. Kills drop orbs (boss: 14 XP orbs plus heal and magnet; wild: 1.2% heal, 0.8% magnet, 0.6% bomb). A bomb hits everything on screen for `60 + 14 * level` (`game.js:525`). An enemy that is unseen and behind for 2.5 s, or farther than 1400px, respawns ahead of the player.
+- `sprites.js:144-151` `playerRadius`. Collision radius is `min(18, bodyRadius(dex, playerScale))`. The faithful path uses that radius, including the 13 species whose idle frame shrinks them 0.9–2.2px under the raw body. Parity keeps `min(18, body radius)`. Enemy radii are the uncapped body. Boss and legendary radius is `body * bossScale(dex)` (`enemy.js:16-22`: 1, 1.5 or 2 from the idle anchor). Parity keeps ×2.
+- `levelup.js:42-144` `offer`. A new move weighs 10 (up to 6, on-side weight 2). A ready evolution weighs 40 and is shown first. Each upgradable move weighs 8. Five of the nine stat cards weigh 4 while a move slot is open (20 together) and 7 when the four slots are full; a stat that unlocks an evolution weighs 14 and is always offered. A missing bond member that shows up is learned and that level is spent. The sim does not learn a move outside the fixed group, so a missed offer spends the level on a second weighted draw of upgrades and those stat cards. Two buffs already known drop further buffs. Parity keeps the uniform three-card shuffle.
 - `judgment.js`. At t ≥ 1800 in a rift run, Sentencia caps speed (`capSpd`), Arceus pursues (`chase k`) and his touch and hazards are pure damage (`touchPct`, ignoring guard and reduction). A legendary arrives every 5 s at double the previous HP and damage. The published rank is 900 s, so this does not move the tier list. Map-side judgment legends do not grant rift bonds.
 
 The ranking score of a run is `time * damage dealt * (1 + kills)`. Damage dealt is the post-type, post-guard, post-crit amount before the shield, and it does not include burn or poison damage over time (the game does not add those to `dmgDealt`). A run that survives without dealing damage scores 0. Displayed medians stay in seconds. Order, bootstrap jitter and the sim piece of the ensemble use the score.
 
-Known bias (estimates): the bot does not dodge, so sustain (Synthesis `rgn`, Vigor `hp`, Leftovers) still looks strong. Melee stays penalised (incoming ×0.75 only while a melee move is in the active bonded group and an enemy is inside that swing). A melee group is published only when its bootstrap floor is strictly above the best ranged group's median and its mean is not worse. Gengar never bonds Golpe Cuerpo or any other melee move. A check that ignores half of each combat hit (`--dodge 0.5`) lengthens runs and does not move Power or Reflexes ahead of Synthesis. The pasivas page ranks cards by the game's coin reward (game.js:295-301, coinMul 1) and takes Baya Zidra only at or below 70% HP.
+Known bias (estimates): the bot does not dodge, so sustain (Synthesis `rgn`, Vigor `hp`, Leftovers) still looks strong. Incoming damage is ×0.75 whenever a melee move is in the active group (player.js:254). A melee group is published only when its bootstrap floor is strictly above the best ranged group's median and its mean is not worse. Gengar never publishes Golpe Cuerpo or any other melee move; that filter is the owner's build rule in the publisher, not an engine ban. The step is `1/20` s so `parity.js` stays bit-exact (`game.js:610` steps at about `1/60`, clamped at `1/30`). An audit measurement at `DT = 1/60` moved mean median survival from 77.1–77.4 s to 80.3 s (+3 s, +4%) and shuffled ranks by 38, inside the 42.6-rank seed noise of a 40-seed block. A published 200-seed resim at `1/60` is about three times the runtime and was not run. A check that ignores half of each combat hit (`--dodge 0.5`) lengthens runs and does not move Power or Reflexes ahead of Synthesis. The pasivas page ranks cards by the game's coin reward (game.js:295-301, coinMul 1) and takes Baya Zidra only at or below 70% HP.
 build/passives.py `priority` lists the eight stat cards in this coin order on the Build card and marks the lead attack's evolution card; `compute` (the policy's pick sequence) only feeds the summaries. The rift walk is time-at-current-speed, not pathing.
-Boss and legendary hit radius ×2 stands in for sprite bossScale when the idle anchor is the default (enemy.js:15–22, sprites.js:127–130); huge sprites would be closer to ×1. Boss personalities other
+Boss personalities other
 than ranged/charger/chase are collapsed. The arena is fought in open space at the map position (no Distortion World
 columns or arena weather). The published 900 s window ends before Sentencia; a longer run uses the judgment path above.
 Results used for the site are in `results/fixed_group/`.

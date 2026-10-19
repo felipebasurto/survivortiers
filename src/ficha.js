@@ -531,10 +531,12 @@
   const id = baked || Number(new URLSearchParams(location.search).get('id'));
   // Sin resúmenes la ficha se dibuja igual: el bloque es un extra.
   const summaries = getJSON('summaries-' + (EN ? 'en' : 'es') + '.json').catch(() => ({}));
-  Promise.all([getJSON('pokemon-index.json'), getJSON('species.json'), getJSON('moves.json'), summaries]).then(([index, species, moves, texts]) => {
+  Promise.all([getJSON('pokemon-index.json'), getJSON('species.json'), getJSON('moves.json'), getJSON('moves_unranked.json'), summaries]).then(([index, species, moves, unranked, texts]) => {
     const i = index.findIndex(p => p.dex === id);
     const d = species.d[id];
     if (i < 0 || !d) { missing(); return; }
+    // Unranked moves (Maquinación) are not in the tier list, but a bonded group can still use one.
+    moves = moves.concat(unranked);
     const byId = new Map(moves.map(m => [m.id, m]));
     const moveName = mid => { const m = byId.get(mid); return m ? (EN ? m.en.name : m.name) : mid; };
     render(index[i], d, species.sim, moveName, index[i - 1], index[i + 1], moves, species.statMedian, species.items, species.cards || {}, texts[id]);

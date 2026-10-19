@@ -25,6 +25,7 @@
 
 mod data;
 mod engine;
+mod radii;
 mod math;
 mod repertorio;
 mod rng;
@@ -242,21 +243,14 @@ fn partner_pool(data: &Data, mon: &Mon, start: usize) -> Vec<usize> {
                 return false;
             }
             let m = &data.moves[ix];
-            // Gengar never bonds Golpe Cuerpo or any other melee move.
-            if mon.dex == 94 && m.kind == Kind::Melee {
-                return false;
-            }
+            // Orbit shares one orb list (engine step_orbs). Gengar's melee ban is an owner
+            // build rule in the publisher, not a filter here.
             if m.kind == Kind::Orbit || !publishable_attack(m) {
                 return false;
             }
             m.kind.simulated() || m.levels[0].xk != 0
         })
         .collect();
-    // Gengar never bonds a melee move. A ghost that has to stand in the swing
-    // is the case the ranking was getting wrong (body slam next to shadow ball).
-    if mon.dex == 94 {
-        ids.retain(|&ix| data.moves[ix].kind != Kind::Melee);
-    }
     ids.sort_by(|&a, &b| {
         let syn = |ix| if pairs_with(data, start, ix) { 0u8 } else { 1 };
         let rank = |ix| solo.iter().position(|&p| p == ix).unwrap_or(10_000);
@@ -462,7 +456,7 @@ const PAIR_TOP: usize = 6;
 fn attack_list(data: &Data, mon: &Mon) -> Vec<usize> {
     let mut atk: Vec<usize> = mon.pool.iter().copied().filter(|&ix| {
         let m = &data.moves[ix];
-        castable(m) && publishable_attack(m) && !(mon.dex == 94 && m.kind == Kind::Melee)
+        castable(m) && publishable_attack(m)
     }).collect();
     if !atk.contains(&mon.start) && castable(&data.moves[mon.start]) {
         atk.push(mon.start);
@@ -571,12 +565,9 @@ fn dedup_specs(specs: Vec<Spec>) -> Vec<Spec> {
 /// special, otherwise Danza Espada. A mixed pair follows that lead. The fourth slot is Harden
 /// (`buffs` 3, one partner) or a third attack (`buffs` 1). Harden is not the default:
 /// both shapes are scored and the higher median, then mean, wins.
-/// Gengar's list has already dropped melee.
+/// Gengar may be searched with a melee move. The publisher drops that build.
 fn synergy_specs(data: &Data, mon: &Mon) -> Vec<Spec> {
-    let mut atk = attack_list(data, mon);
-    if mon.dex == 94 {
-        atk.retain(|&ix| data.moves[ix].kind != Kind::Melee);
-    }
+    let atk = attack_list(data, mon);
     let linked = atk.iter().any(|&a| atk.iter().any(|&b| a != b && pairs_with(data, a, b)));
     let pay: Vec<usize> = atk.iter().copied().filter(|&ix| is_payoff(&data.moves[ix].levels[0])).collect();
     let mut app: Vec<usize> = atk.iter().copied().filter(|&ix| is_applier(&data.moves[ix].levels[0])).collect();
@@ -784,27 +775,14 @@ fn sweep(data: &Data, cfg: &Cfg) {
                 .copied()
                 .filter(|&r| {
                     let m = &data.moves[r.start];
-                    publishable_attack(m)
-                        && r.s.median_dealt > 0.0
-                        && !(r.mon.dex == 94 && m.kind == Kind::Melee)
+                    publishable_attack(m) && r.s.median_dealt > 0.0
                 })
                 .collect();
             if picked.is_empty() {
-                picked = g
-                    .iter()
-                    .copied()
-                    .filter(|&r| {
-                        let m = &data.moves[r.start];
-                        publishable_attack(m) && !(r.mon.dex == 94 && m.kind == Kind::Melee)
-                    })
-                    .collect();
+                picked = g.iter().copied().filter(|&r| publishable_attack(&data.moves[r.start])).collect();
             }
             if picked.is_empty() {
-                picked = g
-                    .iter()
-                    .copied()
-                    .filter(|&r| !(r.mon.dex == 94 && data.moves[r.start].kind == Kind::Melee))
-                    .collect();
+                picked = g.clone();
             }
             picked.sort_by(|a, b| cmp_run(&a.s, &b.s).then_with(|| mv(a).cmp(mv(b))));
             let n = picked.len();

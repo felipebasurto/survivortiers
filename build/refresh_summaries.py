@@ -192,32 +192,45 @@ def _real_errors(errs: list[str]) -> list[str]:
     return [e for e in errs if "huella" not in e]
 
 
+def _live(base_rec: dict, full: dict) -> dict:
+    """Base record catalog checks, plus the stored rank drivers so the reason sentence has a source.
+    Counterfactuals are not recomputed here; a driver that no longer holds is dropped by the checker."""
+    rec = dict(base_rec)
+    if "drivers" in full:
+        rec["drivers"] = full["drivers"]
+    if "ungated" in full:
+        rec["ungated"] = full["ungated"]
+    return rec
+
+
 def refresh(write: bool = True) -> dict[str, int]:
     facts = facts_export.load()
+    # catalog.py checks the live base record (ranking, build, capped hitbox), not a stale parquet copy.
+    base = sf.base_records()
     doc = S.load()
     names = S.all_build_names(facts)
     kept = rewritten = 0
     species = {}
     for d, f in facts.items():
+        live = _live(base[d], f)
         old = doc["species"].get(d)
+        fp, bfp = sf.fingerprint(live), sf.fingerprint(base[d])
         if old is None:
-            text = dict(zip(("es", "en"), compose(f)))
+            text = dict(zip(("es", "en"), compose(live)))
             rewritten += 1
         else:
-            trial = {**old, "fp": sf.fingerprint(f), "bfp": sf.fingerprint(sf.base_of(f))}
-            if _real_errors(S.validate(d, trial, f, names)):
-                text = dict(zip(("es", "en"), compose(f)))
+            trial = {**old, "fp": fp, "bfp": bfp}
+            if _real_errors(S.validate(d, trial, live, names)):
+                text = dict(zip(("es", "en"), compose(live)))
                 rewritten += 1
             else:
                 text = {"es": old["es"], "en": old["en"]}
                 kept += 1
-        entry = {"fp": sf.fingerprint(f), "bfp": sf.fingerprint(sf.base_of(f)), **text}
-        errs = S.validate(d, entry, f, names)
+        entry = {"fp": fp, "bfp": bfp, **text}
+        errs = S.validate(d, entry, live, names)
         if errs:
             raise SystemExit(errs[0] + (f" (+{len(errs) - 1})" if len(errs) > 1 else ""))
         species[d] = entry
-    # base-record view, the one catalog.py checks
-    base = sf.base_records()
     base_names = S.all_build_names(base)
     for d, entry in species.items():
         errs = S.validate(d, entry, base[d], base_names)

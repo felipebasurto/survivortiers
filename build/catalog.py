@@ -493,6 +493,7 @@ def main() -> int:
     write_json("species.json", species_details(entries, meta["simRange"], meta["simMedianSeconds"],
                                                combos.compute_all(dex_types, {e["dex"]: e["r"]["sim"]["best"]["id"] for e in entries})), public=True)
     write_json("moves.json", moves, public=True)
+    write_json("moves_unranked.json", unranked, public=True)
     for lang in ("es", "en"):
         write_json(f"summaries-{lang}.json", summaries.public(texts, lang), public=True)
     write_json("gachas.json", gachas, pretty=True)

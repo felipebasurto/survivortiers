@@ -53,8 +53,8 @@ MAX_FILES, MAX_BYTES = 4_000, 180_000_000
 EXPECTED_COUNTS = {"S": 30, "A": 90, "B": 200, "C": 300, "D": 346}
 SPANISH_WORDS = re.compile(r"\b(el|los|las|del|con|para|puesto|aguante|daño|ficha|partidas?|repeticiones|cuántos)\b", re.I)
 LANGS = ("", "en/")
-EXPECTED_GACHA = {"Paldea": 19.6, "Alola": 18.1, "Galar": 14.9, "Sinnoh": 13.1, "Kanto": 11.3, "Teselia": 11.3,
-                  "Johto": 10.0, "Kalos": 11.4, "Hoenn": 6.7}
+EXPECTED_GACHA = {"Paldea": 22.8, "Alola": 20.5, "Galar": 11.5, "Sinnoh": 13.1, "Kanto": 9.3, "Teselia": 12.8,
+                  "Johto": 10.0, "Kalos": 11.4, "Hoenn": 5.9}
 
 
 CARD_IDS = {"atk", "spd", "hp", "cd", "def", "rgn", "mag", "xp"}
@@ -493,10 +493,11 @@ def main() -> int:
     try:
         species = json.loads(fetch(base + "data/species.json")[1])["d"]
         moves = json.loads(fetch(base + "data/moves.json")[1])
+        unranked = json.loads(fetch(base + "data/moves_unranked.json")[1])
     except (ValueError, KeyError):
-        err("data/species.json o data/moves.json no se pueden leer")
-        species, moves = {}, []
-    move_ids = {m["id"] for m in moves}
+        err("data/species.json, data/moves.json o data/moves_unranked.json no se pueden leer")
+        species, moves, unranked = {}, [], []
+    move_ids = {m["id"] for m in moves} | {m["id"] for m in unranked}
     # The bonded attacks are the simulated best move, unless the fixed-group search
     # (simulator/results/fixed_group/group_search.csv) picked a longer-lasting group.
     search_picks = combos._search_picks()
