@@ -2,39 +2,43 @@
 
 One function decides each, for the publisher (`make_definitive.py`, `combos.py`) and for
 the staged search in `regen.py`. Both rank on the sim score (survival times damage and
-kills, see `simulator/sim-rs/src/stats.rs`), adjusted for the owner's melee penalty.
+kills, see `simulator/sim-rs/src/stats.rs`) as measured.
 
-A row is a candidate only when the owner's rules allow it (`owner_rules`):
+- A move row is a candidate when it is an attack (not a buff) that dealt damage.
+- A group row is a candidate when it bonds two or three attacks inside the four slots.
+  Its buffs, categories and shape are whatever the search tried; the score picks.
 
-- a move row is an attack that dealt damage; Sustituto never is, Gengar never gets melee;
-- a group row holds two or three attacks of one category, the attack buff of that
-  category (Danza Espada for physical, Maquinación for special) and, as the fourth slot,
-  Fortaleza or a third attack. A group that mixes categories is never a candidate.
-
-The pick is the highest adjusted median score. Ties break on the adjusted mean score,
-kills and damage, and only then on fewer attacks and the id. There is no interval-overlap
-tie rule: a 'cheaper group wins a tie' rule picked groups that scored lower.
+The pick is the highest median score. Ties break on the mean score, kills and damage, and
+only then on fewer attacks and the id. There is no interval-overlap tie rule: a 'cheaper
+group wins a tie' rule picked groups that scored lower.
 """
 from __future__ import annotations
 
 import csv
+import math
 import json
 from functools import lru_cache
 from pathlib import Path
-from typing import Iterable
-
-import owner_rules
 
 ROOT = Path(__file__).resolve().parent.parent
 V3 = ROOT / "simulator" / "v3" / "v3_data.json"
-
-HARDEN_SLOTS = frozenset({"harden", "agility"})
-BUFF_IDS = frozenset({"dragon-dance", "swords-dance", "harden", "agility", "nasty-plot"})
+BOND_SLOTS = 4
 
 
 @lru_cache(maxsize=1)
 def _v3_moves() -> dict:
     return json.loads(V3.read_text(encoding="utf8"))["moves"]
+
+
+@lru_cache(maxsize=1)
+def attack_buff_side() -> dict[str, str]:
+    """attack buff id -> the category it raises (moves.js stat patk / satk)."""
+    side = {"patk": "physical", "satk": "special"}
+    return {
+        mid: side[move["levels"][0]["stat"]]
+        for mid, move in _v3_moves().items()
+        if move["kind"] == "buff" and move["levels"][0].get("stat") in side
+    }
 
 
 def kinds() -> dict[str, str]:
@@ -44,11 +48,6 @@ def kinds() -> dict[str, str]:
 def categories() -> dict[str, str]:
     """move id -> physical | special | '' (buffs). `moves.js` PHYSICAL set, through v3_data.json."""
     return {mid: (move["levels"][0].get("cat") or "") for mid, move in _v3_moves().items()}
-
-
-def has_melee(attacks: Iterable[str]) -> bool:
-    k = kinds()
-    return any(k.get(a) == "melee" for a in attacks)
 
 
 def load_rows(path: Path) -> list[dict]:
@@ -63,22 +62,22 @@ def _num(row: dict, key: str, fallback: str | None = None) -> float:
     return float(raw) if raw not in (None, "") else 0.0
 
 
-def score(row: dict, melee: bool) -> float:
-    return owner_rules.adjusted(_num(row, "median_score", "median_s"), melee)
+def score(row: dict) -> float:
+    return _num(row, "median_score", "median_s")
 
 
-def score_bounds(row: dict, melee: bool) -> tuple[float, float, float]:
-    """Adjusted (median, low, high) of a row's score interval."""
-    mid = _num(row, "median_score", "median_s")
+def score_bounds(row: dict) -> tuple[float, float, float]:
+    """(median, low, high) of a row's score interval."""
+    mid = score(row)
     lo = _num(row, "score_lo", "boot_lo") if row.get("score_lo") not in (None, "") else mid
     hi = _num(row, "score_hi", "boot_hi") if row.get("score_hi") not in (None, "") else mid
-    return tuple(owner_rules.adjusted(x, melee) for x in (mid, lo, hi))  # type: ignore[return-value]
+    return mid, lo, hi
 
 
-def _order(row: dict, melee: bool, n_attacks: int, ident: str) -> tuple:
+def _order(row: dict, n_attacks: int, ident: str) -> tuple:
     return (
-        -score(row, melee),
-        -owner_rules.adjusted(_num(row, "mean_score", "mean_s"), melee),
+        -score(row),
+        -_num(row, "mean_score", "mean_s"),
         -_num(row, "median_kills"),
         -_num(row, "median_dealt"),
         -_num(row, "median_s"),
@@ -89,93 +88,105 @@ def _order(row: dict, melee: bool, n_attacks: int, ident: str) -> tuple:
 
 # ---------------------------------------------------------------------------- one move
 
-def move_ok(dex: int, row: dict) -> bool:
-    move = row["start"]
-    if not owner_rules.is_attack(move, row.get("kind") or "", _num(row, "median_dealt") if row.get("median_dealt") not in (None, "") else None):
-        return False
-    return owner_rules.allows_melee(dex) or row.get("kind") != "melee"
+def is_attack(kind: str, dealt: float | None = None) -> bool:
+    """Not a buff, and it dealt damage when the row says how much (a run that deals nothing scores 0)."""
+    return kind != "buff" and (dealt is None or dealt > 0.0)
+
+
+def move_ok(row: dict) -> bool:
+    dealt = _num(row, "median_dealt") if row.get("median_dealt") not in (None, "") else None
+    return is_attack(row.get("kind") or "", dealt)
 
 
 def move_order(row: dict) -> tuple:
-    return _order(row, row.get("kind") == "melee", 1, row["start"])
+    return _order(row, 1, row["start"])
 
 
 def best_moves(rows: list[dict]) -> dict[int, dict]:
     """dex -> the best attacking move row."""
     pools: dict[int, list[dict]] = {}
     for row in rows:
-        dex = int(row["dex"])
-        if move_ok(dex, row):
-            pools.setdefault(dex, []).append(row)
+        if move_ok(row):
+            pools.setdefault(int(row["dex"]), []).append(row)
     return {dex: min(pool, key=move_order) for dex, pool in pools.items()}
 
 
 def shortlist_moves(rows: list[dict], k: int) -> dict[int, list[dict]]:
     pools: dict[int, list[dict]] = {}
     for row in rows:
-        dex = int(row["dex"])
-        if move_ok(dex, row):
-            pools.setdefault(dex, []).append(row)
+        if move_ok(row):
+            pools.setdefault(int(row["dex"]), []).append(row)
     return {dex: sorted(pool, key=move_order)[:k] for dex, pool in pools.items()}
 
 
 # --------------------------------------------------------------------------- one group
 
 def split_group(group: str) -> tuple[list[str], str | None, str | None]:
-    """(attacks, attack buff id, fourth-slot buff id) of a searched group name."""
+    """(attacks, attack buff id, other buff id) of a searched group name."""
+    k = kinds()
     attacks, attack_buff, fourth = [], None, None
     for part in group.split("+"):
-        if part in owner_rules.ATTACK_BUFFS or part == "dragon-dance":
+        if part in attack_buff_side():
             attack_buff = part
-        elif part in HARDEN_SLOTS:
+        elif k.get(part) == "buff":
             fourth = part
         else:
             attacks.append(part)
     return attacks, attack_buff, fourth
 
 
-def group_ok(dex: int, group: str) -> bool:
-    attacks, buff, _ = split_group(group)
-    if buff is None or len(attacks) < 2:
-        return False
-    if any(a in owner_rules.NEVER_ATTACK for a in attacks):
-        return False
-    if not owner_rules.allows_melee(dex) and has_melee(attacks):
-        return False
-    cat = owner_rules.group_category(attacks, categories())
-    return cat is not None and owner_rules.attack_buff(cat) == buff
+def group_ok(group: str) -> bool:
+    attacks, buff, fourth = split_group(group)
+    return len(attacks) >= 2 and len(attacks) + (buff is not None) + (fourth is not None) <= BOND_SLOTS
+
+
+def shape_of(group: str) -> str:
+    """'2+atk+def', '3+atk' or '3+def': attack count and which buff slots are filled."""
+    attacks, buff, fourth = split_group(group)
+    return "+".join([str(len(attacks))] + (["atk"] if buff else []) + (["def"] if fourth else []))
 
 
 def group_order(row: dict) -> tuple:
     attacks, _, _ = split_group(row["group"])
-    return _order(row, has_melee(attacks), len(attacks), row["group"])
+    return _order(row, len(attacks), row["group"])
 
 
 def best_groups(rows: list[dict]) -> dict[int, dict]:
     """dex -> the best valid group row."""
     pools: dict[int, list[dict]] = {}
     for row in rows:
-        dex = int(row["dex"])
-        if group_ok(dex, row["group"]):
-            pools.setdefault(dex, []).append(row)
+        if group_ok(row["group"]):
+            pools.setdefault(int(row["dex"]), []).append(row)
     return {dex: min(pool, key=group_order) for dex, pool in pools.items()}
 
 
+def halving_keep(rows: list[dict], keep_frac: float, min_keep: int) -> list[tuple[str, str]]:
+    """The (dex, group) pairs that move from the short screen to the full one. Per species and
+    shape, keep the best max(min_keep, ceil(keep_frac * n)) groups in shortlist order."""
+    pools: dict[tuple[int, str], list[dict]] = {}
+    for row in rows:
+        if not group_ok(row["group"]):
+            continue
+        pools.setdefault((int(row["dex"]), shape_of(row["group"])), []).append(row)
+    keep: list[tuple[str, str]] = []
+    for pool in pools.values():
+        n = max(min_keep, math.ceil(keep_frac * len(pool)))
+        keep.extend((row["dex"], row["group"]) for row in sorted(pool, key=group_order)[:n])
+    return sorted(keep, key=lambda k: (int(k[0]), k[1]))
+
+
 def shortlist_groups(rows: list[dict], per_shape: int) -> dict[int, list[dict]]:
-    """The best `per_shape` groups with Fortaleza as the fourth slot and the best
-    `per_shape` with a third attack, so the last stage settles the two shapes head to head."""
+    """The best `per_shape` groups of each shape (`shape_of`), so the last stage settles the
+    shapes head to head."""
     pools: dict[int, dict[str, list[dict]]] = {}
     for row in rows:
-        dex = int(row["dex"])
-        if not group_ok(dex, row["group"]):
+        if not group_ok(row["group"]):
             continue
-        _, _, fourth = split_group(row["group"])
-        shape = "harden" if fourth else "third"
-        pools.setdefault(dex, {}).setdefault(shape, []).append(row)
+        pools.setdefault(int(row["dex"]), {}).setdefault(shape_of(row["group"]), []).append(row)
     out: dict[int, list[dict]] = {}
     for dex, shapes in pools.items():
         picked: list[dict] = []
-        for shape in ("harden", "third"):
-            picked.extend(sorted(shapes.get(shape, []), key=group_order)[:per_shape])
+        for shape in sorted(shapes):
+            picked.extend(sorted(shapes[shape], key=group_order)[:per_shape])
         out[dex] = picked
     return out

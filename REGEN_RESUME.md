@@ -46,7 +46,7 @@ python3 build/regen.py --check
 python3 build/facts_export.py --check
 python3 build/summary_pipeline.py check
 python3 -m unittest discover -s build -p "test_*.py"
-node --test simulator/sim/test/*.test.js
+node --test simulator/v3/game_update.test.js
 cargo test --release --manifest-path simulator/sim-rs/Cargo.toml
 ```
 
@@ -58,4 +58,4 @@ Also still to regenerate (not touched yet): the passive rank (`simulator/pasivas
 
 ## PR body numbers still to fill in
 
-Sustituto in groups (must be 0), melee in groups, mixed-category groups (must be 0), groups choosing a third attack over Fortaleza, Gengar melee check, seed counts and top-30 overlap, the new top 30 with rank bands, and Gengar, Marshadow, Gholdengo, Keldeo, Garchomp and Landorus (tier, rank, group, buff).
+Sustituto in groups (must be 0), melee in groups, mixed-category groups (must be 0), groups choosing a third attack over Fortaleza, seed counts and top-30 overlap, the new top 30 with rank bands, and Gengar, Marshadow, Gholdengo, Keldeo, Garchomp and Landorus (tier, rank, group, buff).

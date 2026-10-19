@@ -47,9 +47,8 @@ class Validator(unittest.TestCase):
         live = {}
         for dex, full in FACTS.items():
             rec = dict(base[dex])
-            for key in ("drivers", "ungated"):
-                if key in full:
-                    rec[key] = full[key]
+            if "drivers" in full:
+                rec["drivers"] = full["drivers"]
             live[dex] = rec
         errs, _ = S.check(live, S.load())
         self.assertEqual(errs, [])

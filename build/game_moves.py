@@ -45,18 +45,8 @@ NOTES = {
     ),
 }
 
-# Sustituto (js/data/moves.js:445, kind turret) hace daño en el juego, pero para el ranking no es un ataque
-# (data/owner_rules.json): no se publica como mejor movimiento ni entra en un grupo.
-_SUBSTITUTE_NOTE = (
-    "Deja una torreta que dispara sola. En el ranking no cuenta como ataque: nunca es el mejor movimiento de un "
-    "Pokémon ni entra en su grupo.",
-    "Leaves a turret that fires on its own. In the ranking it does not count as an attack: it is never a Pokémon's "
-    "best move and never in its group.",
-)
-NOTES["substitute"] = _SUBSTITUTE_NOTE
-
 # js/data/moves.js:196 (Maquinación, en 5a23d49). No tiene puesto en la tier list de potenciadores, que sale del
-# análisis anterior y no la midió; el ranking sí la lleva en los grupos especiales (data/owner_rules.json).
+# análisis anterior y no la midió; la búsqueda de grupos sí la prueba.
 # Sus cifras son las base del juego, sin mejoras de nivel.
 UNRANKED = [
     {

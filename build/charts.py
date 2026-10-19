@@ -180,10 +180,9 @@ def pipeline(L: Lang) -> str:
             f'<ol class="pipe" aria-label="{esc(alt)}">{items}</ol></figure>')
 
 
-def method_steps(L: Lang, pieces: list[dict], cuts: list[dict], gates: list[dict]) -> str:
+def method_steps(L: Lang, pieces: list[dict], cuts: list[dict]) -> str:
     """Los seis pasos del cálculo con las cifras reales. El dibujo de arriba es el resumen; esto es la explicación."""
     w = {p["key"]: L.pcts(p["weight"]) for p in pieces}
-    g = {x["tier"]: L.pcts(x["top"]) for x in gates}
     sizes = " · ".join(f'{c["tier"]} {L.num(c["to"] - c["from"] + 1)}' for c in cuts)
     texts = [
         L.t("met_step_1"),
@@ -191,7 +190,7 @@ def method_steps(L: Lang, pieces: list[dict], cuts: list[dict], gates: list[dict
         L.t("met_step_3", sheet=w["sheet"], sim=w["sim"], late=w["late"]),
         L.t("met_step_4"),
         L.t("met_step_5"),
-        L.t("met_step_6", sizes=sizes, s=g["S"], a=g["A"], b=g["B"]),
+        L.t("met_step_6", sizes=sizes),
     ]
     items = "".join(f'<li><b>{num_html(L.t(f"met_step_{i}_h"))}</b><p>{esc(text)}</p></li>'
                     for i, text in enumerate(texts, 1))
@@ -224,17 +223,6 @@ def _tier_strip_body(L: Lang, cuts: list[dict], marker: tuple[int, str] | None =
 def tier_strip(L: Lang, cuts: list[dict]) -> str:
     alt = L.t("tiers_alt") + ", ".join(f'{c["tier"]} {c["to"] - c["from"] + 1}' for c in cuts) + "."
     return _figure("tiers", L.t("tiers_title"), _tier_strip_body(L, cuts), alt)
-
-
-def gate(L: Lang, gates: list[dict]) -> str:
-    rows = "".join(
-        f'<div class="gt-row t-{g["tier"]}" style="--i:{i}"><span class="gt-name">{esc(L.t("gate_name", t=g["tier"]))}</span>'
-        f'<span class="gt-track"><i class="gt-fill" style="left:{100 - g["top"]}%;'
-        f'width:{g["top"]}%"></i></span><em class="gt-val">{esc(L.t("gate_val", top=g["top"]))}</em></div>'
-        for i, g in enumerate(gates))
-    alt = L.t("gate_alt") + ", ".join(L.t("gate_alt_item", t=g["tier"], top=g["top"]) for g in gates) + "."
-    axis = f'<div class="gt-axis" aria-hidden="true"><span>{esc(L.t("gate_worst"))}</span><span>{esc(L.t("gate_best"))}</span></div>'
-    return _figure("gate", L.t("gate_title"), rows + axis, alt)
 
 
 def agreement(L: Lang, items: list[dict]) -> str:

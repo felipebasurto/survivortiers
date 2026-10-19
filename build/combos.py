@@ -11,12 +11,11 @@ Qué elige, de los ataques que ofrece el juego a ese Pokémon (POOL.normal + POO
   1. Si la búsqueda de grupo fijo tiene una fila para esa especie
      (`simulator/results/fixed_group/group_search.csv`), los ataques del grupo con mejor mediana
      (si empatan, mejor media, bajas y daño). Ahí entran Hex con quemadura, veneno o ralentización, las
-     parejas de los mejores ataques y las parejas de dos dashes, y gana el que más aguanta.
-     El grupo es de una sola categoría y lleva el potenciador de ataque que le corresponde: Danza
-     Espada si los ataques son físicos, Maquinación si son especiales. El cuarto hueco es Fortaleza
-     o un tercer ataque, el que puntúa más. La puntuación es la de la simulación (aguantar, daño y
-     bajas); un cuerpo a cuerpo la multiplica por 0,8 y Gengar no lleva ninguno. Sustituto nunca
-     es un ataque. La elección sale de build/picks.py, la misma que usa el ranking.
+     parejas y tríos de los mejores ataques (de cualquier categoría) y las parejas de dos dashes,
+     cada uno con cada relleno de potenciadores (Danza Espada, Danza Dragón o Maquinación; Fortaleza
+     o Agilidad), y gana el que más puntúa en la simulación (aguantar, daño y bajas). Los
+     potenciadores publicados son los del grupo ganador. La elección sale de build/picks.py, la
+     misma que usa el ranking.
   2. Si no hay búsqueda, hueco 1 es el mejor ataque de la simulación (`best_move`). Si ese ataque
      tiene un compañero de sinergia (Hex con estado, o dos dashes), el hueco 2 es ese compañero
      a distancia cuando hay uno; si no, el de más cobertura.
@@ -26,8 +25,8 @@ Qué elige, de los ataques que ofrece el juego a ese Pokémon (POOL.normal + POO
      entran si abren al menos un 2 % de rivales, salvo que el Pokémon no tenga otra cosa que ofrecer).
      Mientras quede un ataque a distancia, no se rellena con cuerpo a cuerpo.
   4. Opcionales: se sigue con la cobertura tres ataques más (ALT_SLOTS), para los huecos que se abren más tarde.
-  5. Potenciadores: Maquinación si los ataques del grupo son especiales; si no, Danza Espada (o Danza
-     Dragón). Fortaleza solo si el grupo ganador la lleva, o si esa especie no salió en la búsqueda.
+  5. Potenciadores: los del grupo ganador. Sin búsqueda, el que sube la categoría del primer ataque
+     (Maquinación sube el especial; Danza Espada y Danza Dragón, el físico) y Fortaleza.
 
 Datos: data/move_pool.json, data/move_mechanics.json, data/type_matrix.json (los exporta
 build/export_move_mechanics.js desde el juego) y data/move_tierlist_v4.csv.
@@ -38,7 +37,6 @@ import csv
 import json
 from pathlib import Path
 
-import owner_rules
 import picks
 
 DATA = Path(__file__).resolve().parent.parent / "data"
@@ -64,10 +62,7 @@ def _mult(matrix: dict, atk: str, defender: list[str]) -> float:
 
 ATTACK_SLOTS = 2
 ALT_SLOTS = 3
-# Grupo fijo: un potenciador de ataque es obligatorio. El cuarto hueco es Fortaleza o un tercer ataque.
-# Un cuerpo a cuerpo solo gana con margen claro (suelo de bootstrap por encima de la mediana a distancia).
-ATTACK_BUFFS = ("nasty-plot", "dragon-dance", "swords-dance")
-BUFFS = ATTACK_BUFFS, "harden"
+FALLBACK_DEF = "harden"
 # Un ataque normal solo suma neutral, así que solo cuenta como «mejora la cobertura» si abre al menos este % de rivales.
 NORMAL_MIN_GAIN = 0.02
 
@@ -121,28 +116,22 @@ def _special_species() -> dict[int, bool]:
 
 
 def _attack_buff(attacks: list[str], cats: dict[str, str], special: bool, available: list[str]) -> str | None:
-    """The attack buff that matches the group's attacks. A searched group never mixes categories, so
-    the buff is its category's. A group with no category falls back to the species side (`sa > pa`)."""
-    cat = owner_rules.group_category(attacks, cats) or ("special" if special else "physical")
-    want = owner_rules.attack_buff(cat)
-    if want in available:
-        return want
-    return next((b for b in ATTACK_BUFFS if b in available), None)
+    """For a species the search did not score: the buff that raises the first categorised attack
+    (`sa > pa` when none is), from the game's buff stats. Danza Espada before Danza Dragón."""
+    lead = next((cats[a] for a in attacks if cats.get(a) in ("physical", "special")), "special" if special else "physical")
+    side = picks.attack_buff_side()
+    return next((b for b in sorted(available) if side.get(b) == lead and b != "dragon-dance"),
+                next((b for b in available if side.get(b) == lead), None))
 
 
-def _search_picks() -> dict[int, tuple[list[str], bool, str | None]]:
-    """dex -> (attack ids, whether the winning group also bonds Harden, attack-buff id).
-
-    The pick is build/picks.best_groups over the searched groups: highest adjusted median score,
-    never Sustituto, never melee for Gengar, one category per group with its matching buff,
-    Fortaleza or a third attack in the fourth slot, whichever scored higher.
-    """
+def _search_picks() -> dict[int, tuple[list[str], list[str]]]:
+    """dex -> (attack ids, buff ids) of the winning searched group (build/picks.best_groups)."""
     if not SEARCH_CSV.exists():
         return {}
     out = {}
     for dex, row in picks.best_groups(picks.load_rows(SEARCH_CSV)).items():
         attacks, buff, fourth = picks.split_group(row["group"])
-        out[dex] = (attacks, fourth is not None, buff)
+        out[dex] = (attacks, [b for b in (buff, fourth) if b])
     return out
 
 
@@ -195,7 +184,7 @@ def compute_all(types_by_dex: dict[int, list[str]], best_move_by_dex: dict[int, 
     """Devuelve {dex: {"moves": [ids de los ataques + potenciador], "alts": [ids opcionales], "types", "super": %,
     "neutral": %}}."""
     pool, mech, matrix, rows = _load()
-    picks = _search_picks()
+    searched = _search_picks()
     flags = _synergy_flags()
     cats = picks.categories()
     special = _special_species()
@@ -207,17 +196,13 @@ def compute_all(types_by_dex: dict[int, list[str]], best_move_by_dex: dict[int, 
         ids = set(pool["normal"])
         for t in types:
             ids.update(pool.get(t, []))
-        attacks = sorted(
-            i for i in ids
-            if mech[i]["kind"] != "buff" and i not in owner_rules.NEVER_ATTACK
-            and (owner_rules.allows_melee(dex) or mech[i]["kind"] != "melee")
-        )
+        attacks = sorted(i for i in ids if mech[i]["kind"] != "buff")
         buffs = sorted(i for i in ids if mech[i]["kind"] == "buff")
         best = best_move_by_dex[dex]
         if best not in attacks and best in rows:
             # el ataque inicial propio de la especie (p. ej. Confusión de Psyduck) no está en POOL, pero lo lleva desde el inicio
             attacks.append(best)
-        preset, with_harden, searched_buff = picks.get(dex, ([], True, None))
+        preset, searched_buffs = searched.get(dex, ([], []))
         preset = [m for m in preset if m in rows]
         for move in preset:
             if move not in attacks:
@@ -226,14 +211,12 @@ def compute_all(types_by_dex: dict[int, list[str]], best_move_by_dex: dict[int, 
             raise ValueError(f"el mejor ataque de la simulación ({best}) no está entre los que aprende {dex}")
         # The search names every attack it bonded. Later slots stay coverage.
         # A species the search did not score keeps the synergy partner, as before.
-        searched = len(preset) >= 2
-        n_atk = len(preset) if searched else ATTACK_SLOTS
+        found = len(preset) >= 2
+        n_atk = len(preset) if found else ATTACK_SLOTS
         ranked = pick_attacks(attacks, best, rows, mech, matrix, everyone, cache, n_atk + ALT_SLOTS,
-                              preset if searched else None, None if searched else flags)
+                              preset if found else None, None if found else flags)
         trio, alts = ranked[:n_atk], ranked[n_atk:]
-        atk_buff = _attack_buff(trio, cats, special.get(dex, False), buffs)
-        # 2+2 keeps Harden. The three-attack Hex group the search can still pick does not.
-        want = (atk_buff, BUFFS[1]) if with_harden or not searched else (atk_buff,)
+        want = searched_buffs if found else [_attack_buff(trio, cats, special.get(dex, False), buffs), FALLBACK_DEF]
         boosts = [b for b in want if b in buffs] or ([max(buffs, key=boost)] if buffs else [])
         group = trio + boosts
         super_hits, neutral_hits = _coverage(matrix, [rows[i]["type"] for i in trio], everyone, cache)

@@ -18,16 +18,15 @@ jobs:
         working-directory: simulator/sim-rs
         run: cargo test --release
 
-  js:
+  game-data:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: sim (Repertorio, rules, rank, match)
-        working-directory: simulator/sim
-        run: node --test test/*.test.js
+      - name: v3_data.json against the vendored game
+        run: node --test simulator/v3/game_update.test.js
 
   python:
     runs-on: ubuntu-latest
@@ -36,6 +35,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: simulator/sim-rs
+      - name: build pokesim (make_definitive.py calls `pokesim repertorio`)
+        run: cargo build --release --manifest-path simulator/sim-rs/Cargo.toml
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"

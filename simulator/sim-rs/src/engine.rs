@@ -1,5 +1,6 @@
-//! Port of sim/match.js + sim/rules.js. Statement order and floating-point
-//! operation order follow the JS exactly; `Replay` math proves it.
+//! The match engine. It began as a bit-exact port of the old JS engine (since deleted);
+//! the default "parity" path keeps that statement and floating-point order, and the
+//! ranking path (status, extra kinds, terrain) follows the game sources cited inline.
 
 use crate::data::*;
 use crate::math::{Libm, MathFns};
@@ -33,7 +34,7 @@ pub enum Bot {
     /// Orbit the nearest enemy at the move's keep distance. Not the parity bot.
     Kite,
     /// Kite, dodge telegraphs and collect orbs. Used for published ranks.
-    /// The parity path stays on Repulse so `parity.js` does not move.
+    /// The parity path stays on Repulse.
     Play,
 }
 
@@ -79,7 +80,7 @@ pub struct Opts {
     pub seconds: f64,
     pub cards: bool,
     pub bot: Bot,
-    /// play on the real map (src/terrain.rs); breaks parity with sim/match.js
+    /// play on the real map (src/terrain.rs); leaves the parity path
     pub terrain: bool,
     /// record the run into TRACE (see take_trace)
     pub trace: bool,
@@ -498,7 +499,7 @@ struct State {
 
 /// ATK_POW / SPD_POW / CD_POW from rules.js. V8 evaluates `1.1 ** i` with
 /// integer exponents by repeated squaring, which no libm pow reproduces, so
-/// the values are V8's own output (checked by sim-rs/parity.js).
+/// the values are V8's own output.
 pub struct Tables {
     atk: [f64; 41],
     spd: [f64; 9],
@@ -527,10 +528,6 @@ impl Tables {
                 0.5578466012364802, 0.5132188731375618, 0.47216136328655683, 0.4343884542236323,
             ],
         }
-    }
-
-    pub fn flat(&self) -> Vec<f64> {
-        self.atk.iter().chain(&self.spd).chain(&self.cd).copied().collect()
     }
 }
 
@@ -4833,15 +4830,6 @@ impl<'a, M: MathFns> Match<'a, M> {
             let a = base + off;
             let c = a.cos();
             let s = a.sin();
-            let mut clear = 0.0;
-            let mut d = 10.0;
-            while d <= 100.0 {
-                if !t.world.fits(px + c * d, py + s * d, pr * 0.9, avoid) {
-                    break;
-                }
-                clear = d;
-                d += 18.0;
-            }
             let mut pen = 0.0;
             for (ex, ey) in &foes {
                 let dx = ex - px;
@@ -4852,6 +4840,20 @@ impl<'a, M: MathFns> Match<'a, M> {
                 }
             }
             let align = c * wantx + s * wanty;
+            // clear <= 100 (d = 10, 28, .. 100), so this bound is exact: a ray that cannot
+            // beat `best_s` even fully clear is skipped without marching it.
+            if align * 1.4 + 100.0 / 100.0 - pen * 2.8 <= best_s {
+                continue;
+            }
+            let mut clear = 0.0;
+            let mut d = 10.0;
+            while d <= 100.0 {
+                if !t.world.fits(px + c * d, py + s * d, pr * 0.9, avoid) {
+                    break;
+                }
+                clear = d;
+                d += 18.0;
+            }
             let score = align * 1.4 + clear / 100.0 - pen * 2.8;
             if score > best_s {
                 best_s = score;
@@ -5872,8 +5874,7 @@ impl<'a, M: MathFns> Match<'a, M> {
     }
 }
 
-/// One closed run. Same contract as runMatch in sim/match.js (no presets,
-/// spawning and weather always on, recordHits/trace not supported).
+/// One closed run (no presets, spawning and weather always on).
 /// Everything `run_match` sets up before its first step. Split out so a test can build a match and
 /// drive single systems (cast, fields, shots, enemies) against scripted enemies.
 fn init_match<'a, M: MathFns>(

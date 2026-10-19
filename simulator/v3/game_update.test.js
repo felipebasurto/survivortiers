@@ -1,14 +1,13 @@
 'use strict';
 // The PokéSurvivor update (66610d9, 5a23d49) against the vendored game sources: move stats in v3_data.json,
 // the physical/special split, monotype, start choices and pool sizes.
+//   node --test simulator/v3/game_update.test.js
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { loadData } = require('../data');
-const { derive } = require('../rules');
 
-const GAME = path.resolve(__dirname, '../../vendor/pokesurvivor-5a23d49');
+const GAME = path.resolve(__dirname, '../vendor/pokesurvivor-5a23d49');
 
 global.window = global;
 global.G = {
@@ -19,7 +18,8 @@ for (const f of ['js/core/util.js', 'js/data/types.js', 'js/systems/stats.js', '
   (0, eval)(fs.readFileSync(path.join(GAME, f), 'utf8'));
 }
 
-const data = loadData();
+const raw = JSON.parse(fs.readFileSync(path.join(__dirname, 'v3_data.json'), 'utf8'));
+const data = { moves: raw.moves, dex: raw.dex, byDex: new Map(raw.dex.map((mon) => [mon.dex, mon])) };
 const NEW = [
   'dragon-claw', 'play-rough', 'flame-charge', 'u-turn', 'dragon-breath', 'ancient-power', 'hyper-beam', 'solar-beam', 'rapid-spin',
   'rolling-kick', 'outrage', 'gyro-ball', 'night-slash', 'whirlpool', 'sand-tomb', 'ominous-wind', 'seed-bomb', 'electro-ball', 'acid-spray',
@@ -65,14 +65,7 @@ test('the physical/special split follows the game, buffs buff their own side', (
   assert.equal(data.moves['nasty-plot'].levels[0].stat, 'satk');
 });
 
-test('new melee moves keep the 0.75 damage-taken factor and the rest do not', () => {
-  const mon = data.byDex.get(150);
-  const state = { cards: { hp: 0, pow: 0, run: 0, cor: 0, cd: 0, rgn: 0, mag: 0, xp: 0 }, buffs: {} };
-  for (const id of NEW) {
-    const move = data.moves[id].levels[0];
-    const out = derive(mon, move, state, data.moves, false);
-    assert.equal(out.melee, move.kind === 'melee' ? 0.75 : 1, id);
-  }
+test('the new melee moves are melee in the data', () => {
   assert.equal(data.moves['dragon-claw'].levels[0].kind, 'melee');
   assert.equal(data.moves['play-rough'].levels[0].kind, 'melee');
 });

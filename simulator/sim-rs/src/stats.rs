@@ -1,4 +1,4 @@
-//! summarize() and bootstrapMedian() from sim/rank.js.
+//! Run summaries and the bootstrap median.
 
 use crate::engine::{js_round, RunResult};
 use crate::rng::Rng;
@@ -32,11 +32,7 @@ fn row_seed(values: &[f64]) -> u32 {
     if h == 0 { 1 } else { h }
 }
 
-pub fn bootstrap_median(times: &[f64], reps: usize) -> (f64, f64) {
-    bootstrap_median_seeded(times, reps, 0xB007)
-}
-
-/// Same resample as `bootstrap_median`, with a seed that belongs to this row.
+/// Bootstrap 5–95 % interval of the median, with a seed that belongs to this row.
 /// Two builds that share a seed block stay paired; their intervals do not share one stream.
 pub fn bootstrap_median_seeded(times: &[f64], reps: usize, seed: u32) -> (f64, f64) {
     let n = times.len();

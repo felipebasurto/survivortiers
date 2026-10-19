@@ -133,6 +133,14 @@ pub struct Move {
     pub needs: Option<Stat>,
 }
 
+impl Move {
+    /// Deals damage and is not a buff (moves.js `kind: 'buff'` carries no `dmg`).
+    pub fn is_attack(&self) -> bool {
+        let l = &self.levels[0];
+        self.kind_name != "buff" && l.buff == 0 && l.dmg.is_finite() && l.dmg > 0.0
+    }
+}
+
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Beh {
     Chase,

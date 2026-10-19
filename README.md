@@ -13,8 +13,7 @@ Web: https://survivortiers.pages.dev
 | `src/` | Estáticos escritos a mano: `style.css`, `app.js` (tier list, colección, vista shiny, demos), `collection.js` (lee el comando de la consola y las filas shiny, sin DOM), `share.js` (codec del enlace `#c=`, v1 y v2), `ficha.js` (dibuja la ficha), `fonts/`, `img/` (iconos de interfaz y créditos) y `_headers` |
 | `build/catalog.py` | Valida y genera `build/out/` (datos intermedios y `public/`, los JSON del navegador). **Falla** si falta artista o licencia de algún sprite, si los conteos por tier no son los de `data/tiers.json` o si los pools de gacha no suman 966 |
 | `build/game_moves.py` | Datos de movimientos copiados del juego en `GAME_REF` (5a23d49): la lista física (`js/data/moves.js:620-630`), los textos de los potenciadores y Maquinación, que aún no tiene puesto. `test_game_moves.py` los compara con el juego si `POKESURVIVOR_DIR` apunta a una copia |
-| `data/owner_rules.json`, `build/owner_rules.py` | Reglas de la persona que lleva el proyecto, en un solo archivo que leen Python, Rust (`simulator/sim-rs/src/rules.rs`) y JS (`simulator/sim/repertorio.js`, `src/tools.js`): el potenciador de cada categoría, los ataques que nunca cuentan (Sustituto), la penalización al cuerpo a cuerpo y que Gengar no lo usa. Son decisiones, no números del juego |
-| `build/picks.py` | La única lógica de selección: mejor ataque de cada especie, grupos válidos (misma categoría, potenciador de esa categoría), Fortaleza contra tercer ataque, intervalos. `combos.py`, `make_definitive.py` y `regen.py` la usan |
+| `build/picks.py` | La única lógica de selección: mejor ataque de cada especie (la nota más alta del simulador, sin ajustes), grupos válidos (al menos 2 ataques y como máximo 4 huecos), forma del grupo, intervalos. `combos.py`, `make_definitive.py` y `regen.py` la usan |
 | `data/tiers.json`, `build/tiers.py` | Tamaño de cada tier y bandas: el único sitio donde viven los cortes |
 | `build/regen.py` | Una orden para los datos publicados: `--check` reconstruye el ranking y lo compara con git; `--sim` repite el motor por etapas |
 | `build/stability.py` | Cuánto se solapan los 30 primeros entre bloques de semillas disjuntos |
@@ -79,11 +78,10 @@ El sitio es estático y no tiene API: los datos son JSON y CSV en `/data/`, sin 
 ## Actualizar el ranking
 
 1. Si cambia el juego: sube `GAME_COMMIT` en `build/legal.py` y `GAME_REF` en `build/game_moves.py`, y regenera `data/pokedex_export.json` (`build/import_game_combat.py`), `data/game_stats.json` (`node build/export_game_stats.js /ruta/al/juego`), `data/move_pool.json`, `data/move_mechanics.json` y `data/move_icons.json`.
-2. Si cambian las reglas de la persona del proyecto, edita solo `data/owner_rules.json` y recompila el simulador (`cargo build --release` en `simulator/sim-rs`).
-3. `python3 build/regen.py --sim` repite el motor en orden: barrido en solitario, afinado, finalistas, búsqueda de grupos y apertura. Tarda horas; una etapa con salida existente se salta (`--force`, `--from ETAPA`).
-4. `python3 build/regen.py` reescribe `data/ranking_definitive.csv`; `--facts` rehace además `facts.parquet` y los resúmenes (ver «Resúmenes de la ficha»). Lee los textos que cambiaron.
-5. `python3 build/move_tierlist_v4.py --game /ruta/al/juego` para la tabla de ataques.
-6. `python3 build/catalog.py && python3 build/render.py && python3 build/check_site.py …`. `python3 build/regen.py --check` y los tests corren también en GitHub Actions (`.github/workflows/tests.yml`).
+2. `python3 build/regen.py --sim` repite el motor en orden: barrido en solitario, afinado, finalistas, búsqueda de grupos y apertura. Tarda horas; una etapa con salida existente se salta (`--force`, `--from ETAPA`).
+3. `python3 build/regen.py` reescribe `data/ranking_definitive.csv`; `--facts` rehace además `facts.parquet` y los resúmenes (ver «Resúmenes de la ficha»). Lee los textos que cambiaron.
+4. `python3 build/move_tierlist_v4.py --game /ruta/al/juego` para la tabla de ataques.
+5. `python3 build/catalog.py && python3 build/render.py && python3 build/check_site.py …`. `python3 build/regen.py --check` y los tests corren también en GitHub Actions (`.github/workflows/tests.yml`).
 
 Los cortes de tier están en `data/tiers.json`; no los repitas en otro sitio.
 

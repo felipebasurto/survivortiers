@@ -129,8 +129,7 @@ def base_records() -> dict[str, dict]:
             },
             "sim": {"startS": start_s[i], "noshopS": float(r["start_noshop_s"]),
                     "bestS": float(r["best_median_s"]), "medianStartS": med_start},
-            "flags": {"statsCapped": r["stats_capped"] == "1", "typesCapped": r["types_capped"] == "1",
-                      "melee": r["melee_locked"] == "1"},
+            "flags": {"melee": r["melee_locked"] == "1"},
         }
     return out
 
@@ -142,4 +141,4 @@ def fingerprint(rec: dict) -> str:
 
 
 def base_of(rec: dict) -> dict:
-    return {k: v for k, v in rec.items() if k not in ("drivers", "ungated")}
+    return {k: v for k, v in rec.items() if k != "drivers"}

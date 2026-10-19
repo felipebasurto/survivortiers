@@ -1,0 +1,83 @@
+[
+  {
+    "name": "marshadow",
+    "bans": 3,
+    "starter": {"id": "karate-chop", "kind": "melee", "median": 45.975, "lo": 44.6, "hi": 48.3},
+    "candidates": [
+      {"id": "aura-sphere", "kind": "projectile", "median": 104.95, "lo": 100.1, "hi": 109.4},
+      {"id": "body-slam", "kind": "melee", "median": 39.75, "lo": 37.2, "hi": 42.1},
+      {"id": "hex", "kind": "chain", "median": 118.3, "lo": 112.4, "hi": 124.8},
+      {"id": "hyper-voice", "kind": "nova", "median": 84.45, "lo": 80.2, "hi": 89.1},
+      {"id": "lick", "kind": "melee", "median": 33.15, "lo": 31, "hi": 35.4},
+      {"id": "quick-attack", "kind": "dash", "median": 82.075, "lo": 78.5, "hi": 86},
+      {"id": "shadow-ball", "kind": "projectile", "median": 110.425, "lo": 105.3, "hi": 115.6},
+      {"id": "substitute", "kind": "turret", "median": 81.05, "lo": 77.4, "hi": 85.2},
+      {"id": "tackle", "kind": "melee", "median": 37.475, "lo": 35.1, "hi": 39.8}
+    ],
+    "expect": {"median": 96.875, "lo": 92.317, "hi": 101.683, "banned": ["body-slam", "lick", "tackle"], "draws": 6, "meleeLocked": false}
+  },
+  {
+    "name": "all-worse-stays-on-starter",
+    "bans": 3,
+    "starter": {"id": "ember", "kind": "projectile", "median": 60, "lo": 55, "hi": 65},
+    "candidates": [
+      {"id": "tackle", "kind": "melee", "median": 20, "lo": 18, "hi": 22},
+      {"id": "lick", "kind": "melee", "median": 10, "lo": 9, "hi": 12}
+    ],
+    "expect": {"median": 60, "lo": 55, "hi": 65, "banned": ["lick"], "draws": 1, "meleeLocked": false}
+  },
+  {
+    "name": "melee-pool-stays-locked",
+    "bans": 3,
+    "starter": {"id": "tackle", "kind": "melee", "median": 30, "lo": 28, "hi": 33},
+    "candidates": [
+      {"id": "body-slam", "kind": "melee", "median": 50, "lo": 46, "hi": 54},
+      {"id": "karate-chop", "kind": "melee", "median": 40, "lo": 37, "hi": 43},
+      {"id": "lick", "kind": "melee", "median": 12, "lo": 10, "hi": 14},
+      {"id": "scratch", "kind": "melee", "median": 15, "lo": 13, "hi": 17}
+    ],
+    "expect": {"median": 50, "lo": 46, "hi": 54, "banned": ["karate-chop", "lick", "scratch"], "draws": 1, "meleeLocked": true}
+  },
+  {
+    "name": "one-candidate-no-ban",
+    "bans": 3,
+    "starter": {"id": "tackle", "kind": "melee", "median": 30, "lo": 28, "hi": 32},
+    "candidates": [
+      {"id": "hex", "kind": "chain", "median": 90, "lo": 84, "hi": 96}
+    ],
+    "expect": {"median": 90, "lo": 84, "hi": 96, "banned": [], "draws": 1, "meleeLocked": false}
+  },
+  {
+    "name": "tie-bans-lowest-id",
+    "bans": 3,
+    "starter": {"id": "ember", "kind": "projectile", "median": 50, "lo": 48, "hi": 52},
+    "candidates": [
+      {"id": "zeta", "kind": "nova", "median": 10, "lo": 9, "hi": 11},
+      {"id": "alpha", "kind": "nova", "median": 10, "lo": 8, "hi": 12}
+    ],
+    "expect": {"median": 50, "lo": 48, "hi": 52, "banned": ["alpha"], "draws": 1, "meleeLocked": false}
+  },
+  {
+    "name": "ban-three-keep-the-best",
+    "bans": 3,
+    "starter": {"id": "scratch", "kind": "melee", "median": 20, "lo": 18, "hi": 22},
+    "candidates": [
+      {"id": "d", "kind": "melee", "median": 11, "lo": 10, "hi": 12},
+      {"id": "c", "kind": "projectile", "median": 12, "lo": 11, "hi": 13},
+      {"id": "b", "kind": "nova", "median": 13, "lo": 12, "hi": 14},
+      {"id": "a", "kind": "beam", "median": 80, "lo": 70, "hi": 90}
+    ],
+    "expect": {"median": 80, "lo": 70, "hi": 90, "banned": ["b", "c", "d"], "draws": 1, "meleeLocked": false}
+  },
+  {
+    "name": "mixed-some-draws-stay-on-starter",
+    "bans": 1,
+    "starter": {"id": "karate-chop", "kind": "melee", "median": 40, "lo": 36, "hi": 44},
+    "candidates": [
+      {"id": "lick", "kind": "melee", "median": 10, "lo": 8, "hi": 12},
+      {"id": "hex", "kind": "chain", "median": 70, "lo": 60, "hi": 80},
+      {"id": "tackle", "kind": "melee", "median": 30, "lo": 28, "hi": 34}
+    ],
+    "expect": {"median": 55, "lo": 48, "hi": 62, "banned": ["lick"], "draws": 2, "meleeLocked": false}
+  }
+]

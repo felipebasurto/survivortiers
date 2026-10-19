@@ -27,7 +27,6 @@ CSV and do not move a place. A stat bench that does not reproduce this ranking c
                              (Against the median of its own moves it would lift every species.)
   stats, moves, typedef      that sheet pillar at 0.5.
   late                       both late-game ranks at the middle (483.5).
-  gate                       published rank minus the ungated rank, for the species a tier gate held back.
 Positive `places` means the factor lifts the species (without it, it would sit lower). Sim figures are estimates.
 """
 from __future__ import annotations
@@ -46,7 +45,6 @@ import pyarrow.parquet as pq
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import make_definitive as md  # noqa: E402
-import owner_rules  # noqa: E402
 import summaries  # noqa: E402
 import summary_facts as sf  # noqa: E402
 
@@ -80,25 +78,6 @@ class Model:
             return int(self.here[i])
         others = self.best_s[np.arange(N) != i]
         return rank_among(float(best_s), others)
-
-
-def ungated_ranks(rows: list[dict]) -> dict[int, int]:
-    """Position of each species before the tier gates, as make_definitive.main orders it."""
-    starts = {int(r["dex"]): r for r in md.load_csv(sf.SIM / "g2p2" / "rank_200.csv")}
-    sweep = md.load_csv(SWEEP_CSV)
-    winners = md.winner_by_dex(md.load_csv(SOLO_SWEEP))
-    sweep_moves = {(int(r["dex"]), r["start"]): r for r in sweep}
-    arrays = md.sim_arrays(rows, starts, winners, sweep_moves, False, share_interval=False)
-    start_s, slo, shi, best_s, blo, bhi, same = arrays[:7]
-    opening = md.repertoire_opening(SWEEP_CSV)
-    md.apply_repertoire(rows, start_s, slo, shi, opening)
-    sheet = np.array([int(r["rank_sheet"]) for r in rows], dtype=float)
-    v4m = np.array([int(r["rank_v4_max"]) for r in rows], dtype=float)
-    v4f = np.array([int(r["rank_v4_fresh"]) for r in rows], dtype=float)
-    _, _, point, fr = md.draw(start_s, slo, shi, best_s, blo, bhi, same, sheet, v4m, v4f)
-    med = np.median(fr, axis=0)
-    order = sorted(range(N), key=lambda i: (med[i], -point[i], int(rows[i]["dex"])))
-    return {int(rows[i]["dex"]): pos for pos, i in enumerate(order, start=1)}
 
 
 def load_cf(path: Path = CF_CSV) -> tuple[dict[tuple[int, str, str], float], dict[tuple[int, str, str], float]]:
@@ -137,7 +116,7 @@ def published_scores(rows: list[dict]) -> tuple[np.ndarray, np.ndarray, np.ndarr
 
 
 def records() -> dict[str, dict]:
-    """The full facts records: summary_facts.base_records() plus drivers and the ungated rank."""
+    """The full facts records: summary_facts.base_records() plus drivers."""
     rows = sf.ranking_rows()
     base = sf.base_records()
     cf_start_s, _cf_start_score = load_cf(CF_CSV)
@@ -150,15 +129,12 @@ def records() -> dict[str, dict]:
         sweep_score.setdefault(d, []).append(md.row_metric(r, "median_score", "median_s"))
     solo: dict[int, list[dict]] = {}
     for r in md.load_csv(SOLO_SWEEP):
-        if not owner_rules.allows_melee(int(r["dex"])) and r.get("kind") == "melee":
-            continue
         solo.setdefault(int(r["dex"]), []).append(r)
     display_s = np.array([float(r["start_median_s"]) for r in rows])
     noshop_s = np.array([float(r["start_noshop_s"]) for r in rows])
     best_display = np.array([float(r["best_median_s"]) for r in rows])
     start_score, best_score, _noshop_score = published_scores(rows)
     model = Model(rows, start_score, best_score)
-    ungated = ungated_ranks(rows)
 
     out = {}
     for i, r in enumerate(rows):
@@ -207,10 +183,7 @@ def records() -> dict[str, dict]:
         for k in ("stats", "moves", "typedef"):
             drivers[k] = {"places": int(model.counterfactual(i, pillars={k: 0.5}) - here)}
         drivers["late"] = {"places": int(model.counterfactual(i, late=True) - here)}
-        locked = r["melee_locked"] == "1"
-        gated = r["stats_capped"] == "1" or r["types_capped"] == "1" or (locked and ungated[d] <= 30)
-        drivers["gate"] = {"places": -(int(r["rank"]) - ungated[d]) if gated else 0}
-        out[str(d)] = {**base[str(d)], "ungated": ungated[d], "drivers": drivers}
+        out[str(d)] = {**base[str(d)], "drivers": drivers}
     return out
 
 

@@ -14,7 +14,7 @@ from i18n import Lang
 
 TOOL_KEYS = (
     "bp_pick_move", "bp_slot", "bp_cat_phys", "bp_cat_spec", "bp_cat_boost", "bp_cat_phys_adj", "bp_cat_spec_adj",
-    "bp_boost_count", "bp_boost_max", "bp_mismatch_none", "bp_mismatch_some", "bp_both", "bp_swapped",
+    "bp_boost_count", "bp_boost_max", "bp_mismatch_none", "bp_mismatch_some", "bp_both",
     "bp_item_none", "bp_item_best", "bp_card_n", "bp_card_none", "bp_result_h", "bp_cover", "bp_none_attack",
     "bp_link", "bp_copy", "bp_copied", "bp_reset", "bp_rank", "bp_side", "bp_open_sheet", "bp_group_h", "bp_item_h",
     "bp_cards_h", "bp_cards_all", "build_card_hint", "build_card_once", "bp_pick_ph", "tf_card_pa", "tf_card_sa",

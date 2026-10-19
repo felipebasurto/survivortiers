@@ -15,7 +15,7 @@
   let CUTS = [];
   const PILLARS = ['stats', 'moves', 'typedef', 'size'];
   const METHODS = ['sheet', 'simStart', 'simBest', 'lateMax', 'lateFresh'];
-  const FLAGS = [[1, 'potion', 'flag_status'], [2, 'sword', 'flag_melee'], [4, 'trophy', 'flag_capped'], [8, 'sparkle', 'flag_types']];
+  const FLAGS = [[1, 'potion', 'flag_status'], [2, 'sword', 'flag_melee']];
   // Mismos colores que build/typedata.py (TYPE_COLOR): tiñen el fondo del sprite.
   const TYPE_COLOR = {
     normal: '#b0a99f', fire: '#ff7b3d', water: '#4b9bff', grass: '#5fcb6a', electric: '#ffd33d', ice: '#7fe0e0',

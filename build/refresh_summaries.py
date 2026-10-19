@@ -198,8 +198,6 @@ def _live(base_rec: dict, full: dict) -> dict:
     rec = dict(base_rec)
     if "drivers" in full:
         rec["drivers"] = full["drivers"]
-    if "ungated" in full:
-        rec["ungated"] = full["ungated"]
     return rec
 
 

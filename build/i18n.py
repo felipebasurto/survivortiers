@@ -146,15 +146,8 @@ STR: dict[str, tuple[str, str]] = {
                     "así que su aguante puede estar infravalorado.",
                     "One of its attacks applies a status this sim pass does not reproduce, "
                     "so its survival may be underrated."),
-    "flag_melee": ("Sigue en cuerpo a cuerpo: aunque vete los peores ataques, el segundo no lo saca de ahí, y por eso no entra en S.",
-                   "It stays melee: even after banning its worst moves, the second attack never gets it out, so it stays out of S."),
-    "flag_capped": ("Sus estadísticas son bajas para el tier que le darían sus otras medidas, "
-                    "y por eso le frenan el tier.",
-                    "Its stats are too low for the tier its other measures would give, "
-                    "so they hold its tier back."),
-    "flag_types": ("Solo tiene un tipo de ataque además del normal, que aprenden todos. Para S hacen falta dos; "
-                   "por eso no sube a S.",
-                   "It has only one attack type besides normal, which everyone learns. S needs two; that keeps it out of S."),
+    "flag_melee": ("Sigue en cuerpo a cuerpo: aunque vete los peores ataques, el segundo no lo saca de ahí.",
+                   "It stays melee: even after banning its worst moves, the second attack never gets it out."),
     "pager_aria": ("Pokémon vecinos", "Neighbouring Pokémon"),
     "dex_no": ("nº {dex}", "no. {dex}"),
     "noscript_ficha": ("Esta página necesita JavaScript.", "This page needs JavaScript."),
@@ -279,11 +272,11 @@ STR: dict[str, tuple[str, str]] = {
     "sim_median": ("mediana de todos: {s} s", "median of all: {s} s"),
     "sim_alt": ("Segundos simulados que aguanta un bot con un grupo fijo (mediana de 200 partidas): ",
                 "Simulated seconds a bot survives with one fixed group (median of 200 games): "),
-    "sim_lede": ("Un bot juega con un grupo fijo (el ataque inicial, otro más, Danza Espada y Fortaleza). "
+    "sim_lede": ("Un bot juega con un grupo fijo (el ataque inicial, otro más, Danza Espada o Maquinación según el primer ataque, y Fortaleza). "
                  "La barra de apertura es una estimación: con Repertorio sale un segundo ataque al azar, con Veto se bloquean los 3 que más bajan esa media, y se juega el mejor de los dos. "
                  "Los vínculos llegan al ganar la grieta, no al empezar; hay jefes y orbes de curación, y se lanzan todos los tipos de ataque. "
                  "Hasta 900 s. El bot no esquiva como una persona.",
-                 "A bot plays one fixed group (the starting move, one more attack, Swords Dance and Harden). "
+                 "A bot plays one fixed group (the starting move, one more attack, Swords Dance or Nasty Plot to match the first attack, and Harden). "
                  "The opening bar is an estimate: Repertoire deals a random second attack, Veto bans the 3 that pull that average down the most, and the better of the two is played. "
                  "Bonds arrive when a rift is won, not at the start; bosses and heal orbs are in, and every attack kind fires. "
                  "Up to 900 s. The bot does not dodge the way a person does."),
@@ -522,15 +515,8 @@ STR: dict[str, tuple[str, str]] = {
                    "The final rank is the median of those 2,000 positions. The usual range, the band on each sheet, "
                    "runs from the 10th to the 90th percentile of those positions."),
     "met_step_6_h": ("Tier", "Tier"),
-    "met_step_6": ("Los puestos se reparten en tiers de tamaño fijo: {sizes}. Para entrar en S hace falta estar "
-                   "entre el {s} mejor en estadísticas, tener ataques de tres tipos distintos contando el normal "
-                   "(que aprenden todos: son dos tipos además del normal) y no quedarte en cuerpo a cuerpo "
-                   "después de Repertorio y tres Vetos; en A, entre el {a}; en B, entre el {b}. Quien no cumple el mínimo espera "
-                   "al siguiente tier en el que sí entre.",
-                   "Ranks are split into tiers of fixed size: {sizes}. To enter S you must be in the top {s} for "
-                   "stats, have attacks of three different types counting normal (everyone learns it: that is two "
-                   "types besides normal), and not still be on melee after Repertoire and three bans; A, top {a}; "
-                   "B, top {b}. Whoever misses the minimum waits for the next tier they qualify for."),
+    "met_step_6": ("Los puestos se reparten en tiers de tamaño fijo, en orden: {sizes}. No hay requisitos de entrada.",
+                   "Ranks are split, in order, into tiers of fixed size: {sizes}. There are no entry requirements."),
     "pipe_title": ("Del dato al tier", "From data to tier"),
     "pipe_1": ("Medir", "Measure"),
     "pipe_2": ("Percentil", "Percentile"),
@@ -548,13 +534,6 @@ STR: dict[str, tuple[str, str]] = {
     "pw_alt": ("Pesos de la ficha: ", "Sheet weights: "),
     "tiers_title": ("Tamaño de cada tier", "Size of each tier"),
     "tiers_alt": ("Pokémon por tier: ", "Pokémon per tier: "),
-    "gate_title": ("Estadísticas mínimas por tier", "Minimum stats per tier"),
-    "gate_name": ("Tier {t}", "Tier {t}"),
-    "gate_val": ("top {top} %", "top {top}%"),
-    "gate_worst": ("peor", "worst"),
-    "gate_best": ("mejor", "best"),
-    "gate_alt": ("Estadísticas mínimas para cada tier: ", "Minimum stats for each tier: "),
-    "gate_alt_item": ("{t}, entre el {top} % mejor", "{t}, within the top {top}%"),
     "agree_title": ("Qué medida se parece más al ranking", "Which measure is closest to the ranking"),
     "agree_alt": ("Parecido con el puesto final: ", "Closeness to the final rank: "),
     "rib_title": ("Cuánto se mueve cada puesto", "How much each rank moves"),
@@ -748,8 +727,6 @@ STR: dict[str, tuple[str, str]] = {
                 "No las lleves juntas.",
                 "Swords Dance and Dragon Dance share the physical attack counter: they don't add up, and only the last one to fire "
                 "counts. Don't take both."),
-    "bp_swapped": ("Su build recomendada tenía {from}. El ataque que abre el grupo es del otro lado, así que aquí va {to}.",
-                   "Its recommended build had {from}. The move that opens the group is the other side, so this one uses {to}."),
     "bp_item_h": ("Objeto", "Item"),
     "bp_item_none": ("Sin objeto", "No item"),
     "bp_item_best": ("Recomendado", "Recommended"),

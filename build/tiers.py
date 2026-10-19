@@ -12,6 +12,5 @@ CUTS = [(t, int(a), int(b)) for t, a, b in _RAW["cuts"]]
 BANDS = {t: (a, b) for t, a, b in CUTS}
 COUNTS = {t: b - a + 1 for t, a, b in CUTS}
 TOTAL = CUTS[-1][2]
-STAT_MIN = dict(_RAW["stat_min"])
 TIER_OF = {rank: t for t, a, b in CUTS for rank in range(a, b + 1)}
 EDGES = [b for _, _, b in CUTS[:-1]]

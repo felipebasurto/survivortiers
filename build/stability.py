@@ -3,7 +3,7 @@
 
 Every row of the merged solo sweep carries the median score of the first half of its seeds
 (`score_a`) and of the second half (`score_b`, `simulator/sim-rs/src/stats.rs`). Each half
-ranks the 966 species on their best attacking move, with the owner's rules (build/picks.py).
+ranks the 966 species on their best attacking move (build/picks.py).
 The report is the overlap of the two top-N lists (Jaccard) and the published top N against
 each half. A row run on 16 seeds has 8 per half; a contender refreshed on 512 seeds has 256.
 
@@ -24,13 +24,13 @@ RANKING = ROOT / "data" / "ranking_definitive.csv"
 
 
 def best_by_half(rows: list[dict], key: str) -> dict[int, float]:
-    """dex -> best adjusted score of an attacking move, measured on one half of the seeds."""
+    """dex -> best score of an attacking move, measured on one half of the seeds."""
     best: dict[int, float] = {}
     for row in rows:
         dex = int(row["dex"])
-        if not picks.move_ok(dex, row) or row.get(key) in (None, ""):
+        if not picks.move_ok(row) or row.get(key) in (None, ""):
             continue
-        value = picks.owner_rules.adjusted(float(row[key]), row.get("kind") == "melee")
+        value = float(row[key])
         best[dex] = max(best.get(dex, 0.0), value)
     return best
 

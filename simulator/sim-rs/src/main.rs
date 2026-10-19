@@ -1,27 +1,22 @@
-//! Fast headless PokéSurvivor sim. Run from the repo root.
+//! Fast headless PokéSurvivor sim. Run from `simulator/`.
 //!
 //!   cargo run --release --manifest-path sim-rs/Cargo.toml -- sweep
-//!       every simulated pool move as start; writes sim/out/starter_sweep.csv
-//!       and sim/out/rank_best_starter.csv (same format as sim/sweep_starters.js)
-//!   ... -- rank [--out sim/out/rank_200.csv]
-//!       game start move only (same format as sim/batch.js)
+//!       every simulated pool move as start; writes out/starter_sweep.csv
+//!       and out/rank_best_starter.csv
+//!   ... -- rank [--out out/rank_200.csv]
+//!       game start move only
+//!   ... -- synergy --partners <solo_screen.csv> --out <csv>
+//!       the searched bonded groups of every species
+//!   ... -- repertorio <starter_sweep.csv>
+//!       Repertorio + Veto opening per species, as JSON on stdout (make_definitive.py)
 //!   ... -- run <dex> <move> <seed> [--out trace.csv]
-//!   ... -- replay <trace.bin> <tables.bin> <dex> <move> <seed>
-//!       parity check against a trace written by sim-rs/parity.js
-//!   ... -- mathcheck <trace.bin>...
-//!       how often libm's sin/cos/atan2/pow differ from V8's in recorded traces
 //!   ... -- mapcheck <seed> [half]
 //!       terrain digest; must match `node sim-rs/mapcheck.js <game repo> <seed> [half]`
 //!
 //! Options: --seeds N (200) --seconds S (900) --bot repulse|line|kite --lvl1 --dodge F
-//!          --terrain  play on the real map (walls, props, liquids, pathing); not JS-parity
+//!          --terrain  play on the real map (walls, props, liquids, pathing)
 //!          --status   model slow, burn and poison with the game's values (enemy.js); moves the
-//!                     sim never fires keep status_ignored=1. Not JS-parity.
-//!
-//! Parity with the JS engine (bit-exact, every transcendental replayed from V8):
-//!   node sim-rs/parity.js [--random=N]
-//! Any edit to sim/match.js or sim/rules.js must be mirrored in src/engine.rs and
-//! re-checked with parity.js.
+//!                     sim never fires keep status_ignored=1
 
 mod data;
 mod engine;
@@ -29,18 +24,16 @@ mod radii;
 mod math;
 mod repertorio;
 mod rng;
-mod rules;
 mod stats;
 mod terrain;
 
 use data::{Data, Kind, Mon};
-use rules::{adjusted_score, rules, usable_attack};
 use engine::{run_match, take_trace, Bot, Ext, Item, Opts, RunResult, Tables, DT};
-use std::sync::OnceLock;
+use std::sync::{Mutex, OnceLock};
 
 /// dex -> simulated pool attacks sorted by solo (old-mode) median, best first
 static PARTNERS: OnceLock<HashMap<u32, Vec<String>>> = OnceLock::new();
-use math::{Libm, MathFns, Replay};
+use math::Libm;
 use rayon::prelude::*;
 use stats::{csv_escape, num, summarize, Summary};
 use std::collections::HashMap;
@@ -65,6 +58,8 @@ struct Cfg {
     item: String,
     fill: Vec<u8>,
     buffs: Option<u8>,
+    /// The attack buff of a searched group. None picks it from the lead attack (`use_nasty`).
+    atk_buff: Option<AtkBuff>,
     comps: Option<Vec<String>>,
     /// second slot: swap when the active cooldown is above 35% of its base (player.js:148)
     swap: bool,
@@ -89,13 +84,14 @@ struct Cfg {
     seed0: u32,
     /// Print the group-search size and exit.
     count: bool,
+    list: bool,
     /// Only these candidates (`dex|move` for sweep, `dex|group` for synergy), one per line in the file.
     only: Option<std::collections::HashSet<String>>,
     rest: Vec<String>,
 }
 
 fn parse(args: &[String]) -> Cfg {
-    let mut c = Cfg { seeds: 200, seconds: 900.0, bot: Bot::Repulse, cards: true, terrain: false, status: false, out: None, group: 0, dd: false, np: false, agi: false, xkinds: false, legacy: false, item: "none".into(), fill: vec![], buffs: None, comps: None, swap: false, crit: 0.0, full_cards: false, stop: 0, heal_below: 0.0, dodge: 0.0, locks: vec![], synergy: false, no_synergy: false, bot_set: false, seed0: 0, count: false, only: None, rest: vec![] };
+    let mut c = Cfg { seeds: 200, seconds: 900.0, bot: Bot::Repulse, cards: true, terrain: false, status: false, out: None, group: 0, dd: false, np: false, agi: false, xkinds: false, legacy: false, item: "none".into(), fill: vec![], buffs: None, atk_buff: None, comps: None, swap: false, crit: 0.0, full_cards: false, stop: 0, heal_below: 0.0, dodge: 0.0, locks: vec![], synergy: false, no_synergy: false, bot_set: false, seed0: 0, count: false, list: false, only: None, rest: vec![] };
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
@@ -108,6 +104,7 @@ fn parse(args: &[String]) -> Cfg {
                 c.seed0 = args[i].parse().expect("--seed0");
             }
             "--count" => c.count = true,
+            "--list" => c.list = true,
             "--only" => {
                 i += 1;
                 let text = std::fs::read_to_string(&args[i]).expect("--only file");
@@ -215,10 +212,9 @@ fn read_partners(path: &str) -> HashMap<u32, Vec<String>> {
         let score = c.get(16).and_then(|s| s.parse().ok()).unwrap_or(time);
         // A move that never lands is not a partner. Missing column (older sweeps) stays eligible.
         let dealt: f64 = c.get(15).and_then(|s| s.parse().ok()).unwrap_or(1.0);
-        if dealt <= 0.0 || c[3] == "buff" || rules().never_attack.iter().any(|id| id == c[2]) {
+        if dealt <= 0.0 || c[3] == "buff" {
             continue;
         }
-        let score = adjusted_score(score, c[3] == "melee");
         rows.push((c[0].parse().unwrap(), c[2].to_string(), c[3].to_string(), score));
         let _ = n;
     }
@@ -262,7 +258,7 @@ fn partner_pool(data: &Data, mon: &Mon, start: usize) -> Vec<usize> {
             }
             let m = &data.moves[ix];
             // A second orbit uses its own orb list (step_side_orbs).
-            if !usable_attack(mon, m) {
+            if !m.is_attack() {
                 return false;
             }
             m.kind.simulated() || m.levels[0].xk != 0
@@ -316,12 +312,20 @@ fn ext_for(data: &Data, mon: &Mon, start: usize, cfg: &Cfg) -> Ext {
     } else {
         None
     };
-    let np = use_nasty(data, mon, start, &companions, cfg);
+    let atk = cfg.atk_buff.unwrap_or_else(|| {
+        if use_nasty(data, mon, start, &companions, cfg) {
+            AtkBuff::Np
+        } else if cfg.dd {
+            AtkBuff::Dd
+        } else {
+            AtkBuff::Sd
+        }
+    });
     Ext {
         companions,
         buffs: cfg.buffs.unwrap_or(match cfg.group { 2 => 3, 3 => 1, _ => 0 }),
-        dd: cfg.dd && !np,
-        np,
+        dd: atk == AtkBuff::Dd,
+        np: atk == AtkBuff::Np,
         agi: cfg.agi,
         item,
         fill: cfg.fill.clone(),
@@ -360,15 +364,21 @@ fn run_species(data: &Data, tables: &Tables, mon: &Mon, start: usize, cfg: &Cfg)
             run_match(&Libm, data, tables, mon, start, &opts)
         })
         .collect();
+    if log_level() >= 2 {
+        let label = run_label(data, mon, start, cfg);
+        for (i, r) in runs.iter().enumerate() {
+            eprintln!("  run {label} seed {} t={:.1}s kills={} lvl={} capped={}", cfg.seed0 as usize + i + 1, r.time, r.kills, r.level, r.capped);
+        }
+    }
     summarize(&runs)
 }
 
 struct Row<'a> {
     mon: &'a Mon,
     start: usize,
-    /// Empty and `buffs == None` means the heuristic partner from `ext_for`.
+    /// Empty and `kit == None` means the heuristic partner from `ext_for`.
     comps: Vec<usize>,
-    buffs: Option<u8>,
+    kit: Option<Kit>,
     s: Summary,
 }
 
@@ -376,15 +386,45 @@ struct Job<'a> {
     mon: &'a Mon,
     start: usize,
     comps: Option<Vec<usize>>,
-    buffs: Option<u8>,
+    kit: Option<Kit>,
 }
 
 fn run_tasks<'a>(data: &'a Data, tasks: Vec<(&'a Mon, usize)>, cfg: &Cfg) -> Vec<Row<'a>> {
     let jobs = tasks
         .into_iter()
-        .map(|(mon, start)| Job { mon, start, comps: None, buffs: None })
+        .map(|(mon, start)| Job { mon, start, comps: None, kit: None })
         .collect();
     run_jobs(data, jobs, cfg)
+}
+
+/// `POKESIM_LOG=groups` logs every finished job and each species when its last job ends;
+/// `POKESIM_LOG=runs` also logs every seed. Logs go to stderr only.
+fn log_level() -> u8 {
+    static LOG: OnceLock<u8> = OnceLock::new();
+    *LOG.get_or_init(|| match std::env::var("POKESIM_LOG").as_deref() {
+        Ok("runs") => 2,
+        Ok("groups") => 1,
+        _ => 0,
+    })
+}
+
+fn hms(secs: f64) -> String {
+    let s = secs.round() as u64;
+    format!("{}:{:02}:{:02}", s / 3600, (s / 60) % 60, s % 60)
+}
+
+fn run_label(data: &Data, mon: &Mon, start: usize, cfg: &Cfg) -> String {
+    let mut s = format!("{} {} {}", mon.dex, mon.name, data.moves[start].id);
+    if let Some(c) = &cfg.comps {
+        for id in c {
+            s.push('+');
+            s.push_str(id);
+        }
+    }
+    if let Some(b) = cfg.buffs {
+        let _ = write!(s, " buffs={b}");
+    }
+    s
 }
 
 fn run_jobs<'a>(data: &'a Data, jobs: Vec<Job<'a>>, cfg: &Cfg) -> Vec<Row<'a>> {
@@ -392,28 +432,68 @@ fn run_jobs<'a>(data: &'a Data, jobs: Vec<Job<'a>>, cfg: &Cfg) -> Vec<Row<'a>> {
     let done = AtomicUsize::new(0);
     let total = jobs.len();
     let t0 = Instant::now();
+    let left: Mutex<HashMap<u32, (usize, usize)>> = Mutex::new(HashMap::new());
+    if log_level() > 0 {
+        let mut l = left.lock().unwrap();
+        for job in &jobs {
+            l.entry(job.mon.dex).or_insert((0, 0)).1 += 1;
+        }
+        for v in l.values_mut() {
+            v.0 = v.1;
+        }
+    }
     jobs
         .into_par_iter()
         .map(|job| {
+            let t_job = Instant::now();
             let comps = job.comps.clone().unwrap_or_default();
-            let explicit = job.comps.is_some() || job.buffs.is_some();
+            let explicit = job.comps.is_some() || job.kit.is_some();
             let s = if explicit {
                 let mut sub = cfg_clone(cfg);
                 if job.comps.is_some() {
                     sub.comps = Some(comps.iter().map(|&ix| data.moves[ix].id.clone()).collect());
                 }
-                if let Some(b) = job.buffs {
-                    sub.buffs = Some(b);
+                if let Some(kit) = job.kit {
+                    sub.buffs = Some(kit.buffs);
+                    sub.atk_buff = Some(kit.atk);
+                    sub.agi = kit.agi;
                 }
                 run_species(data, &tables, job.mon, job.start, &sub)
             } else {
                 run_species(data, &tables, job.mon, job.start, cfg)
             };
             let d = done.fetch_add(1, Ordering::Relaxed) + 1;
-            if d % 250 == 0 || d == total {
-                eprintln!("  {d}/{total}  {:.1}s", t0.elapsed().as_secs_f64());
+            let row = Row { mon: job.mon, start: job.start, comps, kit: job.kit, s };
+            let el = t0.elapsed().as_secs_f64();
+            if log_level() == 0 {
+                if d % 250 == 0 || d == total {
+                    eprintln!("  {d}/{total}  {el:.1}s");
+                }
+                return row;
             }
-            Row { mon: job.mon, start: job.start, comps, buffs: job.buffs, s }
+            let eta = el / d as f64 * (total - d) as f64;
+            eprintln!(
+                "[{}] {d}/{total} {:5.1}%  #{} {}  {}  median_s {:.1}  kills {:.1}  job {:.2}s  eta {}",
+                hms(el),
+                100.0 * d as f64 / total as f64,
+                row.mon.dex,
+                row.mon.name,
+                row_group(data, &row, cfg),
+                row.s.median_s,
+                row.s.median_kills,
+                t_job.elapsed().as_secs_f64(),
+                hms(eta),
+            );
+            let finished = {
+                let mut l = left.lock().unwrap();
+                let entry = l.get_mut(&row.mon.dex).expect("species counted");
+                entry.0 -= 1;
+                (entry.0 == 0).then_some(entry.1)
+            };
+            if let Some(groups) = finished {
+                eprintln!("== #{} {} done: {} groups, at {}", row.mon.dex, row.mon.name, groups, hms(el));
+            }
+            row
         })
         .collect()
 }
@@ -445,8 +525,8 @@ fn is_applier(l: &data::MoveLvl) -> bool {
 }
 
 /// Attacks the bonded group can cast, orbit included. A buff is not an attack.
-fn castable(mon: &Mon, m: &data::Move) -> bool {
-    usable_attack(mon, m) && (m.kind.simulated() || m.levels[0].xk != 0 || m.kind == Kind::Orbit)
+fn castable(m: &data::Move) -> bool {
+    m.is_attack() && (m.kind.simulated() || m.levels[0].xk != 0 || m.kind == Kind::Orbit)
 }
 
 fn level_dps(l: &data::MoveLvl) -> f64 {
@@ -456,26 +536,48 @@ fn level_dps(l: &data::MoveLvl) -> f64 {
     dmg * n / cd
 }
 
+/// The attack buff a group bonds. Danza Espada and Danza Dragón raise `patk`, Maquinación
+/// raises `satk` (moves.js).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+enum AtkBuff {
+    Sd,
+    Np,
+    Dd,
+}
+
+impl AtkBuff {
+    fn id(self) -> &'static str {
+        match self {
+            AtkBuff::Sd => "swords-dance",
+            AtkBuff::Np => "nasty-plot",
+            AtkBuff::Dd => "dragon-dance",
+        }
+    }
+}
+
+/// The buffs of a group. `buffs` bit 1 bonds `atk`, bit 2 bonds Agility (`agi`) or Harden.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+struct Kit {
+    buffs: u8,
+    atk: AtkBuff,
+    agi: bool,
+}
+
 struct Spec {
     start: usize,
     comps: Vec<usize>,
-    buffs: u8,
+    kit: Kit,
 }
 
-/// How many of a species' best attacks are looked at when picking the groups to cross.
+/// How many of a species' best attacks are crossed as pairs and trios, either category.
 /// Solo-sweep order and the move-tier list (`data/move_tierlist_v4.csv`) both count;
 /// a move takes the better of the two ranks.
 const TOP_ALL: usize = 6;
-/// At most this many attacks of one category are crossed as pairs and trios.
-const TOP_PER_CAT: usize = 4;
 
 fn attack_list(data: &Data, mon: &Mon) -> Vec<usize> {
     mon.start_choices(&data.moves)
         .into_iter()
-        .filter(|&ix| {
-            let m = &data.moves[ix];
-            castable(mon, m)
-        })
+        .filter(|&ix| castable(&data.moves[ix]))
         .collect()
 }
 
@@ -529,7 +631,7 @@ fn csv_fields(line: &str) -> Vec<String> {
 }
 
 /// Every attack of the species, best first. Rank is the better of the species' solo
-/// sweep order (adjusted for melee, Sustituto removed) and the global move-tier order,
+/// sweep order and the global move-tier order,
 /// so a kind the solo sweep skipped (Hex) still enters when its tier is high.
 fn ranked_attacks(data: &Data, mon: &Mon, atk: &[usize]) -> Vec<usize> {
     ensure_partners();
@@ -558,56 +660,66 @@ fn cat_of(data: &Data, ix: usize) -> u8 {
     data.moves[ix].levels[0].cat
 }
 
-/// The attacks a group search crosses, one list per category (1 physical, 2 special).
-/// A group never mixes categories: the attack buff is Danza Espada for physical and
-/// Maquinación for special, and a buff only lifts its own side. A category needs two
-/// attacks among the species' best `TOP_ALL`; the window grows until one does.
-fn category_pools(data: &Data, mon: &Mon, atk: &[usize]) -> Vec<Vec<usize>> {
-    let ranked = ranked_attacks(data, mon, atk);
-    let mut n = TOP_ALL.min(ranked.len());
-    loop {
-        let pools: Vec<Vec<usize>> = [1u8, 2u8]
-            .iter()
-            .map(|&c| ranked[..n].iter().copied().filter(|&ix| cat_of(data, ix) == c).take(TOP_PER_CAT).collect::<Vec<usize>>())
-            .filter(|p| p.len() >= 2)
-            .collect();
-        if !pools.is_empty() || n >= ranked.len() {
-            return pools;
+/// Every buff fill of these attacks inside the four bond slots (start included).
+/// Two attacks: an attack buff plus Harden or Agility. Three attacks: an attack buff, or
+/// Harden or Agility. An attack buff that raises no attack of the group is left out
+/// (Danza Espada and Danza Dragón only raise physical moves, Maquinación only special
+/// ones), and Danza Dragón needs a species that learns it.
+fn kits(data: &Data, mon: &Mon, attacks: &[usize]) -> Vec<Kit> {
+    let has = |cat: u8| attacks.iter().any(|&ix| cat_of(data, ix) == cat);
+    let mut atk = Vec::new();
+    if has(1) {
+        atk.push(AtkBuff::Sd);
+        if mon.pool.contains(&data.dragon_dance) {
+            atk.push(AtkBuff::Dd);
         }
-        n += 1;
     }
+    if has(2) {
+        atk.push(AtkBuff::Np);
+    }
+    let mut out = Vec::new();
+    match attacks.len() {
+        2 => {
+            for &a in &atk {
+                for agi in [false, true] {
+                    out.push(Kit { buffs: 3, atk: a, agi });
+                }
+            }
+        }
+        3 => {
+            for &a in &atk {
+                out.push(Kit { buffs: 1, atk: a, agi: false });
+            }
+            for agi in [false, true] {
+                out.push(Kit { buffs: 2, atk: AtkBuff::Sd, agi });
+            }
+        }
+        _ => {}
+    }
+    out
 }
 
 fn dedup_specs(specs: Vec<Spec>) -> Vec<Spec> {
     let mut seen = std::collections::HashSet::new();
     let mut out = Vec::new();
     for s in specs {
-        if seen.insert((s.start, s.comps.clone(), s.buffs)) {
+        if seen.insert((s.start, s.comps.clone(), s.kit)) {
             out.push(s);
         }
     }
     out
 }
 
-/// Every species gets a real group search. The cross is pruned: the top attacks of
-/// each category, both leads, Hex with its best appliers, and dash pairs. A species
-/// with fewer than two attacks has nothing to bond.
-///
-/// Every group holds one attack buff (bit 1): Maquinación when its attacks are
-/// special, Danza Espada when they are physical. All attacks of a group share one
-/// category, so that buff is the right one for every attack in it. The fourth slot is
-/// tested both ways: Harden (`buffs` 3, two attacks) against a third attack
-/// (`buffs` 1). Nothing prefers one over the other; the score picks. Sustituto is
-/// never an attack and Gengar never gets melee (`rules::usable_attack`).
+/// Every species gets a real group search. The attack sets are pruned: every ordered
+/// pair and trio of the species' best `TOP_ALL` attacks (either category), Hex with its
+/// best appliers, and dash pairs. Each attack set is then simulated with every buff fill
+/// from `kits`. Nothing prefers one fill, category or shape over another; the score picks.
+/// A species with fewer than two attacks has nothing to bond.
 fn synergy_specs(data: &Data, mon: &Mon) -> Vec<Spec> {
     let atk = attack_list(data, mon);
     if atk.len() < 2 {
         return vec![];
     }
-    let same = |a: usize, b: usize| {
-        let c = cat_of(data, a);
-        c != 0 && c == cat_of(data, b)
-    };
     let pay: Vec<usize> = atk.iter().copied().filter(|&ix| is_payoff(&data.moves[ix].levels[0])).collect();
     let mut app: Vec<usize> = atk.iter().copied().filter(|&ix| is_applier(&data.moves[ix].levels[0])).collect();
     app.sort_by(|&a, &b| {
@@ -618,14 +730,14 @@ fn synergy_specs(data: &Data, mon: &Mon) -> Vec<Spec> {
     });
     let pay: Vec<usize> = pay.into_iter().take(2).collect();
     app.truncate(3);
-    let mut out = Vec::new();
+    // (start, companions) attack sets; the buff fills come after.
+    let mut sets: Vec<(usize, Vec<usize>)> = Vec::new();
     for &p in &pay {
         for &a in &app {
-            if p == a || !same(p, a) {
-                continue;
+            if p != a {
+                sets.push((p, vec![a]));
+                sets.push((a, vec![p]));
             }
-            out.push(Spec { start: p, comps: vec![a], buffs: 3 });
-            out.push(Spec { start: a, comps: vec![p], buffs: 3 });
         }
     }
     let trio = 3.min(app.len());
@@ -633,24 +745,24 @@ fn synergy_specs(data: &Data, mon: &Mon) -> Vec<Spec> {
         for j in (i + 1)..trio {
             let (a, b) = (app[i], app[j]);
             for &p in &pay {
-                if same(p, a) && same(p, b) {
-                    out.push(Spec { start: p, comps: vec![a, b], buffs: 1 });
-                    out.push(Spec { start: a, comps: vec![p, b], buffs: 1 });
+                if p != a && p != b {
+                    sets.push((p, vec![a, b]));
+                    sets.push((a, vec![p, b]));
                 }
             }
         }
     }
     // Plain groups, both leads. The bond waits on the rift, so the lead is most of the
     // median and the partner is the tie-break. Both orders are scored.
-    for pool in category_pools(data, mon, &atk) {
-        for &a in &pool {
-            for &b in &pool {
-                if a == b {
-                    continue;
-                }
-                out.push(Spec { start: a, comps: vec![b], buffs: 3 });
-                push_thirds(data, &pool, &atk, a, b, &mut out);
+    let ranked = ranked_attacks(data, mon, &atk);
+    let pool = &ranked[..TOP_ALL.min(ranked.len())];
+    for &a in pool {
+        for &b in pool {
+            if a == b {
+                continue;
             }
+            sets.push((a, vec![b]));
+            push_thirds(data, pool, &atk, a, b, &mut sets);
         }
     }
     // Dash invuln is its own relation. Score every ordered dash pair, not only the
@@ -658,29 +770,33 @@ fn synergy_specs(data: &Data, mon: &Mon) -> Vec<Spec> {
     let dashes: Vec<usize> = atk.iter().copied().filter(|&ix| data.moves[ix].levels[0].xk == 5).collect();
     for &a in &dashes {
         for &b in &dashes {
-            if a != b && same(a, b) {
-                out.push(Spec { start: a, comps: vec![b], buffs: 3 });
+            if a != b {
+                sets.push((a, vec![b]));
             }
+        }
+    }
+    let mut out = Vec::new();
+    for (start, comps) in sets {
+        let members: Vec<usize> = std::iter::once(start).chain(comps.iter().copied()).collect();
+        for kit in kits(data, mon, &members) {
+            out.push(Spec { start, comps: comps.clone(), kit });
         }
     }
     dedup_specs(out)
 }
 
-/// The fourth slot as a third attack. Every other member of the category list takes it
+/// The fourth slot as a third attack. Every other member of the top list takes it
 /// (companions in rank order), and so does the strongest status partner of either
-/// member when that is a different move of the same category (Sludge + Hex).
-fn push_thirds(data: &Data, pool: &[usize], atk: &[usize], a: usize, b: usize, out: &mut Vec<Spec>) {
+/// member (Sludge + Hex).
+fn push_thirds(data: &Data, pool: &[usize], atk: &[usize], a: usize, b: usize, out: &mut Vec<(usize, Vec<usize>)>) {
     let rank = |ix: usize| pool.iter().position(|&p| p == ix).unwrap_or(usize::MAX);
     let mut thirds: Vec<usize> = pool.iter().copied().filter(|&c| c != a && c != b).collect();
     // The same trio is reached from every order of its companions; keep the rank order.
     thirds.retain(|&c| rank(b) < rank(c));
-    let ranged = |ix: usize| data.moves[ix].kind != Kind::Melee;
     let mut syn: Vec<usize> = atk
         .iter()
         .copied()
-        .filter(|&c| {
-            c != a && c != b && ranged(c) && cat_of(data, c) == cat_of(data, a) && (pairs_with(data, a, c) || pairs_with(data, b, c))
-        })
+        .filter(|&c| c != a && c != b && (pairs_with(data, a, c) || pairs_with(data, b, c)))
         .collect();
     syn.sort_by(|&x, &y| {
         level_dps(&data.moves[y].levels[0])
@@ -694,41 +810,44 @@ fn push_thirds(data: &Data, pool: &[usize], atk: &[usize], a: usize, b: usize, o
         }
     }
     for c in thirds {
-        out.push(Spec { start: a, comps: vec![b, c], buffs: 1 });
+        out.push((a, vec![b, c]));
     }
 }
 
-fn group_name(data: &Data, mon: &Mon, start: usize, comps: &[usize], buffs: u8, cfg: &Cfg) -> String {
+fn group_name(data: &Data, start: usize, comps: &[usize], kit: Kit) -> String {
     let mut parts = vec![data.moves[start].id.clone()];
     for &c in comps {
         parts.push(data.moves[c].id.clone());
     }
-    if buffs & 1 != 0 {
-        let (physical, special) = (rules().physical_buff.as_str(), rules().special_buff.as_str());
-        let buff = if use_nasty(data, mon, start, comps, cfg) {
-            special
-        } else if cfg.dd {
-            "dragon-dance"
-        } else {
-            physical
-        };
-        parts.push(buff.to_string());
+    if kit.buffs & 1 != 0 {
+        parts.push(kit.atk.id().to_string());
     }
-    if buffs & 2 != 0 {
-        parts.push((if cfg.agi { "agility" } else { "harden" }).to_string());
+    if kit.buffs & 2 != 0 {
+        parts.push((if kit.agi { "agility" } else { "harden" }).to_string());
     }
     parts.join("+")
 }
 
+fn ext_kit(ext: &Ext) -> Kit {
+    let atk = if ext.np {
+        AtkBuff::Np
+    } else if ext.dd {
+        AtkBuff::Dd
+    } else {
+        AtkBuff::Sd
+    };
+    Kit { buffs: ext.buffs, atk, agi: ext.agi }
+}
+
 fn row_group(data: &Data, row: &Row, cfg: &Cfg) -> String {
-    if row.buffs.is_none() && row.comps.is_empty() {
-        if cfg.group == 0 {
-            return data.moves[row.start].id.clone();
-        }
-        let ext = ext_for(data, row.mon, row.start, cfg);
-        return group_name(data, row.mon, row.start, &ext.companions, ext.buffs, cfg);
+    if let Some(kit) = row.kit {
+        return group_name(data, row.start, &row.comps, kit);
     }
-    group_name(data, row.mon, row.start, &row.comps, row.buffs.unwrap_or(0), cfg)
+    if cfg.group == 0 {
+        return data.moves[row.start].id.clone();
+    }
+    let ext = ext_for(data, row.mon, row.start, cfg);
+    group_name(data, row.start, &ext.companions, ext_kit(&ext))
 }
 
 fn sweep(data: &Data, cfg: &Cfg) {
@@ -751,21 +870,21 @@ fn sweep(data: &Data, cfg: &Cfg) {
             if data.moves[id].kind.simulated() || extra {
                 if cfg.group > 0 {
                     let ext = ext_for(data, mon, id, cfg);
-                    seen.insert((mon.dex, id, ext.companions.clone(), ext.buffs));
+                    seen.insert((mon.dex, id, ext.companions.clone(), ext_kit(&ext)));
                 }
-                jobs.push(Job { mon, start: id, comps: None, buffs: None });
+                jobs.push(Job { mon, start: id, comps: None, kit: None });
             }
         }
         if cfg.synergy && cfg.group > 0 {
             for spec in synergy_specs(data, mon) {
-                let key = (mon.dex, spec.start, spec.comps.clone(), spec.buffs);
+                let key = (mon.dex, spec.start, spec.comps.clone(), spec.kit);
                 if let Some(only) = &cfg.only {
-                    if !only.contains(&format!("{}|{}", mon.dex, group_name(data, mon, spec.start, &spec.comps, spec.buffs, cfg))) {
+                    if !only.contains(&format!("{}|{}", mon.dex, group_name(data, spec.start, &spec.comps, spec.kit))) {
                         continue;
                     }
                 }
                 if seen.insert(key) {
-                    jobs.push(Job { mon, start: spec.start, comps: Some(spec.comps), buffs: Some(spec.buffs) });
+                    jobs.push(Job { mon, start: spec.start, comps: Some(spec.comps), kit: Some(spec.kit) });
                 }
             }
         }
@@ -775,7 +894,7 @@ fn sweep(data: &Data, cfg: &Cfg) {
     let mv = |r: &Row| data.moves[r.start].id.as_str();
     rows.sort_by(|a, b| a.mon.dex.cmp(&b.mon.dex).then_with(|| mv(a).cmp(mv(b))));
 
-    let out_dir = cfg.out.clone().unwrap_or_else(|| "sim/out".into());
+    let out_dir = cfg.out.clone().unwrap_or_else(|| "out".into());
     std::fs::create_dir_all(&out_dir).unwrap();
     let mut long = format!(
         "# barrido: todos los movimientos simulados del pool como inicial. seeds=1-{} seconds={} bot={}\n\
@@ -819,30 +938,26 @@ fn sweep(data: &Data, cfg: &Cfg) {
     let mut best: Vec<(&Row, usize, Option<&Row>)> = groups
         .iter_mut()
         .map(|g| {
-            // Best move is an attack. Sustituto stays in the long CSV (its turret shots
-            // are real damage) and is dropped here, along with any row that dealt nothing.
+            // Best move is an attack that dealt damage.
             let mut picked: Vec<&Row> = g
                 .iter()
                 .copied()
-                .filter(|&r| {
-                    let m = &data.moves[r.start];
-                    usable_attack(r.mon, m) && r.s.median_dealt > 0.0
-                })
+                .filter(|&r| data.moves[r.start].is_attack() && r.s.median_dealt > 0.0)
                 .collect();
             if picked.is_empty() {
-                picked = g.iter().copied().filter(|&r| usable_attack(r.mon, &data.moves[r.start])).collect();
+                picked = g.iter().copied().filter(|&r| data.moves[r.start].is_attack()).collect();
             }
             if picked.is_empty() {
                 picked = g.clone();
             }
-            picked.sort_by(|a, b| cmp_adjusted(data, a, b).then_with(|| mv(a).cmp(mv(b))));
+            picked.sort_by(|a, b| cmp_run(&a.s, &b.s).then_with(|| mv(a).cmp(mv(b))));
             let n = picked.len();
             let alt = picked.get(1).copied();
             (picked[0], n, alt)
         })
         .collect();
-    best.sort_by(|a, b| cmp_adjusted(data, a.0, b.0).then(a.0.mon.dex.cmp(&b.0.mon.dex)));
-    let old = read_old_rank("sim/out/rank_200.csv");
+    best.sort_by(|a, b| cmp_run(&a.0.s, &b.0.s).then(a.0.mon.dex.cmp(&b.0.mon.dex)));
+    let old = read_old_rank("out/rank_200.csv");
     let mut text = format!(
         "# mejor movimiento inicial por especie. seeds=1-{} seconds={} bot={}\n\
          rank,dex,name,best_start,best_kind,median_s,mean_s,boot_lo,boot_hi,p10_s,p90_s,median_kills,median_lvl,status_ignored,n_candidates,alt_start,alt_median_s,rank_old_200,group,median_dealt,median_score,mean_score,score_lo,score_hi,score_a,score_b\n",
@@ -999,16 +1114,7 @@ fn with_mods(mon: &Mon, mods: &str) -> Mon {
 }
 
 fn cfg_clone(c: &Cfg) -> Box<Cfg> {
-    Box::new(Cfg { seeds: c.seeds, seconds: c.seconds, bot: c.bot, cards: c.cards, terrain: c.terrain, status: c.status, out: None, group: c.group, dd: c.dd, np: c.np, agi: c.agi, xkinds: c.xkinds, legacy: c.legacy, item: c.item.clone(), fill: c.fill.clone(), buffs: c.buffs, comps: c.comps.clone(), swap: c.swap, crit: c.crit, full_cards: c.full_cards, stop: c.stop, heal_below: c.heal_below, dodge: c.dodge, locks: c.locks.clone(), synergy: c.synergy, no_synergy: c.no_synergy, bot_set: c.bot_set, seed0: c.seed0, count: c.count, only: c.only.clone(), rest: vec![] })
-}
-
-/// `cmp_run` on the score the publisher ranks: a melee start takes the owner's penalty.
-fn cmp_adjusted(data: &Data, a: &Row, b: &Row) -> std::cmp::Ordering {
-    let melee = |r: &Row| data.moves[r.start].kind == Kind::Melee;
-    cmp_desc(adjusted_score(a.s.median_score, melee(a)), adjusted_score(b.s.median_score, melee(b)))
-        .then(cmp_desc(adjusted_score(a.s.mean_score, melee(a)), adjusted_score(b.s.mean_score, melee(b))))
-        .then(cmp_desc(a.s.median_s, b.s.median_s))
-        .then(cmp_desc(a.s.median_kills, b.s.median_kills))
+    Box::new(Cfg { seeds: c.seeds, seconds: c.seconds, bot: c.bot, cards: c.cards, terrain: c.terrain, status: c.status, out: None, group: c.group, dd: c.dd, np: c.np, agi: c.agi, xkinds: c.xkinds, legacy: c.legacy, item: c.item.clone(), fill: c.fill.clone(), buffs: c.buffs, atk_buff: c.atk_buff, comps: c.comps.clone(), swap: c.swap, crit: c.crit, full_cards: c.full_cards, stop: c.stop, heal_below: c.heal_below, dodge: c.dodge, locks: c.locks.clone(), synergy: c.synergy, no_synergy: c.no_synergy, bot_set: c.bot_set, seed0: c.seed0, count: c.count, list: c.list, only: c.only.clone(), rest: vec![] })
 }
 
 fn cmp_run(a: &Summary, b: &Summary) -> std::cmp::Ordering {
@@ -1042,13 +1148,21 @@ fn synergy_cmd(data: &Data, cfg: &Cfg) {
             covered += 1;
         }
         for spec in specs {
+            let name = group_name(data, spec.start, &spec.comps, spec.kit);
             if let Some(only) = &cfg.only {
-                if !only.contains(&format!("{}|{}", mon.dex, group_name(data, mon, spec.start, &spec.comps, spec.buffs, cfg))) {
+                if !only.contains(&format!("{}|{}", mon.dex, name)) {
                     continue;
                 }
             }
-            jobs.push(Job { mon, start: spec.start, comps: Some(spec.comps), buffs: Some(spec.buffs) });
+            if cfg.list {
+                println!("{}|{}", mon.dex, name);
+                continue;
+            }
+            jobs.push(Job { mon, start: spec.start, comps: Some(spec.comps), kit: Some(spec.kit) });
         }
+    }
+    if cfg.list {
+        return;
     }
     if cfg.count {
         println!("species {covered} groups {}", jobs.len());
@@ -1136,7 +1250,7 @@ fn rank(data: &Data, cfg: &Cfg) {
         )
         .unwrap();
     }
-    let path = cfg.out.clone().unwrap_or_else(|| "sim/out/rank_fresh.csv".into());
+    let path = cfg.out.clone().unwrap_or_else(|| "out/rank_fresh.csv".into());
     if let Some(dir) = std::path::Path::new(&path).parent() {
         std::fs::create_dir_all(dir).unwrap();
     }
@@ -1243,11 +1357,6 @@ fn find<'a>(data: &'a Data, dex: &str, mv: &str) -> (&'a Mon, usize) {
     (mon, *data.move_ix.get(mv).expect("move not found"))
 }
 
-fn read_f64s(path: &str) -> Vec<f64> {
-    let b = std::fs::read(path).expect("read trace");
-    b.chunks_exact(8).map(|c| f64::from_le_bytes(c.try_into().unwrap())).collect()
-}
-
 fn print_result(r: &RunResult) {
     println!(
         "{{\"time\":{:?},\"kills\":{},\"bosses\":{},\"coins\":{:?},\"level\":{},\"capped\":{},\"statusIgnored\":{},\"hp\":{:?},\"maxHp\":{:?},\"hpFrac\":{:?}}}",
@@ -1286,6 +1395,11 @@ fn main() {
         Some("rank") => rank(&data, &cfg),
         Some("synergy") => synergy_cmd(&data, &cfg),
         Some("tasks") => tasks_cmd(&data, &cfg),
+        Some("repertorio") => {
+            let path = cfg.rest.get(1).expect("usage: pokesim repertorio <starter_sweep.csv>");
+            let text = std::fs::read_to_string(path).unwrap_or_else(|e| panic!("read {path}: {e}"));
+            println!("{}", repertorio::to_json(&repertorio::openings_from_sweep(&data, &text)));
+        }
         Some("run") => {
             let (mon, start) = find(&data, &cfg.rest[1], &cfg.rest[2]);
             let ext = ext_for(&data, mon, start, &cfg);
@@ -1320,51 +1434,8 @@ fn main() {
         Some("mapcheck") => {
             println!("{}", terrain::digest(cfg.rest[1].parse().unwrap(), cfg.rest.get(2).map_or(80, |h| h.parse().unwrap())));
         }
-        Some("mathcheck") => {
-            let names = ["sin", "cos", "atan2", "pow"];
-            let mut bad = [0usize; 4];
-            let mut all = [0usize; 4];
-            let mut shown = [0usize; 4];
-            for path in &cfg.rest[1..] {
-                for rec in read_f64s(path).chunks_exact(4) {
-                    let (f, a, b, out) = (rec[0] as usize - 1, rec[1], rec[2], rec[3]);
-                    let mine = match f {
-                        0 => Libm.sin(a),
-                        1 => Libm.cos(a),
-                        2 => Libm.atan2(a, b),
-                        _ => Libm.pow(a, b),
-                    };
-                    all[f] += 1;
-                    if mine.to_bits() != out.to_bits() {
-                        bad[f] += 1;
-                        if shown[f] < 3 {
-                            shown[f] += 1;
-                            println!("  {}({a:?}, {b:?}) v8 {out:?} libm {mine:?}", names[f]);
-                        }
-                    }
-                }
-            }
-            for f in 0..4 {
-                println!("{}: {}/{} differ", names[f], bad[f], all[f]);
-            }
-        }
-        Some("replay") => {
-            let replay = Replay::new(read_f64s(&cfg.rest[1]));
-            let js_tables = read_f64s(&cfg.rest[2]);
-            let tables = Tables::new();
-            let mine: Vec<f64> = tables.flat();
-            assert_eq!(mine.len(), js_tables.len(), "table length");
-            for (i, (a, b)) in mine.iter().zip(&js_tables).enumerate() {
-                assert_eq!(a.to_bits(), b.to_bits(), "pow table entry {i}: rust {a} js {b}");
-            }
-            let (mon, start) = find(&data, &cfg.rest[3], &cfg.rest[4]);
-            let opts = Opts { seed: cfg.rest[5].parse().unwrap(), seconds: cfg.seconds, cards: cfg.cards, bot: cfg.bot, terrain: cfg.terrain, trace: false, status: cfg.status, ext: Ext::default() };
-            let r = run_match(&replay, &data, &tables, mon, start, &opts);
-            assert!(replay.consumed_all(), "rust made fewer math calls ({}) than js", replay.calls());
-            print_result(&r);
-        }
         _ => {
-            eprintln!("usage: pokesim sweep|rank|synergy|tasks|run|replay [--seeds N] [--seconds S] [--bot repulse|line] [--lvl1] [--terrain] [--status] [--group 2+2] [--no-synergy] [--out P]");
+            eprintln!("usage: pokesim sweep|rank|synergy|tasks|repertorio|run [--seeds N] [--seconds S] [--bot repulse|line] [--lvl1] [--terrain] [--status] [--group 2+2] [--no-synergy] [--out P]");
             std::process::exit(2);
         }
     }

@@ -1,6 +1,6 @@
 //! Map terrain, ported from the game (repo/js/world/world.js, systems/pathing.js).
 //!
-//! Only used with `--terrain`; the default engine stays bit-exact with sim/match.js.
+//! Only used with `--terrain`; the default (parity) path has no map.
 //! Arena (rift) terrain, non-solid props (grass, springs, traps) and the ice
 //! slide are not modelled.
 
@@ -78,6 +78,10 @@ struct Base {
     /// solid prop per tile (index into `props`), -1 if none
     prop_at: [i16; (N * N) as usize],
     props: Vec<Prop>,
+    /// one bit per tile column, one u16 per tile row: tile is not a wall / not a wall or liquid
+    /// and has no solid prop at generation time (`fill_walkable` fast path)
+    open_water: [u16; N as usize],
+    open_lava: [u16; N as usize],
 }
 
 /// A match's view of a chunk: the shared base plus its own prop damage.
@@ -114,7 +118,7 @@ fn gen_chunk(seed: i32, cx: i32, cy: i32) -> Base {
             ring[(j * B + i) as usize] = terrain_raw(cx * N + i - 1, cy * N + j - 1, seed);
         }
     }
-    let mut c = Base { terr: [FLOOR; (N * N) as usize], prop_at: [-1; (N * N) as usize], props: Vec::new() };
+    let mut c = Base { terr: [FLOOR; (N * N) as usize], prop_at: [-1; (N * N) as usize], props: Vec::new(), open_water: [0; N as usize], open_lava: [0; N as usize] };
     for j in 0..N {
         for i in 0..N {
             c.terr[(j * N + i) as usize] = ring[((j + 1) * B + i + 1) as usize];
@@ -158,6 +162,17 @@ fn gen_chunk(seed: i32, cx: i32, cy: i32) -> Base {
             if let Some((r, hp)) = prop {
                 c.prop_at[(j * N + i) as usize] = c.props.len() as i16;
                 c.props.push(Prop { x: tx as f64 * TS + TS / 2.0, y: ty as f64 * TS + TS - 4.0, r, hp, solid: true });
+            }
+        }
+    }
+    for j in 0..N {
+        for i in 0..N {
+            let k = (j * N + i) as usize;
+            let (t, p) = (c.terr[k], c.prop_at[k]);
+            let free_of_props = p < 0 || !c.props[p as usize].solid;
+            if t != WALL && free_of_props {
+                c.open_lava[j as usize] |= ((t != LIQUID) as u16) << i;
+                c.open_water[j as usize] |= 1 << i;
             }
         }
     }
@@ -293,6 +308,17 @@ impl World {
                 let c = &self.chunks[ix];
                 let (x0, x1) = ((cx * N).max(ox), (cx * N + N).min(ox + w));
                 let (y0, y1) = ((cy * N).max(oy), (cy * N + N).min(oy + h));
+                if c.hp.is_empty() {
+                    // No prop has been damaged in this chunk: the precomputed rows are exact.
+                    let src = if lava { &c.base.open_lava } else { &c.base.open_water };
+                    let width = (x1 - x0) as u32;
+                    let mask: u64 = (1u64 << width) - 1;
+                    for ty in y0..y1 {
+                        let bits = ((src[(ty - cy * N) as usize] >> (x0 - cx * N)) as u64) & mask;
+                        rows[(ty - oy + 1) as usize] |= bits << (x0 - ox);
+                    }
+                    continue;
+                }
                 for ty in y0..y1 {
                     for tx in x0..x1 {
                         let k = ((ty - cy * N) * N + (tx - cx * N)) as usize;
@@ -362,6 +388,9 @@ impl World {
     pub fn collide(&mut self, x: &mut f64, y: &mut f64, r: f64) -> bool {
         let mut hit = false;
         for _ in 0..2 {
+            // A pass that moves nothing is followed by an identical pass: stop.
+            let hit_before = hit;
+            let (px0, py0) = (*x, *y);
             let (t0x, t1x, t0y, t1y) = (tile_of(*x - r), tile_of(*x + r), tile_of(*y - r), tile_of(*y + r));
             for ty in t0y..=t1y {
                 for tx in t0x..=t1x {
@@ -406,6 +435,9 @@ impl World {
                         }
                     }
                 }
+            }
+            if *x == px0 && *y == py0 && hit == hit_before {
+                break;
             }
         }
         hit

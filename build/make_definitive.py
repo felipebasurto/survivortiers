@@ -8,7 +8,7 @@ ranking. The sim piece is replaced:
   rank_late                        geometric mean of v4 max and v4 fresh, weights 2/3 and 1/3
   final score                      geometric mean of sheet, early and late, weights 45, 30 and 25
 
-rank_sim_start is the Repertorio + Veto opening (simulator/sim/repertorio.js), not the starter
+rank_sim_start is the Repertorio + Veto opening (`pokesim repertorio`), not the starter
 alone. The starter alone stays in start_noshop_s / rank_sim_noshop and is not weighted. The 10/45
 split is unchanged: the move you build still dominates the early piece, and the opening is the
 first stretch of the run. Players who chase a tier buy Repertorio (1500, one level).
@@ -17,11 +17,10 @@ Percentile of a rank r (1 = best of 966) is (966 - r + 0.5) / 966.
 
 Two thousand repeats (seed 20261014) move each median inside its bootstrap interval, cycle 80
 blends of the late-game model around the 2/3 weight, and move the sim/late weights around 30/25
-with the sheet fixed at 45. The published order is the median of those ungated ranks. Tiers are
-then filled with the gates (stats 0.6 / 0.4 / 0.2, three attack types for S, melee_locked out of S).
-melee_locked means every remaining Repertorio draw still plays a melee move. A melee starter you
-can switch off is not a hard ban; that penalty is already in the opening expectation.
-p10, p90, p_tier and p_S describe the ungated repeats. Sim numbers are estimates.
+with the sheet fixed at 45. The published order is the median of those ranks, cut into tiers of
+fixed size with no entry requirements. melee_locked (every remaining Repertorio draw still plays a
+melee move) is reported, not used. p10, p90, p_tier and p_S describe the repeats. Sim numbers are
+estimates.
 
 Feeding the previous sim columns back through this procedure reproduces that ranking only to a
 mean absolute error of about 5 ranks. The historical file was not recovered more tightly from the
@@ -40,7 +39,6 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import combos  # noqa: E402
-import owner_rules  # noqa: E402
 import picks  # noqa: E402
 import tiers  # noqa: E402
 
@@ -54,7 +52,7 @@ HEADER = (
     "rank,dex,name,tier,rank_p10,rank_p90,p_tier,p_S,start_move,start_kind,start_median_s,"
     "best_move,best_median_s,rank_sim_start,rank_sim_best,rank_v4_max,rank_v4_fresh,rank_early,"
     "rank_late,phase_gap,rank_sheet,pct_stats,pct_moves,pct_typedef,pct_size,move_pair,"
-    "shot_dmg_taken,radius,map_reach,stats_capped,attack_types,types_capped,status_unmodelled,melee_start,"
+    "shot_dmg_taken,radius,map_reach,attack_types,status_unmodelled,melee_start,"
     "start_noshop_s,rank_sim_noshop,melee_locked,repertoire_bans"
 )
 COMMENT = (
@@ -62,12 +60,12 @@ COMMENT = (
     "stay in the file and do not move a rank. The order is the bootstrap of the sim score: "
     "time times the geometric mean of a saturating damage rate and a saturating kill rate. "
     "A run that deals no damage scores 0. Overlapping score intervals show as the rank band, not as a winner. "
-    "S is the top of that order, except melee_locked (every remaining Repertorio draw is still melee). "
+    "Tiers are fixed-size slices of that order with no entry requirements. "
     "best_move is an attacking move from the solo sweep. "
     "start_median_s is the Repertorio opening. start_noshop_s is the starter alone and is not ranked."
 )
 CUTS = tuple(tiers.COUNTS.items())
-BANDS, STAT_MIN, TIER_OF = tiers.BANDS, tiers.STAT_MIN, tiers.TIER_OF
+BANDS, TIER_OF = tiers.BANDS, tiers.TIER_OF
 
 
 def load_csv(path: Path) -> list[dict]:
@@ -110,46 +108,16 @@ def row_metric(row: dict, score_key: str, fallback: str) -> float:
 
 
 def _ci(row: dict) -> tuple[float, float, float]:
-    melee = row.get("kind") == "melee"
-    return picks.score_bounds(row, melee)
+    return picks.score_bounds(row)
 
 
 def winner_by_dex(sweep: list[dict]) -> dict[int, dict]:
-    """One attacking move per species: the highest score after the owner rules (build/picks.py).
+    """One attacking move per species: the highest sim score (build/picks.py).
 
-    Sustituto, buffs and moves that dealt nothing are not candidates, Gengar keeps no melee move,
-    and a melee score takes the owner's penalty. There is no interval tie rule: the sweep already
+    Buffs and moves that dealt nothing are not candidates. There is no interval tie rule: the sweep already
     refreshes the contenders on fresh seeds, and the band on the page shows what is left of the noise.
     """
     return picks.best_moves(sweep)
-
-
-def qualifies(row: dict, tier: str) -> bool:
-    # Tiers are the sim order. The old stats and attack-type gates were the sheet.
-    # melee_locked is the repertoire: every remaining draw is still melee.
-    if tier == "S" and row.get("melee_locked") == "1":
-        return False
-    return True
-
-
-def fill_tiers(order: list[dict]) -> list[dict]:
-    remaining = list(order)
-    placed: list[dict] = []
-    for tier, count in CUTS:
-        taken: list[dict] = []
-        rest: list[dict] = []
-        for row in remaining:
-            if len(taken) < count and qualifies(row, tier):
-                taken.append(row)
-            else:
-                rest.append(row)
-        if len(taken) < count:
-            raise SystemExit(f"only {len(taken)} Pokémon qualify for {tier}, need {count}")
-        placed.extend(taken)
-        remaining = rest
-    if len(placed) != N:
-        raise SystemExit(f"placed {len(placed)}, expected {N}")
-    return placed
 
 
 def fmt_prob(x: float) -> str:
@@ -161,14 +129,17 @@ def fmt_seconds(x: float) -> str:
 
 
 def repertoire_opening(sweep_path: Path) -> dict[int, dict]:
-    """dex -> opening from simulator/sim/repertorio.js (the same function sim-rs tests)."""
-    script = ROOT / "simulator" / "sim" / "repertorio.js"
+    """dex -> opening from `pokesim repertorio` (simulator/sim-rs/src/repertorio.rs)."""
+    sim = ROOT / "simulator"
+    binary = sim / "sim-rs" / "target" / "release" / "pokesim"
+    if not binary.exists():
+        subprocess.run(["cargo", "build", "--release", "--manifest-path", str(sim / "sim-rs" / "Cargo.toml")], check=True)
     proc = subprocess.run(
-        ["node", str(script), "--sweep", str(sweep_path)],
-        check=False, capture_output=True, text=True,
+        [str(binary), "repertorio", str(Path(sweep_path).resolve())],
+        cwd=sim, check=False, capture_output=True, text=True,
     )
     if proc.returncode != 0:
-        raise SystemExit(proc.stderr.strip() or "repertorio.js failed")
+        raise SystemExit(proc.stderr.strip() or "pokesim repertorio failed")
     return {int(row["dex"]): row for row in json.loads(proc.stdout)}
 
 
@@ -298,16 +269,9 @@ def main() -> None:
     rnoshop = ranks_of(noshop).astype(int)
 
     order_ix = sorted(range(N), key=lambda i: (med[i], -point[i], int(base[i]["dex"])))
-    ungated = [base[i] for i in order_ix]
-    flag_stats: dict[int, bool] = {}
-    flag_types: dict[int, bool] = {}
-    for pos, row in enumerate(ungated, start=1):
-        tier = TIER_OF[pos]
-        dex = int(row["dex"])
-        thr = STAT_MIN.get(tier)
-        flag_stats[dex] = thr is not None and float(row["pct_stats"]) < thr
-        flag_types[dex] = tier == "S" and int(row["attack_types"]) < 3
-    placed = fill_tiers(ungated)
+    placed = [base[i] for i in order_ix]
+    if len(placed) != N or sum(c for _, c in CUTS) != N:
+        raise SystemExit(f"placed {len(placed)}, tiers hold {sum(c for _, c in CUTS)}, expected {N}")
     index = {int(r["dex"]): i for i, r in enumerate(base)}
 
     out_rows: list[dict] = []
@@ -334,8 +298,6 @@ def main() -> None:
             "rank_early": str(int(early_point[i])),
             "rank_late": str(int(late_point[i])),
             "phase_gap": str(int(late_point[i]) - int(early_point[i])),
-            "stats_capped": "1" if flag_stats[dex] else "0",
-            "types_capped": "1" if flag_types[dex] else "0",
             # Any swept move the sim still refused to apply. With --status and extra kinds this is 0.
             "status_unmodelled": "1" if dex in ignored else "0",
         })

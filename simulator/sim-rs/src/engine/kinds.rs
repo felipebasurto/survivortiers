@@ -3,7 +3,7 @@
 //! Source: js/systems/combat.js at 5a23d49 (`run`, `reach`, `chargeUp`, `spin`, `quake`, `vortex`,
 //! `shove`, `stunZone`, `rebound`, `tickNewField`) and js/entities/enemy.js `applyStun`.
 //!
-//! The parity engine never fires them (they are `Kind::Inert`), so `parity.js` is untouched.
+//! The parity path never fires them (they are `Kind::Inert` there).
 
 use super::*;
 

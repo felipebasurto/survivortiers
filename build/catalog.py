@@ -57,10 +57,6 @@ METHOD = {
     "pieces": [{"key": "sheet", "weight": 45}, {"key": "sim", "weight": 30}, {"key": "late", "weight": 25}],
     "pillars": [{"key": "stats", "weight": 45}, {"key": "moves", "weight": 25},
                 {"key": "typedef", "weight": 15}, {"key": "size", "weight": 15}],
-    "gates": [{"tier": "S", "top": 40}, {"tier": "A", "top": 60}, {"tier": "B", "top": 80}],
-    # Requisitos extra de entrada (make_definitive.py: TYPES_GATE y NO_MELEE_TIERS).
-    "typesMin": {"S": 3},          # ataques de al menos tres tipos distintos
-    "noMeleeTiers": ["S"],         # S excluye a quien sigue en cuerpo a cuerpo tras Repertorio y 3 Vetos
     "repeats": 2000,
 }
 METHOD_KEYS = ("sheet", "simStart", "simBest", "lateMax", "lateFresh")
@@ -258,8 +254,7 @@ def load_pokemon(move_names: dict, credits: dict, shiny: set[int]) -> list[dict]
                     "noshop": {"seconds": float(row["start_noshop_s"])},
                     "best": {**_move(move_names, row["best_move"]), "seconds": float(row["best_median_s"])}},
             "pair": pair,
-            "flags": {"statsCapped": row["stats_capped"] == "1", "statusUnmodelled": row["status_unmodelled"] == "1",
-                      "melee": row["melee_locked"] == "1", "typesCapped": row["types_capped"] == "1"},
+            "flags": {"statusUnmodelled": row["status_unmodelled"] == "1", "melee": row["melee_locked"] == "1"},
         }
         if any(k not in px for k in COMBAT_KEYS):
             raise CatalogError(f"{dex}: falta pa/sa/df/sd en pokedex_export.json; ejecuta build/import_game_combat.py")
@@ -368,7 +363,6 @@ def build_meta(entries: list[dict], credits: dict, counts: dict) -> dict:
         "stability": build_stability(entries), "method": METHOD, "agreement": build_agreement(entries),
         "simRange": [min(sec for e in entries for sec in (e["r"]["sim"]["start"]["seconds"], e["r"]["sim"]["best"]["seconds"])),
                      max(sec for e in entries for sec in (e["r"]["sim"]["start"]["seconds"], e["r"]["sim"]["best"]["seconds"]))],
-        "cappedCount": sum(e["r"]["flags"]["statsCapped"] for e in entries),
         "presets": [e["dex"] for name in PRESETS for e in entries if e["name"] == name],
         "credits": [{"name": a["name"], "url": a["url"], "dex": a["dex"]} for a in credits["artists"]],
         "spriteLicense": {"name": credits_mod.SPRITE_LICENSE["name"], "url": credits_mod.SPRITE_LICENSE["url"],
@@ -444,7 +438,7 @@ def species_details(entries: list[dict], sim_range: list[float], median: float, 
         out[str(e["dex"])] = [
             [r["pillars"][k] for k in ("stats", "moves", "typedef", "size")], [r["methods"][k] for k in METHOD_KEYS],
             r["sim"]["start"]["id"], r["sim"]["start"]["seconds"], r["sim"]["best"]["id"], r["sim"]["best"]["seconds"],
-            [m["id"] for m in r["pair"]], int(f["statusUnmodelled"]) + 2 * int(f["melee"]) + 4 * int(f["statsCapped"]) + 8 * int(f["typesCapped"]),
+            [m["id"] for m in r["pair"]], int(f["statusUnmodelled"]) + 2 * int(f["melee"]),
             e["stats"], [combo[e["dex"]]["super"], combo[e["dex"]]["neutral"], combo[e["dex"]]["moves"],
                          combo[e["dex"]]["types"], combo[e["dex"]]["alts"], combo[e["dex"]]["nBoost"]],
             # cartas por prioridad (build/passives.py): [8 ids de mejor a peor, id de la que evoluciona el ataque o null]
@@ -494,7 +488,6 @@ def main() -> int:
     write_json("species.json", species_details(entries, meta["simRange"], meta["simMedianSeconds"],
                                                combos.compute_all(dex_types, {e["dex"]: e["r"]["sim"]["best"]["id"] for e in entries})), public=True)
     write_json("moves.json", moves, public=True)
-    write_json("owner_rules.json", json.loads((DATA / "owner_rules.json").read_text(encoding="utf8")), public=True)
     write_json("tiers.json", json.loads((DATA / "tiers.json").read_text(encoding="utf8")), public=True)
     write_json("moves_unranked.json", unranked, public=True)
     for lang in ("es", "en"):

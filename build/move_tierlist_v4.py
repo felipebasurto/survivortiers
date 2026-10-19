@@ -1,18 +1,17 @@
 """Tier list de movimientos (data/move_tierlist_v4.csv), sacada del barrido en solitario de la simulación.
 
-Cada fila de simulator/results/fixed_group/solo_sweep.csv es un Pokémon que abre la partida con un movimiento.
-Para cada movimiento se mira, en todos los Pokémon que lo pueden llevar:
+Cada fila de simulator/results/fixed_group/solo_screen.csv es un Pokémon que abre la partida con un movimiento;
+el cribado mide todos los ataques del catálogo de cada Pokémon. Sin reglas del dueño: todos los ataques cuentan igual.
 
-  score_rel   la puntuación de la simulación de cada Pokémon con ese movimiento, dividida por la mediana de
-              su propio catálogo, y la mediana de esos cocientes. 1 es un movimiento normal, más es mejor.
-              Un cuerpo a cuerpo lleva la penalización del dueño (data/owner_rules.json) y en Gengar no cuenta.
+  score_rel   efecto del movimiento en un modelo de dos factores, log(puntuación) = Pokémon + movimiento,
+              ajustado por mínimos cuadrados sobre todas las filas. Así un Pokémon fuerte o un catálogo bueno
+              no infla ni hunde a sus movimientos. 1 es el movimiento mediano, 2 dobla la puntuación.
   dps         mediana del daño total entre los segundos que dura la partida.
   survive_s   mediana de los segundos que aguanta.
   kills       mediana de bajas.
 
-Sustituto no es un ataque (data/owner_rules.json): se queda en el último puesto de su categoría con valor 0.
-Los potenciadores no se miden con este barrido: sus filas se copian tal cual del CSV anterior (cifras del juego,
-sin cambios en 5a23d49). Los nombres, evoluciones y cartas salen de js/data/moves.js del juego.
+Los potenciadores no se miden con este barrido: sus filas se copian tal cual del CSV anterior.
+Los nombres, evoluciones y cartas salen de js/data/moves.js del juego.
 
     python3 build/move_tierlist_v4.py --game /ruta/al/juego
 """
@@ -21,15 +20,16 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import math
 import re
 import statistics as st
 from pathlib import Path
 
-import owner_rules
 import picks
 
 ROOT = Path(__file__).resolve().parent.parent
-SWEEP = ROOT / "simulator" / "results" / "fixed_group" / "solo_sweep.csv"
+SWEEP = ROOT / "simulator" / "results" / "fixed_group" / "solo_screen.csv"
+FIT_ROUNDS = 200
 OUT = ROOT / "data" / "move_tierlist_v4.csv"
 MIN_SPECIES = 5
 
@@ -72,34 +72,42 @@ def _rel(x: float) -> str:
     return "menos de 0,05" if x < 0.05 else _fx(x)
 
 
+def move_effects(rows: list[dict]) -> dict[str, float]:
+    """exp(move effect) of log(score) = species + move, centred so the median move is 1.
+
+    Scores are floored at 1 before the log: a dash that never connects scores 0."""
+    cells = [(r["dex"], r["start"], math.log(max(float(r["median_score"]), 1.0))) for r in rows]
+    by_dex: dict[str, list[tuple[str, float]]] = {}
+    by_move: dict[str, list[tuple[str, float]]] = {}
+    for dex, move, y in cells:
+        by_dex.setdefault(dex, []).append((move, y))
+        by_move.setdefault(move, []).append((dex, y))
+    species = dict.fromkeys(by_dex, 0.0)
+    effect = dict.fromkeys(by_move, 0.0)
+    for _ in range(FIT_ROUNDS):
+        for move, obs in by_move.items():
+            effect[move] = sum(y - species[d] for d, y in obs) / len(obs)
+        for dex, obs in by_dex.items():
+            species[dex] = sum(y - effect[m] for m, y in obs) / len(obs)
+    centre = st.median(effect.values())
+    return {move: math.exp(v - centre) for move, v in effect.items()}
+
+
 def measure(rows: list[dict]) -> dict[str, dict]:
-    """move id -> {species, score_rel, dps, survive_s, kills} over the solo sweep."""
+    """move id -> {species, score_rel, dps, survive_s, kills} over the solo screen."""
     kinds = picks.kinds()
-    by_dex: dict[int, list[dict]] = {}
-    for row in rows:
-        dex = int(row["dex"])
-        move = row["start"]
-        if move in owner_rules.NEVER_ATTACK or kinds.get(move) in (None, "buff"):
-            continue
-        if not owner_rules.allows_melee(dex) and kinds[move] == "melee":
-            continue
-        by_dex.setdefault(dex, []).append(row)
+    rows = [r for r in rows if kinds.get(r["start"]) not in (None, "buff")]
     per_move: dict[str, dict[str, list[float]]] = {}
-    for dex, group in by_dex.items():
-        scores = {r["start"]: picks.score(r, kinds[r["start"]] == "melee") for r in group}
-        mid = st.median(scores.values())
-        if mid <= 0:
-            continue
-        for r in group:
-            m = per_move.setdefault(r["start"], {"rel": [], "dps": [], "s": [], "kills": []})
-            m["rel"].append(scores[r["start"]] / mid)
-            secs = float(r["median_s"])
-            m["dps"].append(float(r["median_dealt"]) / secs if secs else 0.0)
-            m["s"].append(secs)
-            m["kills"].append(float(r["median_kills"]))
-    return {mid: {"species": len(m["rel"]), "score_rel": st.median(m["rel"]), "dps": st.median(m["dps"]),
+    for r in rows:
+        m = per_move.setdefault(r["start"], {"dps": [], "s": [], "kills": []})
+        secs = float(r["median_s"])
+        m["dps"].append(float(r["median_dealt"]) / secs if secs else 0.0)
+        m["s"].append(secs)
+        m["kills"].append(float(r["median_kills"]))
+    rel = move_effects([r for r in rows if len(per_move[r["start"]]["s"]) >= MIN_SPECIES])
+    return {mid: {"species": len(m["s"]), "score_rel": rel[mid], "dps": st.median(m["dps"]),
                   "survive_s": st.median(m["s"]), "kills": st.median(m["kills"])}
-            for mid, m in per_move.items() if len(m["rel"]) >= MIN_SPECIES}
+            for mid, m in per_move.items() if mid in rel}
 
 
 def assign_tiers(lst: list[dict]) -> list[dict]:
@@ -112,9 +120,6 @@ def assign_tiers(lst: list[dict]) -> list[dict]:
 
 
 def blurb(r: dict, med: dict, evo: tuple | None, need_name: dict) -> str:
-    if r["id"] in owner_rules.NEVER_ATTACK:
-        return (f"{TYPE_ES[r['type']]}, {KIND_ES[r['kind']]}: el simulador lo pone como torreta que hace daño, pero no "
-                "cuenta como ataque. No se publica como mejor movimiento ni entra en un grupo.")
     dps_rel = r["dps"] / med["dps"]
     live_rel = r["survive_s"] / med["survive_s"]
     dps_txt = ("daño muy superior" if dps_rel >= 1.6 else "daño superior" if dps_rel >= 1.15 else
@@ -139,17 +144,16 @@ def main() -> None:
     stats = measure(picks.load_rows(args.sweep))
     game = json.loads((ROOT / "data" / "game_stats.json").read_text(encoding="utf8"))["moves"]
     attacks = [mid for mid, m in game.items() if m["kind"] != "buff"]
-    missing = [m for m in attacks if m not in stats and m not in owner_rules.NEVER_ATTACK]
+    missing = [m for m in attacks if m not in stats]
     if missing:
         raise SystemExit(f"movimientos sin medida en el barrido: {missing}")
 
     rows = []
     for mid in attacks:
         kind = game[mid]["kind"]
-        base = stats.get(mid) or {"score_rel": 0.0, "dps": 0.0, "survive_s": 0.0, "kills": 0.0}
         rows.append({"id": mid, "kind": kind, "type": game[mid]["type"],
-                     "cat": CAT_CLOSE if kind in CLOSE_KINDS else CAT_RANGED, **base})
-    med = {k: st.median(r[k] for r in rows if r["id"] not in owner_rules.NEVER_ATTACK) for k in ("dps", "survive_s")}
+                     "cat": CAT_CLOSE if kind in CLOSE_KINDS else CAT_RANGED, **stats[mid]})
+    med = {k: st.median(r[k] for r in rows) for k in ("dps", "survive_s")}
     close = assign_tiers([r for r in rows if r["cat"] == CAT_CLOSE])
     ranged = assign_tiers([r for r in rows if r["cat"] == CAT_RANGED])
 

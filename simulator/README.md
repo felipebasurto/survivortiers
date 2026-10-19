@@ -2,9 +2,12 @@
 
 The headless PokéSurvivor simulator behind the SurvivorTiers ranks. A bot plays full games and the median survival time feeds the "Simulated games" score.
 
-- `sim/`: the first engine, in JavaScript, like the game. `batch.js` runs every Pokémon with its starting attack, `sweep_starters.js` tries every attack it can learn.
-- `sim-rs/`: the same engine rewritten in Rust (about 4,000 lines, games run in parallel with rayon). With V8's math functions replayed it matches `sim/` bit for bit; `parity.js` checks that.
+- `sim-rs/`: the engine, in Rust (games run in parallel with rayon). It is the only simulator.
 - `v3/v3_data.json`: Pokédex, moves, enemy tiers and type chart, extracted from the game's code by `v3/extract_v3.js`.
+- `validate/`: the vendored game's own functions run on the same formulas and scenes as the Rust tests.
+
+The "parity path" below is a run without `--status`, `--xkinds` or `--terrain`. It is the behaviour of the
+retired JavaScript engine and is not used for published ranks.
 
 ## Run
 
@@ -14,7 +17,7 @@ Run everything from this folder.
 cargo build --release --manifest-path sim-rs/Cargo.toml
 
 # every Pokémon with its starting attack, 200 seeds
-./sim-rs/target/release/pokesim rank --out sim/out/rank_200.csv
+./sim-rs/target/release/pokesim rank --out out/rank_200.csv
 
 # every attack it can learn as a start
 ./sim-rs/target/release/pokesim sweep
@@ -22,11 +25,11 @@ cargo build --release --manifest-path sim-rs/Cargo.toml
 # one game, with a trace: CSV of positions, or JSON with enemy species and shots for a replay
 ./sim-rs/target/release/pokesim run 7 water-gun 17 --out trace.json
 
-# bit-exact parity against the JavaScript engine
-node sim-rs/parity.js
+# Repertoire + Veto opening per species, JSON on stdout (build/make_definitive.py reads it)
+./sim-rs/target/release/pokesim repertorio results/fixed_group/g2p2/starter_sweep.csv
 ```
 
-Options: `--seeds N` (200), `--seconds S` (900), `--bot repulse|line|kite`, `--lvl1`, `--terrain` (real map, not JS-parity), `--status` (slow, burn and poison, not JS-parity).
+Options: `--seeds N` (200), `--seconds S` (900), `--bot repulse|line|kite`, `--lvl1`, `--terrain` (real map), `--status` (slow, burn and poison).
 `--full-cards` also offers Aprendizaje and Baya Zidra (levelup.js). `--stop N` limits a `--fill` priority to N copies. `--heal-below F` takes Baya Zidra when HP is at or below that fraction, ahead of the stat cards (0 = only if the fill list prefers it). `--dodge F` ignores that fraction of contact and shot damage (lava and weather still hit). `--lock 2:4` starts with 4 Vigor and takes no more (index 7 is Aprendizaje).
 `tasks` also writes `median_kills`, `median_bosses`, `median_kpm` and `median_coins`. Coins are game.js:295-301 with coinMul 1 (upgrades.js:41, no Fortuna): `floor(time/5) + floor(kills*0.25) + bosses*80 + picked`, rounded. Picked coins are the boss shower (enemy.js:174, 10×5) and the rift-legend shower (enemy.js:191, 10×8). A rift legend counts as a boss (rift.js spawnLegend, enemy.js:910).
 
@@ -64,17 +67,16 @@ Group mode also models, from the game source (`js/` in JPTER78/pokesurvivor):
 - **All move kinds** (`--xkinds`, on by default in group mode): cone, meteor, chain, aura (drain heal capped at 6),
   dash, mine, trail and turret, plus the eight kinds of the 66610d9 update (homing, bounce, charge, spin, quake, vortex,
   shove, stun; see below), following systems/combat.js. Life Orb costs HP only on a cast that actually fires, and
-  never for orbit or trail, including companion casts (player.js:203). Without the flag these moves stay inert, as in the JS engine.
+  never for orbit or trail, including companion casts (player.js:203). Without the flag these moves stay inert.
 - **Synergies on the ranking path** (`--status` or `--xkinds`; both are on for a published group rank). The default
-  run (neither flag) stays bit-exact with `parity.js`. Citations are the live game:
+  run (neither flag) is the parity path. Citations are the live game:
   - Hex ×1.7 while the target's burn, poison or slow factor is above 0 (data/moves.js `hex`, systems/combat.js:240).
     The factor is checked, not the timer. Burn lasts 3 s (stacks to 8, tick 0.5 s), poison 4 s (stacks to 8, tick 0.6 s),
-    slow 1.2 s (enemy.js applyBurn/applyPoison/applySlow). There is no hit-chance roll. `sim/rules.js` applies the same
-    numbers when `opts.status` is set; the default JS run still ignores them so `parity.js` stays bit-exact.
+    slow 1.2 s (enemy.js applyBurn/applyPoison/applySlow). There is no hit-chance roll. The parity path ignores them.
     Group search (`--synergy`, on for `--group`) runs for every species that learns a synergy
     (Hex plus a burn, poison or slow, or two dashes), not a shortlist. It simulates each status
-    move with Hex (either one leading) and the three strongest status moves as two appliers + Hex
-    + an attack buff, every ordered pair among the top 6 attacks, and every ordered pair of dashes
+    move with Hex (either one leading) and the three strongest status moves as two appliers + Hex,
+    every ordered pair and trio among the top 6 attacks, and every ordered pair of dashes
     even when one of them sits outside that top 6. That top 6 is the better of the species'
     solo-sweep rank and the move-tier rank (`data/move_tierlist_v4.csv`), so a plain pair such as
     Shadow Ball + Aura Sphere is scored against Hex + Lick, and Aerial Ace + Quick Attack is
@@ -92,13 +94,15 @@ Group mode also models, from the game source (`js/` in JPTER78/pokesurvivor):
     policy, not a game rule. Casts outside the arc still spend the cooldown and hit nothing. Orbit stays out of the
     bonded group because `step_orbs` keeps a single orb list for the active move (combat.js does allow an orbit in
     any slot). Lengüetazo and every other `kind === 'melee'` move goes through the ×0.75 cut.
-    Owner rules live in `data/owner_rules.json` and are read by the engine (`sim-rs/src/rules.rs`), the publisher
-    (`build/owner_rules.py`, `build/picks.py`) and `sim/repertorio.js`: a melee run's score is multiplied by
-    `melee_score_factor` (the sim overrates melee), Gengar (dex 94) never gets a melee move, and Sustituto is never an attack. Picotazo Veneno is a projectile (speed 420, life 1.0) and is not melee. Every searched group is one
-    category (all physical or all special) and holds the matching attack buff: Danza Espada for physical,
-    Maquinación for special. `--dd` is Danza Dragón and only applies to a physical group. The fourth slot is Harden
-    or a third attack of the same category; both shapes are simulated and the better one by score (then mean score,
-    then survival time) is published. A tie is not broken by attack count.
+    No score is adjusted after the sim: melee, turrets (Sustituto) and every other attack are ranked on the score as
+    measured, and an attack is any non-buff move with damage (`data::Move::is_attack`). Picotazo Veneno is a projectile
+    (speed 420, life 1.0) and is not melee. Pairs and trios may mix categories. Each attack set is simulated with every
+    buff fill of the four bond slots (`kits` in `main.rs`): two attacks with Danza Espada, Danza Dragón (species that
+    learn it) or Maquinación plus Harden or Agility, and three attacks with one of those attack buffs or with Harden or
+    Agility. An attack buff that raises none of the group's attacks is not tried (`patk` buffs only raise physical
+    moves, `satk` only special). The best row by score (then mean score, then survival time) is published, and each
+    shape (`build/picks.py` `shape_of`) keeps its own shortlist into the refine. Not searched: four attacks with no buff
+    (the engine reads `buffs == 0` as "no fixed group") and Acua Aro.
   - Dash invulnerability is `max(invuln, 0.3)` (systems/combat.js:311). Lava sets invuln to 0 and then hurts
     (entities/player.js:352). Cooldown cuts shorten the dash's own cooldown.
   - `--swap` is a second slot at level 1. Switching clamps that slot's timers to 35% of base cd and ignores cdMul
@@ -128,9 +132,9 @@ Numbers from this sim are estimates. The type chart (soft ×1.6/0.6/0.3, clamp [
 evolution rows match the game's own `evolve()`.
 
 `--legacy-group` restores the old behaviour (bonded from t=0, no rifts, bosses, heal orbs or extra kinds). Default runs
-(no `--group`) are unchanged and still pass `parity.js`; the JS engine does not have group mode.
+(no `--group`) are unchanged.
 
-Physical and special split, from PokéSurvivor `5a23d49a99a795f9262d2fb24a9842f0858a0b50` (19 Oct 2026). Both engines use the same formulas; `parity.js` still passes.
+Physical and special split, from PokéSurvivor `5a23d49a99a795f9262d2fb24a9842f0858a0b50` (19 Oct 2026).
 
 - `stats.js:17-43`. `guard(def) = clamp((75 / max(5, def || 75))^0.35, 0.78, 1.25)`. Damage taken is `guard(sd)` for a special hit and `guard(df)` for a physical one. `sideOf` is special when `sa > pa`, otherwise physical. `fit` is that side's multiplier over `atk` (`atk` is still `max(pa, sa)`). On-side moves hit as hard as before this commit. Pure damage and traps skip the guard.
 - `moves.js`. Non-buff moves have `cat` physical or special. Danza Espada and Danza Dragón buff `patk` only. Maquinación (`nasty-plot`) buffs `satk` (0.13, 5 stacks, 7 s) and is a normal-pool move. A published group bonds Maquinación when the lead attack is special, and Danza Espada when that lead is physical. A mixed pair follows the lead. `--dd` is Danza Dragón and only applies to a physical lead. `--np` forces Maquinación. Sustituto is a turret (`dmg` 14, `rate` 0.4, `moves.js`): its shots count as dealt damage, and the published best move skips turrets, buffs and rows that dealt nothing.
@@ -146,7 +150,7 @@ Physical and special split, from PokéSurvivor `5a23d49a99a795f9262d2fb24a9842f0
 
 The ranking score of a run is `time * sqrt(dps / (dps + 80) * kpm / (kpm + 40))` (`sim-rs/src/stats.rs` `run_score`; 80 and 40 are scale constants of the score, not game numbers). Damage dealt is the post-type, post-guard, post-crit amount before the shield, and it does not include burn or poison damage over time (the game does not add those to `dmgDealt`). A run that survives without dealing damage scores 0, so surviving alone never ranks. Displayed medians stay in seconds. Order, bootstrap jitter and the sim piece of the ensemble use the score.
 
-Known bias (estimates): the bot does not dodge, so sustain (Synthesis `rgn`, Vigor `hp`, Leftovers) still looks strong. Incoming damage is ×0.75 whenever a melee move is in the active group (player.js:254). A melee group is published only when its bootstrap floor is strictly above the best ranged group's median and its mean is not worse. Gengar never publishes Golpe Cuerpo or any other melee move; that filter is the owner's build rule in the publisher, not an engine ban. The step is `1/20` s so `parity.js` stays bit-exact (`game.js:610` steps at about `1/60`, clamped at `1/30`). An audit measurement at `DT = 1/60` moved mean median survival from 77.1–77.4 s to 80.3 s (+3 s, +4%) and shuffled ranks by 38, inside the 42.6-rank seed noise of a 40-seed block. A published 200-seed resim at `1/60` is about three times the runtime and was not run. A check that ignores half of each combat hit (`--dodge 0.5`) lengthens runs and does not move Power or Reflexes ahead of Synthesis. The pasivas page ranks cards by the game's coin reward (game.js:295-301, coinMul 1) and takes Baya Zidra only at or below 70% HP.
+Known bias (estimates): the bot does not dodge, so sustain (Synthesis `rgn`, Vigor `hp`, Leftovers) still looks strong. Incoming damage is ×0.75 whenever a melee move is in the active group (player.js:254). A melee group is published only when its bootstrap floor is strictly above the best ranged group's median and its mean is not worse. The step is `1/20` s (`game.js:610` steps at about `1/60`, clamped at `1/30`). An audit measurement at `DT = 1/60` moved mean median survival from 77.1–77.4 s to 80.3 s (+3 s, +4%) and shuffled ranks by 38, inside the 42.6-rank seed noise of a 40-seed block. A published 200-seed resim at `1/60` is about three times the runtime and was not run. A check that ignores half of each combat hit (`--dodge 0.5`) lengthens runs and does not move Power or Reflexes ahead of Synthesis. The pasivas page ranks cards by the game's coin reward (game.js:295-301, coinMul 1) and takes Baya Zidra only at or below 70% HP.
 build/passives.py `priority` lists the eight stat cards in this coin order on the Build card and marks the lead attack's evolution card; `compute` (the policy's pick sequence) only feeds the summaries. The rift walk is time-at-current-speed, not pathing.
 Boss personalities other
 than ranged/charger/chase are collapsed. The arena is fought in open space at the map position (no Distortion World
@@ -160,14 +164,14 @@ Game data, the vendored sources in `vendor/pokesurvivor-5a23d49/` and `v3/v3_dat
 from the game (103 moves, 38 of them new; dragon has 4 attacks in the game, every other type has 5 or more).
 
 - New kinds run on the faithful path only (`--xkinds`, always on for group ranks), as `Kind::Inert` with `xk` 9-16, in
-  `sim-rs/src/engine/kinds.rs`. `parity.js` and the JS engine never fire them. The step is 1/20 s, so spin and vortex carry the
+  `sim-rs/src/engine/kinds.rs`. The parity path never fires them. The step is 1/20 s, so spin and vortex carry the
   remainder of their 0.13 s / 0.4 s timers (the game resets at 1/60 s); the first spin hit lands on the cast frame.
-- Monotype: single-type Pokémon hit 20 % harder with moves of their own type (`player.js` `MONO_K`), in both engines.
+- Monotype: single-type Pokémon hit 20 % harder with moves of their own type (`player.js` `MONO_K`).
 - Starting move: `Mon::start_choices` is `starters.js` `startChoices` (the pool without buffs plus the stock start, even when
   off-type). Learning a move leaves the move in use active (`player.js` `addMove`); the sim already kept the starter.
 - Pools: the card pool is `moves.js` `poolFor` (normal plus own types). Attack pools went from 5-15 (mean 9.6) to 7-21
   (mean 14.4); `levelup.js` itself did not change, so a new-move card is drawn from a bigger pool.
-- Tests: `cargo test --release` (`engine/kind_tests.rs`), `node --test sim/test/*.test.js` (`game_update.test.js`),
+- Tests: `cargo test --release` (`engine/kind_tests.rs`), `node --test v3/game_update.test.js` (v3_data.json against the game),
   `node validate/game_formulas.js` (mono, damp and the older formulas against the game's own functions) and
   `node validate/game_scenarios.js` (the vendored `combat.js` and `projectile.js` on the same scenes as the Rust tests).
 - Not modelled: boss-priority targeting, manual aim, coop ghost casts, prop damage, lava ticks while stunned, the ±0.03
@@ -175,14 +179,12 @@ from the game (103 moves, 38 of them new; dragon has 4 attacks in the game, ever
 - Regeneration order (`build/regen.py --sim`): solo screen, solo refine, solo contend, group screen, group refine, start
   sweep, start rank. Group search takes its partners from the solo screen, so it always runs after it.
 
-Any change to `sim/match.js` or `sim/rules.js` has to be mirrored in `sim-rs/src/engine.rs` and re-checked with `parity.js`.
-
 ## Repertoire opening
 
-The published "run with the starting move" is not a second physics run. `sim/repertorio.js` and
-`sim-rs/src/repertorio.rs` read the starter sweep and return the expected survival of a Repertoire + Veto
+The published "run with the starting move" is not a second physics run. `pokesim repertorio`
+(`sim-rs/src/repertorio.rs`) reads the starter sweep and returns the expected survival of a Repertoire + Veto
 opening: ban up to 3 non-buff pool moves that pull the average down, draw the second attack at random from
-what remains, play the better of the two. `sim/test/repertorio_cases.json` is the shared check. The starter
+what remains, play the better of the two. `sim-rs/src/repertorio_cases.json` holds the expected cases. The starter
 alone stays in the ranking as `start_noshop_s`. Shop stat upgrades (`rank_v4_max`) are a different measure.
 
 ## Credits

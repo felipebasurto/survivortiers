@@ -1,4 +1,4 @@
-"""The published best move is an attack. Sustituto stays in the sweep and never wins the pick.
+"""The published best move is an attack that dealt damage, picked on the sim score alone.
 
     python3 build/test_best_move.py
 """
@@ -11,6 +11,7 @@ import make_definitive as md
 
 ROOT = Path(__file__).resolve().parent.parent
 SOLO = ROOT / "simulator" / "results" / "fixed_group" / "solo_sweep.csv"
+SCREEN = ROOT / "simulator" / "results" / "fixed_group" / "solo_screen.csv"
 
 
 class BestMove(unittest.TestCase):
@@ -19,17 +20,16 @@ class BestMove(unittest.TestCase):
         cls.rows = md.load_csv(SOLO)
         cls.winners = md.winner_by_dex(cls.rows)
 
+    def test_every_species_has_a_best_move(self):
+        self.assertEqual(len(self.winners), 966)
+
     def test_substitute_rows_deal_damage(self):
-        subs = [row for row in self.rows if row["start"] == "substitute"]
+        subs = [row for row in md.load_csv(SCREEN) if row["start"] == "substitute"]
         self.assertGreater(len(subs), 200)
         self.assertTrue(all(float(row["median_dealt"]) > 0 for row in subs))
         self.assertTrue(all(row["kind"] == "turret" for row in subs))
 
-    def test_sustituto_never_wins_anywhere(self):
-        self.assertEqual(len(self.winners), 966)
-        self.assertFalse([dex for dex, row in self.winners.items() if row["start"] == "substitute"])
-
-    def test_a_buff_and_sustituto_cannot_win(self):
+    def test_a_buff_cannot_win_and_a_turret_competes_on_its_score(self):
         buff = {
             "dex": "2",
             "start": "swords-dance",
@@ -51,13 +51,9 @@ class BestMove(unittest.TestCase):
             "median_dealt": "40",
         }
         real = dict(turret, start="water-gun", kind="projectile", median_score="1", mean_score="1")
-        self.assertEqual(md.winner_by_dex([buff, turret, real])[2]["start"], "water-gun")
-        self.assertNotIn(2, md.winner_by_dex([buff, turret]))
-
-    def test_gengar_best_move_is_not_melee(self):
-        row = self.winners[94]
-        self.assertNotEqual(row["kind"], "melee")
-        self.assertNotEqual(row["start"], "substitute")
+        self.assertEqual(md.winner_by_dex([buff, turret, real])[2]["start"], "substitute")
+        self.assertEqual(md.winner_by_dex([buff, real])[2]["start"], "water-gun")
+        self.assertNotIn(2, md.winner_by_dex([buff]))
 
     def test_a_zero_damage_row_cannot_win(self):
         ghost = {

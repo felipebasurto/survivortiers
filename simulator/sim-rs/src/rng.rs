@@ -1,4 +1,4 @@
-/// xorshift32 with the exact bit behaviour of sim/rng.js, including the
+/// xorshift32 with the exact bit behaviour of the JS original, including the
 /// arithmetic `>> 17` on the int32 view of the state.
 #[derive(Clone)]
 pub struct Rng(u32);

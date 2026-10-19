@@ -16,9 +16,9 @@ The order matters: the group search ranks partners from the solo sweep.
 2. solo refine    each species' best 3 attacks on fresh seeds (selection and report use
                   different seeds, so the winner's curse stays out of the numbers)
 3. solo contend   the best 2 attacks of the top species again on many more seeds
-4. group screen   every searched group, 16 seeds (same-category attacks, the matching
-                  buff, Fortaleza or a third attack as the fourth slot)
-5. group refine   the best 2 groups of each shape (Fortaleza, third attack) on fresh seeds
+4. group screen   every searched group, 16 seeds (2 or 3 attacks of either category, each
+                  with every attack buff that raises one of them and/or Fortaleza or Agilidad)
+5. group refine   the best 2 groups of each shape (picks.shape_of) on fresh seeds
 6. start sweep    every pool move as the start of a 2+2 group, 16 seeds (Repertorio opening)
 7. start rank     the game's start move, 16 seeds, three disjoint blocks
 

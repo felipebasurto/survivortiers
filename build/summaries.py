@@ -77,7 +77,7 @@ def _hb(f: dict) -> tuple[float, float]:
 
 
 def _places(f: dict, factor: str) -> int:
-    return f["drivers"]["gate" if factor.startswith("gate") else factor]["places"]
+    return f["drivers"][factor]["places"]
 
 
 # A driver can only be named in the direction its fact points. A smaller hitbox can lift a species.
@@ -93,9 +93,6 @@ DIRECTION = {
     "moves": lambda f, up: (f["pillars"]["moves"] > 0.5) == up,
     "typedef": lambda f, up: (f["pillars"]["typedef"] > 0.5) == up,
     "late": lambda f, up: True,
-    "gate_stats": lambda f, up: not up and f["flags"]["statsCapped"],
-    "gate_types": lambda f, up: not up and f["flags"]["typesCapped"],
-    "gate_melee": lambda f, up: not up and f["flags"]["melee"],
 }
 
 
@@ -103,22 +100,10 @@ def ranked_drivers(f: dict, up: bool) -> list[str]:
     """Factors that move the species at least DRIVER_MIN places in that direction, strongest first."""
     out = []
     for factor, ok in DIRECTION.items():
-        if factor.startswith("gate") and not ok(f, up):
-            continue
         p = _places(f, factor)
         if (p >= DRIVER_MIN if up else p <= -DRIVER_MIN) and ok(f, up):
             out.append((abs(p), factor))
     return [k for _, k in sorted(out, reverse=True)]
-
-
-def qualifies(f: dict, tier: str, factor: str) -> bool:
-    """make_definitive.qualifies for the tier the species would reach without that factor."""
-    if tier in "CD" or factor.startswith("gate"):
-        return True
-    stats = 0.5 if factor == "stats" else f["pillars"]["stats"]
-    if stats < {"S": 0.6, "A": 0.4, "B": 0.2}[tier]:
-        return False
-    return not (tier == "S" and (f["matchup"]["attackTypes"] < 3 or f["flags"]["melee"]))
 
 
 def holds(key: str, f: dict) -> str | None:
@@ -165,7 +150,7 @@ def holds(key: str, f: dict) -> str | None:
             if up:
                 if not (tier == f["tier"] and TIERS.index(cf) > TIERS.index(tier)):
                     return f"{key}: sin ese factor seguiría en {cf}"
-            elif not (tier == cf and TIERS.index(cf) < TIERS.index(f["tier"]) and qualifies(f, cf, factor)):
+            elif not (tier == cf and TIERS.index(cf) < TIERS.index(f["tier"])):
                 return f"{key}: sin ese factor no llegaría a {tier}"
         return None
     return f"{key}: clave desconocida"
@@ -197,20 +182,21 @@ LEXICON = [
     (r"\bgrande\b", True, False, _keys("hb-", "down:hitbox")), (r"\bbig\b", False, True, _keys("hb-", "down:hitbox")),
     (r"\benorme\b", True, False, _keys("hb--", "down:hitbox")), (r"\bhuge\b", False, True, _keys("hb--", "down:hitbox")),
     (r"\bnormal\b", True, True, _keys("hb0")),
-    (r"\btipos?\b", True, False, _keys("td+", "td-", "up:typedef", "down:typedef", "down:gate_types")),
-    (r"\btypes?\b", False, True, _keys("td+", "td-", "up:typedef", "down:typedef", "down:gate_types")),
+    (r"\btipos?\b", True, False, _keys("td+", "td-", "up:typedef", "down:typedef")),
+    (r"\btypes?\b", False, True, _keys("td+", "td-", "up:typedef", "down:typedef")),
     (r"\bataque inicial\b", True, False, _keys("up:start_move", "down:start_move")),
     (r"\bstart move\b", False, True, _keys("up:start_move", "down:start_move")),
     (r"\bmejor ataque\b", True, False, _keys("up:best_move", "down:best_move")),
     (r"\bbest move\b", False, True, _keys("up:best_move", "down:best_move")),
     (r"\bataques que aprende\b", True, False, _keys("up:moves", "down:moves")),
     (r"\bmoves it learns\b", False, True, _keys("up:moves", "down:moves")),
-    (r"\bestadísticas\b", True, False, _keys("up:stats", "down:stats", "down:gate_stats")),
-    (r"\bstats\b", False, True, _keys("up:stats", "down:stats", "down:gate_stats")),
+    (r"\bestadísticas\b", True, False, _keys("up:stats", "down:stats")),
+    (r"\bstats\b", False, True, _keys("up:stats", "down:stats")),
     (r"\bfinal de partida\b|\bpartidas largas\b", True, False, _keys("up:late", "down:late")),
     (r"\blate game\b|\blong runs\b", False, True, _keys("up:late", "down:late")),
-    (r"\btope\b", True, False, _keys("down:gate_stats")), (r"\bcap\b", False, True, _keys("down:gate_stats")),
-    (r"\bcuerpo a cuerpo\b", True, False, _keys("down:gate_melee")), (r"\bmelee\b", False, True, _keys("down:gate_melee")),
+    # No tier has an entry requirement, so no fact licenses a cap or a melee penalty.
+    (r"\btope\b", True, False, lambda key: False), (r"\bcap\b", False, True, lambda key: False),
+    (r"\bcuerpo a cuerpo\b", True, False, lambda key: False), (r"\bmelee\b", False, True, lambda key: False),
     (r"\bdel montón\b|\bnormalito\b", True, False, _keys("avg")), (r"\baverage\b", False, True, _keys("avg")),
     (r"\bnada lo (frena|baja)\b", True, False, _keys("nodown", "calm")),
     (r"\bnothing holds it back\b", False, True, _keys("nodown", "calm")),
@@ -355,7 +341,7 @@ def crossing(f: dict, factor: str, up: bool) -> str | None:
     cf = tier_of(f["rank"] - _places(f, factor))
     if up:
         return f["tier"] if TIERS.index(cf) > TIERS.index(f["tier"]) else None
-    return cf if TIERS.index(cf) < TIERS.index(f["tier"]) and qualifies(f, cf, factor) else None
+    return cf if TIERS.index(cf) < TIERS.index(f["tier"]) else None
 
 
 # ------------------------------------------------------------------ what a writer may claim
@@ -384,17 +370,12 @@ FACTOR = {
     "start_move": ("su ataque inicial", "its start move"),
     "stats": ("sus estadísticas", "its stats"), "moves": ("los ataques que aprende", "the moves it learns"),
     "typedef": ("sus tipos", "its types"),
-    "gate_stats": ("el tope por estadísticas", "the stats cap"),
-    "gate_types": ("tener un solo tipo de ataque", "having a single attack type"),
-    "gate_melee": ("empezar cuerpo a cuerpo", "its melee start"),
 }
 FACTOR_MEANS = {
     "hitbox": "its hitbox size", "speed": "its speed", "hp": "its HP", "attack": "its attack",
     "start_move": "its game start move compared with the other starts it can learn",
     "best_move": "its best move compared with its second best", "stats": "its stats overall",
     "moves": "the moves it can learn", "typedef": "how its types take enemy hits", "late": "how it does in long runs",
-    "gate_stats": "a tier cap for low stats", "gate_types": "a tier cap for a single attack type",
-    "gate_melee": "a tier cap for still playing melee on every Repertoire draw",
 }
 
 

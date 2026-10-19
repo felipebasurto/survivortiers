@@ -638,19 +638,6 @@ textarea {
 .ts-seg { display: grid; place-items: center; font: 700 1.1rem var(--ui); color: var(--tier-ink); }
 .ts-n { display: flex; gap: 2px; margin-top: 4px; font: .75rem var(--sans); color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .ts-n i { font-style: normal; text-align: center; }
-.fig-gate { --label: 5.5rem; }
-.gt-row { display: grid; grid-template-columns: var(--label) 1fr 5.5rem; align-items: center; }
-.gt-name { font: .875rem var(--sans); }
-.gt-track { position: relative; height: 1.9rem; }
-.gt-track::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: 1px solid var(--rule); }
-.gt-fill { position: absolute; top: 25%; height: 50%; }
-.gt-row.t-S { --bf: var(--tier-S); }
-.gt-row.t-A { --bf: var(--tier-A); }
-.gt-row.t-B { --bf: var(--tier-B); }
-.gt-row.t-C { --bf: var(--tier-C); }
-.gt-row.t-D { --bf: var(--tier-D); }
-.gt-val { font: 600 .95rem var(--ui); padding-left: 10px; text-align: right; }
-.gt-axis { display: flex; justify-content: space-between; margin: 0 5.5rem 0 var(--label); border-top: 1px solid var(--rule); padding-top: 3px; font: .6875rem var(--sans); color: var(--ink-2); }
 .fig-ribbon .fig-body { overflow-x: auto; }
 .rib { display: block; width: 100%; min-width: 540px; height: auto; overflow: hidden; }
 .rib path { fill: none; }
@@ -900,7 +887,7 @@ p.tagline { font: .9375rem/1.5 var(--sans); color: var(--ink-2); max-width: 86ch
 .dm-name small { display: block; font: .75rem/1.2 var(--sans); color: var(--ink-2); }
 .dm-how { margin: 14px 0 0; font: .875rem/1.5 var(--sans); color: var(--ink-2); }
 /* Pixelify confunde dígitos (5 y S, 8 y $). Los valores van en Zen Kaku Gothic New. */
-.lp-val, .mt-val, .bar-val, .gt-val, .mb-val, .dm-row output, .wb-seg b, .ar-hud b, .rp-ctl output,
+.lp-val, .mt-val, .bar-val, .mb-val, .dm-row output, .wb-seg b, .ar-hud b, .rp-ctl output,
 .mon .rk, .tier-head .n, .mv-tier > h3 small {
   font-family: var(--ui); font-weight: 600; font-variant-numeric: tabular-nums lining-nums;
 }
@@ -934,9 +921,6 @@ p.tagline { font: .9375rem/1.5 var(--sans); color: var(--ink-2); max-width: 86ch
   .dm-row { grid-template-columns: 1fr 3.4rem; }
   .dm-name { grid-column: 1 / -1; }
   .fig-demo { --label: 100%; }
-  .gt-row { grid-template-columns: 4.6rem minmax(0, 1fr) 4.4rem; }
-  .gt-val { padding-left: 6px; font-size: .8rem; white-space: nowrap; }
-  .gt-axis { margin: 0 4.4rem 0 4.6rem; }
   .rp-row { grid-template-columns: 1fr; }
   .rp-axis { margin-left: 0; }
 }
@@ -946,9 +930,9 @@ p.tagline { font: .9375rem/1.5 var(--sans); color: var(--ink-2); max-width: 86ch
   html.js .anim:not(.in), html.js .anim:not(.in) * { animation-play-state: paused; }
   .anim .lp-line, .anim .bar-fill, .anim .bs-fill { animation: grow .8s cubic-bezier(.2, .7, .2, 1) backwards; animation-delay: calc(var(--i, 0) * 90ms); }
   .anim .lp-dot, .anim .mt-dot, .anim .rb-dot { animation: slide .8s cubic-bezier(.2, .7, .2, 1) backwards; animation-delay: calc(var(--i, 0) * 90ms); }
-  .anim .lp-val, .anim .mt-val, .anim .bar-val, .anim .rb-range, .anim .rb-note, .anim .gt-val, .anim .ts-n {
+  .anim .lp-val, .anim .mt-val, .anim .bar-val, .anim .rb-range, .anim .rb-note, .anim .ts-n {
     animation: fade .5s ease-out backwards; animation-delay: calc(var(--i, 0) * 90ms + .5s); }
-  .anim .rb-seg, .anim .wb-seg, .anim .ts-seg, .anim .gt-fill, .anim .rib-gray, .anim .rib-hot {
+  .anim .rb-seg, .anim .wb-seg, .anim .ts-seg, .anim .rib-gray, .anim .rib-hot {
     animation: wipe .9s cubic-bezier(.2, .7, .2, 1) backwards; animation-delay: calc(var(--i, 0) * 110ms); }
   .anim .rib-gray, .anim .rib-hot { animation-duration: 1.8s; animation-timing-function: ease-out; }
   .anim .pipe li { animation: rise .6s ease-out backwards; animation-delay: calc(var(--i, 0) * 140ms); }
@@ -1052,7 +1036,7 @@ code, kbd { background: var(--rule-soft); box-shadow: 0 0 0 1px var(--rule); }
 .mon:hover { background: var(--rule-soft); border-color: var(--ink); }
 .mon .nm { font: 500 .8125rem/1.25 var(--ui); }
 .mon .rk { font: .8125rem var(--ui); }
-.bar-fill, .gt-fill, .lp-line, .bar i { background-image: repeating-linear-gradient(90deg, var(--bf, var(--ink-2)) 0 6px, transparent 6px 8px); background-color: transparent; opacity: 1; }
+.bar-fill, .lp-line, .bar i { background-image: repeating-linear-gradient(90deg, var(--bf, var(--ink-2)) 0 6px, transparent 6px 8px); background-color: transparent; opacity: 1; }
 
 .bar i { background-color: transparent; }
 .lp-line { height: 4px; margin-top: -2px; opacity: .6; }
@@ -1064,7 +1048,7 @@ code, kbd { background: var(--rule-soft); box-shadow: 0 0 0 1px var(--rule); }
 .lp-dot.hot { width: 21px; height: 18px; margin: -9px 0 0 -10.5px; }
 .fig figcaption h3 { font: 600 1.15rem/1.3 var(--ui); }
 .wb-seg, .ts-seg { box-shadow: inset 0 -4px 0 rgba(0, 0, 0, .18); }
-.dm-row output, .lp-val, .mt-val, .bar-val, .gt-val { font-family: var(--ui); }
+.dm-row output, .lp-val, .mt-val, .bar-val { font-family: var(--ui); }
 .pipe li::before { font-family: var(--ui); }
 .steps li::before { font-family: var(--ui); }
 .err { border-left-width: 6px; }
@@ -1567,7 +1551,7 @@ html { overflow-x: hidden; }
   font-variant-numeric: normal;
 }
 .tier-head .n { min-width: 4ch; }
-.bs-val, .bs-total b, .bd-meter strong, .mb-val, .dm-row output, .gt-val, td.num, th.num {
+.bs-val, .bs-total b, .bd-meter strong, .mb-val, .dm-row output, td.num, th.num {
   font-variant-numeric: normal;
 }
 
