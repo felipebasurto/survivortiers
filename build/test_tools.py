@@ -65,6 +65,42 @@ class ToolsDataTest(unittest.TestCase):
         self.assertIn("i", js["moves"]["nasty-plot"])
 
 
+class LeadBuffTest(unittest.TestCase):
+    def test_planner_follows_the_lead_attack(self):
+        if shutil.which("node") is None:
+            self.skipTest("node no está instalado")
+        script = r"""
+const assert = require('node:assert/strict');
+const tools = require('./src/tools.js');
+const game = {
+  moves: {
+    'shadow-ball': { c: 'special' },
+    lick: { c: 'physical' },
+    'swords-dance': { c: null, b: { stat: 'patk' } },
+    'nasty-plot': { c: null, b: { stat: 'satk' } },
+    harden: { c: null, b: { stat: 'def' } },
+  },
+  dex: {},
+};
+function rec(dex, ids, nBoost, pa, sa) {
+  game.dex[String(dex)] = [pa, sa];
+  const species = { items: [], d: {} };
+  species.d[String(dex)] = [0, 0, 0, 0, 0, 0, 0, 0, 0, [0, 0, ids, 0, 0, nBoost], [['pow', 'run', 'hp', 'cor'], null]];
+  return tools.recommended(dex, species, game);
+}
+let r = rec(94, ['shadow-ball', 'lick', 'swords-dance', 'harden'], 2, 2, 1);
+assert.equal(r.swap.to, 'nasty-plot');
+assert.ok(r.group.includes('nasty-plot') && !r.group.includes('swords-dance'));
+r = rec(95, ['lick', 'shadow-ball', 'nasty-plot', 'harden'], 2, 1, 2);
+assert.equal(r.swap.to, 'swords-dance');
+assert.ok(r.group.includes('swords-dance') && !r.group.includes('nasty-plot'));
+r = rec(94, ['shadow-ball', 'lick', 'nasty-plot', 'harden'], 2, 1, 2);
+assert.equal(r.swap, null);
+"""
+        res = subprocess.run(["node", "-e", script], capture_output=True, text=True, cwd=ROOT)
+        self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
+
+
 class ToolsNodeTest(unittest.TestCase):
     def test_pure_functions_against_real_data(self):
         if shutil.which("node") is None:

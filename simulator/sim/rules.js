@@ -108,6 +108,50 @@ function healFraction(atk, baseAtk) {
   return 0.07 * Math.min(2.5, pow ** 0.35);
 }
 
+// stats.js:17-43 at e868b5e. REF 75, EXP 0.35, clamp 0.78..1.25.
+// `def || 75` treats a missing defense as the average. Math.pow is traced by parity.js.
+const GUARD_REF = 75;
+const GUARD_LO = 0.78;
+const GUARD_HI = 1.25;
+function guard(def) {
+  const base = def || GUARD_REF;
+  return Math.min(GUARD_HI, Math.max(GUARD_LO, Math.pow(GUARD_REF / Math.max(5, base), 0.35)));
+}
+
+function taken(mon, cat) {
+  if (!mon || !cat) return 1;
+  return guard(cat === 'special' ? mon.sd : mon.df);
+}
+
+function sideOf(mon) {
+  if (!mon || mon.pa == null || mon.sa == null) return 'physical';
+  return mon.sa > mon.pa ? 'special' : 'physical';
+}
+
+function fit(mon, cat) {
+  if (!mon || !cat || mon.pa == null) return 1;
+  return (cat === 'special' ? mon.sa : mon.pa) / mon.atk;
+}
+
+// enemy.js:42. Poison percent uses this effective HP; above 60_000 it grows with sqrt.
+function pctHp(maxHp) {
+  if (maxHp <= 60000) return maxHp;
+  return 60000 * Math.sqrt(maxHp / 60000);
+}
+
+// judgment.js:46-48. Above 130, only a quarter of the extra speed counts.
+function capSpd(s) {
+  return s <= 130 ? s : 130 + (s - 130) * 0.25;
+}
+
+function judgmentTouchPct(arenaT) {
+  return Math.min(1, 0.4 + Math.max(0, arenaT - 420) / 180 * 0.6);
+}
+
+function judgmentChaseK(arenaT) {
+  return Math.min(1.22, 0.74 + arenaT * 0.013) + Math.max(0, arenaT - 300) * 0.0015;
+}
+
 function healAmount(maxHp, atk, baseAtk) {
   return maxHp * healFraction(atk, baseAtk);
 }
@@ -116,7 +160,10 @@ function pulseHealer(hx, hy, enemies, atk, baseAtk) {
   for (const enemy of enemies) {
     if (enemy.hp >= enemy.max) continue;
     if (len(enemy.x - hx, enemy.y - hy) <= 150) {
-      enemy.hp = Math.min(enemy.max, enemy.hp + healAmount(enemy.max, atk, baseAtk));
+      // enemy.js healAround: a boss heals at most 0.4 s of recent damage (RD_TAU 6).
+      const heal = healAmount(enemy.max, atk, baseAtk);
+      const add = enemy.boss ? Math.min(heal, (enemy.rd / 6) * 0.4) : heal;
+      enemy.hp = Math.min(enemy.max, enemy.hp + add);
     }
   }
 }
@@ -128,14 +175,20 @@ function pulseShield(sx, sy, enemies) {
     if (dist <= 160) near.push([dist, enemy]);
   }
   near.sort((a, b) => a[0] - b[0]);
+  // enemy.js castShields: the nearest 6, and a skipped boss still occupies a slot.
+  // Only a boss with shieldT > 2 is skipped (one shield per ~6 s, scaled to 1.2 s
+  // of recent damage). A normal enemy refreshes 35% even if a shield is already up.
   let given = 0;
   for (const pair of near) {
     if (given >= 6) break;
-    const enemy = pair[1];
-    if (enemy.shieldT > 0) continue;
-    enemy.shield = 0.35 * enemy.max;
-    enemy.shieldT = 8;
     given += 1;
+    const enemy = pair[1];
+    if (enemy.boss && enemy.shieldT > 2) continue;
+    const s = enemy.boss
+      ? Math.min(enemy.max * 0.35, (enemy.rd / 6) * 1.2)
+      : enemy.max * 0.35;
+    enemy.shield = Math.max(enemy.shield, s);
+    enemy.shieldT = 8;
   }
 }
 
@@ -211,7 +264,7 @@ function tickStatus(enemy, dt, level) {
     enemy.poisonTick = (enemy.poisonTick || 0) - dt;
     if (enemy.poisonTick <= 0) {
       enemy.poisonTick = POISON_TICK;
-      hurtDot(enemy, enemy.max * 0.012 * enemy.poison + 1);
+      hurtDot(enemy, pctHp(enemy.max) * 0.012 * enemy.poison + 1);
     }
     if (enemy.poisonT <= 0) enemy.poison = 0;
   }
@@ -332,10 +385,20 @@ for (let i = 0; i < SPD_POW.length; i++) SPD_POW[i] = 1.07 ** i;
 for (let i = 0; i < CD_POW.length; i++) CD_POW[i] = 0.92 ** i;
 
 function deriveInto(out, mon, move, state, moves, snowOn) {
-  let atkBuff = 0;
+  let generic = 0;
+  let patk = 1;
+  let satk = 1;
   let defBuff = 0;
+  // player.js atkFor (e868b5e): Swords Dance and Dragon Dance are patk, Nasty Plot is satk.
+  // Fit and the side buff stay off this plain attack. A healer reads player.js `atk`,
+  // and baking fit here changes the traced heal pow (rules.js healFraction).
+  const cat = move.cat || null;
   if (state.sd > 0 && state.sdT > 0) {
-    atkBuff = state.sdStacks * buffLevel(moves, 'swords-dance', state.sd).amount;
+    const inst = buffLevel(moves, 'swords-dance', state.sd);
+    const bonus = state.sdStacks * inst.amount;
+    if (inst.stat === 'patk') patk = 1 + bonus;
+    else if (inst.stat === 'satk') satk = 1 + bonus;
+    else generic = bonus;
   }
   if (state.hd > 0 && state.hdT > 0) {
     defBuff = state.hdStacks * buffLevel(moves, 'harden', state.hd).amount;
@@ -343,7 +406,12 @@ function deriveInto(out, mon, move, state, moves, snowOn) {
   let spd = mon.spd * SPD_POW[state.cards.run];
   if (snowOn && !mon.types.includes('ice')) spd *= 0.9;
   out.maxHp = mon.hp + 20 * state.cards.hp;
-  out.atk = mon.atk * ATK_POW[state.cards.pow] * (1 + atkBuff);
+  // Plain attack, as player.js `atk`. Fit and the patk/satk buff are applied per move
+  // (atkFor). A healer scales off this, not off the move, so they must stay out.
+  out.atk = mon.atk * ATK_POW[state.cards.pow] * (1 + generic);
+  out.patk = patk;
+  out.satk = satk;
+  out.cat = cat;
   out.spd = spd;
   out.red = Math.min(0.8, Math.min(0.7, 0.06 * state.cards.cor) + defBuff);
   out.cdMul = CD_POW[state.cards.cd];
@@ -387,6 +455,14 @@ module.exports = {
   fanAngles,
   healFraction,
   healAmount,
+  guard,
+  taken,
+  sideOf,
+  fit,
+  pctHp,
+  capSpd,
+  judgmentTouchPct,
+  judgmentChaseK,
   pulseHealer,
   pulseShield,
   readStatus,

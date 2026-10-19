@@ -12,9 +12,11 @@ Qué elige, de los ataques que ofrece el juego a ese Pokémon (POOL.normal + POO
      (`simulator/results/fixed_group/group_search.csv`), los ataques del grupo con mejor mediana
      (y, si empatan, mejor media). Ahí entran Hex con quemadura, veneno o ralentización, las
      parejas de los mejores ataques y las parejas de dos dashes, y gana el que más aguanta.
-     Danza Espada entra en todo grupo buscado. El cuarto hueco es Fortaleza o un tercer ataque, el que
-     aguante más. Un cuerpo a cuerpo solo se publica si su suelo de bootstrap queda por encima de la
-     mediana del mejor grupo a distancia y su media no es peor. Gengar (dex 94) no lleva cuerpo a cuerpo.
+     El potenciador de ataque entra en todo grupo buscado: Danza Espada si los ataques son físicos,
+     Maquinación si son especiales (Danza Espada ya no les sube el daño). El cuarto hueco es Fortaleza
+     o un tercer ataque, el que aguante más. Un cuerpo a cuerpo solo se publica si su suelo de bootstrap
+     queda por encima de la mediana del mejor grupo a distancia y su media no es peor. Gengar (dex 94)
+     no lleva cuerpo a cuerpo.
   2. Si no hay búsqueda, hueco 1 es el mejor ataque de la simulación (`best_move`). Si ese ataque
      tiene un compañero de sinergia (Hex con estado, o dos dashes), el hueco 2 es ese compañero
      a distancia cuando hay uno; si no, el de más cobertura.
@@ -24,8 +26,8 @@ Qué elige, de los ataques que ofrece el juego a ese Pokémon (POOL.normal + POO
      entran si abren al menos un 2 % de rivales, salvo que el Pokémon no tenga otra cosa que ofrecer).
      Mientras quede un ataque a distancia, no se rellena con cuerpo a cuerpo.
   4. Opcionales: se sigue con la cobertura tres ataques más (ALT_SLOTS), para los huecos que se abren más tarde.
-  5. Potenciadores: Danza Espada (o Danza Dragón) siempre. Fortaleza solo si el grupo ganador la lleva,
-     o si esa especie no salió en la búsqueda.
+  5. Potenciadores: Maquinación si los ataques del grupo son especiales; si no, Danza Espada (o Danza
+     Dragón). Fortaleza solo si el grupo ganador la lleva, o si esa especie no salió en la búsqueda.
 
 Datos: data/move_pool.json, data/move_mechanics.json, data/type_matrix.json (los exporta
 build/export_move_mechanics.js desde el juego) y data/move_tierlist_v4.csv.
@@ -59,9 +61,10 @@ def _mult(matrix: dict, atk: str, defender: list[str]) -> float:
 
 ATTACK_SLOTS = 2
 ALT_SLOTS = 3
-# Grupo fijo: Danza Espada es obligatoria. El cuarto hueco es Fortaleza o un tercer ataque, el que gane
-# en la búsqueda (mediana, luego media). Un cuerpo a cuerpo solo gana con margen claro.
-BUFFS = ("dragon-dance", "swords-dance"), "harden"
+# Grupo fijo: un potenciador de ataque es obligatorio. El cuarto hueco es Fortaleza o un tercer ataque.
+# Un cuerpo a cuerpo solo gana con margen claro (suelo de bootstrap por encima de la mediana a distancia).
+ATTACK_BUFFS = ("nasty-plot", "dragon-dance", "swords-dance")
+BUFFS = ATTACK_BUFFS, "harden"
 # Un ataque normal solo suma neutral, así que solo cuenta como «mejora la cobertura» si abre al menos este % de rivales.
 NORMAL_MIN_GAIN = 0.02
 
@@ -88,7 +91,11 @@ def _coverage(matrix: dict, types: list[str], enemies: list[list[str]], cache: d
 
 
 # Buffs the fixed group can hold. Anything else in a searched group name is an attack.
-BUFF_IDS = frozenset({"dragon-dance", "swords-dance", "harden", "agility"})
+BUFF_IDS = frozenset({"dragon-dance", "swords-dance", "harden", "agility", "nasty-plot"})
+# Gengar (dex 94) never keeps a melee move. Golpe Cuerpo is body-slam.
+_MELEE = frozenset({
+    "bite", "body-slam", "bug-bite", "karate-chop", "lick", "metal-claw", "tackle", "vine-whip", "wing-attack",
+})
 # Written by `pokesim synergy` (seeds 1-200, 900 s, terrain, status, rift bond).
 SEARCH_CSV = DATA.parent / "simulator" / "results" / "fixed_group" / "group_search.csv"
 
@@ -121,16 +128,55 @@ def _has_melee(attacks: list[str], kinds: dict[str, str]) -> bool:
     return any(kinds.get(a) == "melee" for a in attacks)
 
 
-def _search_picks() -> dict[int, tuple[list[str], bool]]:
-    """dex -> (attack ids, whether the winning group also bonds Harden).
+def _move_cats() -> dict[str, str]:
+    raw = json.loads((DATA.parent / "simulator" / "v3" / "v3_data.json").read_text(encoding="utf8"))
+    return {mid: (move["levels"][0].get("cat") or "") for mid, move in raw["moves"].items()}
 
-    The sim scores status+Hex, dash pairs, the top attack pairs with Swords Dance and Harden,
-    and the same pairs with a third attack instead of Harden. Swords Dance stays in the group.
-    Harden wins the fourth slot only when that shape's median (then mean) beats the third attack.
 
+def _special_species() -> dict[int, bool]:
+    raw = json.loads((DATA / "pokedex_export.json").read_text(encoding="utf8"))
+    return {int(p["dex"]): float(p["sa"]) > float(p["pa"]) for p in raw}
+
+
+def _attack_buff(attacks: list[str], _searched: str | None, cats: dict[str, str], special: bool,
+                 available: list[str]) -> str | None:
+    """Maquinación when the lead attack is special. A physical lead, including a mixed pair, uses Danza Espada.
+
+    The lead is the first bonded attack with a category. A group with no category falls back to
+    the species side (`sa > pa`). `--dd` stays a sim flag; the published physical buff is Danza Espada.
+    """
+    lead = ""
+    for attack in attacks:
+        cat = cats.get(attack) or ""
+        if cat in ("physical", "special"):
+            lead = cat
+            break
+    want = "nasty-plot" if lead == "special" or (not lead and special) else "swords-dance"
+    if want in available:
+        return want
+    return next((b for b in ATTACK_BUFFS if b in available), None)
+
+
+def _metric(row: dict, score_key: str, fallback: str) -> float:
+    raw = row.get(score_key)
+    if raw not in (None, ""):
+        return float(raw)
+    return float(row[fallback])
+
+
+def _search_picks() -> dict[int, tuple[list[str], bool, str | None]]:
+    """dex -> (attack ids, whether the winning group also bonds Harden, attack-buff id).
+
+    The sim scores status+Hex, dash pairs, and the top attack pairs. Every group holds an attack
+    buff: Maquinación when the lead attack is special, Danza Espada when it is physical. A mixed
+    pair follows that lead. Lengüetazo and every other `kind == melee` move goes through the
+    floor rule below. Picotazo Veneno is a projectile (reach 420) and is not melee.
+    Harden wins the fourth slot only when that shape beats the third attack.
+
+    Rank is median score, then mean score, then median seconds, when the score columns exist.
     A group that contains a melee move is kept only when its bootstrap floor sits strictly above
-    the best ranged group's median and its mean is at least as high. A tie, or a mean-only edge,
-    is not enough: the swing has to win clearly. Gengar (dex 94) never keeps a melee move.
+    the best ranged group's median and its mean is at least as high. The floor and the median are
+    of that same score. A tie, or a mean-only edge, is not enough. Gengar (dex 94) never keeps a melee move.
     """
     if not SEARCH_CSV.exists():
         return {}
@@ -140,22 +186,26 @@ def _search_picks() -> dict[int, tuple[list[str], bool]]:
         for row in csv.DictReader(line for line in f if not line.startswith("#")):
             dex = int(row["dex"])
             parts = row["group"].split("+")
-            # Swords Dance is mandatory for every species that can bond it, which is all of them.
-            if "swords-dance" not in parts and "dragon-dance" not in parts:
+            buff = next((part for part in parts if part in ATTACK_BUFFS), None)
+            if buff is None:
                 continue
+            score = _metric(row, "median_score", "median_s")
+            mean = _metric(row, "mean_score", "mean_s")
+            floor = _metric(row, "score_lo", "boot_lo")
             attacks = [part for part in parts if part not in BUFF_IDS]
+            if dex == 94 and (any(part in _MELEE for part in attacks) or _has_melee(attacks, kinds)):
+                continue
             if len(attacks) < 2:
                 continue
-            if dex == 94 and _has_melee(attacks, kinds):
-                continue
             cand = (
-                (-float(row["median_s"]), -float(row["mean_s"]), row["group"]),
+                (-score, -mean, -float(row["median_s"]), row["group"]),
                 attacks,
                 "harden" in parts or "agility" in parts,
-                float(row["boot_lo"]),
-                float(row["median_s"]),
-                float(row["mean_s"]),
+                floor,
+                score,
+                mean,
                 _has_melee(attacks, kinds),
+                buff,
             )
             by_dex.setdefault(dex, []).append(cand)
     out = {}
@@ -172,7 +222,7 @@ def _search_picks() -> dict[int, tuple[list[str], bool]]:
             chosen = best_m
         if chosen is None:
             continue
-        out[dex] = (chosen[1], chosen[2])
+        out[dex] = (chosen[1], chosen[2], chosen[7])
     return out
 
 
@@ -227,6 +277,8 @@ def compute_all(types_by_dex: dict[int, list[str]], best_move_by_dex: dict[int, 
     pool, mech, matrix, rows = _load()
     picks = _search_picks()
     flags = _synergy_flags()
+    cats = _move_cats()
+    special = _special_species()
     boost = lambda mid: float(rows[mid]["score_rel"] or 0)
     everyone = list(types_by_dex.values())
     out: dict[int, dict] = {}
@@ -235,19 +287,17 @@ def compute_all(types_by_dex: dict[int, list[str]], best_move_by_dex: dict[int, 
         ids = set(pool["normal"])
         for t in types:
             ids.update(pool.get(t, []))
-        attacks = sorted(i for i in ids if mech[i]["kind"] != "buff")
-        # Gengar does not bond melee. Other species still can, when the search says the swing
-        # clearly beats every ranged group. Coverage fill (no searched preset) skips melee
-        # while a ranged attack is available: the sim was treating body slam as a free pick.
-        if dex == 94:
-            attacks = [i for i in attacks if mech[i]["kind"] != "melee"]
+        attacks = sorted(i for i in ids if mech[i]["kind"] != "buff" and not (dex == 94 and (i in _MELEE or mech[i]["kind"] == "melee")))
         buffs = sorted(i for i in ids if mech[i]["kind"] == "buff")
+        # nasty-plot is a normal-pool move (moves.js). The exported pool predates it.
+        if "nasty-plot" not in buffs:
+            buffs.append("nasty-plot")
         best = best_move_by_dex[dex]
         if best not in attacks and best in rows:
             # el ataque inicial propio de la especie (p. ej. Confusión de Psyduck) no está en POOL, pero lo lleva desde el inicio
             attacks.append(best)
-        preset, with_harden = picks.get(dex, ([], True))
-        preset = [m for m in preset if m in rows]
+        preset, with_harden, searched_buff = picks.get(dex, ([], True, None))
+        preset = [m for m in preset if m in rows and not (dex == 94 and m in _MELEE)]
         for move in preset:
             if move not in attacks:
                 attacks.append(move)
@@ -260,7 +310,7 @@ def compute_all(types_by_dex: dict[int, list[str]], best_move_by_dex: dict[int, 
         ranked = pick_attacks(attacks, best, rows, mech, matrix, everyone, cache, n_atk + ALT_SLOTS,
                               preset if searched else None, None if searched else flags)
         trio, alts = ranked[:n_atk], ranked[n_atk:]
-        atk_buff = next((b for b in BUFFS[0] if b in buffs), None)
+        atk_buff = _attack_buff(trio, searched_buff, cats, special.get(dex, False), buffs)
         # 2+2 keeps Harden. The three-attack Hex group the search can still pick does not.
         want = (atk_buff, BUFFS[1]) if with_harden or not searched else (atk_buff,)
         boosts = [b for b in want if b in buffs] or ([max(buffs, key=boost)] if buffs else [])

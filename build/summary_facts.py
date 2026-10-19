@@ -9,9 +9,9 @@ match the enemy pool, the build shown on the ficha (start move, bonded group, al
 cards), the tier and rank, and (from facts_export.py) the rank drivers.
 
 Game sources (JPTER78/pokesurvivor at legal.GAME_COMMIT, read only):
-  hitbox   js/core/sprites.js:127-131 bodyRadius = clamp(idle width * 0.22, 5, 26) * PX (PX = 2, sprites.js:14);
-           js/entities/player.js:17 this.r = bodyRadius(dex); enemy shots hit at p.r + pl.r (js/systems/combat.js:565)
-           and bodies touch at e.r + pl.r (combat.js:663). Exported as body_radius in data/pokedex_export.json.
+  hitbox   js/core/sprites.js playerRadius: collision radius is min(18, bodyRadius). bodyRadius is
+           clamp(idle width * 0.22, 5, 26) * PX (PX = 2). Shots hit at p.r + pl.r and bodies at e.r + pl.r.
+           The exported body_radius is the uncapped sprite size; the fact uses the collision cap.
   stats    js/data/pokedex.js:9 (G.DEX, one {dex, hp, spd, atk} per line); player.js:29 maxHp = mon.hp, :31 baseSpd = mon.spd, :32 baseAtk = mon.atk.
 """
 from __future__ import annotations
@@ -81,12 +81,18 @@ def base_records() -> dict[str, dict]:
     dex_list = [int(r["dex"]) for r in rows]
     px = {p["dex"]: p for p in json.loads((DATA / "pokedex_export.json").read_text(encoding="utf8"))}
     moves = {m["id"]: m for m in catalog.load_moves()}
+    # Maquinación is in the game and in a bonded group, but it has no tier-list row yet.
+    for m in catalog.load_unranked():
+        moves.setdefault(m["id"], m)
     cards_es = {k: v["title"] for k, v in json.loads((DATA / "card_icons.json").read_text(encoding="utf8")).items()}
     combo = combos.compute_all({d: px[d]["types"] for d in dex_list}, {int(r["dex"]): r["best_move"] for r in rows})
     psim = passives.load()
     items = objetos.recommended()
 
-    game = {k: [float(px[d][k]) for d in dex_list] for k in ("hp", "spd", "atk", "body_radius")}
+    # sprites.js playerRadius. A body larger than 18 collides at 18, so it is not a bigger target.
+    radii = [min(18.0, float(px[d]["body_radius"])) for d in dex_list]
+    game = {k: [float(px[d][k]) for d in dex_list] for k in ("hp", "spd", "atk")}
+    game["body_radius"] = radii
     pct = {k: midpct(v) for k, v in game.items()}
     pct["body_radius"] = [1 - p for p in pct["body_radius"]]  # higher = smaller hitbox, like pct_size
     pct_super = midpct([float(combo[d]["super"]) for d in dex_list])
@@ -109,7 +115,7 @@ def base_records() -> dict[str, dict]:
             "dex": d, "name": p["name"], "nameEn": r["name"], "types": p["types"],
             "tier": r["tier"], "rank": int(r["rank"]), "p10": int(r["rank_p10"]), "p90": int(r["rank_p90"]),
             "stats": {k: {"v": p[k], "pct": r2(pct[k][i])} for k in ("hp", "spd", "atk")},
-            "hitbox": {"r": p["body_radius"], "pctSmaller": r2(pct["body_radius"][i]), "median": med_r},
+            "hitbox": {"r": radii[i], "pctSmaller": r2(pct["body_radius"][i]), "median": med_r},
             "pillars": {k: float(r["pct_" + k]) for k in PILLARS},
             "matchup": {"shotDmgTaken": float(r["shot_dmg_taken"]), "typedefPct": float(r["pct_typedef"]),
                         "superPct": c["super"], "neutralPct": c["neutral"], "superPctile": r2(pct_super[i]),

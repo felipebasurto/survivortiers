@@ -25,6 +25,7 @@
 
 mod data;
 mod engine;
+mod radii;
 mod math;
 mod repertorio;
 mod rng;
@@ -55,6 +56,7 @@ struct Cfg {
     out: Option<String>,
     group: u8,
     dd: bool,
+    np: bool,
     agi: bool,
     xkinds: bool,
     legacy: bool,
@@ -83,7 +85,7 @@ struct Cfg {
 }
 
 fn parse(args: &[String]) -> Cfg {
-    let mut c = Cfg { seeds: 200, seconds: 900.0, bot: Bot::Repulse, cards: true, terrain: false, status: false, out: None, group: 0, dd: false, agi: false, xkinds: false, legacy: false, item: "none".into(), fill: vec![], buffs: None, comps: None, swap: false, crit: 0.0, full_cards: false, stop: 0, heal_below: 0.0, dodge: 0.0, locks: vec![], synergy: false, no_synergy: false, rest: vec![] };
+    let mut c = Cfg { seeds: 200, seconds: 900.0, bot: Bot::Repulse, cards: true, terrain: false, status: false, out: None, group: 0, dd: false, np: false, agi: false, xkinds: false, legacy: false, item: "none".into(), fill: vec![], buffs: None, comps: None, swap: false, crit: 0.0, full_cards: false, stop: 0, heal_below: 0.0, dodge: 0.0, locks: vec![], synergy: false, no_synergy: false, rest: vec![] };
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
@@ -118,6 +120,7 @@ fn parse(args: &[String]) -> Cfg {
                 PARTNERS.set(read_partners(&args[i])).ok();
             }
             "--dd" => c.dd = true,
+            "--np" => c.np = true,
             "--agi" => c.agi = true,
             "--xkinds" => c.xkinds = true,
             "--swap" => c.swap = true,
@@ -186,13 +189,22 @@ fn read_partners(path: &str) -> HashMap<u32, Vec<String>> {
         let c: Vec<&str> = l.split(',').collect();
         let n = c.len();
         // dex,name,start,kind,n,median_s,... (name may hold no commas in this data)
-        rows.push((c[0].parse().unwrap(), c[2].to_string(), c[3].to_string(), c[5].parse().unwrap()));
+        let time: f64 = c[5].parse().unwrap();
+        let score = c.get(16).and_then(|s| s.parse().ok()).unwrap_or(time);
+        // A move that never lands is not a partner. Missing column (older sweeps) stays eligible.
+        let dealt: f64 = c.get(15).and_then(|s| s.parse().ok()).unwrap_or(1.0);
+        if dealt <= 0.0 {
+            continue;
+        }
+        rows.push((c[0].parse().unwrap(), c[2].to_string(), c[3].to_string(), score));
         let _ = n;
     }
     rows.sort_by(|a, b| a.0.cmp(&b.0).then(b.3.partial_cmp(&a.3).unwrap()).then(a.1.cmp(&b.1)));
     let mut m: HashMap<u32, Vec<String>> = HashMap::new();
     for (d, mv, kind, _) in rows {
-        if kind == "orbit" {
+        // Orbit shares one orb list. Sustituto is a turret (moves.js): its shots deal damage,
+        // but it is not an attack the build bonds. Buffs are the other slots.
+        if kind == "orbit" || kind == "buff" || kind == "turret" {
             continue;
         }
         m.entry(d).or_default().push(mv);
@@ -231,23 +243,39 @@ fn partner_pool(data: &Data, mon: &Mon, start: usize) -> Vec<usize> {
                 return false;
             }
             let m = &data.moves[ix];
-            if m.kind == Kind::Orbit {
+            // Orbit shares one orb list (engine step_orbs). Gengar's melee ban is an owner
+            // build rule in the publisher, not a filter here.
+            if m.kind == Kind::Orbit || !publishable_attack(m) {
                 return false;
             }
             m.kind.simulated() || m.levels[0].xk != 0
         })
         .collect();
-    // Gengar never bonds a melee move. A ghost that has to stand in the swing
-    // is the case the ranking was getting wrong (body slam next to shadow ball).
-    if mon.dex == 94 {
-        ids.retain(|&ix| data.moves[ix].kind != Kind::Melee);
-    }
     ids.sort_by(|&a, &b| {
         let syn = |ix| if pairs_with(data, start, ix) { 0u8 } else { 1 };
         let rank = |ix| solo.iter().position(|&p| p == ix).unwrap_or(10_000);
         syn(a).cmp(&syn(b)).then(rank(a).cmp(&rank(b))).then(data.moves[a].id.cmp(&data.moves[b].id))
     });
     ids
+}
+
+/// Maquinación when the lead attack is special. A physical lead, including a mixed pair,
+/// bonds Danza Espada: Danza Espada does not raise special moves, and the lead is the move
+/// that is up for most of the rift window. A lead with no category falls through to the
+/// next attack, then to `sa > pa`. `--np` forces Maquinación. `--dd` is Dragon Dance and
+/// only applies when this returns false.
+fn use_nasty(data: &Data, mon: &Mon, start: usize, comps: &[usize], cfg: &Cfg) -> bool {
+    if cfg.np {
+        return true;
+    }
+    for ix in std::iter::once(start).chain(comps.iter().copied()) {
+        match data.moves[ix].levels[0].cat {
+            2 => return true,
+            1 => return false,
+            _ => {}
+        }
+    }
+    mon.sa > mon.pa
 }
 
 /// The fixed main group for this primary: a synergistic partner first, then the next best solo attacks.
@@ -268,10 +296,12 @@ fn ext_for(data: &Data, mon: &Mon, start: usize, cfg: &Cfg) -> Ext {
     } else {
         None
     };
+    let np = use_nasty(data, mon, start, &companions, cfg);
     Ext {
         companions,
         buffs: cfg.buffs.unwrap_or(match cfg.group { 2 => 3, 3 => 1, _ => 0 }),
-        dd: cfg.dd,
+        dd: cfg.dd && !np,
+        np,
         agi: cfg.agi,
         item,
         fill: cfg.fill.clone(),
@@ -289,7 +319,7 @@ fn ext_for(data: &Data, mon: &Mon, start: usize, cfg: &Cfg) -> Ext {
 }
 
 fn group_label(cfg: &Cfg) -> &'static str {
-    match (cfg.group, cfg.legacy) { (2, false) => "grupo fijo 2 ataques + Danza Espada y Fortaleza con vínculos de grieta, jefes y todos los tipos de ataque", (3, false) => "grupo fijo 3 ataques + Danza Espada con vínculos de grieta, jefes y todos los tipos de ataque", (2, true) => "grupo fijo 2 ataques + Danza Espada y Fortaleza desde t=0, sin grietas, sin jefes", (3, true) => "grupo fijo 3 ataques + Danza Espada desde t=0, sin grietas, sin jefes", _ => "un movimiento, sin grietas, sin jefes" }
+    match (cfg.group, cfg.legacy) { (2, false) => "grupo fijo 2 ataques + Danza Espada o Maquinación y Fortaleza con vínculos de grieta, jefes y todos los tipos de ataque", (3, false) => "grupo fijo 3 ataques + Danza Espada o Maquinación con vínculos de grieta, jefes y todos los tipos de ataque", (2, true) => "grupo fijo 2 ataques + Danza Espada o Maquinación y Fortaleza desde t=0, sin grietas, sin jefes", (3, true) => "grupo fijo 3 ataques + Danza Espada o Maquinación desde t=0, sin grietas, sin jefes", _ => "un movimiento, sin grietas, sin jefes" }
 }
 
 fn bot_name(b: Bot) -> &'static str {
@@ -397,6 +427,12 @@ fn castable(m: &data::Move) -> bool {
     m.kind != Kind::Orbit && (m.kind.simulated() || m.levels[0].xk != 0)
 }
 
+/// A move the published build can call its attack. Sustituto (`turret`, moves.js) shoots
+/// for the player, so its dealt damage is real, but it is not that attack. Buffs neither.
+fn publishable_attack(m: &data::Move) -> bool {
+    m.kind_name != "buff" && m.kind_name != "turret"
+}
+
 fn level_dps(l: &data::MoveLvl) -> f64 {
     let cd = if l.cd.is_finite() && l.cd > 0.0 { l.cd } else { 1.0 };
     let n = if l.count.is_finite() && l.count > 0.0 { l.count } else { 1.0 };
@@ -418,7 +454,10 @@ struct Spec {
 const PAIR_TOP: usize = 6;
 
 fn attack_list(data: &Data, mon: &Mon) -> Vec<usize> {
-    let mut atk: Vec<usize> = mon.pool.iter().copied().filter(|&ix| castable(&data.moves[ix])).collect();
+    let mut atk: Vec<usize> = mon.pool.iter().copied().filter(|&ix| {
+        let m = &data.moves[ix];
+        castable(m) && publishable_attack(m)
+    }).collect();
     if !atk.contains(&mon.start) && castable(&data.moves[mon.start]) {
         atk.push(mon.start);
     }
@@ -522,15 +561,13 @@ fn dedup_specs(specs: Vec<Spec>) -> Vec<Spec> {
 /// that top six (a dash pair can beat a higher-tier lead by tens of seconds).
 /// The winner is whichever group has the higher median, then the higher mean.
 /// A synergy partner is only the recommendation when it actually wins that comparison.
-/// Swords Dance is in every group (everyone learns it). The fourth slot is Harden
+/// Every group holds an attack buff (bit 1). The move is Maquinación when the lead attack is
+/// special, otherwise Danza Espada. A mixed pair follows that lead. The fourth slot is Harden
 /// (`buffs` 3, one partner) or a third attack (`buffs` 1). Harden is not the default:
 /// both shapes are scored and the higher median, then mean, wins.
-/// Gengar's list has already dropped melee.
+/// Gengar may be searched with a melee move. The publisher drops that build.
 fn synergy_specs(data: &Data, mon: &Mon) -> Vec<Spec> {
-    let mut atk = attack_list(data, mon);
-    if mon.dex == 94 {
-        atk.retain(|&ix| data.moves[ix].kind != Kind::Melee);
-    }
+    let atk = attack_list(data, mon);
     let linked = atk.iter().any(|&a| atk.iter().any(|&b| a != b && pairs_with(data, a, b)));
     let pay: Vec<usize> = atk.iter().copied().filter(|&ix| is_payoff(&data.moves[ix].levels[0])).collect();
     let mut app: Vec<usize> = atk.iter().copied().filter(|&ix| is_applier(&data.moves[ix].levels[0])).collect();
@@ -621,13 +658,20 @@ fn push_third(data: &Data, top: &[usize], atk: &[usize], a: usize, b: usize, out
     }
 }
 
-fn group_name(data: &Data, start: usize, comps: &[usize], buffs: u8, cfg: &Cfg) -> String {
+fn group_name(data: &Data, mon: &Mon, start: usize, comps: &[usize], buffs: u8, cfg: &Cfg) -> String {
     let mut parts = vec![data.moves[start].id.clone()];
     for &c in comps {
         parts.push(data.moves[c].id.clone());
     }
     if buffs & 1 != 0 {
-        parts.push((if cfg.dd { "dragon-dance" } else { "swords-dance" }).to_string());
+        let buff = if use_nasty(data, mon, start, comps, cfg) {
+            "nasty-plot"
+        } else if cfg.dd {
+            "dragon-dance"
+        } else {
+            "swords-dance"
+        };
+        parts.push(buff.to_string());
     }
     if buffs & 2 != 0 {
         parts.push((if cfg.agi { "agility" } else { "harden" }).to_string());
@@ -641,9 +685,9 @@ fn row_group(data: &Data, row: &Row, cfg: &Cfg) -> String {
             return data.moves[row.start].id.clone();
         }
         let ext = ext_for(data, row.mon, row.start, cfg);
-        return group_name(data, row.start, &ext.companions, ext.buffs, cfg);
+        return group_name(data, row.mon, row.start, &ext.companions, ext.buffs, cfg);
     }
-    group_name(data, row.start, &row.comps, row.buffs.unwrap_or(0), cfg)
+    group_name(data, row.mon, row.start, &row.comps, row.buffs.unwrap_or(0), cfg)
 }
 
 fn sweep(data: &Data, cfg: &Cfg) {
@@ -684,14 +728,14 @@ fn sweep(data: &Data, cfg: &Cfg) {
     std::fs::create_dir_all(&out_dir).unwrap();
     let mut long = format!(
         "# barrido: todos los movimientos simulados del pool como inicial. seeds=1-{} seconds={} bot={}\n\
-         dex,name,start,kind,n,median_s,mean_s,boot_lo,boot_hi,p10_s,p90_s,median_kills,median_lvl,status_ignored,group\n",
+         dex,name,start,kind,n,median_s,mean_s,boot_lo,boot_hi,p10_s,p90_s,median_kills,median_lvl,status_ignored,group,median_dealt,median_score,mean_score,score_lo,score_hi\n",
         cfg.seeds, cfg.seconds, bot_name(cfg.bot)
     );
     for r in &rows {
         let s = &r.s;
         writeln!(
             long,
-            "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+            "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
             r.mon.dex,
             csv_escape(&r.mon.name),
             mv(r),
@@ -706,7 +750,8 @@ fn sweep(data: &Data, cfg: &Cfg) {
             num(s.median_kills),
             num(s.median_lvl),
             s.status_ignored as u8,
-            row_group(data, r, cfg)
+            row_group(data, r, cfg),
+            score_tail(s)
         )
         .unwrap();
     }
@@ -723,30 +768,40 @@ fn sweep(data: &Data, cfg: &Cfg) {
     let mut best: Vec<(&Row, usize, Option<&Row>)> = groups
         .iter_mut()
         .map(|g| {
-            g.sort_by(|a, b| {
-                cmp_desc(a.s.median_s, b.s.median_s)
-                    .then(cmp_desc(a.s.mean_s, b.s.mean_s))
-                    .then_with(|| mv(a).cmp(mv(b)))
-            });
-            (g[0], g.len(), g.get(1).copied())
+            // Best move is an attack. Sustituto stays in the long CSV (its turret shots
+            // are real damage) and is dropped here, along with any row that dealt nothing.
+            let mut picked: Vec<&Row> = g
+                .iter()
+                .copied()
+                .filter(|&r| {
+                    let m = &data.moves[r.start];
+                    publishable_attack(m) && r.s.median_dealt > 0.0
+                })
+                .collect();
+            if picked.is_empty() {
+                picked = g.iter().copied().filter(|&r| publishable_attack(&data.moves[r.start])).collect();
+            }
+            if picked.is_empty() {
+                picked = g.clone();
+            }
+            picked.sort_by(|a, b| cmp_run(&a.s, &b.s).then_with(|| mv(a).cmp(mv(b))));
+            let n = picked.len();
+            let alt = picked.get(1).copied();
+            (picked[0], n, alt)
         })
         .collect();
-    best.sort_by(|a, b| {
-        cmp_desc(a.0.s.median_s, b.0.s.median_s)
-            .then(cmp_desc(a.0.s.mean_s, b.0.s.mean_s))
-            .then(a.0.mon.dex.cmp(&b.0.mon.dex))
-    });
+    best.sort_by(|a, b| cmp_run(&a.0.s, &b.0.s).then(a.0.mon.dex.cmp(&b.0.mon.dex)));
     let old = read_old_rank("sim/out/rank_200.csv");
     let mut text = format!(
         "# mejor movimiento inicial por especie. seeds=1-{} seconds={} bot={}\n\
-         rank,dex,name,best_start,best_kind,median_s,mean_s,boot_lo,boot_hi,p10_s,p90_s,median_kills,median_lvl,status_ignored,n_candidates,alt_start,alt_median_s,rank_old_200,group\n",
+         rank,dex,name,best_start,best_kind,median_s,mean_s,boot_lo,boot_hi,p10_s,p90_s,median_kills,median_lvl,status_ignored,n_candidates,alt_start,alt_median_s,rank_old_200,group,median_dealt,median_score,mean_score,score_lo,score_hi\n",
         cfg.seeds, cfg.seconds, bot_name(cfg.bot)
     );
     for (i, (r, n, alt)) in best.iter().enumerate() {
         let s = &r.s;
         writeln!(
             text,
-            "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+            "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
             i + 1,
             r.mon.dex,
             csv_escape(&r.mon.name),
@@ -765,7 +820,8 @@ fn sweep(data: &Data, cfg: &Cfg) {
             alt.map(mv).unwrap_or(""),
             alt.map(|a| num(a.s.median_s)).unwrap_or_default(),
             old.get(&r.mon.dex).map(|x| x.to_string()).unwrap_or_default(),
-            row_group(data, r, cfg)
+            row_group(data, r, cfg),
+            score_tail(&s)
         )
         .unwrap();
     }
@@ -821,6 +877,7 @@ fn tasks_cmd(data: &Data, cfg: &Cfg) {
                         match x {
                             "sd" => mask |= 1,
                             "dd" => { mask |= 1; sub.dd = true; }
+                            "np" => { mask |= 1; sub.np = true; }
                             "hd" => mask |= 2,
                             "agi" => { mask |= 2; sub.agi = true; }
                             _ => panic!("buff {x}"),
@@ -863,14 +920,14 @@ fn tasks_cmd(data: &Data, cfg: &Cfg) {
                 num(s.median_coins),
                 num(s.p10_coins),
                 num(s.p90_coins),
-                num(s.median_dealt),
                 num(s.p10_dealt),
-                num(s.p90_dealt)
+                num(s.p90_dealt),
+                score_tail(&s)
             )
         })
         .collect();
     let path = cfg.out.clone().expect("--out");
-    std::fs::write(&path, format!("dex,move,item,fill,buffs,stop,heal_below,lock,mods,median_s,mean_s,boot_lo,boot_hi,p75_s,p90_s,median_lvl,alive180,alive300,alive600,median_kills,p10_kills,p90_kills,median_bosses,median_kpm,median_coins,p10_coins,p90_coins,median_dealt,p10_dealt,p90_dealt\n{}\n", rows.join("\n"))).unwrap();
+    std::fs::write(&path, format!("dex,move,item,fill,buffs,stop,heal_below,lock,mods,median_s,mean_s,boot_lo,boot_hi,p75_s,p90_s,median_lvl,alive180,alive300,alive600,median_kills,p10_kills,p90_kills,median_bosses,median_kpm,median_coins,p10_coins,p90_coins,p10_dealt,p90_dealt,median_dealt,median_score,mean_score,score_lo,score_hi\n{}\n", rows.join("\n"))).unwrap();
     eprintln!("wrote {path}");
 }
 
@@ -891,7 +948,17 @@ fn with_mods(mon: &Mon, mods: &str) -> Mon {
 }
 
 fn cfg_clone(c: &Cfg) -> Box<Cfg> {
-    Box::new(Cfg { seeds: c.seeds, seconds: c.seconds, bot: c.bot, cards: c.cards, terrain: c.terrain, status: c.status, out: None, group: c.group, dd: c.dd, agi: c.agi, xkinds: c.xkinds, legacy: c.legacy, item: c.item.clone(), fill: c.fill.clone(), buffs: c.buffs, comps: c.comps.clone(), swap: c.swap, crit: c.crit, full_cards: c.full_cards, stop: c.stop, heal_below: c.heal_below, dodge: c.dodge, locks: c.locks.clone(), synergy: c.synergy, no_synergy: c.no_synergy, rest: vec![] })
+    Box::new(Cfg { seeds: c.seeds, seconds: c.seconds, bot: c.bot, cards: c.cards, terrain: c.terrain, status: c.status, out: None, group: c.group, dd: c.dd, np: c.np, agi: c.agi, xkinds: c.xkinds, legacy: c.legacy, item: c.item.clone(), fill: c.fill.clone(), buffs: c.buffs, comps: c.comps.clone(), swap: c.swap, crit: c.crit, full_cards: c.full_cards, stop: c.stop, heal_below: c.heal_below, dodge: c.dodge, locks: c.locks.clone(), synergy: c.synergy, no_synergy: c.no_synergy, rest: vec![] })
+}
+
+fn cmp_run(a: &Summary, b: &Summary) -> std::cmp::Ordering {
+    cmp_desc(a.median_score, b.median_score)
+        .then(cmp_desc(a.mean_score, b.mean_score))
+        .then(cmp_desc(a.median_s, b.median_s))
+}
+
+fn score_tail(s: &Summary) -> String {
+    format!("{},{},{},{},{}", num(s.median_dealt), num(s.median_score), num(s.mean_score), num(s.score_lo), num(s.score_hi))
 }
 
 fn synergy_cmd(data: &Data, cfg: &Cfg) {
@@ -909,7 +976,7 @@ fn synergy_cmd(data: &Data, cfg: &Cfg) {
         cfg.group
     );
     let mut rows = run_jobs(data, jobs, cfg);
-    rows.sort_by(|a, b| a.mon.dex.cmp(&b.mon.dex).then(cmp_desc(a.s.median_s, b.s.median_s)).then(cmp_desc(a.s.mean_s, b.s.mean_s)));
+    rows.sort_by(|a, b| a.mon.dex.cmp(&b.mon.dex).then(cmp_run(&a.s, &b.s)));
     let path = cfg.out.clone().expect("--out");
     if let Some(dir) = std::path::Path::new(&path).parent() {
         if !dir.as_os_str().is_empty() {
@@ -917,13 +984,13 @@ fn synergy_cmd(data: &Data, cfg: &Cfg) {
         }
     }
     let mut text = String::from(
-        "dex,name,group,median_s,mean_s,boot_lo,boot_hi,p10_s,p90_s,median_kills,median_lvl,status_ignored\n",
+        "dex,name,group,median_s,mean_s,boot_lo,boot_hi,p10_s,p90_s,median_kills,median_lvl,status_ignored,median_dealt,median_score,mean_score,score_lo,score_hi\n",
     );
     for r in &rows {
         let s = &r.s;
         writeln!(
             text,
-            "{},{},{},{},{},{},{},{},{},{},{},{}",
+            "{},{},{},{},{},{},{},{},{},{},{},{},{}",
             r.mon.dex,
             csv_escape(&r.mon.name),
             row_group(data, r, cfg),
@@ -935,7 +1002,8 @@ fn synergy_cmd(data: &Data, cfg: &Cfg) {
             num(s.p90_s),
             num(s.median_kills),
             num(s.median_lvl),
-            s.status_ignored as u8
+            s.status_ignored as u8,
+            score_tail(s)
         )
         .unwrap();
     }
@@ -948,8 +1016,7 @@ fn rank(data: &Data, cfg: &Cfg) {
     eprintln!("rank: {} species x {} seeds, {} threads", tasks.len(), cfg.seeds, rayon::current_num_threads());
     let mut rows = run_tasks(data, tasks, cfg);
     rows.sort_by(|a, b| {
-        cmp_desc(a.s.median_s, b.s.median_s)
-            .then(cmp_desc(a.s.mean_s, b.s.mean_s))
+        cmp_run(&a.s, &b.s)
             .then(cmp_desc(a.s.mean_hp_frac.unwrap_or(0.0), b.s.mean_hp_frac.unwrap_or(0.0)))
             .then(a.mon.dex.cmp(&b.mon.dex))
     });
@@ -957,14 +1024,14 @@ fn rank(data: &Data, cfg: &Cfg) {
     let note = if cfg.swap { format!("{note}, cambio de hueco al 35% de la recarga") } else { note.to_string() };
     let mut text = format!(
         "# step={} seeds=1-{} seconds={} bot={} sin mejoras permanentes, {}, controlador compartido{}\n\
-         dex,name,n,median_s,mean_s,boot_lo,boot_hi,p10_s,p90_s,median_kills,median_lvl,n_cap,mean_hp_frac,status_ignored\n",
+         dex,name,n,median_s,mean_s,boot_lo,boot_hi,p10_s,p90_s,median_kills,median_lvl,n_cap,mean_hp_frac,status_ignored,median_dealt,median_score,mean_score,score_lo,score_hi\n",
         DT, cfg.seeds, cfg.seconds, bot_name(cfg.bot), group_label(cfg), note
     );
     for r in &rows {
         let s = &r.s;
         writeln!(
             text,
-            "{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+            "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
             r.mon.dex,
             csv_escape(&r.mon.name),
             s.n,
@@ -978,7 +1045,8 @@ fn rank(data: &Data, cfg: &Cfg) {
             num(s.median_lvl),
             s.n_cap,
             s.mean_hp_frac.map(num).unwrap_or_default(),
-            s.status_ignored as u8
+            s.status_ignored as u8,
+            score_tail(s)
         )
         .unwrap();
     }

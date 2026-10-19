@@ -767,7 +767,9 @@ def main() -> int:
             shutil.rmtree(child) if child.is_dir() else child.unlink()
     ASSET_V = pack.build(SRC, SITE, OUT / "public")
     ordered = sorted(full, key=lambda e: e["dex"])
+    # Maquinación has no tier yet, so it lives in moves_unranked.json. Species pages still name it.
     moves_by = {m["id"]: m for m in moves}
+    moves_by.update({m["id"]: m for m in unranked})
     odds = static_ficha.odds_table(full)
     sheet_paths = [f"pokemon/{species_path(e['dex'], e['nameEn'])}/" for e in ordered]
     by_dex = {p["dex"]: p for p in full}

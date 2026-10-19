@@ -15,6 +15,14 @@ pub struct OpeningMove {
     pub median: f64,
     pub lo: f64,
     pub hi: f64,
+    /// Composite score from the sweep. Absent means compare `median` seconds.
+    pub rank: Option<f64>,
+    pub rank_lo: Option<f64>,
+    pub rank_hi: Option<f64>,
+}
+
+fn value_of(m: &OpeningMove) -> f64 {
+    m.rank.unwrap_or(m.median)
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -39,8 +47,8 @@ pub fn opening_value(starter: &OpeningMove, candidates: &[OpeningMove], bans: us
     for _ in 0..n_ban {
         let mut worst = 0;
         for i in 1..pool.len() {
-            let vw = starter.median.max(pool[worst].median);
-            let vi = starter.median.max(pool[i].median);
+            let vw = value_of(starter).max(value_of(pool[worst]));
+            let vi = value_of(starter).max(value_of(pool[i]));
             if vi < vw || (vi == vw && pool[i].id < pool[worst].id) {
                 worst = i;
             }
@@ -53,12 +61,12 @@ pub fn opening_value(starter: &OpeningMove, candidates: &[OpeningMove], bans: us
     let mut median = starter.median;
     let mut lo = starter.lo;
     let mut hi = starter.hi;
-    if pool.iter().any(|c| c.median > starter.median) {
+    if pool.iter().any(|c| value_of(c) > value_of(starter)) {
         let mut sm = 0.0;
         let mut sl = 0.0;
         let mut sh = 0.0;
         for c in &pool {
-            if c.median > starter.median {
+            if value_of(c) > value_of(starter) {
                 sm += c.median;
                 sl += c.lo;
                 sh += c.hi;
@@ -81,7 +89,7 @@ pub fn opening_value(starter: &OpeningMove, candidates: &[OpeningMove], bans: us
     }
 
     let melee_locked = starter.kind == "melee"
-        && pool.iter().all(|c| !(c.kind != "melee" && c.median > starter.median));
+        && pool.iter().all(|c| !(c.kind != "melee" && value_of(c) > value_of(starter)));
 
     Opening {
         median,
@@ -104,6 +112,9 @@ mod tests {
             median: v["median"].as_f64().unwrap(),
             lo: v["lo"].as_f64().unwrap(),
             hi: v["hi"].as_f64().unwrap(),
+            rank: v.get("rank").and_then(|x| x.as_f64()),
+            rank_lo: v.get("rankLo").and_then(|x| x.as_f64()),
+            rank_hi: v.get("rankHi").and_then(|x| x.as_f64()),
         }
     }
 

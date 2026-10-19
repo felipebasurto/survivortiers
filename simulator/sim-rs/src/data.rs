@@ -105,8 +105,11 @@ pub struct MoveLvl {
     pub range: f64,
     /// impulse on a non-boss (enemy.js hurt knock). NaN when the move has none.
     pub knock: f64,
-    /// buff stat: 0 none, 1 atk, 2 spd, 3 def, 4 regen (moves.js aqua-ring).
+    /// buff stat: 0 none, 1 atk, 2 spd, 3 def, 4 regen (moves.js aqua-ring),
+    /// 5 patk (Swords Dance / Dragon Dance), 6 satk (Nasty Plot). moves.js at e868b5e.
     pub buff: u8,
+    /// 0 none (buffs), 1 physical, 2 special. moves.js PHYSICAL set.
+    pub cat: u8,
 }
 
 #[derive(Clone, Debug)]
@@ -202,6 +205,11 @@ pub struct Cand {
     pub sand_safe: bool,
     /// weather.js snow safe type (ice)
     pub snow_safe: bool,
+    /// Attack multipliers and base defenses (stats.js / fetch_stats.py at e868b5e).
+    pub pa: f64,
+    pub sa: f64,
+    pub df: f64,
+    pub sd: f64,
 }
 
 #[derive(Clone, Debug)]
@@ -220,6 +228,11 @@ pub struct Mon {
     pub spd: f64,
     pub atk: f64,
     pub r: f64,
+    /// Attack multipliers and base defenses. atk stays max(pa, sa).
+    pub pa: f64,
+    pub sa: f64,
+    pub df: f64,
+    pub sd: f64,
     pub start: usize,
     pub pool: Vec<usize>,
     /// legendary or mythical (rift.js only spawns these in arenas)
@@ -239,6 +252,7 @@ pub struct Data {
     pub harden: usize,
     pub dragon_dance: usize,
     pub agility: usize,
+    pub nasty_plot: usize,
 }
 
 fn num(v: &Value, k: &str) -> f64 {
@@ -293,6 +307,13 @@ fn move_lvl(v: &Value) -> MoveLvl {
             Some("spd") => 2,
             Some("def") => 3,
             Some("regen") => 4,
+            Some("patk") => 5,
+            Some("satk") => 6,
+            _ => 0,
+        },
+        cat: match v.get("cat").and_then(Value::as_str) {
+            Some("physical") => 1,
+            Some("special") => 2,
             _ => 0,
         },
     }
@@ -367,12 +388,25 @@ impl Data {
                 spd: num(p, "spd"),
                 atk: num(p, "atk"),
                 r: num(p, "r"),
+                pa: num(p, "pa"),
+                sa: num(p, "sa"),
+                df: num(p, "df"),
+                sd: num(p, "sd"),
                 start: move_ix[p["start"].as_str().unwrap()],
                 pool: p["pool"].as_array().unwrap().iter().map(|x| move_ix[x.as_str().unwrap()]).collect(),
                 leg: p["leg"].as_bool().unwrap_or(false),
                 bst: num(p, "bst"),
             })
-            .collect();
+            .collect::<Vec<Mon>>();
+        // moves.js poolFor puts every normal move in every pool. nasty-plot landed in
+        // e868b5e after this export was written, so it is missing from `pool` until here.
+        let nasty_ix = move_ix["nasty-plot"];
+        let mut dex = dex;
+        for mon in &mut dex {
+            if !mon.pool.contains(&nasty_ix) {
+                mon.pool.push(nasty_ix);
+            }
+        }
 
         let tiers = raw["tiers"]
             .as_array()
@@ -410,6 +444,10 @@ impl Data {
                             fire: has("fire"),
                             sand_safe: has("rock") || has("ground") || has("steel"),
                             snow_safe: has("ice"),
+                            pa: num(c, "pa"),
+                            sa: num(c, "sa"),
+                            df: num(c, "df"),
+                            sd: num(c, "sd"),
                         }
                     })
                     .collect(),
@@ -420,6 +458,7 @@ impl Data {
         let harden = move_ix["harden"];
         let dragon_dance = move_ix["dragon-dance"];
         let agility = move_ix["agility"];
-        Data { moves, move_ix, dex, tiers, tmult, swords_dance, harden, dragon_dance, agility }
+        let nasty_plot = move_ix["nasty-plot"];
+        Data { moves, move_ix, dex, tiers, tmult, swords_dance, harden, dragon_dance, agility, nasty_plot }
     }
 }

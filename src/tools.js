@@ -116,24 +116,34 @@
     return order.filter(id => picks.includes(id));
   }
 
-  // Build recomendada de build/combos.py. Su danza es física (patk); si los ataques del grupo son en su mayoría
-  // especiales, se cambia por Maquinación y se devuelve el cambio para avisarlo.
+  // Build recomendada de build/combos.py. El potenciador sigue al ataque que abre el grupo:
+  // especial → Maquinación, físico → Danza Espada. Un grupo mixto no vota por mayoría.
+  function leadSide(attacks, game, dex) {
+    for (const id of attacks) {
+      const cat = game.moves[id] && game.moves[id].c;
+      if (cat === 'physical' || cat === 'special') return cat;
+    }
+    const [pa, sa] = game.dex[String(dex)];
+    return sideOf(pa, sa);
+  }
+
   function recommended(dex, species, game) {
     const d = species.d[String(dex)];
     const ids = d[9][2];
     const nBoost = d[9][5];
     const attacks = ids.slice(0, ids.length - nBoost);
     const boosts = ids.slice(ids.length - nBoost);
-    const phys = attacks.filter(id => game.moves[id].c === 'physical').length;
-    const spec = attacks.filter(id => game.moves[id].c === 'special').length;
-    const [pa, sa] = game.dex[String(dex)];
-    const majority = phys === spec ? sideOf(pa, sa) : (phys > spec ? 'physical' : 'special');
+    const lead = leadSide(attacks, game, dex);
     let swap = null;
     const fixed = boosts.map(id => {
       const stat = game.moves[id].b && game.moves[id].b.stat;
-      if (stat === 'patk' && majority === 'special') {
+      if (stat === 'patk' && lead === 'special') {
         swap = { from: id, to: 'nasty-plot' };
         return 'nasty-plot';
+      }
+      if (stat === 'satk' && lead === 'physical') {
+        swap = { from: id, to: 'swords-dance' };
+        return 'swords-dance';
       }
       return id;
     });
@@ -468,7 +478,7 @@
         return ['note', t('bp_mismatch_some', { boost: moveName(game, w.boost), n: w.n, total: w.total })];
       });
       const rec = recommended(st.dex, species, game);
-      if (rec.swap && st.group.includes(rec.swap.to)) msgs.push(['note', t('bp_swapped', { from: moveName(game, rec.swap.from) })]);
+      if (rec.swap && st.group.includes(rec.swap.to)) msgs.push(['note', t('bp_swapped', { from: moveName(game, rec.swap.from), to: moveName(game, rec.swap.to) })]);
       warnBox.innerHTML = msgs.map(([cls, text]) => '<p class="bp-warn is-' + cls + '">' + esc(text) + '</p>').join('');
       const n = boostCount(-1);
       document.getElementById('bp-boostcount').textContent = t('bp_boost_count', { n }) + (n >= BOOST_CAP ? ' · ' + t('bp_boost_max') : '');

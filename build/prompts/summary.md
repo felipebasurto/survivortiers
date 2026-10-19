@@ -36,30 +36,31 @@ plain wording in Spanish (`es`) and English (`en`). The other columns are contex
 For every species: 2 or 3 short sentences in Spanish and the same in English. Player-to-player tone, plain words,
 like a friend giving a tip. No marketing, no "este Pokémon", no exclamation marks.
 
-1. What it is: its stat profile (fast, tanky, hits hard, big or small hitbox, good types...). Pick the 1-3
-   clearest traits from the claims.
+1. What it is: its stat profile (fast, tanky, hits hard, small hitbox, good types...). Pick the 1-3
+   clearest traits from the claims. Do not mention a big or huge hitbox.
 2. How to build it: start with its start move (`m.start`), bond the group moves (`m.group`; you may skip the
    buff moves if the sentence gets long, and you may offer one `m.alt` in brackets), carry the item (`i.best`).
 3. Why it sits at that rank: the main reason from the `up:` / `down:` claims (one up and/or one down). If a
-   claim with a tier letter exists (for example `down:hitbox:S`), prefer it. If there is no `down:` claim you may
+   claim with a tier letter exists (for example `down:stats:S`), prefer it. If there is no `down:` claim you may
    say `nodown`; if there are none at all, `calm`.
 
-Mind the grammar: the verb agrees with the reason ("lo frenan sus estadísticas", "lo frena su hitbox grande";
-"its stats hold it back", "its hitbox holds it back").
+Mind the grammar: the verb agrees with the reason ("lo frenan sus estadísticas", "lo frena su mejor ataque";
+"its stats hold it back", "its best move holds it back").
 
-Example of the voice (Spanish): "Rápido y con mucha vida, pero pega poco. Úsalo con Ascuas y Danza Espada. Su
-hitbox grande es lo que lo baja del S."
+Example of the voice (Spanish): "Rápido y con mucha vida, pero pega poco. Úsalo con Ascuas y Danza Espada. Lo
+que más lo sube es Ascuas."
 
 ## Marks (required)
 
 Every claim goes inside a mark: `[key|visible text]`. The page turns marks into small icons and the checker uses
 the key to verify the claim. The visible text is yours, but keep it close to the claim's wording.
 
-- Trait: `[spd+|Rápido]`, `[hb-|hitbox grande]`, `[td+|aguanta bien los tipos rivales]`
+- Trait: `[spd+|Rápido]`, `[hb+|hitbox pequeño]`, `[td+|aguanta bien los tipos rivales]`
 - Names, written exactly as given in that language: `[m.start:ember|Ascuas]`, `[m.group:swords-dance|Danza Espada]`,
   `[m.alt:hex|Infortunio]`, `[i.best:luckyegg|Huevo Suerte]`
-- Rank reason: `[up:stats|sus estadísticas]`, `[down:hitbox:S|su hitbox grande lo deja fuera del S]`,
-  `[nodown|nada lo frena]`. For `up:best_move` the visible text is the move name, exactly.
+- Rank reason: `[up:stats|sus estadísticas]`, `[down:stats:S|sus estadísticas lo dejan fuera del S]`,
+  `[nodown|nada lo frena]`. For `up:best_move` the visible text is the move name, exactly. Never `hb-`, `hb--`
+  or `down:hitbox`: collision radius is capped, so a big sprite is not what holds a Pokémon back.
 
 ## Hard rules (an automatic checker rejects the text otherwise)
 
@@ -84,19 +85,19 @@ the key to verify the claim. The visible text is yours, but keep it close to the
    At most 240 characters per language, counting only the visible text.
 7. Every sentence starts with a capital letter, also when it starts with a mark (`[hb+|Hitbox pequeño]`,
    `[up:typedef|Its types]`).
-8. Say the hitbox the same way everywhere: if the species has `hb--` (huge), a `down:hitbox` reason says
-   "hitbox enorme" / "huge hitbox", never "grande" / "big"; otherwise never "enorme" / "huge".
+8. Do not say a big or huge hitbox holds the Pokémon back, and do not use the words grande, enorme, big or
+   huge for a hitbox. A small hitbox (`hb+` or `up:hitbox`) is still fine when that claim is listed.
 9. Every summary must include at least one trait key, the `m.start` key, the `i.best` key and one rank key
    (`up:...`, `down:...`, `nodown` or `calm`).
 10. Spanish verb agreement with the reason is checked: plural reasons ("sus estadísticas", "sus tipos", "los
    ataques que aprende") take "lo suben / lo bajan / lo frenan"; singular ones ("su hitbox", "su mejor ataque",
    "tener un solo tipo de ataque", "cómo aguanta...") take "lo sube / lo baja / lo frena".
 
-## Example (Kommo-o, dex 784; its claims include atk+, hb-, td+, m.start:dragon-rage, m.group:aura-sphere,
-## m.group:dragon-dance, m.alt:hyper-voice, i.best:luckyegg, up:best_move, up:stats, down:hitbox)
+## Example (Kommo-o, dex 784; its claims include atk+, td+, m.start:dragon-rage, m.group:aura-sphere,
+## m.group:nasty-plot, m.alt:hyper-voice, i.best:luckyegg, up:best_move, up:stats)
 
 ```json
-{"dex": 784, "es": "[atk+|Pega fuerte] y [td+|aguanta bien los tipos rivales], pero tiene [hb-|hitbox grande]. Empieza con [m.start:dragon-rage|Furia Dragón] y vincula [m.group:aura-sphere|Esfera Aural] (o [m.alt:hyper-voice|Vozarrón]) y [m.group:dragon-dance|Danza Dragón]; lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Esfera Aural] y lo baja [down:hitbox|su hitbox grande].", "en": "[atk+|Hits hard] and [td+|shrugs off enemy types], but has a [hb-|big hitbox]. Start with [m.start:dragon-rage|Dragon Rage], bond [m.group:aura-sphere|Aura Sphere] (or [m.alt:hyper-voice|Hyper Voice]) and [m.group:dragon-dance|Dragon Dance]; carry [i.best:luckyegg|Lucky Egg]. What lifts it most is [up:best_move|Aura Sphere], and what holds it back most is [down:hitbox|its big hitbox]."}
+{"dex": 784, "es": "[atk+|Pega fuerte] y [td+|aguanta bien los tipos rivales]. Empieza con [m.start:dragon-rage|Furia Dragón] y vincula [m.group:aura-sphere|Esfera Aural] (o [m.alt:hyper-voice|Vozarrón]) y [m.group:nasty-plot|Maquinación]; lleva [i.best:luckyegg|Huevo Suerte]. Lo sube [up:best_move|Esfera Aural].", "en": "[atk+|Hits hard] and [td+|shrugs off enemy types]. Start with [m.start:dragon-rage|Dragon Rage], bond [m.group:aura-sphere|Aura Sphere] (or [m.alt:hyper-voice|Hyper Voice]) and [m.group:nasty-plot|Nasty Plot]; carry [i.best:luckyegg|Lucky Egg]. What lifts it most is [up:best_move|Aura Sphere]."}
 ```
 
 Vary the sentence shapes between species; do not copy this example's wording for every one.

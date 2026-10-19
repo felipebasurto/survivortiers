@@ -98,6 +98,7 @@ class StaticMewtwo(unittest.TestCase):
         stats = json.loads((ROOT / "data" / "base_stats.json").read_text(encoding="utf8"))["150"]
         species = json.loads((SITE / "data" / "species.json").read_text(encoding="utf8"))
         moves = {m["id"]: m for m in json.loads((SITE / "data" / "moves.json").read_text(encoding="utf8"))}
+        moves.update({m["id"]: m for m in json.loads((SITE / "data" / "moves_unranked.json").read_text(encoding="utf8"))})
         ids, n_boost = species["d"]["150"][9][2], species["d"]["150"][9][5]
         game = legal.GAME_NAME
         self.assertIn(f"<title>Mewtwo en {game}: tier, build y cómo conseguirlo</title>", es)
