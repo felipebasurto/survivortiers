@@ -25,6 +25,8 @@ const { loadData } = require('./data');
 
 const BANS = 3;
 
+const OWNER = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'data', 'owner_rules.json'), 'utf8'));
+
 function round3(x) {
   return Math.round(x * 1000) / 1000;
 }
@@ -146,6 +148,22 @@ function loadSweep(file) {
   return byDex;
 }
 
+// The owner's rules on one sweep row. A move that is never an attack (Sustituto), and a
+// melee move on Gengar, can be dealt but are never played: they score 0. Any other melee
+// row takes the melee penalty on its score. The seconds it reports stay as measured.
+function ownerView(mon, row) {
+  const never = OWNER.never_attack.includes(row.id) || (mon.dex === OWNER.gengar_dex && row.kind === 'melee');
+  const factor = row.kind === 'melee' ? OWNER.melee_score_factor : 1;
+  const out = { ...row };
+  if (never) {
+    if (out.rank != null) { out.rank = 0; out.rankLo = 0; out.rankHi = 0; }
+    else { out.median = 0; out.lo = 0; out.hi = 0; }
+    return out;
+  }
+  if (out.rank != null) { out.rank *= factor; out.rankLo *= factor; out.rankHi *= factor; }
+  return out;
+}
+
 function openingsFromSweep(sweepFile, data = loadData()) {
   const sweep = loadSweep(sweepFile);
   const out = [];
@@ -154,11 +172,11 @@ function openingsFromSweep(sweepFile, data = loadData()) {
     if (!rows || !rows.has(mon.start)) {
       throw new Error(`sweep has no starter for ${mon.dex} ${mon.start}`);
     }
-    const starter = rows.get(mon.start);
+    const starter = ownerView(mon, rows.get(mon.start));
     const candidates = [];
     for (const [id, row] of rows) {
       if (id === mon.start || row.kind === 'buff') continue;
-      candidates.push(row);
+      candidates.push(ownerView(mon, row));
     }
     out.push({ dex: mon.dex, ...openingValue(starter, candidates, BANS) });
   }

@@ -87,6 +87,10 @@ pub struct Summary {
     pub mean_score: f64,
     pub score_lo: f64,
     pub score_hi: f64,
+    /// Median score of the first and the second half of the seeds (seed order). Two
+    /// independent blocks of the same run, for the stability check.
+    pub score_a: f64,
+    pub score_b: f64,
 }
 
 /// `runs` must be in seed order (1..N), as runSpecies produces them.
@@ -107,6 +111,7 @@ pub fn summarize(runs: &[RunResult]) -> Summary {
     sort(&mut levels);
     let (boot_lo, boot_hi) = bootstrap_median_seeded(&times, 2000, row_seed(&times));
     let mut scores: Vec<f64> = runs.iter().map(run_score).collect();
+    let (score_a, score_b) = half_medians(&scores);
     let score_seed = row_seed(&scores);
     sort(&mut scores);
     let (score_lo, score_hi) = bootstrap_median_seeded(&scores, 2000, score_seed);
@@ -159,7 +164,24 @@ pub fn summarize(runs: &[RunResult]) -> Summary {
         mean_score: score_sum / scores.len() as f64,
         score_lo,
         score_hi,
+        score_a,
+        score_b,
     }
+}
+
+/// Medians of the first half and the second half of `scores` in seed order.
+fn half_medians(scores: &[f64]) -> (f64, f64) {
+    let mid = scores.len() / 2;
+    let median = |part: &[f64]| {
+        let mut v = part.to_vec();
+        sort(&mut v);
+        quantile(&v, 0.5)
+    };
+    if mid == 0 {
+        let m = median(scores);
+        return (m, m);
+    }
+    (median(&scores[..mid]), median(&scores[mid..]))
 }
 
 /// Survival with a damage-rate and a kill-rate gate.
@@ -223,6 +245,12 @@ mod tests {
             hp_frac: 0.0,
             dealt,
         }
+    }
+
+    #[test]
+    fn halves_are_taken_in_seed_order() {
+        let (a, b) = half_medians(&[1.0, 2.0, 3.0, 10.0, 20.0, 30.0]);
+        assert_eq!((a, b), (2.0, 20.0));
     }
 
     #[test]
