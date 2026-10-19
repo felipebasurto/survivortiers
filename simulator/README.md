@@ -62,7 +62,8 @@ Group mode also models, from the game source (`js/` in JPTER78/pokesurvivor):
   Springs are not modelled. Baya Zidra (levelup.js:26, instant 45 % heal, no cap) and Aprendizaje
   (levelup.js:24, ×1.12 XP, max 8) are offered only with `--full-cards`.
 - **All move kinds** (`--xkinds`, on by default in group mode): cone, meteor, chain, aura (drain heal capped at 6),
-  dash, mine, trail and turret, following systems/combat.js. Life Orb costs HP only on a cast that actually fires, and
+  dash, mine, trail and turret, plus the eight kinds of the 66610d9 update (homing, bounce, charge, spin, quake, vortex,
+  shove, stun; see below), following systems/combat.js. Life Orb costs HP only on a cast that actually fires, and
   never for orbit or trail, including companion casts (player.js:203). Without the flag these moves stay inert, as in the JS engine.
 - **Synergies on the ranking path** (`--status` or `--xkinds`; both are on for a published group rank). The default
   run (neither flag) stays bit-exact with `parity.js`. Citations are the live game:
@@ -151,6 +152,28 @@ Boss personalities other
 than ranged/charger/chase are collapsed. The arena is fought in open space at the map position (no Distortion World
 columns or arena weather). The published 900 s window ends before Sentencia; a longer run uses the judgment path above.
 Results used for the site are in `results/fixed_group/`.
+
+### PokéSurvivor update (66610d9, 5a23d49)
+
+Game data, the vendored sources in `vendor/pokesurvivor-5a23d49/` and `v3/v3_data.json` (`v3/extract_v3.js`) are pinned to
+`5a23d49`. `tmult` and `upgrades_src_ok` in `v3_data.json` are carried over from the previous extract; the rest is re-read
+from the game (103 moves, 38 of them new; dragon has 4 attacks in the game, every other type has 5 or more).
+
+- New kinds run on the faithful path only (`--xkinds`, always on for group ranks), as `Kind::Inert` with `xk` 9-16, in
+  `sim-rs/src/engine/kinds.rs`. `parity.js` and the JS engine never fire them. The step is 1/20 s, so spin and vortex carry the
+  remainder of their 0.13 s / 0.4 s timers (the game resets at 1/60 s); the first spin hit lands on the cast frame.
+- Monotype: single-type Pokémon hit 20 % harder with moves of their own type (`player.js` `MONO_K`), in both engines.
+- Starting move: `Mon::start_choices` is `starters.js` `startChoices` (the pool without buffs plus the stock start, even when
+  off-type). Learning a move leaves the move in use active (`player.js` `addMove`); the sim already kept the starter.
+- Pools: the card pool is `moves.js` `poolFor` (normal plus own types). Attack pools went from 5-15 (mean 9.6) to 7-21
+  (mean 14.4); `levelup.js` itself did not change, so a new-move card is drawn from a bigger pool.
+- Tests: `cargo test --release` (`engine/kind_tests.rs`), `node --test sim/test/*.test.js` (`game_update.test.js`),
+  `node validate/game_formulas.js` (mono, damp and the older formulas against the game's own functions) and
+  `node validate/game_scenarios.js` (the vendored `combat.js` and `projectile.js` on the same scenes as the Rust tests).
+- Not modelled: boss-priority targeting, manual aim, coop ghost casts, prop damage, lava ticks while stunned, the ±0.03
+  projectile jitter, homing toward `cy()` (the sim has no heights), wall cuts for the plain beam kind (charge and quake do cut).
+- The solo sweep and the site tier list are not regenerated. Group search ranks partners from the solo sweep, so new moves are
+  unranked until it is rerun: regenerate the solo sweep first, then the group search.
 
 Any change to `sim/match.js` or `sim/rules.js` has to be mirrored in `sim-rs/src/engine.rs` and re-checked with `parity.js`.
 
