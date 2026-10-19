@@ -33,6 +33,12 @@ function byId(a, b) {
   return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 }
 
+// When the sweep carries median_score, bans and the switch follow that score.
+// The returned median/lo/hi stay the seconds of the moves that score picked.
+function valueOf(move) {
+  return move.rank != null ? move.rank : move.median;
+}
+
 /**
  * @param {{id:string, kind:string, median:number, lo:number, hi:number}} starter
  * @param {{id:string, kind:string, median:number, lo:number, hi:number}[]} candidates
@@ -47,8 +53,8 @@ function openingValue(starter, candidates, bans = BANS) {
   for (let n = 0; n < nBan; n++) {
     let worst = 0;
     for (let i = 1; i < pool.length; i++) {
-      const vw = Math.max(starter.median, pool[worst].median);
-      const vi = Math.max(starter.median, pool[i].median);
+      const vw = Math.max(valueOf(starter), valueOf(pool[worst]));
+      const vi = Math.max(valueOf(starter), valueOf(pool[i]));
       if (vi < vw || (vi === vw && pool[i].id < pool[worst].id)) worst = i;
     }
     banned.push(pool.splice(worst, 1)[0]);
@@ -59,13 +65,13 @@ function openingValue(starter, candidates, bans = BANS) {
   let median = starter.median;
   let lo = starter.lo;
   let hi = starter.hi;
-  const played = pool.filter((c) => c.median > starter.median);
+  const played = pool.filter((c) => valueOf(c) > valueOf(starter));
   if (played.length > 0) {
     let sm = 0;
     let sl = 0;
     let sh = 0;
     for (const c of pool) {
-      const useSecond = c.median > starter.median;
+      const useSecond = valueOf(c) > valueOf(starter);
       sm += useSecond ? c.median : starter.median;
       sl += useSecond ? c.lo : starter.lo;
       sh += useSecond ? c.hi : starter.hi;
@@ -80,11 +86,36 @@ function openingValue(starter, candidates, bans = BANS) {
   // Stuck on melee when no remaining draw is a strictly better non-melee attack.
   // The S-tier gate uses this. The solo melee penalty is already inside the expectation.
   const meleeLocked = starter.kind === 'melee'
-    && pool.every((c) => !(c.kind !== 'melee' && c.median > starter.median));
+    && pool.every((c) => !(c.kind !== 'melee' && valueOf(c) > valueOf(starter)));
 
-  return {
+  const out = {
     median, lo, hi, banned: banned.map((c) => c.id), draws: pool.length, meleeLocked,
   };
+  if (starter.rank != null) {
+    let rank = starter.rank;
+    let rankLo = starter.rankLo;
+    let rankHi = starter.rankHi;
+    if (played.length > 0) {
+      let sm = 0;
+      let sl = 0;
+      let sh = 0;
+      for (const c of pool) {
+        const useSecond = valueOf(c) > valueOf(starter);
+        sm += useSecond ? c.rank : starter.rank;
+        sl += useSecond ? c.rankLo : starter.rankLo;
+        sh += useSecond ? c.rankHi : starter.rankHi;
+      }
+      rank = round3(sm / pool.length);
+      rankLo = round3(sl / pool.length);
+      rankHi = round3(sh / pool.length);
+      if (rankLo > rank) rankLo = rank;
+      if (rankHi < rank) rankHi = rank;
+    }
+    out.rank = rank;
+    out.rankLo = rankLo;
+    out.rankHi = rankHi;
+  }
+  return out;
 }
 
 function loadSweep(file) {
@@ -98,13 +129,19 @@ function loadSweep(file) {
     const p = line.split(',');
     const dex = Number(p[ix.dex]);
     if (!byDex.has(dex)) byDex.set(dex, new Map());
-    byDex.get(dex).set(p[ix.start], {
+    const row = {
       id: p[ix.start],
       kind: p[ix.kind],
       median: Number(p[ix.median_s]),
       lo: Number(p[ix.boot_lo]),
       hi: Number(p[ix.boot_hi]),
-    });
+    };
+    if (ix.median_score != null && p[ix.median_score] !== '') {
+      row.rank = Number(p[ix.median_score]);
+      row.rankLo = Number(p[ix.score_lo]);
+      row.rankHi = Number(p[ix.score_hi]);
+    }
+    byDex.get(dex).set(p[ix.start], row);
   }
   return byDex;
 }

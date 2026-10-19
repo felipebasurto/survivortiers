@@ -165,8 +165,8 @@ def records() -> dict[str, dict]:
     best_s = np.array([float(r["best_median_s"]) for r in rows])
     model = Model(rows, start_s, best_s)
     ungated = ungated_ranks(rows)
-    med_r = statistics.median(px[int(r["dex"])]["body_radius"] for r in rows)
-    med_size = float(np.median([float(r["pct_size"]) for r in rows if px[int(r["dex"])]["body_radius"] == med_r]))
+    med_r = statistics.median(min(18.0, px[int(r["dex"])]["body_radius"]) for r in rows)
+    med_size = float(np.median([float(r["pct_size"]) for r in rows if min(18.0, px[int(r["dex"])]["body_radius"]) == med_r]))
 
     out = {}
     for i, r in enumerate(rows):

@@ -5,6 +5,7 @@ const {
   keepDistance, inMelee, inBeam, fanAngles, pulseHealer, pulseShield, readStatus,
   hexMultiplier, applyStatus, tickStatus,
   freshState, currentMove, buffLevel, legalCards, pickCard, offerCards, applyCard, deriveInto,
+  guard, sideOf, fit,
 } = require('./rules');
 
 const DT = 1 / 20;
@@ -94,7 +95,23 @@ function bagTiers(tiers, t) {
   return out;
 }
 
-function sampleDef(tiers, t, roll) {
+// spawner.js:82. At most 3 alive of each support behavior. A full type is re-picked
+// from the same tier, consuming one extra roll. An empty remainder spawns nothing.
+const SUPPORT = new Set(['healer', 'shielder', 'summoner']);
+const SUPPORT_MAX = 3;
+
+function supportFull(enemies) {
+  const n = Object.create(null);
+  const full = new Set();
+  for (const enemy of enemies) {
+    if (enemy.hp <= 0 || !SUPPORT.has(enemy.beh)) continue;
+    n[enemy.beh] = (n[enemy.beh] || 0) + 1;
+    if (n[enemy.beh] >= SUPPORT_MAX) full.add(enemy.beh);
+  }
+  return full;
+}
+
+function sampleDef(tiers, t, roll, enemies) {
   const bag = bagTiers(tiers, t);
   let total = 0;
   for (const pair of bag) total += pair[1];
@@ -108,8 +125,18 @@ function sampleDef(tiers, t, roll) {
     }
   }
   const cands = tiers[tier].cands;
-  const picked = cands[Math.floor(roll() * cands.length)];
-  const def = Object.assign({}, picked.def, { types: picked.types, r: picked.r });
+  let picked = cands[Math.floor(roll() * cands.length)];
+  if (SUPPORT.has(picked.def.behavior)) {
+    const full = supportFull(enemies || []);
+    if (full.has(picked.def.behavior)) {
+      const rest = cands.filter((cand) => !full.has(cand.def.behavior));
+      if (!rest.length) return null;
+      picked = rest[Math.floor(roll() * rest.length)];
+    }
+  }
+  const def = Object.assign({}, picked.def, {
+    types: picked.types, r: picked.r, df: picked.df, sd: picked.sd, pa: picked.pa, sa: picked.sa,
+  });
   if (['chase', 'charger', 'tank'].includes(def.behavior) && roll() < 1 / 7) {
     def.behavior = 'runner';
     def.spd = Math.round(def.spd * 1.6);
@@ -156,6 +183,9 @@ function runMatch(opts) {
   const statusOn = !!opts.status;
   const chainOn = statusOn || !!opts.xkinds;
   const knockFade = 0.0015 ** dt;
+  // stats.js guard, one pow per defense, before xpFor so the parity trace matches Rust.
+  const gPhys = guard(mon.df);
+  const gSpec = guard(mon.sd);
   const world = rng(opts.seed);
   const cardRoll = rng((opts.seed + 0xA5A5) >>> 0);
   const tiers = data.tiers;
@@ -163,7 +193,9 @@ function runMatch(opts) {
   const pool = mon.pool || [];
   let statusIgnored = moveHasStatus(data.moves, mon.start, statusOn);
 
-  const pl = { x: 0, y: 0, r: mon.r, hp: mon.hp, inv: 0, dirx: 1, diry: 0, react: 0, aim: 0 };
+  // sprites.js playerRadius: collision radius is at most PLAYER_R (18). The draw scale
+  // below 18 needs Idle-frame heights this repo does not have, so it is not applied.
+  const pl = { x: 0, y: 0, r: Math.min(18, mon.r), hp: mon.hp, inv: 0, dirx: 1, diry: 0, react: 0, aim: 0 };
   const enemies = [];
   const shots = [];
   const booms = [];
@@ -193,8 +225,13 @@ function runMatch(opts) {
 
   const st = {
     move: null, snow: false, maxHp: mon.hp, atk: mon.atk, spd: mon.spd,
-    red: 0, cdMul: 1, regen: 0, melee: 1,
+    red: 0, cdMul: 1, regen: 0, melee: 1, patk: 1, satk: 1,
   };
+
+  function hitAtk(st, cat) {
+    const side = cat === 'physical' ? st.patk : cat === 'special' ? st.satk : 1;
+    return st.atk * fit(mon, cat) * side;
+  }
   let statDirty = true;
   let statSnow = false;
   function stats() {
@@ -211,18 +248,29 @@ function runMatch(opts) {
     return weatherFactor(weather.kind, type, weatherRamp(weather.elapsed, weather.dur));
   }
 
-  function hurt(amount, atkType, st) {
+  function hurt(amount, atkType, st, cat) {
     if (pl.inv > 0 || pl.hp <= 0) return;
+    // player.js incoming: taken(player, enemy cat) before the type chart. No cat → ×1.
+    const g = cat === 'special' ? gSpec : cat === 'physical' ? gPhys : 1;
     const mult = typeMult(data.tmult, atkType, mon.types);
-    const dmg = amount * mult * wx(atkType) * (1 - st.red) * st.melee;
+    const dmg = amount * g * mult * wx(atkType) * (1 - st.red) * st.melee;
     pl.hp -= dmg;
     pl.inv = INV;
   }
 
-  function strike(enemy, dmg, atk, moveType, status) {
+  function enemyGuard(enemy, cat) {
+    if (!cat) return 1;
+    const g = cat === 'special' ? enemy.gSpec : enemy.gPhys;
+    return g == null ? 1 : g;
+  }
+
+  function strike(enemy, dmg, atk, moveType, status, cat) {
     if (enemy.hp <= 0) return;
     const mult = typeMult(data.tmult, moveType, enemy.types);
-    const amount = strikeDamage(dmg, atk, mult, wx(moveType));
+    // combat.js hit: typeK * Stats.taken(enemy, move cat). Crit is the ranking path only.
+    const amount = strikeDamage(dmg, atk, mult, wx(moveType)) * enemyGuard(enemy, cat);
+    // enemy.js hurt: bosses remember the rounded hit before the shield absorbs it.
+    if (enemy.boss) enemy.rd = (enemy.rd || 0) + Math.max(1, Math.round(amount));
     let left = amount;
     if (enemy.shield > 0) {
       const used = Math.min(enemy.shield, left);
@@ -284,7 +332,7 @@ function runMatch(opts) {
     if (move.kind === 'melee') {
       for (const enemy of enemies) {
         if (inMelee(pl.x, pl.y, aim, move.arc, move.radius, enemy.x, enemy.y, enemy.r)) {
-          strike(enemy, move.dmg, st.atk, move.type, status);
+          strike(enemy, move.dmg, hitAtk(st, move.cat), move.type, status, move.cat);
         }
       }
       return;
@@ -292,7 +340,7 @@ function runMatch(opts) {
     if (move.kind === 'beam') {
       for (const enemy of enemies) {
         if (inBeam(pl.x, pl.y, aim, move.radius, move.width, enemy.x, enemy.y, enemy.r)) {
-          strike(enemy, move.dmg, st.atk, move.type, status);
+          strike(enemy, move.dmg, hitAtk(st, move.cat), move.type, status, move.cat);
         }
       }
       return;
@@ -321,7 +369,7 @@ function runMatch(opts) {
           dx: Math.cos(angle), dy: Math.sin(angle),
           dist: 0, dir: 1, max: move.radius, speed: move.speed,
           r: move.size || 6, hit: Object.create(null),
-          dmg: move.dmg, atk: st.atk, type: move.type, status,
+          dmg: move.dmg, atk: hitAtk(st, move.cat), type: move.type, cat: move.cat, status,
         });
       }
     }
@@ -340,7 +388,7 @@ function runMatch(opts) {
     for (let i = 0; i < n && cur; i++) {
       done.add(cur.id);
       const hex = hexMultiplier(move.hex, cur);
-      strike(cur, move.dmg * k * hex, st.atk, move.type, status);
+      strike(cur, move.dmg * k * hex, hitAtk(st, move.cat), move.type, status, move.cat);
       k *= 0.85;
       let best = null;
       let bd = (move.radius || 0) * (move.radius || 0);
@@ -367,7 +415,7 @@ function runMatch(opts) {
       vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
       speed, r: move.size || 7, life: move.life,
       left: (move.pierce || 0) + 1, hit: Object.create(null),
-      dmg: move.dmg, atk: st.atk, type: move.type, status,
+      dmg: move.dmg, atk: hitAtk(st, move.cat), type: move.type, cat: move.cat, status,
       homing: move.homing || 0,
     });
     if (shots.length > 80) shots.shift();
@@ -441,7 +489,9 @@ function runMatch(opts) {
   }
 
   function rollSpawn(angle) {
-    const def = sampleDef(tiers, t, world);
+    const def = sampleDef(tiers, t, world, enemies);
+    // An empty support re-pick consumes no further rolls and does not advance spawnN.
+    if (!def) return;
     const ai = rng(((opts.seed + 1) * 1000003 + spawnN) >>> 0);
     spawnN += 1;
     const aim = angle == null ? world() * Math.PI * 2 : angle;
@@ -453,6 +503,10 @@ function runMatch(opts) {
       id: seq++,
       x: pl.x + Math.cos(aim) * dd,
       y: pl.y + Math.sin(aim) * dd * 0.9,
+      // stats.js guard, after the position cos/sin and before the enemy is pushed.
+      gPhys: guard(def.df),
+      gSpec: guard(def.sd),
+      cat: sideOf(def),
       r: def.r,
       types: def.types,
       xp: def.xp || 1,
@@ -567,7 +621,7 @@ function runMatch(opts) {
         if (overlap) {
           if (!orb.inside[enemy.id]) {
             orb.inside[enemy.id] = 1;
-            strike(enemy, move.dmg, st.atk, move.type, status);
+            strike(enemy, move.dmg, hitAtk(st, move.cat), move.type, status, move.cat);
           }
         } else if (orb.inside[enemy.id]) {
           delete orb.inside[enemy.id];
@@ -596,7 +650,7 @@ function runMatch(opts) {
         if (len(dx, dy) < rad) {
           shot.hit[enemy.id] = 1;
           shot.left -= 1;
-          strike(enemy, shot.dmg, shot.atk, shot.type, shot.status);
+          strike(enemy, shot.dmg, shot.atk, shot.type, shot.status, shot.cat);
           if (shot.left <= 0) {
             shots.splice(i, 1);
             break;
@@ -622,7 +676,7 @@ function runMatch(opts) {
         if (enemy.hp <= 0 || boom.hit[enemy.id]) continue;
         if (len(enemy.x - x, enemy.y - y) < boom.r + enemy.r) {
           boom.hit[enemy.id] = 1;
-          strike(enemy, boom.dmg, boom.atk, boom.type, boom.status);
+          strike(enemy, boom.dmg, boom.atk, boom.type, boom.status, boom.cat);
         }
       }
     }
@@ -634,6 +688,8 @@ function runMatch(opts) {
       const enemy = enemies[i];
       if (enemy.hp <= 0) continue;
       if (enemy.touch > 0) enemy.touch -= dt;
+      // enemy.js update: recent boss damage forgets with tau 6 s, before DoT ticks.
+      if (enemy.boss && enemy.rd > 0) enemy.rd *= Math.exp(-dt / 6);
       if (statusOn) {
         tickStatus(enemy, dt, level);
         if (enemy.hp <= 0) continue;
@@ -688,7 +744,7 @@ function runMatch(opts) {
         const gap = len(gx, gy);
         if (gap <= rad) {
           enemy.touch = TOUCH;
-          hurt(enemy.dmg, enemy.types[0], st);
+          hurt(enemy.dmg, enemy.types[0], st, enemy.cat);
           const nx = gx / (gap || 1);
           const ny = gy / (gap || 1);
           enemy.kx += nx * 150;
@@ -706,7 +762,7 @@ function runMatch(opts) {
       }
       if (beh === 'bomber' && dist < enemy.r + pl.r + 26) {
         enemy.fuse = 1;
-        hazards.push({ kind: 'zone', x: enemy.x, y: enemy.y, r: 62, delay: 1, t: 0, dmg: enemy.dmg * 1.4, atkType: enemy.types[0] });
+        hazards.push({ kind: 'zone', x: enemy.x, y: enemy.y, r: 62, delay: 1, t: 0, dmg: enemy.dmg * 1.4, atkType: enemy.types[0], cat: enemy.cat });
         continue;
       }
       if (beh === 'jumper') {
@@ -715,7 +771,7 @@ function runMatch(opts) {
           if (dist < 250) {
             enemy.skill = 5 + enemy.ai() * 2;
             enemy.jump = { tx: pl.x, ty: pl.y, t: -0.45, dur: 0.6 };
-            hazards.push({ kind: 'zone', x: pl.x, y: pl.y, r: 50, delay: 1.05, t: 0, dmg: enemy.dmg * 1.2, atkType: enemy.types[0] });
+            hazards.push({ kind: 'zone', x: pl.x, y: pl.y, r: 50, delay: 1.05, t: 0, dmg: enemy.dmg * 1.2, atkType: enemy.types[0], cat: enemy.cat });
             continue;
           }
           enemy.skill = 0.5;
@@ -749,7 +805,7 @@ function runMatch(opts) {
               const a = base + (n === 1 ? 0 : (j / (n - 1) - 0.5) * spread);
               eShots.push({
                 x: enemy.x, y: enemy.y, vx: Math.cos(a) * 190, vy: Math.sin(a) * 190,
-                r: 7, life: 2.4, dmg: enemy.shot * k, atkType: enemy.types[0],
+                r: 7, life: 2.4, dmg: enemy.shot * k, atkType: enemy.types[0], cat: enemy.cat,
               });
             }
           };
@@ -758,7 +814,7 @@ function runMatch(opts) {
             const n = enemy.def.fanN || 5;
             shoot(n === 3 ? 0.6 : 0.9, n, 0.65);
           } else if (beh === 'beamer') {
-            hazards.push({ kind: 'beam', x: enemy.x, y: enemy.y, angle: Math.atan2(dy, dx), len: 360, w: 22, delay: 1, t: 0, dmg: enemy.shot * 1.05, atkType: enemy.types[0] });
+            hazards.push({ kind: 'beam', x: enemy.x, y: enemy.y, angle: Math.atan2(dy, dx), len: 360, w: 22, delay: 1, t: 0, dmg: enemy.shot * 1.05, atkType: enemy.types[0], cat: enemy.cat });
           } else if (beh === 'zoner') {
             const n = 1 + Math.floor(enemy.ai() * (enemy.def.zones || 3));
             for (let j = 0; j < n; j++) {
@@ -766,7 +822,7 @@ function runMatch(opts) {
                 kind: 'zone',
                 x: pl.x + (j ? enemy.ai() * 140 - 70 : 0),
                 y: pl.y + (j ? enemy.ai() * 110 - 55 : 0),
-                r: 44, delay: 1.2, t: 0, dmg: enemy.shot * 0.95, atkType: enemy.types[0],
+                r: 44, delay: 1.2, t: 0, dmg: enemy.shot * 0.95, atkType: enemy.types[0], cat: enemy.cat,
               });
             }
           }
@@ -799,7 +855,7 @@ function runMatch(opts) {
       const gap = len(gx, gy);
       if (gap <= rad) {
         enemy.touch = TOUCH;
-        hurt(enemy.dmg, enemy.types[0], st);
+        hurt(enemy.dmg, enemy.types[0], st, enemy.cat);
         const nx = gx / (gap || 1);
         const ny = gy / (gap || 1);
         enemy.kx += nx * 150;
@@ -814,7 +870,7 @@ function runMatch(opts) {
       shot.life -= dt;
       if (shot.life <= 0) { eShots.splice(i, 1); continue; }
       if (len(shot.x - pl.x, shot.y - pl.y) < shot.r + pl.r) {
-        hurt(shot.dmg, shot.atkType, st);
+        hurt(shot.dmg, shot.atkType, st, shot.cat);
         eShots.splice(i, 1);
       }
     }
@@ -832,7 +888,7 @@ function runMatch(opts) {
         const along = px * ca + py * sa;
         inside = along >= -pl.r && along <= hazard.len + pl.r && Math.abs(-px * sa + py * ca) <= hazard.w / 2 + pl.r * 0.6;
       }
-      if (inside) hurt(hazard.dmg, hazard.atkType, st);
+      if (inside) hurt(hazard.dmg, hazard.atkType, st, hazard.cat);
       hazards.splice(i, 1);
     }
   }

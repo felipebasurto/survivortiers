@@ -36,6 +36,33 @@ class SearchPicks(unittest.TestCase):
         self.assertEqual(self.attacks(189), ["aerial-ace", "quick-attack"])
         self.assertEqual(self.attacks(430), ["aerial-ace", "quick-attack"])
 
+    def test_gengar_has_no_melee(self):
+        attacks = self.attacks(94)
+        self.assertNotIn("body-slam", attacks)
+        self.assertTrue(all(move not in combos._MELEE for move in attacks))
+        moves = self.groups[94]["moves"]
+        self.assertIn("nasty-plot", moves)
+        self.assertNotIn("swords-dance", moves)
+        self.assertNotIn("dragon-dance", moves)
+
+    def test_special_attack_groups_use_nasty_plot(self):
+        for dex in (94, 647):
+            moves = self.groups[dex]["moves"]
+            self.assertIn("nasty-plot", moves)
+            self.assertNotIn("swords-dance", moves)
+
+    def test_physical_attack_group_keeps_swords_dance(self):
+        # Onix's bonded attacks are physical, so Danza Espada still raises them.
+        moves = self.groups[95]["moves"]
+        self.assertIn("swords-dance", moves)
+        self.assertNotIn("nasty-plot", moves)
+
+    def test_marshadow_special_attacks_use_nasty_plot(self):
+        moves = self.groups[802]["moves"]
+        self.assertEqual(self.attacks(802), ["shadow-ball", "hex", "aura-sphere"])
+        self.assertIn("nasty-plot", moves)
+        self.assertNotIn("swords-dance", moves)
+
     def test_species_outside_the_search_keeps_its_best_move(self):
         self.assertEqual(self.attacks(647)[0], "aura-sphere")
 

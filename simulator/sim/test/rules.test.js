@@ -4,6 +4,7 @@ const { loadData } = require('../data');
 const {
   xpFor, typeMult, strikeDamage, inMelee, keepDistance, pickCard, legalCards,
   healAmount, pulseHealer, pulseShield, quantile, freshState, derive, applyCard,
+  guard, fit, sideOf, taken, pctHp, capSpd, judgmentTouchPct, judgmentChaseK,
   hexMultiplier, applyStatus, tickStatus, readStatus, SLOW_SECS, BURN_SECS, POISON_SECS,
 } = require('../rules');
 
@@ -53,6 +54,29 @@ test('card priority upgrades the attack, then the evolution gate, then the evolu
   assert.equal(legalCards(fresh, ember, ember && data.dex[0].pool).includes('evo'), false);
 });
 
+test('guard and fit match stats.js at e868b5e', () => {
+  assert.equal(guard(75), 1);
+  assert.equal(guard(5), 1.25);
+  assert.equal(guard(0), 1);
+  const machamp = data.byDex.get(68);
+  assert.equal(machamp.pa, 1.42);
+  assert.equal(machamp.sa, 1.06);
+  assert.equal(machamp.atk, 1.42);
+  assert.ok(Math.abs(fit(machamp, 'special') - 1.06 / 1.42) < 1e-12);
+  assert.equal(fit(machamp, 'physical'), 1);
+  assert.equal(sideOf(machamp), 'physical');
+  assert.equal(sideOf({ pa: 1, sa: 1.2, atk: 1.2 }), 'special');
+  assert.equal(taken(machamp, 'physical'), guard(machamp.df));
+  assert.equal(taken(machamp, null), 1);
+  assert.equal(pctHp(1000), 1000);
+  assert.ok(Math.abs(pctHp(240000) - 60000 * Math.sqrt(4)) < 1e-9);
+  assert.equal(capSpd(130), 130);
+  assert.equal(capSpd(290), 170);
+  assert.equal(judgmentTouchPct(0), 0.4);
+  assert.equal(judgmentTouchPct(600), 1);
+  assert.ok(Math.abs(judgmentChaseK(35) - 1.195) < 1e-12);
+});
+
 test('one power card multiplies attack by 1.1 and coraza stops at 70 percent', () => {
   const mon = { hp: 100, atk: 1, spd: 100, types: ['normal'] };
   const move = { kind: 'projectile' };
@@ -83,6 +107,12 @@ test('a healer restores 7 percent inside 150px and a second shield does not stac
   assert.equal(ally.shield, 35);
   pulseShield(0, 0, [ally]);
   assert.equal(ally.shield, 35);
+  // enemy.js castShields refreshes a normal shield instead of skipping it.
+  ally.shield = 10;
+  ally.shieldT = 1;
+  pulseShield(0, 0, [ally]);
+  assert.equal(ally.shield, 35);
+  assert.equal(ally.shieldT, 8);
 });
 
 test('burn 1 is a flag and does not become damage', () => {
