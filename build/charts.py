@@ -171,42 +171,31 @@ def bars(items: list[tuple[str, float, str]], title: str, alt: str,
 
 
 # ================================================================ página Método
-def pipeline(L: Lang) -> str:
-    steps = [L.t(f"pipe_{i}") for i in range(1, 7)]
+def pipeline(L: Lang, method: dict) -> str:
+    reps = L.num(method["repeats"])
+    steps = [L.t(f"pipe_{i}", reps=reps) for i in range(1, 7)]
     items = "".join(f'<li style="--i:{i}"><b>{num_html(h)}</b></li>' for i, h in enumerate(steps))
     alt = L.t("pipe_alt") + "; ".join(f"{i + 1}, {h}" for i, h in enumerate(steps)) + "."
     return (f'<figure class="fig anim fig-pipe"><figcaption><h3>{esc(L.t("pipe_title"))}</h3></figcaption>'
             f'<ol class="pipe" aria-label="{esc(alt)}">{items}</ol></figure>')
 
 
-def method_steps(L: Lang, pieces: list[dict], cuts: list[dict], gates: list[dict]) -> str:
-    """Los seis pasos del cálculo con las cifras reales. El dibujo de arriba es el resumen; esto es la explicación."""
-    w = {p["key"]: L.pcts(p["weight"]) for p in pieces}
-    g = {x["tier"]: L.pcts(x["top"]) for x in gates}
+def method_steps(L: Lang, method: dict, cuts: list[dict], counts: dict[str, str]) -> str:
+    """Los seis pasos del cálculo con las cifras reales. El dibujo de arriba es el resumen; esto es la explicación.
+    counts es legal.method_counts: partidas por Pokémon y repeticiones, ya con formato de idioma."""
+    score = method["score"]
     sizes = " · ".join(f'{c["tier"]} {L.num(c["to"] - c["from"] + 1)}' for c in cuts)
     texts = [
-        L.t("met_step_1"),
-        L.t("met_step_2"),
-        L.t("met_step_3", sheet=w["sheet"], sim=w["sim"], late=w["late"]),
+        L.t("met_step_1", sims=counts["sims"], cap=L.num(score["capSeconds"])),
+        L.t("met_step_2", dps=L.num(score["dpsRef"]), kpm=L.num(score["kpmRef"])),
+        L.t("met_step_3"),
         L.t("met_step_4"),
         L.t("met_step_5"),
-        L.t("met_step_6", sizes=sizes, s=g["S"], a=g["A"], b=g["B"]),
+        L.t("met_step_6", sizes=sizes),
     ]
-    items = "".join(f'<li><b>{num_html(L.t(f"met_step_{i}_h"))}</b><p>{esc(text)}</p></li>'
-                    for i, text in enumerate(texts, 1))
+    heads = [L.t(f"met_step_{i}_h", reps=counts["reps"]) for i in range(1, 7)]
+    items = "".join(f'<li><b>{num_html(h)}</b><p>{esc(text)}</p></li>' for h, text in zip(heads, texts))
     return f'<ol class="met-steps" aria-label="{esc(L.t("met_steps_aria"))}">{items}</ol>'
-
-
-def _weights_bar(L: Lang, pieces: list[dict]) -> str:
-    segs = "".join(
-        f'<div class="wb-seg w{i}" style="flex:{p["weight"]};--i:{i}"><b>{p["weight"]}{"%" if L.en else chr(160) + "%"}</b>'
-        f'<span>{esc(L.t("w_" + p["key"]))}</span></div>' for i, p in enumerate(pieces))
-    return f'<div class="wb">{segs}</div>'
-
-
-def weights(L: Lang, pieces: list[dict]) -> str:
-    alt = L.t("weights_alt") + ", ".join(f'{L.t("w_" + p["key"])} {p["weight"]}%' for p in pieces) + "."
-    return _figure("weights", L.t("weights_title"), _weights_bar(L, pieces), alt)
 
 
 def _tier_strip_body(L: Lang, cuts: list[dict], marker: tuple[int, str] | None = None) -> str:
@@ -223,24 +212,6 @@ def _tier_strip_body(L: Lang, cuts: list[dict], marker: tuple[int, str] | None =
 def tier_strip(L: Lang, cuts: list[dict]) -> str:
     alt = L.t("tiers_alt") + ", ".join(f'{c["tier"]} {c["to"] - c["from"] + 1}' for c in cuts) + "."
     return _figure("tiers", L.t("tiers_title"), _tier_strip_body(L, cuts), alt)
-
-
-def gate(L: Lang, gates: list[dict]) -> str:
-    rows = "".join(
-        f'<div class="gt-row t-{g["tier"]}" style="--i:{i}"><span class="gt-name">{esc(L.t("gate_name", t=g["tier"]))}</span>'
-        f'<span class="gt-track"><i class="gt-fill" style="left:{100 - g["top"]}%;'
-        f'width:{g["top"]}%"></i></span><em class="gt-val">{esc(L.t("gate_val", top=g["top"]))}</em></div>'
-        for i, g in enumerate(gates))
-    alt = L.t("gate_alt") + ", ".join(L.t("gate_alt_item", t=g["tier"], top=g["top"]) for g in gates) + "."
-    axis = f'<div class="gt-axis" aria-hidden="true"><span>{esc(L.t("gate_worst"))}</span><span>{esc(L.t("gate_best"))}</span></div>'
-    return _figure("gate", L.t("gate_title"), rows + axis, alt)
-
-
-def agreement(L: Lang, items: list[dict]) -> str:
-    rows = [(L.t(f"m_{it['key']}"), (it["corr"] - AGREE_MIN) / (1 - AGREE_MIN) * 100, L.dec(it["corr"], 2))
-            for it in items]
-    alt = L.t("agree_alt") + "; ".join(f"{L.t('m_' + i['key'])} {L.dec(i['corr'], 2)}" for i in items) + "."
-    return _figure("agree", L.t("agree_title"), _dotplot(None, rows, (L.dec(AGREE_MIN), "1")), alt)
 
 
 def ribbon(L: Lang, index: list[dict]) -> str:
@@ -282,47 +253,6 @@ def stability(L: Lang, rows: list[dict]) -> str:
                 hot=rows.index(worst), scale=100)
 
 
-def weights_pillars(L: Lang, pillars_: list[dict]) -> str:
-    items = [(L.t(f"pill_{p['key']}"), p["weight"], L.pcts(p["weight"])) for p in pillars_]
-    alt = L.t("pw_alt") + ", ".join(f'{L.t("pill_" + p["key"])} {p["weight"]}%' for p in pillars_) + "."
-    return bars(items, L.t("pw_title"), alt, scale=100)
-
-
-def _geo(vals: list[int], ws: list[int]) -> float:
-    return math.exp(sum(w * math.log(max(v, 1) / 100) for v, w in zip(vals, ws)) / sum(ws))
-
-
-def _arith(vals: list[int], ws: list[int]) -> float:
-    return sum(w * v / 100 for v, w in zip(vals, ws)) / sum(ws)
-
-
-def geo_demo(L: Lang, pillars_: list[dict], presets: list[tuple[str, list[int]]]) -> str:
-    """Deslizadores de percentil por pieza de la ficha: la media geométrica frente a la aritmética. Lo mueve app.js."""
-    ws = [p["weight"] for p in pillars_]
-    first = presets[0][1]
-    buttons = "".join(f'<button type="button" class="chip-btn" data-v="{",".join(map(str, v))}">{esc(n)}</button>'
-                      for n, v in presets)
-    sliders = "".join(
-        f'<label class="dm-row"><span class="dm-name">{esc(L.t("pill_" + p["key"]))}'
-        f'<small>{esc(L.t("demo_weight", w=L.pcts(p["weight"])))}</small></span>'
-        f'<input type="range" min="1" max="100" value="{v}" data-w="{p["weight"]}" '
-        f'aria-label="{esc(L.t("demo_aria", name=L.t("pill_" + p["key"])))}"><output>{L.pcts(v)}</output></label>'
-        for p, v in zip(pillars_, first))
-    g, a = _geo(first, ws), _arith(first, ws)
-
-    def row(kind: str, label: str, v: float, hot: str) -> str:
-        return (f'<div class="bar-row"><span class="bar-name">{esc(label)}</span><span class="bar-track">'
-                f'<i class="bar-fill{hot}" data-out="{kind}" style="width:{v * 100:.1f}%"></i>'
-                f'<em class="bar-val" data-out-val="{kind}" style="left:{v * 100:.1f}%">{L.pct(v)}</em></span></div>')
-
-    body = (f'<div class="dm-presets">{buttons}</div>'
-            f'<div class="dm-sliders">{sliders}</div>'
-            f'<div class="dm-out" aria-live="polite">{row("geo", L.t("demo_geo"), g, " hot")}'
-            f'{row("arith", L.t("demo_arith"), a, "")}</div>'
-            f'<p class="dm-how">{esc(L.t("demo_how"))}</p>')
-    return _interactive("demo", L.t("demo_title"), body, "data-demo", lede=L.t("demo_lede"))
-
-
 def _reps_row(name: str, p: dict) -> str:
     rank, _, lo, hi, _ = p["r"]
     return (f'<div class="rp-row"><span class="rp-name">{esc(name)}</span><span class="rp-track">'
@@ -338,45 +268,6 @@ def repeats_demo(L: Lang, rows: list[tuple[str, dict]]) -> str:
     axis = f'<div class="mt-axis rp-axis" aria-hidden="true"><span>1</span><span>{TOTAL}</span></div>'
     return _interactive("reps", L.t("reps_title"), controls + "".join(_reps_row(n, p) for n, p in rows) + axis,
                         "data-reps", lede=L.t("reps_lede"))
-
-
-def walk(L: Lang, mons: list[dict], cuts: list[dict], pieces: list[dict]) -> str:
-    """Cinco pasos con los datos reales de cada Pokémon de ejemplo. Lo maneja app.js.
-    mons = {name, dex, w, h, index (entrada de pokemon-index), r (ranking completo), sprites (URL base de los sprites)}."""
-    chips = "".join(f'<button type="button" class="chip-btn" data-mon="{i}" aria-pressed="{"true" if i == 0 else "false"}">'
-                    f'{esc(m["name"])}</button>' for i, m in enumerate(mons))
-    panels = []
-    for i, m in enumerate(mons):
-        r, name = m["r"], m["name"]
-        steps = [
-            _walk_plot(_methods_plot(L, r), L.t("methods_alt", name=name, rank=r["rank"])),
-            _walk_plot(_weights_bar(L, pieces), ""),
-            _walk_plot(f'<div data-reps data-auto>{_reps_row(name, m["index"])}</div>'
-                       f'<div class="mt-axis rp-axis" aria-hidden="true"><span>1</span><span>{TOTAL}</span></div>', ""),
-            _walk_plot(_band_body(L, r), _band_alt(L, r, name)),
-            _walk_plot(_tier_strip_body(L, cuts, (r["rank"], r["tier"])), L.t("walk_tier_alt", rank=r["rank"])),
-        ]
-        body = "".join(
-            f'<div class="walk-step" data-step="{k}"><h3>{esc(L.t(f"walk_{k + 1}_h"))}</h3>{vis}</div>'
-            for k, vis in enumerate(steps))
-        head = (f'<div class="walk-head"><img class="px" src="{m["sprites"]}{m["dex"]}{m.get("ext", ".png")}" width="{m["w"] * 2}" '
-                f'height="{m["h"] * 2}" alt=""><b>{esc(name)}</b>'
-                f'<span class="tier-badge {r["tier"]}">{r["tier"]}</span></div>')
-        panels.append(f'<div class="walk-mon" data-mon-panel="{i}"{"" if i == 0 else " hidden"}>{head}{body}</div>')
-    dots = "".join(f'<button type="button" class="walk-dot" data-go="{k}" aria-label="{esc(L.t("walk_step", i=k + 1, n=WALK_STEPS))}"></button>'
-                   for k in range(WALK_STEPS))
-    ctl = (f'<div class="walk-ctl"><button type="button" class="btn ghost small" data-prev>{esc(L.t("walk_prev"))}</button>'
-           f'<span class="walk-dots">{dots}</span>'
-           f'<button type="button" class="btn small" data-next>{esc(L.t("walk_next"))}</button>'
-           f'<button type="button" class="btn ghost small" data-auto>{esc(L.t("walk_auto"))}</button>'
-           f'<output class="walk-pos" aria-live="polite">{esc(L.t("walk_step", i=1, n=WALK_STEPS))}</output></div>')
-    return (f'<figure class="fig anim fig-walk" data-walk><figcaption><h3>{esc(L.t("met_walk_h"))}</h3></figcaption>'
-            f'<div class="walk-chips">{chips}</div>{"".join(panels)}{ctl}</figure>')
-
-
-def _walk_plot(inner: str, alt: str) -> str:
-    aria = f' role="img" aria-label="{esc(alt)}"' if alt else ""
-    return f'<div class="walk-vis"{aria}>{inner}</div>'
 
 
 def arena(L: Lang, sprite_src: str) -> str:

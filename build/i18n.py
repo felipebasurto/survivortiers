@@ -50,8 +50,7 @@ STR: dict[str, tuple[str, str]] = {
     "index_title": ("{site} · Tier list de {game}", "{site} · {game} tier list"),
     "index_desc": ("Tier list de los {n} Pokémon de {game}, hecha simulando {sims} partidas por Pokémon. Código y datos abiertos en GitHub.",
                    "Tier list of the {n} Pokémon in {game}, built by simulating {sims} games per Pokémon. Code and data open on GitHub."),
-    "fresh": ("Datos del juego: commit {sha} (ranking) · mecánicas: commit {combat} · actualizado {date}",
-              "Game data: commit {sha} (ranking) · mechanics: commit {combat} · updated {date}"),
+    "fresh": ("Actualizado al parche del {date} ({sha})", "Updated to the {date} patch ({sha})"),
     "guides_h": ("Más listas", "More lists"),
     "guides_types": ("Por tipo", "By type"),
     "guide_best": ("Mejores Pokémon", "Best Pokémon"),
@@ -78,10 +77,35 @@ STR: dict[str, tuple[str, str]] = {
                  "No Pokémon match. Try another name or type."),
     "noscript": ("El buscador necesita JavaScript.", "Search needs JavaScript."),
     "value_html": (
+        'Los cinco mejores Pokémon de {game} ahora mismo son {top}. Es una tier list de fans: cada uno de los {n} Pokémon '
+        'juega {sims} partidas simuladas y el ranking sale de cuánto aguanta, cuánto daño hace y a cuántos enemigos derrota. '
+        'Actualizada al parche del {date} (commit {sha}) y reconstruida el {built}. '
+        '<a href="{method}">Cómo se calcula</a> · <a href="{repo}" rel="noopener">código y datos en GitHub</a>.',
+        'The five best Pokémon in {game} right now are {top}. This is a fan-made tier list: each of the {n} Pokémon plays '
+        '{sims} simulated games and the ranking comes from how long it survives, how much damage it deals and how many '
+        'enemies it defeats. Updated to the {date} patch (commit {sha}) and rebuilt on {built}. '
+        '<a href="{method}">How it is calculated</a> · <a href="{repo}" rel="noopener">code and data on GitHub</a>.'),
+    "about_value_html": (
         'Tier list de {game} hecha simulando {sims} partidas por Pokémon, no solo con fórmulas de stats. Código, simulador '
         'y datos abiertos en <a href="{repo}" rel="noopener">GitHub</a>, para que cualquiera lo compruebe.',
         'Tier list of {game} built by simulating {sims} games per Pokémon, not from stat formulas alone. Code, simulator '
         'and data open on <a href="{repo}" rel="noopener">GitHub</a>, so anyone can check it.'),
+    "home_title": ("Mejores Pokémon de {game}: tier list de {n} | {site}",
+                   "Best Pokémon in {game}: tier list of {n} | {site}"),
+    "home_desc": ("Tier list de {game} con los {n} Pokémon ordenados por partidas simuladas, al día con el parche del {date}. "
+                  "Ahora mismo en lo más alto: {top}.",
+                  "{game} tier list with all {n} Pokémon ranked from simulated games, up to date with the {date} patch. "
+                  "Right now at the top: {top}."),
+    "top30_h": ("Los 30 mejores Pokémon de {game}", "The 30 best Pokémon in {game}"),
+    "top30_lede": ("La misma lista en texto, por si no ves los dibujos. Cada nombre lleva a su ficha con la build y el cómo conseguirlo.",
+                   "The same list as plain text, in case you can't see the pictures. Each name links to its page with the build and how to get it."),
+    "top30_caption": ("Top 30 de la tier list de {game}", "Top 30 of the {game} tier list"),
+    "top30_rank": ("Puesto", "Rank"),
+    "top30_mon": ("Pokémon", "Pokémon"),
+    "top30_tier": ("Tier", "Tier"),
+    "top30_types": ("Tipos", "Types"),
+    "top30_band": ("Rango habitual", "Usual range"),
+    "top30_places": ("{lo} a {hi}", "{lo} to {hi}"),
     "card_title": ("{name} · nº {dex} · puesto {rank} · tier {tier}",
                    "{name} · no. {dex} · rank {rank} · tier {tier}"),
 
@@ -102,6 +126,16 @@ STR: dict[str, tuple[str, str]] = {
                     "{name} in {game}: tier, build and how to get it"),
     "sheet_desc": ("{name} en {game}: tier {tier}, puesto {rank} de {total}. Grupo vinculado, estadísticas base y banner de gacha.",
                    "{name} in {game}: tier {tier}, rank {rank} of {total}. Bonded move group, base stats and gacha banner."),
+    "fh_title": ("{name} en {game}: tier {tier}, mejor build y ataques | {site}",
+                 "{name} in {game}: {tier} tier, best build and moves | {site}"),
+    "fh_desc": ("{name} es tier {tier} en {game}: puesto {rank} de {total}. Mejor build: {attacks}. "
+                "Con las cartas que conviene coger y el banner {banner} donde sale.",
+                "{name} is {tier} tier in {game}: rank {rank} of {total}. Best build: {attacks}. "
+                "With the cards worth taking and the {banner} banner it comes from."),
+    "fh_desc_buffs": ("{name} es tier {tier} en {game}: puesto {rank} de {total}. Mejor build: {attacks}, con {buffs}. "
+                      "Con las cartas que conviene coger y el banner {banner} donde sale.",
+                      "{name} is {tier} tier in {game}: rank {rank} of {total}. Best build: {attacks}, with {buffs}. "
+                      "With the cards worth taking and the {banner} banner it comes from."),
     "sheet_obtain_h": ("Cómo conseguirlo", "How to get it"),
     "sheet_faq_h": ("Preguntas", "Questions"),
     "faq_q_worth": ("¿Vale la pena?", "Is it worth it?"),
@@ -157,7 +191,14 @@ STR: dict[str, tuple[str, str]] = {
                    "It has only one attack type besides normal, which everyone learns. S needs two; that keeps it out of S."),
     "pager_aria": ("Pokémon vecinos", "Neighbouring Pokémon"),
     "dex_no": ("nº {dex}", "no. {dex}"),
-    "noscript_ficha": ("Esta página necesita JavaScript.", "This page needs JavaScript."),
+    "tpl_title": ("Fichas de los Pokémon de {game} | {site}", "Pokémon pages of {game} | {site}"),
+    "tpl_desc": ("Las {n} fichas de {game}, una por Pokémon: tier, build, cartas y cómo conseguirlo.",
+                 "All {n} {game} pages, one per Pokémon: tier, build, cards and how to get it."),
+    "tpl_h1": ("Fichas de los Pokémon de {game}", "Pokémon pages of {game}"),
+    "tpl_lede": ("Cada uno de los {n} Pokémon tiene su ficha con el tier, el puesto, la build, las cartas que conviene coger y "
+                 "cómo conseguirlo. Elige uno de la lista.",
+                 "Each of the {n} Pokémon has its own page with its tier, rank, build, the cards worth taking and how to get "
+                 "it. Pick one from the list."),
     "f_missing": ("Pokémon no encontrado", "Pokémon not found"),
 
     # ------------------------------------------------------------ gráficos de la ficha
@@ -481,82 +522,87 @@ STR: dict[str, tuple[str, str]] = {
 
     # ------------------------------------------------------------ método
     "met_title": ("Método del ranking de {game} · {site}", "Ranking method for {game} · {site}"),
-    "met_desc": ("Cómo se calcula el ranking de {game}: {sims} partidas simuladas por Pokémon, repetidas {reps} veces.",
-                 "How the {game} ranking is calculated: {sims} simulated games per Pokémon, repeated {reps} times."),
+    "met_desc": ("Cómo se calcula el ranking de {game}: {sims} partidas simuladas por Pokémon con un bot, una nota de tiempo, daño y bajas, "
+                 "repetida {reps} veces. Sin nota de ficha.",
+                 "How the {game} ranking is calculated: {sims} simulated games per Pokémon with a bot, a score from time, damage and kills, "
+                 "repeated {reps} times. No sheet score."),
     "met_h1": ("Método del ranking de {game}", "Ranking method for {game}"),
-    "met_lede": ("Cada Pokémon de {game} recibe un puesto del 1 al 966 y un tier. El puesto mezcla su ficha, cómo juega "
-                 "en partidas simuladas y cómo rinde al final de la partida. Como una sola cifra puede engañar, "
-                 "el cálculo se repite 2.000 veces.",
-                 "Each Pokémon in {game} gets a rank from 1 to 966 and a tier. The rank mixes its sheet, how it plays in "
-                 "simulated games and how it performs late in the game. Since one number can mislead, the "
-                 "calculation is repeated 2,000 times."),
+    "met_lede": ("Cada Pokémon de {game} recibe un puesto del 1 al 966 y un tier. Sale solo de partidas simuladas: "
+                 "un bot juega partidas completas con cada uno y el puesto ordena sus notas. Como una nota sola puede engañar, "
+                 "el orden se repite {reps} veces.",
+                 "Each Pokémon in {game} gets a rank from 1 to 966 and a tier. It comes only from simulated games: "
+                 "a bot plays full games with each one and the rank orders their scores. Since one score can mislead, "
+                 "the order is repeated {reps} times."),
     "met_steps_aria": ("Pasos del cálculo", "Calculation steps"),
-    "met_step_1_h": ("Medir", "Measure"),
-    "met_step_1": ("Para cada Pokémon se miden su ficha (estadísticas, ataques, defensa de tipos y tamaño), su "
-                   "aguante en 200 partidas simuladas con el ataque inicial y con el mejor que puede aprender, y su "
-                   "rendimiento al final de la partida.",
-                   "For each Pokémon we measure its sheet (stats, moves, type resistance and size), how long it survives "
-                   "in 200 simulated games with its starting move and with the best move it can learn, and how it "
-                   "performs late in the game."),
-    "met_step_2_h": ("Percentil", "Percentile"),
-    "met_step_2": ("Cada medida se convierte en percentil: 90 quiere decir que es mejor que el 90 % de los Pokémon "
-                   "en esa medida. Así se pueden comparar cosas distintas, como segundos de partida y estadísticas.",
-                   "Each measure becomes a percentile: 90 means better than 90% of Pokémon on that measure. That lets "
-                   "us compare different things, like seconds survived and stats."),
-    "met_step_3_h": ("Combinar", "Combine"),
-    "met_step_3": ("La ficha pesa {sheet}, las partidas {sim} y el final de la partida {late}. Cada medida entra "
-                   "como percentil en escala logarítmica, así que las diferencias entre los primeros puestos apenas "
-                   "cuentan y una pieza muy floja sí baja la nota. Pruébalo abajo.",
-                   "The sheet weighs {sheet}, games {sim} and late game {late}. Each measure enters as a percentile on "
-                   "a log scale, so differences between the top ranks barely count, while one very weak piece does "
-                   "drag the score down. Try it below."),
-    "met_step_4_h": ("Repetir 2.000 veces", "Repeat 2,000 times"),
-    "met_step_4": ("Cada repetición cambia los datos un poco, dentro de su margen de error; también el peso entre "
-                   "partidas y final, y una de las 80 suposiciones del modelo de final de partida. Así salen 2.000 "
-                   "ordenaciones.",
-                   "Each repeat shifts the data within its error margin, the weight between games and late game, and "
-                   "one of the 80 assumptions of the late-game model. That gives 2,000 orderings."),
-    "met_step_5_h": ("Puesto", "Rank"),
-    "met_step_5": ("El puesto final es la mediana de esas 2.000 posiciones. El rango habitual, la banda de cada "
-                   "ficha, va del percentil 10 al 90 de esas posiciones.",
-                   "The final rank is the median of those 2,000 positions. The usual range, the band on each sheet, "
-                   "runs from the 10th to the 90th percentile of those positions."),
+    "met_step_1_h": ("Simular", "Simulate"),
+    "met_step_1": ("Un bot juega partidas completas con cada Pokémon en un simulador que sigue el código del juego. Da vueltas "
+                   "alrededor de la horda para que los disparos, los golpes y los orbes den en el blanco, esquiva los ataques "
+                   "avisados y recoge los orbes. Cada Pokémon juega {sims} partidas con semillas distintas, con un tope de "
+                   "{cap} segundos.",
+                   "A bot plays full games with each Pokémon in a simulator that follows the game's code. It circles the "
+                   "horde so shots, hits and orbs connect, dodges telegraphed attacks and picks up orbs. Each Pokémon plays "
+                   "{sims} games with different seeds, capped at {cap} seconds."),
+    "met_step_2_h": ("Puntuar", "Score"),
+    "met_step_2": ("Cada partida vale el tiempo que aguanta vivo, multiplicado por la raíz de dos cosas: el daño por segundo y las "
+                   "bajas por minuto. Las dos se saturan: a unos {dps} de daño por segundo o {kpm} bajas por minuto ya se ha "
+                   "llegado a la mitad, y a partir de ahí cada punto extra pesa menos. Una partida sin daño vale 0, así que "
+                   "aguantar sin pelear no sube puestos.",
+                   "A game is worth the time it stays alive, multiplied by the square root of two things: damage per second "
+                   "and kills per minute. Both saturate: at about {dps} damage per second or {kpm} kills per minute you are "
+                   "halfway there, and past that every extra point counts for less. A game with no damage is worth 0, so "
+                   "surviving without fighting does not climb the ranking."),
+    "met_step_3_h": ("Elegir el ataque", "Pick the move"),
+    "met_step_3": ("Se prueba, uno por uno, cada ataque que el Pokémon puede aprender. El mejor ataque de daño es el que sale "
+                   "en su ficha; si dos empatan dentro del margen de error, gana el que más sobrevive, luego el que más "
+                   "derrota. El grupo de ataques sigue unas reglas fijas de build, que están más abajo.",
+                   "Every move the Pokémon can learn is tried, one by one. The best damaging move is the one on its page; "
+                   "if two tie within the margin of error, the one that survives longer wins, then the one with more "
+                   "kills. The move group follows fixed build rules, listed below."),
+    "met_step_4_h": ("Repetir {reps} veces", "Repeat {reps} times"),
+    "met_step_4": ("Cada nota tiene un margen de error, que se mide con las propias partidas. En cada repetición, la nota "
+                   "de cada Pokémon cae en un punto al azar dentro de su margen y se ordenan los 966. Si dos márgenes se "
+                   "solapan, es un empate, no una diferencia.",
+                   "Each score has a margin of error, measured from the games themselves. In every repeat, each Pokémon's "
+                   "score lands on a random point inside its margin and all 966 are sorted. If two margins overlap, that "
+                   "is a tie, not a difference."),
+    "met_step_5_h": ("Puesto y rango", "Rank and range"),
+    "met_step_5": ("El puesto final es la mediana de las posiciones de esas repeticiones. El rango habitual de cada ficha va "
+                   "del percentil 10 al 90 de esas posiciones.",
+                   "The final rank is the median of the positions across those repeats. The usual range on each page runs "
+                   "from the 10th to the 90th percentile of those positions."),
     "met_step_6_h": ("Tier", "Tier"),
-    "met_step_6": ("Los puestos se reparten en tiers de tamaño fijo: {sizes}. Para entrar en S hace falta estar "
-                   "entre el {s} mejor en estadísticas, tener ataques de tres tipos distintos contando el normal "
-                   "(que aprenden todos: son dos tipos además del normal) y no quedarte en cuerpo a cuerpo "
-                   "después de Repertorio y tres Vetos; en A, entre el {a}; en B, entre el {b}. Quien no cumple el mínimo espera "
-                   "al siguiente tier en el que sí entre.",
-                   "Ranks are split into tiers of fixed size: {sizes}. To enter S you must be in the top {s} for "
-                   "stats, have attacks of three different types counting normal (everyone learns it: that is two "
-                   "types besides normal), and not still be on melee after Repertoire and three bans; A, top {a}; "
-                   "B, top {b}. Whoever misses the minimum waits for the next tier they qualify for."),
+    "met_step_6": ("Los puestos se reparten en tiers de tamaño fijo: {sizes}. Solo hay un filtro: S no admite a quien sigue "
+                   "en cuerpo a cuerpo con todo lo que Repertorio puede darle. Ninguna ficha de estadísticas, de tipos o "
+                   "de tamaño mueve el puesto: solo cuenta el simulador.",
+                   "Ranks are split into tiers of fixed size: {sizes}. There is only one filter: S does not admit anyone "
+                   "who stays on melee with everything Repertoire can give them. No stats, type or size sheet moves the "
+                   "rank: only the simulator counts."),
     "pipe_title": ("Del dato al tier", "From data to tier"),
-    "pipe_1": ("Medir", "Measure"),
-    "pipe_2": ("Percentil", "Percentile"),
-    "pipe_3": ("Combinar", "Combine"),
-    "pipe_4": ("Repetir ×2.000", "Repeat ×2,000"),
-    "pipe_5": ("Puesto", "Rank"),
+    "pipe_1": ("Simular", "Simulate"),
+    "pipe_2": ("Puntuar", "Score"),
+    "pipe_3": ("Elegir ataque", "Pick the move"),
+    "pipe_4": ("Repetir ×{reps}", "Repeat ×{reps}"),
+    "pipe_5": ("Puesto y rango", "Rank and range"),
     "pipe_6": ("Tier", "Tier"),
     "pipe_alt": ("Pasos del cálculo: ", "Calculation steps: "),
-    "w_sheet": ("Ficha", "Sheet"),
-    "w_sim": ("Partidas", "Games"),
-    "w_late": ("Final de partida", "Late game"),
-    "weights_title": ("Peso de cada medida", "Weight of each measure"),
-    "weights_alt": ("Peso de cada medida: ", "Weight of each measure: "),
-    "pw_title": ("Peso dentro de la ficha", "Weight inside the sheet"),
-    "pw_alt": ("Pesos de la ficha: ", "Sheet weights: "),
+    "met_rules_h": ("Reglas de build", "Build rules"),
+    "met_rules": ("Son reglas del dueño del sitio, no salen del simulador. Danza Espada acompaña a un ataque inicial físico y "
+                  "Maquinación a uno especial; si el grupo mezcla los dos, manda el lado del ataque inicial. El cuarto hueco "
+                  "es Fortaleza o un tercer ataque, el que puntúe más. Gengar no usa ataques cuerpo a cuerpo.",
+                  "These are the site owner's rules, not simulator output. Swords Dance goes with a physical lead attack and "
+                  "Nasty Plot with a special one; if the group mixes both, the lead attack's side decides. The fourth slot "
+                  "is Harden or a third attack, whichever scores higher. Gengar does not use melee attacks."),
+    "met_check_h": ("Cómo se comprueba", "How it is checked"),
+    "met_check": ("El motor está escrito dos veces, en JavaScript y en Rust, y en su modo básico un test comprueba que dan el mismo "
+                  "resultado paso a paso. Las fórmulas de daño, el modo de tipo único y otras reglas se comparan con las "
+                  "funciones del propio juego, y los combates de prueba se repiten con el código del juego descargado "
+                  "(commit {sha}). Todo está en el repositorio, junto a los datos.",
+                  "The engine is written twice, in JavaScript and in Rust, and in its basic mode a test checks that they "
+                  "give the same result step by step. Damage formulas, the single-type bonus and other rules are compared "
+                  "against the game's own functions, and test fights are replayed with the game's downloaded code "
+                  "(commit {sha}). It is all in the repository, next to the data."),
     "tiers_title": ("Tamaño de cada tier", "Size of each tier"),
     "tiers_alt": ("Pokémon por tier: ", "Pokémon per tier: "),
-    "gate_title": ("Estadísticas mínimas por tier", "Minimum stats per tier"),
-    "gate_name": ("Tier {t}", "Tier {t}"),
-    "gate_val": ("top {top} %", "top {top}%"),
-    "gate_worst": ("peor", "worst"),
-    "gate_best": ("mejor", "best"),
-    "gate_alt": ("Estadísticas mínimas para cada tier: ", "Minimum stats for each tier: "),
-    "gate_alt_item": ("{t}, entre el {top} % mejor", "{t}, within the top {top}%"),
-    "agree_title": ("Qué medida se parece más al ranking", "Which measure is closest to the ranking"),
-    "agree_alt": ("Parecido con el puesto final: ", "Closeness to the final rank: "),
     "rib_title": ("Cuánto se mueve cada puesto", "How much each rank moves"),
     "rib_lede": ("Cada trazo es un Pokémon. Su posición horizontal es su puesto final, y el trazo marca dónde cayó "
                  "en las 2.000 repeticiones (entre el 10 % y el 90 % de los casos). Trazo corto: puesto firme. "
@@ -571,17 +617,6 @@ STR: dict[str, tuple[str, str]] = {
     "rib_alt_item": ("{t} {m} puestos", "{t} {m} places"),
     "stab_title": ("Se queda en su tier", "Stays in its tier"),
     "stab_alt": ("Pokémon que se quedan en su tier: ", "Pokémon that stay in their tier: "),
-    "demo_title": ("Un punto flojo hunde la nota", "One weak spot sinks the score"),
-    "demo_lede": ("Baja una pieza con el deslizador y mira las dos notas. La media simple deja que el resto compense; "
-                  "la nuestra no: una pieza floja hunde la nota.",
-                  "Lower one piece with its slider and watch both scores. A plain mean lets the others make up for "
-                  "it; ours does not: one weak piece sinks the score."),
-    "demo_geo": ("Nuestra media (geométrica)", "Our mean (geometric)"),
-    "demo_arith": ("Media simple (aritmética)", "Plain mean (arithmetic)"),
-    "demo_how": ("Naranja: nuestra media. Gris: la media simple. Cuanto más se separan, más castiga la nuestra un punto flojo.",
-                 "Orange: our mean. Grey: plain mean. The further apart they are, the harder ours punishes a weak spot."),
-    "demo_weight": ("peso {w}", "weight {w}"),
-    "demo_aria": ("Percentil en {name}", "Percentile in {name}"),
     "reps_title": ("2.000 repeticiones", "2,000 repeats"),
     "reps_lede": ("Cada punto es un Pokémon de ejemplo. La sombra es su rango habitual (del percentil 10 al 90) y la "
                   "raya roja, su puesto final. En cada repetición cae en un punto distinto de ese rango.",
@@ -590,18 +625,6 @@ STR: dict[str, tuple[str, str]] = {
     "reps_pause": ("Pausa", "Pause"),
     "reps_play": ("Seguir", "Play"),
     "reps_count": ("{n} / {total}", "{n} / {total}"),
-    "met_walk_h": ("Sigue a un Pokémon", "Follow one Pokémon"),
-    "walk_prev": ("Anterior", "Previous"),
-    "walk_next": ("Siguiente", "Next"),
-    "walk_auto": ("Auto", "Auto"),
-    "walk_stop": ("Parar", "Stop"),
-    "walk_step": ("Paso {i} de {n}", "Step {i} of {n}"),
-    "walk_1_h": ("Medidas", "Measures"),
-    "walk_2_h": ("Pesos", "Weights"),
-    "walk_3_h": ("Repeticiones", "Repeats"),
-    "walk_4_h": ("Puesto", "Rank"),
-    "walk_5_h": ("Tier", "Tier"),
-    "walk_tier_alt": ("Puesto {rank} dentro de la tira de tiers", "Rank {rank} inside the tier strip"),
     "arena_title": ("Así se ve una partida simulada", "What a simulated game looks like"),
     "arena_lede": ("Ilustración, no datos del ranking. Así juega cada Pokémon las partidas simuladas: esquiva, dispara "
                    "a los enemigos que se acercan y aguanta lo que puede.",
@@ -612,14 +635,18 @@ STR: dict[str, tuple[str, str]] = {
     "arena_alt": ("Animación de una partida simulada. Un Pokémon esquiva y dispara a enemigos que se acercan.",
                   "Animation of a simulated game. A Pokémon dodges and fires at approaching enemies."),
     "met_limits_h": ("Límites", "Limits"),
-    "met_lim_1": ("La caminata a la grieta es tiempo a la velocidad actual, sin buscar camino, y el bot no va a por los altares.",
-                  "The walk to a rift is time at current speed, with no pathing, and the bot does not go looking for altars."),
-    "met_lim_2": ("El compañero de sinergia, como Hex, no ataca hasta ganar la grieta.",
-                  "A synergy partner, such as Hex, does not attack until a rift is won."),
-    "met_lim_3": ("El bot juega peor el cuerpo a cuerpo.", "The bot plays melee worse."),
-    "met_lim_4": ("Estimación propia, sin contrastar con partidas reales.",
-                  "Our own estimate, not checked against real games."),
-
+    "met_lim_1": ("Es un bot, no una persona: juega peor el cuerpo a cuerpo y no busca camino hasta las grietas, "
+                  "solo cuenta el tiempo de ir andando.",
+                  "It is a bot, not a person: it plays melee worse and does not path to rifts, it only counts the time "
+                  "spent walking."),
+    "met_lim_2": ("El grupo de ataques no se vincula hasta ganar una grieta, como en el juego, y un compañero de sinergia como "
+                  "Hex no ataca antes.",
+                  "The move group does not bond until a rift is won, as in the game, and a synergy partner such as Hex does "
+                  "not attack before then."),
+    "met_lim_3": ("Los números son estimaciones de {sims} partidas por Pokémon; por eso cada ficha lleva su rango habitual.",
+                  "The numbers are estimates from {sims} games per Pokémon; that is why each page shows its usual range."),
+    "met_lim_4": ("No se ha contrastado con partidas reales de jugadores, solo con las reglas y el código del juego.",
+                  "It has not been checked against real player games, only against the game's rules and code."),
     # ------------------------------------------------------------ navegación de las herramientas
     "nav_buscador": ("Buscador", "Type finder"),
     "nav_planificador": ("Planificador", "Build planner"),
@@ -805,6 +832,10 @@ def _check() -> None:
 _check()
 
 
+MONTHS = (("ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"),
+          ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"))
+
+
 @dataclass(frozen=True)
 class Lang:
     """Un idioma de salida. El español vive en la raíz del sitio y el inglés bajo /en/."""
@@ -836,6 +867,12 @@ class Lang:
     def dec(self, x: float, d: int = 1) -> str:
         s = f"{x:.{d}f}"
         return s if self.en else s.replace(".", ",")
+
+    def date(self, iso: str) -> str:
+        """'2026-10-19' -> '19 oct 2026' en español y 'Oct 19, 2026' en inglés."""
+        y, m, d = (int(x) for x in iso[:10].split("-"))
+        month = MONTHS[self.idx][m - 1]
+        return f"{month} {d}, {y}" if self.en else f"{d} {month} {y}"
 
     def pct(self, x: float) -> str:
         """0.968 -> '97 %' en español y '97%' en inglés."""

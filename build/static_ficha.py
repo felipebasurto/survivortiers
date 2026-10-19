@@ -147,10 +147,13 @@ def summary_plain(text: str) -> str:
     return SUMMARY_MARK.sub(lambda m: m.group(2), text)
 
 
-def jsonld(faqs: list[tuple[str, str]], updated: str) -> str:
+def jsonld(faqs: list[tuple[str, str]], updated: str, url: str, name: str, lang: str) -> str:
     doc = {
         "@context": "https://schema.org",
         "@type": "FAQPage",
+        "url": url,
+        "name": name,
+        "inLanguage": lang,
         "dateModified": updated,
         "mainEntity": [{"@type": "Question", "name": q, "acceptedAnswer": {"@type": "Answer", "text": a}}
                        for q, a in faqs],
@@ -203,9 +206,30 @@ def combat(L: Lang, entry: dict) -> str:
             f'<p class="cb-src">{esc(L.t("cb_src", combat=legal.COMBAT_COMMIT))}</p></section>')
 
 
+def group_names(L: Lang, detail: list, moves: dict[str, dict]) -> tuple[str, str]:
+    """Los ataques del grupo vinculado y sus potenciadores, ya unidos en una frase."""
+    ids, n_boost = detail[9][2], int(detail[9][5])
+    if n_boost > len(ids):
+        raise ValueError("más potenciadores que ataques en el grupo")
+    buff_ids = ids[-n_boost:] if n_boost else []
+    atk_ids = ids[:-n_boost] if n_boost else list(ids)
+    return (_join(L, [_move_name(L, moves, mid) for mid in atk_ids]),
+            _join(L, [_move_name(L, moves, mid) for mid in buff_ids]))
+
+
+def head_texts(L: Lang, entry: dict, detail: list, moves: dict[str, dict], total: int) -> tuple[str, str]:
+    """<title> y meta description de la ficha, con el tier, el puesto y la build del propio Pokémon."""
+    name, (rank, tier) = L.mon(entry), (entry["r"]["rank"], entry["r"]["tier"])
+    attacks, buffs = group_names(L, detail, moves)
+    title = L.t("fh_title", name=name, tier=tier)
+    desc = L.t("fh_desc_buffs" if buffs else "fh_desc", name=name, tier=tier, rank=rank, total=total,
+               attacks=attacks, buffs=buffs, banner=L.banner(entry["banner"]))
+    return title, desc
+
+
 def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, detail: list, moves: dict[str, dict],
           prev: dict | None, nxt: dict | None, odds: tuple[float, int], cards: dict, *, summary: str, fresh: str,
-          guides: str, updated: str) -> tuple[str, str]:
+          guides: str, updated: str, url: str, title: str) -> tuple[str, str]:
     """Devuelve el HTML visible (sin <head>) y el JSON-LD de las preguntas. summary es el resumen ya en texto plano;
     fresh, la línea de datos del juego; guides, el bloque de enlaces a las listas."""
     name = L.mon(entry)
@@ -220,8 +244,7 @@ def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, detail: list,
         raise ValueError(f"{entry['dex']}: más potenciadores que ataques en el grupo")
     buff_ids = ids[-n_boost:] if n_boost else []
     atk_ids = ids[:-n_boost] if n_boost else list(ids)
-    attacks = _join(L, [_move_name(L, moves, mid) for mid in atk_ids])
-    buffs = _join(L, [_move_name(L, moves, mid) for mid in buff_ids])
+    attacks, buffs = group_names(L, detail, moves)
     p_pull, pulls = odds
     if not p_pull or not pulls:
         raise ValueError(f"{entry['dex']}: la tirada no tiene probabilidad")
@@ -317,4 +340,4 @@ def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, detail: list,
 </section>
 {guides}
 """
-    return html, jsonld(faqs, updated)
+    return html, jsonld(faqs, updated, url, title, "en" if L.en else "es")

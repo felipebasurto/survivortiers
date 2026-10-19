@@ -1787,3 +1787,22 @@ html { overflow-x: hidden; }
     letter-spacing: .04em; color: var(--ink-2); }
   .pv-buffs td.num { text-align: left; }
 }
+
+/* Portada: párrafo de arriba, tabla de los 30 mejores y línea de actualización */
+p.tagline { font-size: 1rem; line-height: 1.55; color: var(--ink); }
+p.tagline a { color: var(--accent); }
+p.fresh { font: .8125rem/1.4 var(--sans); color: var(--ink-2); margin: 0 0 14px; }
+.foot p.fresh { margin: 10px 0 0; }
+.top30 { margin: 48px 0 8px; }
+.top30 > p { max-width: 62ch; margin: 0 0 14px; }
+.top30 table { max-width: 46rem; }
+.top30 th[scope="row"] { font: 600 .9375rem var(--ui); text-transform: none; letter-spacing: 0; color: var(--ink); }
+.top30 th[scope="row"] a { color: inherit; }
+.top30 td, .top30 th { padding-right: 14px; }
+.top30 .tier-badge { font-size: .8rem; }
+.met-text { max-width: 72ch; color: var(--ink-2); font: .95rem/1.55 var(--sans); }
+.slug-list { list-style: none; columns: 14rem; column-gap: 28px; margin: 18px 0 0; padding: 0; font: .9rem/1.9 var(--sans); }
+.slug-list small { color: var(--ink-2); }
+@media (max-width: 560px) {
+  .top30 td:nth-child(4), .top30 th:nth-child(4) { display: none; }
+}
