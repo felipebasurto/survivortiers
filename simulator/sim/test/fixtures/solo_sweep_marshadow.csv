@@ -1,0 +1,12 @@
+# fixture: the Marshadow rows of a solo sweep. The test checks the Repertorio + Veto logic on them, not the sim numbers.
+dex,name,start,kind,n,median_s,mean_s,boot_lo,boot_hi,p10_s,p90_s,median_kills,median_lvl,status_ignored,group,median_dealt,median_score,mean_score,score_lo,score_hi
+802,Marshadow,aura-sphere,projectile,16,127.975,138.334,111.75,141.75,61.55,243.25,92,8,0,aura-sphere,9498.349,62.922,82.081,48.355,80.447
+802,Marshadow,body-slam,melee,16,124.625,125.028,105.625,139.6,85.6,177.925,79.5,8,0,body-slam,10001.607,62.883,59.548,50.063,68.47
+802,Marshadow,hex,chain,16,175.55,167.269,134.2,188.8,118.6,216.575,163,9,0,hex,28189.367,105.936,106.658,77.139,128.595
+802,Marshadow,hyper-voice,nova,16,130.15,136.988,116.925,152.75,82.125,181.8,93.5,8,0,hyper-voice,14618.188,72.236,78.871,64.811,79.897
+802,Marshadow,karate-chop,melee,16,141.4,158.716,119.7,157.45,91.35,203.525,88,8,0,karate-chop,13309.462,72.799,71.202,57.871,93.204
+802,Marshadow,lick,melee,16,111.825,121.956,94.7,125.15,69.1,186.725,62.5,7,0,lick,7343.731,49.252,58.351,35.57,67.783
+802,Marshadow,quick-attack,dash,16,152.9,204.038,130.575,289.1,73.525,368.075,7,2.5,0,quick-attack,808.256,9.207,12.637,6.432,13.111
+802,Marshadow,shadow-ball,projectile,16,204.625,219.363,169.75,294.475,123.5,313.7,254,13.5,0,shadow-ball,62201.942,145.938,166.768,113.299,245.32
+802,Marshadow,substitute,turret,16,127.875,121.247,95.95,141.275,76.575,160.4,85,7,0,substitute,10561.36,66.448,65.129,41.628,82.422
+802,Marshadow,tackle,melee,16,131,145.681,122.225,145.5,72.825,210.75,82.5,7.5,0,tackle,10663.443,69.084,64.887,59.397,80.629

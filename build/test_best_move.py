@@ -1,4 +1,4 @@
-"""The published best move is an attack. Sustituto stays in the sweep and loses the pick.
+"""The published best move is an attack. Sustituto stays in the sweep and never wins the pick.
 
     python3 build/test_best_move.py
 """
@@ -25,7 +25,11 @@ class BestMove(unittest.TestCase):
         self.assertTrue(all(float(row["median_dealt"]) > 0 for row in subs))
         self.assertTrue(all(row["kind"] == "turret" for row in subs))
 
-    def test_a_buff_cannot_win_and_zero_damage_cannot_win(self):
+    def test_sustituto_never_wins_anywhere(self):
+        self.assertEqual(len(self.winners), 966)
+        self.assertFalse([dex for dex, row in self.winners.items() if row["start"] == "substitute"])
+
+    def test_a_buff_and_sustituto_cannot_win(self):
         buff = {
             "dex": "2",
             "start": "swords-dance",
@@ -46,7 +50,9 @@ class BestMove(unittest.TestCase):
             "mean_score": "10",
             "median_dealt": "40",
         }
-        self.assertEqual(md.winner_by_dex([buff, turret])[2]["start"], "substitute")
+        real = dict(turret, start="water-gun", kind="projectile", median_score="1", mean_score="1")
+        self.assertEqual(md.winner_by_dex([buff, turret, real])[2]["start"], "water-gun")
+        self.assertNotIn(2, md.winner_by_dex([buff, turret]))
 
     def test_gengar_best_move_is_not_melee(self):
         row = self.winners[94]

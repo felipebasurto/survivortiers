@@ -18,6 +18,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "build"))
 
+import sitefixture  # noqa: E402
 import legal  # noqa: E402
 import static_ficha  # noqa: E402
 import toolpages  # noqa: E402
@@ -78,6 +79,10 @@ class SlugsAndOdds(unittest.TestCase):
 
 
 class StaticMewtwo(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        sitefixture.ensure_site()
+
     def test_ficha_has_no_repertorio_note(self) -> None:
         for page in (SITE / "pokemon" / "150-mewtwo" / "index.html", SITE / "en" / "pokemon" / "150-mewtwo" / "index.html"):
             html = page.read_text(encoding="utf8")
@@ -152,6 +157,10 @@ def _faq_pairs(page: str) -> list[tuple[str, str]]:
 
 
 class FaqCopy(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        sitefixture.ensure_site()
+
     def test_visible_faq_matches_jsonld_exactly(self) -> None:
         for rel in ("pokemon/150-mewtwo/index.html", "en/pokemon/150-mewtwo/index.html",
                     "pokemon/1000-gholdengo/index.html", "pokemon/829-gossifleur/index.html"):

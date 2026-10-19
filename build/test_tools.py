@@ -18,6 +18,7 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 sys.path.insert(0, str(HERE))
 
+import sitefixture  # noqa: E402
 import finder  # noqa: E402
 import gamestats  # noqa: E402
 import pasivas  # noqa: E402
@@ -103,6 +104,10 @@ assert.equal(r.swap, null);
 
 
 class ToolsNodeTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        sitefixture.ensure_site(need_site=False)
+
     def test_pure_functions_against_real_data(self):
         if shutil.which("node") is None:
             self.skipTest("node no está instalado")
@@ -126,6 +131,10 @@ class ToolsNodeTest(unittest.TestCase):
 
 
 class ToolsHtmlTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        sitefixture.ensure_site(need_site=False)
+
     def test_repertorio_note_in_both_languages(self):
         for L, text in ((ES, "Repertorio te da un segundo ataque al azar y no se puede deshacer."),
                         (EN, "Repertoire gives you a random second attack and can't be undone.")):

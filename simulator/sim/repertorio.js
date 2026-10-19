@@ -194,6 +194,6 @@ function main() {
   process.stdout.write(JSON.stringify(openingsFromSweep(sweep)));
 }
 
-module.exports = { BANS, openingValue, openingsFromSweep, round3 };
+module.exports = { BANS, openingValue, openingsFromSweep, ownerView, round3 };
 
 if (require.main === module) main();

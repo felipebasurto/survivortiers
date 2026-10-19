@@ -16,6 +16,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "build"))
 
+import sitefixture  # noqa: E402
 import dupcheck  # noqa: E402
 import landing  # noqa: E402
 import legal  # noqa: E402
@@ -47,6 +48,10 @@ def _ld(text: str) -> dict:
 
 
 class LandingPages(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        sitefixture.ensure_site()
+
     def test_every_page_exists_in_both_languages(self) -> None:
         for page in landing.pages():
             for lang in (ES, EN):
@@ -113,6 +118,10 @@ class LandingPages(unittest.TestCase):
 
 
 class LinksAndFreshness(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        sitefixture.ensure_site()
+
     def test_home_links_every_landing_page(self) -> None:
         home = _read("index.html")
         for page in landing.pages():
@@ -155,6 +164,10 @@ class LinksAndFreshness(unittest.TestCase):
 
 
 class Summaries(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        sitefixture.ensure_site()
+
     def test_marks_are_stripped_and_text_kept(self) -> None:
         raw = "Rápido, [hp-|poca vida] y [m.start:vine-whip|Látigo Cepa]. Lo sube [up:best_move|Residuos]."
         self.assertEqual(static_ficha.summary_plain(raw), "Rápido, poca vida y Látigo Cepa. Lo sube Residuos.")
@@ -168,6 +181,10 @@ class Summaries(unittest.TestCase):
 
 
 class Similarity(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        sitefixture.ensure_site()
+
     def test_identical_pages_score_one(self) -> None:
         words = "a b c d e f g h".split()
         s = dupcheck.shingles(words)

@@ -18,6 +18,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "build"))
 
+import sitefixture  # noqa: E402
 import game_moves  # noqa: E402
 
 DATA = ROOT / "data"
@@ -77,6 +78,10 @@ class UnrankedTests(unittest.TestCase):
 
 
 class BuildOutputTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        sitefixture.ensure_site(need_site=False)
+
     def setUp(self):
         if not (OUT / "moves.json").exists():
             self.skipTest("build/out no existe (ejecuta build/catalog.py)")

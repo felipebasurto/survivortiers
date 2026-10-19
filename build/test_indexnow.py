@@ -15,6 +15,7 @@ from unittest import mock
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "build"))
 
+import sitefixture  # noqa: E402
 import indexnow  # noqa: E402
 import legal  # noqa: E402
 
@@ -54,6 +55,10 @@ class KeyFile(unittest.TestCase):
 
 
 class Payload(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        sitefixture.ensure_site()
+
     def test_body_has_host_key_location_and_urls(self) -> None:
         body = indexnow.payloads([f"{legal.SITE_URL}/", f"{legal.SITE_URL}/en/"], KEY)[0]
         self.assertEqual(body["host"], "survivortiers.pages.dev")
@@ -78,6 +83,10 @@ class Payload(unittest.TestCase):
 
 
 class Submit(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        sitefixture.ensure_site()
+
     def test_posts_json_to_the_endpoint(self) -> None:
         body = indexnow.payloads([f"{legal.SITE_URL}/"], KEY)[0]
         resp = mock.MagicMock()
