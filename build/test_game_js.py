@@ -1,7 +1,7 @@
 """The sim's damage, types, spawn rate and Sentencia match the game's own JS.
 
-The game files are the read-only snapshot in simulator/vendor/pokesurvivor-e868b5e
-(JPTER78/pokesurvivor @ e868b5e). simulator/validate/game_formulas.js executes them.
+The game files are the read-only snapshot in simulator/vendor/pokesurvivor-5a23d49
+(JPTER78/pokesurvivor @ 5a23d49). simulator/validate/game_formulas.js executes them.
 
     python3 build/test_game_js.py
 """
@@ -17,8 +17,8 @@ ROOT = Path(__file__).resolve().parent.parent
 
 class GameFormulas(unittest.TestCase):
     def test_vendored_commit_and_engine(self):
-        pin = (ROOT / "simulator/vendor/pokesurvivor-e868b5e/COMMIT").read_text().strip()
-        self.assertEqual(pin, "e868b5e")
+        pin = (ROOT / "simulator/vendor/pokesurvivor-5a23d49/COMMIT").read_text().strip()
+        self.assertEqual(pin, "5a23d49")
         binary = ROOT / "simulator/sim-rs/target/release/pokesim"
         if not binary.exists():
             subprocess.run(
