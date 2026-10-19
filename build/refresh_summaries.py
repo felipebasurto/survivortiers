@@ -20,7 +20,7 @@ import summaries as S  # noqa: E402
 import summary_facts as sf  # noqa: E402
 
 POS = ("atk+", "spd+", "hp+", "hb+", "td+")
-NEG = ("atk-", "spd-", "hp-", "hb--", "hb-", "td-")
+NEG = ("atk-", "spd-", "hp-", "td-")
 BUFFS = {"buff"}
 
 

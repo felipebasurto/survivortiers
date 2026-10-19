@@ -4,8 +4,9 @@ The texts are written by the pipeline in build/summary_pipeline.py (Grok subagen
 build/prompts/summary.md) from data/facts.parquet. This module only checks them; it uses the standard library so
 build/catalog.py can run it on the hosting.
 
-Every claim sits in a mark, `[key|text]`. `key` names the fact it states, for example `spd+` (fast), `hb-` (big
-hitbox), `m.start:ember` (the start move) or `down:hitbox:S` (the hitbox is what keeps it out of S). The checker:
+Every claim sits in a mark, `[key|text]`. `key` names the fact it states, for example `spd+` (fast), `hb+` (small
+hitbox), `m.start:ember` (the start move) or `down:stats` (stats are what hold it back). A body above the median
+is not a downside: collision radius is capped at 18, so `hb-`, `hb--` and `down:hitbox` are rejected. The checker:
 
   1. checks that the fact behind each key holds (thresholds below);
   2. scans the plain text with a lexicon (fast, slow, HP, hitbox, damage, types, tier letters, every move, item and
@@ -78,9 +79,10 @@ def _places(f: dict, factor: str) -> int:
     return f["drivers"]["gate" if factor.startswith("gate") else factor]["places"]
 
 
-# A driver can only be named in the direction its fact points: a hitbox lifts only if it is smaller than the median.
+# A driver can only be named in the direction its fact points. A smaller hitbox can lift a species.
+# A larger one is not stated as a downside: sprites.js playerRadius caps collision at 18.
 DIRECTION = {
-    "hitbox": lambda f, up: (_hb(f)[0] < _hb(f)[1]) if up else (_hb(f)[0] > _hb(f)[1]),
+    "hitbox": lambda f, up: up and _hb(f)[0] < _hb(f)[1],
     "speed": lambda f, up: (_stat(f, "spd") > 0.5) == up,
     "hp": lambda f, up: (_stat(f, "hp") > 0.5) == up,
     "attack": lambda f, up: (_stat(f, "atk") > 0.5) == up,
@@ -120,6 +122,8 @@ def qualifies(f: dict, tier: str, factor: str) -> bool:
 
 def holds(key: str, f: dict) -> str | None:
     """None if the fact behind `key` holds for species f, else why not."""
+    if key in ("hb-", "hb--") or key.startswith("down:hitbox"):
+        return f"{key}: el radio de choque está limitado a 18 y no se cuenta como desventaja"
     b = f["build"]
     head, _, ref = key.partition(":")
     if "drivers" not in f and (head in DRIVER_HEADS or key in ("calm", "nodown")):
@@ -128,8 +132,7 @@ def holds(key: str, f: dict) -> str | None:
         "spd+": _stat(f, "spd") >= HIGH, "spd-": _stat(f, "spd") <= LOW,
         "hp+": _stat(f, "hp") >= HIGH, "hp-": _stat(f, "hp") <= LOW,
         "atk+": _stat(f, "atk") >= HIGH, "atk-": _stat(f, "atk") <= LOW,
-        "hb+": _hb(f)[0] < _hb(f)[1], "hb-": _hb(f)[1] < _hb(f)[0] < HUGE_R, "hb--": _hb(f)[0] >= HUGE_R,
-        "hb0": _hb(f)[0] == _hb(f)[1],
+        "hb+": _hb(f)[0] < _hb(f)[1], "hb0": _hb(f)[0] == _hb(f)[1],
         "td+": f["pillars"]["typedef"] >= HIGH, "td-": f["pillars"]["typedef"] <= LOW,
         "avg": all(LOW < _stat(f, k) < HIGH for k in ("spd", "hp", "atk")),
     }

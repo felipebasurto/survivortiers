@@ -70,9 +70,14 @@ class Validator(unittest.TestCase):
 
     def test_driver_must_be_a_top_driver(self):
         weak = min(S.DIRECTION, key=lambda k: abs(S._places(self.f, k)))
-        e = self.edit(es=self.entry["es"].replace("[down:hitbox|", f"[up:{weak}|", 1),
-                      en=self.entry["en"].replace("[down:hitbox|", f"[up:{weak}|", 1))
+        e = self.edit(es=self.entry["es"].replace("[up:best_move|", f"[up:{weak}|", 1),
+                      en=self.entry["en"].replace("[up:best_move|", f"[up:{weak}|", 1))
         self.assertTrue(any(f"up:{weak}" in x for x in errors(self.f, e)))
+
+    def test_big_hitbox_is_not_a_downside(self):
+        e = self.edit(es=self.entry["es"] + " [hb-|hitbox grande].",
+                      en=self.entry["en"] + " [hb-|big hitbox].")
+        self.assertTrue(any("hb-" in x for x in errors(self.f, e)))
 
     def test_languages_must_agree(self):
         e = self.edit(en=self.entry["en"].replace("[td+|shrugs off enemy types]", "shrugs it off", 1))
