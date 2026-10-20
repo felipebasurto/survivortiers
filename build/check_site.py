@@ -54,6 +54,7 @@ MAX_FILES, MAX_BYTES = 4_000, 180_000_000
 EXPECTED_COUNTS = tiers.COUNTS
 SPANISH_WORDS = re.compile(r"\b(el|los|las|del|con|para|puesto|aguante|daño|ficha|partidas?|repeticiones|cuántos)\b", re.I)
 LANGS = ("", "en/")
+# S+A rates from build/catalog.py on the current ranking (3b6585e). Paldea was already 17.4.
 EXPECTED_GACHA = {"Paldea": 17.4, "Alola": 15.7, "Galar": 12.6, "Sinnoh": 15.9, "Kanto": 8.6, "Teselia": 14.2,
                   "Johto": 13.0, "Kalos": 8.6, "Hoenn": 8.1}
 

@@ -87,13 +87,13 @@ ZIDRA = {
 
 # Lo que suma priorizar la carta cuando ya llevas el objeto. Subida de monedas, misma escala que CARDS.
 COMBOS = [
-    {"item": "shellbell", "item_name": ("Cascabel", "Shell Bell"), "card": "rgn", "lift": "+2%",
+    {"item": "shellbell", "item_name": ("Cascabel", "Shell Bell"), "card": "rgn", "lift": "0",
      "why": ("Cura el 4% del daño que haces, hasta 4 de vida por segundo.",
              "Heals 4% of the damage you deal, up to 4 HP per second.")},
-    {"item": "leftovers", "item_name": ("Restos", "Leftovers"), "card": "rgn", "lift": "+2%",
+    {"item": "leftovers", "item_name": ("Restos", "Leftovers"), "card": "rgn", "lift": "0",
      "why": ("Recupera el 1,5% de tu vida máxima por segundo.",
              "Recovers 1.5% of your max HP per second.")},
-    {"item": "leftovers", "item_name": ("Restos", "Leftovers"), "card": "hp", "lift": "+1%",
+    {"item": "leftovers", "item_name": ("Restos", "Leftovers"), "card": "hp", "lift": "0",
      "why": ("Igual que con Síntesis.", "Same as with Synthesis.")},
     {"item": "assaultvest", "item_name": ("Chaleco", "Assault Vest"), "card": "def", "lift": "0",
      "why": ("Suma 20% de reducción, y el total no pasa del 80%. Coraza topa el total en 70%: si la subes después, "
@@ -234,7 +234,7 @@ def _rows(L: Lang, first: int, last: int, top: float) -> str:
     rows = []
     for i in range(first, last):
         c = CARDS[i]
-        width = max(c["coin"], 0) / top * 100
+        width = (max(c["coin"], 0) / top * 100) if top else 0
         rows.append(
             f'<li class="pv-row{" is-top" if i == 0 else ""}">'
             f'<span class="pv-pos">{i + 1}</span>'
