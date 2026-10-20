@@ -116,8 +116,8 @@ def recommended(count: int = 3) -> list[dict]:
     return pool[:count]
 
 
-EXCLUDED_NOTE = ("Moneda Amuleto no entra en la tier list: solo da más Pokémonedas al acabar la partida.",
-                 "Amulet Coin is not in the tier list: it only gives more Pokécoins when a run ends.")
+EXCLUDED_NOTE = ("Moneda Amuleto no entra en la tier list: no ayuda en ningún combate. Solo da más Pokémonedas al acabar la partida, y la tier list mide qué objeto hace ganar más peleas.",
+                 "Amulet Coin is not in the tier list: it does not help in any battle. It only gives more Pokécoins when a run ends, and the tier list measures which item wins more fights.")
 
 
 def _t(pair: tuple[str, str], L: Lang) -> str:
@@ -191,4 +191,4 @@ def items_content(L: Lang, h1: str, lede: str, phases_h: str, table_h: str) -> s
             f'<div class="ph-grid">{phases}</div>'
             f'<h2>{escape(table_h)}</h2>'
             f'{_cards(L)}'
-            f'<p class="note small">{escape(_t(EXCLUDED_NOTE, L))}</p>')
+            f'<p class="note small excluded">{_icon("amuletcoin")}<span>{escape(_t(EXCLUDED_NOTE, L))}</span></p>')

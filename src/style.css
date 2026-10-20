@@ -1072,6 +1072,8 @@ h1 { margin-bottom: 22px; }
 .it-card > summary::-webkit-details-marker { display: none; }
 .it-card > summary:hover, .it-card[open] > summary { background: var(--rule-soft); }
 .it-card .item-ico { width: 40px; height: 40px; }
+.excluded { display: flex; align-items: flex-start; gap: 12px; }
+.excluded .item-ico { width: 32px; height: 32px; margin-top: 1px; }
 .it-txt { display: grid; gap: 2px; flex: 1; min-width: 0; }
 .it-txt b { font: 600 .95rem/1.2 var(--ui); }
 .it-txt span { font: .875rem/1.35 var(--sans); color: var(--ink-2); }
