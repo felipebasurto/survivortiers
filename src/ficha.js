@@ -308,7 +308,6 @@
   // Una build sin ataques que le valgan no sale. La de mayor puntuación lleva la marca; la otra dice cuánto le falta.
   const BUILD_KINDS = ['melee', 'ranged'];
   const BUILD_NAME = { melee: 'bd_melee', ranged: 'bd_ranged' };
-  const BUILD_NONE = { melee: 'bd_none_melee', ranged: 'bd_none_ranged' };
   const BUILD_OTHER = { melee: 'bd_other_ranged', ranged: 'bd_other_melee' };
   const GAP_SMALL_PCT = 5;
   const numText = n => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, EN ? ',' : '.');
@@ -333,9 +332,10 @@
 
   // Una fila: número (vacío en el inicio y en los objetos), icono, nombre y etiquetas; una marca opcional a la derecha.
   // Los potenciadores van marcados.
-  function moveRow(m, n, pill, buff) {
+  function moveRow(m, n, pill, buff, start) {
     const nm = EN ? m.en.name : m.name;
-    return '<li class="bd-row' + (buff ? ' is-buff' : '') + '" style="--tc:' + (TYPE_COLOR[m.type] || ITEM_COLOR) + '">' +
+    if (start) pill = { text: t('bd_start_with'), gold: true };
+    return '<li class="bd-row' + (buff ? ' is-buff' : '') + (start ? ' is-start' : '') + '" style="--tc:' + (TYPE_COLOR[m.type] || ITEM_COLOR) + '">' +
       '<span class="bd-n">' + n + '</span>' +
       '<span class="bd-ico"><img src="' + iconUrl(m) + '" alt="" width="32" height="32"></span>' +
       '<span class="bd-info"><span class="bd-nm">' + esc(nm) + '</span>' + moveTags(m, true) + '</span>' +
@@ -343,13 +343,12 @@
   }
 
   function buildOption(kind, b, other, moves, cards, win) {
-    const head = '<h3 class="bd-kind">' + comboHtml(b ? buildDamage(moves, b.moves) : null, kind) + '</h3>';
-    if (!b) return '<article class="bd-opt is-none" data-build="' + kind + '">' + head +
-      '<p class="bd-none">' + esc(t(BUILD_NONE[kind])) + '</p></article>';
+    if (!b) return '';
+    const head = '<h3 class="bd-kind">' + comboHtml(buildDamage(moves, b.moves), kind) + '</h3>';
     const ids = b.moves, nb = b.nBoost;
     const rows = ids.map((id, i) => {
       const m = moves.find(x => x.id === id);
-      return m ? moveRow(m, i + 1, null, i >= ids.length - nb) : '';
+      return m ? moveRow(m, i + 1, null, i >= ids.length - nb, i === 0) : '';
     }).join('');
     const stats = '<dl class="bd-stats">' +
       '<div><dt>' + esc(t('bd_time')) + '</dt><dd>' + decText(b.time, 1) + ' s</dd></div>' +
@@ -378,8 +377,8 @@
     const sprite = '<span class="bd-sprite" style="--tc:' + (TYPE_COLOR[p.types[0]] || '#888') +
       '"><img class="px" src="' + sprites + p.dex + spriteExt + '" width="' + p.w * scale + '" height="' + p.h * scale + '" alt=""></span>';
     const start = moves.find(m => m.id === d[2]);
-    const startRow = start ? moveRow(start, '', null) : '';
-    const options = BUILD_KINDS.map(kind => buildOption(kind, pair[kind], pair[BUILD_KINDS.find(k => k !== kind)], moves, cards, win)).join('');
+    const defaultStart = start ? '<p class="bd-default">' + esc(t('build_default_start', { move: EN ? start.en.name : start.name })) + '</p>' : '';
+    const options = BUILD_KINDS.map(kind => buildOption(kind, pair[kind], pair[BUILD_KINDS.find(k => k !== kind)], moves, cards, win)).filter(Boolean);
     const itemRows = items.map((m, i) => moveRow(m, '', i === 0 ? { text: t('build_best_item'), gold: true } : null)).join('');
     return '<section class="fig anim fig-build" id="build" aria-labelledby="bd-h"><div class="bd-card" style="' + typeVars(p) + '">' +
       '<header class="bd-head">' + sprite + '<div><h2 id="bd-h">' + esc(t('t_build')) + '</h2><span class="bd-who">' + esc(name) + '</span></div>' +
@@ -387,8 +386,8 @@
         comboHtml(buildDamage(moves, pair[win].moves), win) + '</p>' : '') +
       '<button class="bd-share" type="button" aria-label="' + esc(t('build_share')) + '" title="' + esc(t('build_share')) + '">' + SHARE_SVG + '</button>' +
       '<span class="bd-toast" role="status" aria-live="polite"></span></header>' +
-      '<div class="bd-block bd-start">' + capOf('build_start') + '<ul class="bd-rows">' + startRow + '</ul></div>' +
-      '<p class="bd-cap">' + esc(t('bd_pair_cap')) + '</p><div class="bd-pair">' + options + '</div>' +
+      (options.length > 1 ? '<p class="bd-cap">' + esc(t('bd_pair_cap')) + '</p>' : '') +
+      '<div class="bd-pair' + (options.length > 1 ? '' : ' is-single') + '">' + options.join('') + '</div>' + defaultStart +
       '<div class="bd-gear">' + capOf('build_items') + '<ul class="bd-rows">' + itemRows + '</ul></div>' +
       '<div class="bd-cover">' + meter(t('build_super'), superPct, 'bd-super') + meter(t('build_neutral'), neutralPct, 'bd-neutral') + '</div>' +
       '<p class="bd-brand">' + esc(t('build_brand')) + '</p></div></section>';

@@ -5,7 +5,7 @@ records and check every summary against today's data. The rank drivers need nump
 build/facts_export.py, which adds them and writes data/facts.parquet.
 
 Each record has the game stats as percentiles of the 966, the hitbox (game body radius), types and how they
-match the enemy pool, the build shown on the ficha (start move, bonded group, alternatives, best item, priority
+match the enemy pool, the build the ficha shows first (its start move, bonded group, best item, priority
 cards), the tier and rank, and (from facts_export.py) the rank drivers.
 
 Game sources (JPTER78/pokesurvivor at legal.GAME_COMMIT, read only):
@@ -24,6 +24,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import builds  # noqa: E402
 import catalog  # noqa: E402
 import combos  # noqa: E402
 import objetos  # noqa: E402
@@ -75,6 +76,14 @@ def r2(x: float) -> float:
     return round(float(x), 3)
 
 
+def lead_build(pair: dict[str, dict]) -> dict:
+    """The build the ficha puts first: the higher score, or the melee one on a tie (build/static_ficha.py _lead)."""
+    if len(pair) == 1:
+        return next(iter(pair.values()))
+    melee, ranged = pair["melee"], pair["ranged"]
+    return ranged if ranged["score"] > melee["score"] else melee
+
+
 def base_records() -> dict[str, dict]:
     """Every fact except the rank drivers, keyed by dex as a string."""
     rows = ranking_rows()
@@ -86,6 +95,7 @@ def base_records() -> dict[str, dict]:
         moves.setdefault(m["id"], m)
     cards_es = {k: v["title"] for k, v in json.loads((DATA / "card_icons.json").read_text(encoding="utf8")).items()}
     combo = combos.compute_all({d: px[d]["types"] for d in dex_list}, {int(r["dex"]): r["best_move"] for r in rows})
+    lead = {int(d): lead_build(pair) for d, pair in builds.public(builds.read_rows()).items()}
     psim = passives.load()
     items = objetos.recommended()
 
@@ -109,7 +119,7 @@ def base_records() -> dict[str, dict]:
         d = int(r["dex"])
         p = px[d]
         c = combo[d]
-        ids = c["moves"]
+        ids = lead[d]["moves"]
         card_ids, n_evo = passives.compute(d, ids, psim)
         out[str(d)] = {
             "dex": d, "name": p["name"], "nameEn": r["name"], "types": p["types"],
@@ -121,9 +131,9 @@ def base_records() -> dict[str, dict]:
                         "superPct": c["super"], "neutralPct": c["neutral"], "superPctile": r2(pct_super[i]),
                         "attackTypes": int(r["attack_types"])},
             "build": {
-                "start": name(r["start_move"]), "best": name(r["best_move"]),
-                "group": [name(m) for m in ids], "attacks": len(ids) - c["nBoost"],
-                "alts": [name(m) for m in c["alts"]],
+                "start": name(ids[0]), "best": name(r["best_move"]),
+                "group": [name(m) for m in ids[1:]], "attacks": len(ids) - lead[d]["nBoost"],
+                "alts": [],
                 "item": {"id": items[0]["id"], "es": items[0]["name"][0], "en": items[0]["name"][1]},
                 "cards": [{"id": k, "es": cards_es[k], "en": CARD_EN[k]} for k in card_ids], "evoCards": n_evo,
             },
