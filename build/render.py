@@ -665,21 +665,48 @@ def render_metodo(c: Ctx, index: list[dict], meta: dict) -> str:
     reps = [(L.mon(p), p) for p in (min(index, key=lambda p: abs(p["r"][0] - n)) for n in REPEAT_RANKS)]
     limits = "".join(f'<li>{esc(L.t(f"met_lim_{i}", sims=counts["sims"]))}</li>' for i in range(1, 5))
     arena_src = f"{SPRITES}{ARENA_DEX}{EXT}"
+    st = meta["methodStats"]
+    stages = {s["id"]: s for s in st["stages"]}
+    ex = st["example"]
+    ex_name = next(L.mon(p) for p in index if p["dex"] == ex["dex"])
+    sizes = " · ".join(f'{c["tier"]} {L.num(c["to"] - c["from"] + 1)}' for c in meta["tierCuts"])
+    texts = [
+        L.t("met_step_1", sims=counts["sims"], cap=L.num(m["score"]["capSeconds"])),
+        L.t("met_step_2", dps=L.num(m["score"]["dpsRef"]), kpm=L.num(m["score"]["kpmRef"])),
+        L.t("met_step_3"),
+        L.t("met_step_4"),
+        L.t("met_step_5"),
+        L.t("met_step_6", sizes=sizes),
+    ]
+
+    def step(i: int) -> str:
+        return f'<h2 id="paso-{i}">{i}. {esc(L.t(f"met_step_{i}_h", reps=counts["reps"]))}</h2>\n<p class="met-text">{esc(texts[i - 1])}</p>'
+
     content = f"""
 <h1>{esc(L.t("met_h1"))}</h1>
 <p class="lede">{esc(L.t("met_lede", reps=counts["reps"]))}</p>
 <p class="fresh">{esc(legal.freshness_text(L, meta))}</p>
-<details class="more">
-<summary>{esc(L.t("met_more"))}</summary>
+{charts.kpis(L, st, m)}
 {charts.pipeline(L, m)}
-{charts.method_steps(L, m, meta["tierCuts"], counts)}
+{step(1)}
+{charts.stage_games(L, st["stages"])}
+{charts.start_hist(L, st["start"])}
 {repertorio.note(L)}
 {charts.arena(L, arena_src)}
+{step(2)}
+{charts.score_curves(L, m["score"], ex, ex_name)}
+{step(3)}
+{charts.funnels(L, stages)}
+{step(4)}
 {charts.repeats_demo(L, reps)}
+{charts.width_hist(L, st["width"])}
+{charts.tier_width(L, st["tierWidth"])}
+{step(5)}
 {charts.ribbon(L, index)}
-{charts.stability(L, meta["stability"])}
+{step(6)}
 {charts.tier_strip(L, meta["tierCuts"])}
-</details>
+{charts.frontier(L, st)}
+{charts.stability(L, meta["stability"])}
 <h2>{esc(L.t("met_rules_h"))}</h2>
 <p class="met-text">{esc(L.t("met_rules"))}</p>
 <h2>{esc(L.t("met_check_h"))}</h2>

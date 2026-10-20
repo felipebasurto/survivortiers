@@ -158,7 +158,7 @@ def sim_dots(L: Lang, r: dict, sim_range: list[float], median_s: float, mname: C
 
 # ================================================================ barras
 def bars(items: list[tuple[str, float, str]], title: str, alt: str,
-         hot: int | set[int] | None = 0, scale: float | None = None) -> str:
+         hot: int | set[int] | None = 0, scale: float | None = None, lede: str = "", kind: str = "bars") -> str:
     """Barras horizontales: (etiqueta, valor, texto del valor). Las filas `hot` llevan el acento; `scale` fija el 100 %."""
     top = scale or max(v for _, v, _ in items) or 1
     hots = {hot} if isinstance(hot, int) else set(hot or ())
@@ -167,7 +167,7 @@ def bars(items: list[tuple[str, float, str]], title: str, alt: str,
         f'<span class="bar-track"><i class="bar-fill{" hot" if i in hots else ""}" style="width:{v / top * 100:.1f}%"></i>'
         f'<em class="bar-val" style="left:{v / top * 100:.1f}%">{esc(txt)}</em></span></div>'
         for i, (lbl, v, txt) in enumerate(items))
-    return _figure("bars", title, rows, alt)
+    return _figure(kind, title, rows, alt, lede)
 
 
 # ================================================================ página Método
@@ -180,22 +180,151 @@ def pipeline(L: Lang, method: dict) -> str:
             f'<ol class="pipe" aria-label="{esc(alt)}">{items}</ol></figure>')
 
 
-def method_steps(L: Lang, method: dict, cuts: list[dict], counts: dict[str, str]) -> str:
-    """Los seis pasos del cálculo con las cifras reales. El dibujo de arriba es el resumen; esto es la explicación.
-    counts es legal.method_counts: partidas por Pokémon y repeticiones, ya con formato de idioma."""
-    score = method["score"]
-    sizes = " · ".join(f'{c["tier"]} {L.num(c["to"] - c["from"] + 1)}' for c in cuts)
-    texts = [
-        L.t("met_step_1", sims=counts["sims"], cap=L.num(score["capSeconds"])),
-        L.t("met_step_2", dps=L.num(score["dpsRef"]), kpm=L.num(score["kpmRef"])),
-        L.t("met_step_3"),
-        L.t("met_step_4"),
-        L.t("met_step_5"),
-        L.t("met_step_6", sizes=sizes),
-    ]
-    heads = [L.t(f"met_step_{i}_h", reps=counts["reps"]) for i in range(1, 7)]
-    items = "".join(f'<li><b>{num_html(h)}</b><p>{esc(text)}</p></li>' for h, text in zip(heads, texts))
-    return f'<ol class="met-steps" aria-label="{esc(L.t("met_steps_aria"))}">{items}</ol>'
+def kpis(L: Lang, stats: dict, method: dict) -> str:
+    """Cuatro cifras grandes arriba: cuántos Pokémon, cuántas partidas, cuánto juego y cuántas repeticiones."""
+    cells = [(L.num(TOTAL), L.t("kpi_pokemon")),
+             (f'{L.dec(stats["games"] / 1e6, 2)} M', L.t("kpi_games")),
+             (f'{L.num(stats["hours"])} h', L.t("kpi_hours", years=stats["years"])),
+             (L.num(method["repeats"]), L.t("kpi_reps"))]
+    body = "".join(f'<div class="met-kpi"><b>{num_html(v)}</b><span>{esc(t)}</span></div>' for v, t in cells)
+    return f'<div class="met-kpis">{body}</div>'
+
+
+def stage_games(L: Lang, stages: list[dict]) -> str:
+    """Barras de partidas por fase. La de grupos lleva el acento: es casi todo el cálculo."""
+    top = max(s["games"] for s in stages)
+    total = sum(s["games"] for s in stages)
+    hot = max(stages, key=lambda s: s["games"])["id"]
+    share = next(s["games"] for s in stages if s["id"] == "group_screen") / total
+    rows, alt = [], []
+    for i, s in enumerate(stages):
+        x = s["games"] / top * 100
+        name = L.t(f"stg_{s['id']}")
+        detail = L.t(f"stg_d_{s['id']}", per=L.num(s["perSpecies"]), seeds=L.num(s["seeds"]), species=L.num(s["species"]))
+        rows.append(f'<div class="bar-row" style="--i:{i}"><span class="bar-name">{esc(name)}<small>{esc(detail)}</small></span>'
+                    f'<span class="bar-track"><i class="bar-fill{" hot" if s["id"] == hot else ""}" style="width:{x:.1f}%"></i>'
+                    f'<em class="bar-val" style="left:{x:.1f}%">{esc(L.num(s["games"]))}</em></span></div>')
+        alt.append(f"{name}, {L.num(s['games'])}")
+    lede = L.t("stg_lede", share=L.pct(share), seeds=L.num(stages[-1]["seeds"]))
+    return _figure("stages", L.t("stg_title"), "".join(rows), L.t("stg_alt") + "; ".join(alt) + ".", lede)
+
+
+def _hist(counts: list[int], hot: int, ticks: list[tuple[float, str]], mark: tuple[float, str]) -> str:
+    """Barras verticales sin ejes. ticks = (posición en barras, texto); mark = línea de la mediana con su texto."""
+    w, h, pl, pr, pt, pb = 760, 230, 18, 18, 34, 34
+    n, top = len(counts), max(counts)
+    bw = (w - pl - pr) / n
+    base = h - pb
+    scale = (base - pt) / top
+    rects = "".join(f'<rect class="{"hot" if i == hot else ""}" x="{pl + i * bw + 2:.1f}" y="{base - c * scale:.1f}" '
+                    f'width="{bw - 4:.1f}" height="{c * scale:.1f}"/>' for i, c in enumerate(counts))
+    tk = "".join(f'<text x="{pl + p * bw:.1f}" y="{base + 16}" text-anchor="middle">{esc(t)}</text>' for p, t in ticks)
+    mx = pl + mark[0] * bw
+    mk = (f'<line class="mk" x1="{mx:.1f}" x2="{mx:.1f}" y1="{pt - 6}" y2="{base}"/>'
+          f'<text class="mk-t" x="{mx:.1f}" y="{pt - 12}" text-anchor="middle">{esc(mark[1])}</text>')
+    return (f'<svg class="hist" viewBox="0 0 {w} {h}" aria-hidden="true" focusable="false">'
+            f'<line class="base" x1="{pl}" x2="{w - pr}" y1="{base}" y2="{base}"/>{rects}{tk}{mk}</svg>')
+
+
+def start_hist(L: Lang, start: dict) -> str:
+    """Pokémon por tramo de segundos que aguanta su apertura (mediana de 16 partidas)."""
+    lo, bw, counts, med = start["binStart"], start["binWidth"], start["counts"], start["median"]
+    pos = (med - lo) / bw
+    ticks = [((v - lo) / bw, str(v)) for v in range(lo, lo + bw * len(counts) + 1, 20)]
+    svg = _hist(counts, int(pos), ticks, (pos, L.t("dur_median", s=med)))
+    alt = L.t("dur_alt", s=med, lo=start["min"], hi=start["max"])
+    body = svg + f'<p class="fig-note">{esc(L.t("dur_axis"))}</p>'
+    return _figure("hist", L.t("dur_title"), body, alt,
+                   L.t("dur_lede", lo=start["min"], hi=start["max"], cap=L.num(900)))
+
+
+def _curve(xmax: int, ref: int, x: float, s: float, ox: int, axis: str, ex_label: str, half_label: str) -> str:
+    """Una curva de saturación s = v / (v + ref) con su punto de ejemplo. ox desplaza el panel dentro del SVG."""
+    pl, pt, pw, ph = 40, 28, 300, 150
+    base = pt + ph
+
+    def X(v: float) -> float:
+        return ox + pl + v / xmax * pw
+
+    def Y(v: float) -> float:
+        return pt + (1 - v) * ph
+
+    pts = [(X(v), Y(v / (v + ref))) for v in range(0, xmax + 1, max(xmax // 60, 1))]
+    path = "M" + " L".join(f"{px:.1f} {py:.1f}" for px, py in pts)
+    ticks = "".join(f'<text x="{X(v):.1f}" y="{base + 18}" text-anchor="middle">{v}</text>' for v in range(0, xmax + 1, ref))
+    yt = "".join(f'<text x="{ox + pl - 8}" y="{Y(v) + 4:.1f}" text-anchor="end">{t}</text>'
+                 for v, t in ((0, "0"), (0.5, "0,5"), (1, "1")))
+    return (f'<path class="c" d="{path}"/>'
+            f'<path class="ref" d="M{X(ref):.1f} {pt}V{base}M{ox + pl} {Y(0.5):.1f}H{X(ref):.1f}"/>'
+            f'<text class="lbl" x="{X(ref) + 6:.1f}" y="{pt + 12}">{esc(half_label)}</text>'
+            f'<line class="axis" x1="{ox + pl}" x2="{ox + pl + pw}" y1="{base}" y2="{base}"/>'
+            f'{ticks}{yt}'
+            f'<text class="ax" x="{ox + pl + pw / 2:.0f}" y="{base + 36}" text-anchor="middle">{esc(axis)}</text>'
+            f'<circle class="ex" cx="{X(x):.1f}" cy="{Y(s):.1f}" r="5"/>'
+            f'<text class="lbl ex-l" x="{X(x) + 9:.1f}" y="{Y(s) + 20:.1f}">{esc(ex_label)}</text>')
+
+
+def score_curves(L: Lang, score: dict, ex: dict, name: str) -> str:
+    """La fórmula de la nota y las dos curvas de saturación, con el Pokémon del puesto 1 sobre ellas."""
+    dps_ref, kpm_ref = score["dpsRef"], score["kpmRef"]
+    formula = L.t("score_formula", dps=L.num(dps_ref), kpm=L.num(kpm_ref))
+    left = _curve(240, dps_ref, ex["dps"], ex["sDps"], 0, L.t("score_dps_axis"),
+                  L.t("score_dot", name=name, v=L.num(ex["dps"])), L.t("score_half", v=L.num(dps_ref)))
+    right = _curve(120, kpm_ref, ex["kpm"], ex["sKpm"], 400, L.t("score_kpm_axis"),
+                   L.t("score_dot", name=name, v=L.num(ex["kpm"])), L.t("score_half", v=L.num(kpm_ref)))
+    svg = f'<svg class="curves" viewBox="0 0 760 240" aria-hidden="true" focusable="false">{left}{right}</svg>'
+    line = L.t("score_ex", name=name, s=L.num(ex["seconds"]), dps=L.num(ex["dps"]), kpm=L.num(ex["kpm"]),
+               sd=L.dec(ex["sDps"], 2), sk=L.dec(ex["sKpm"], 2), score=L.num(ex["score"]))
+    body = f'<p class="formula">{esc(formula)}</p>{svg}<p class="fig-note">{esc(line)}</p>'
+    alt = L.t("score_alt", dps=L.num(dps_ref), kpm=L.num(kpm_ref))
+    return _figure("curves", L.t("score_title"), body, alt,
+                   L.t("score_lede", dps=L.num(dps_ref), kpm=L.num(kpm_ref)))
+
+
+def funnels(L: Lang, stages: dict[str, dict]) -> str:
+    """Cuántas aperturas y cuántos grupos prueba de media cada Pokémon antes de quedarse con uno."""
+    moves = [(L.t("fm_screen"), stages["start_screen"]["perSpecies"]),
+             (L.t("fm_refine"), stages["start_refine"]["perSpecies"]),
+             (L.t("fm_duel"), stages["move_duel"]["perSpecies"])]
+    groups = [(L.t("fm_screen"), stages["group_screen"]["perSpecies"]),
+              (L.t("fm_refine"), stages["group_refine"]["perSpecies"])]
+    duel = stages["move_duel"]
+    first = bars([(lbl, v, L.num(v)) for lbl, v in moves], L.t("fm_moves_title"),
+                 L.t("fm_moves_alt") + "; ".join(f"{lbl}, {v}" for lbl, v in moves) + ".", hot=2,
+                 lede=L.t("fm_moves_lede", species=L.num(duel["species"]), seeds=L.num(duel["seeds"])), kind="funnel")
+    refine = stages["group_refine"]
+    second = bars([(lbl, v, L.num(v)) for lbl, v in groups], L.t("fm_groups_title"),
+                  L.t("fm_groups_alt") + "; ".join(f"{lbl}, {v}" for lbl, v in groups) + ".", hot=1,
+                  lede=L.t("fm_groups_lede", per=L.num(refine["perSpecies"]), seeds=L.num(refine["seeds"])), kind="funnel")
+    return first + second
+
+
+def width_hist(L: Lang, width: dict) -> str:
+    """Cuántos Pokémon tienen cada ancho de margen entre el percentil 10 y el 90 de su puesto."""
+    counts, bw, med = width["counts"], width["binWidth"], width["median"]
+    pos = med / bw
+    ticks = [(p, str(p * bw)) for p in range(0, len(counts), 4)]
+    svg = _hist(counts, int(pos), ticks, (pos, L.t("width_median", n=med)))
+    body = svg + f'<p class="fig-note">{esc(L.t("width_axis"))}</p>'
+    alt = L.t("width_alt", n=med) + "; ".join(f"{p * bw} a {(p + 1) * bw}, {c}" for p, c in enumerate(counts) if c) + "."
+    return _figure("hist", L.t("width_title", w=med), body, alt, L.t("width_lede"))
+
+
+def tier_width(L: Lang, tier_w: dict[str, int]) -> str:
+    items = [(L.t("tier", t=t), tier_w[t], L.t("places_n", n=tier_w[t])) for t in TIERS]
+    return bars(items, L.t("tw_title"), L.t("tw_alt") + "; ".join(f"{t} {tier_w[t]}" for t in TIERS) + ".",
+                hot=None, lede=L.t("tw_lede", s=tier_w["S"], b=tier_w["B"]))
+
+
+def frontier(L: Lang, stats: dict) -> str:
+    """Cuántos Pokémon tienen su margen a caballo de un corte de tier."""
+    cuts = stats["straddle"]
+    items = [(L.t("front_label", a=c["from"], b=c["to"], edge=c["edge"]), c["count"], L.num(c["count"])) for c in cuts]
+    hot = max(range(len(cuts)), key=lambda i: cuts[i]["count"])
+    any_n = stats["straddleAny"]
+    lede = L.t("front_lede", n=L.num(any_n), total=L.num(TOTAL), pct=L.pct(any_n / TOTAL))
+    return bars(items, L.t("front_title"), L.t("front_alt") + "; ".join(f"{t}, {v}" for t, v, _ in items) + ".",
+                hot=hot, lede=lede)
 
 
 def _tier_strip_body(L: Lang, cuts: list[dict], marker: tuple[int, str] | None = None) -> str:

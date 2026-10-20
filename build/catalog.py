@@ -26,6 +26,7 @@ import credits as credits_mod  # noqa: E402
 import game_moves  # noqa: E402
 import gamestats  # noqa: E402
 import legal  # noqa: E402
+import method_stats  # noqa: E402
 import objetos  # noqa: E402
 import summaries  # noqa: E402
 import tiers  # noqa: E402
@@ -325,7 +326,7 @@ def build_meta(entries: list[dict], credits: dict, counts: dict) -> dict:
         "simSeeds": sim_seeds(),
         "top": [{"dex": e["dex"], "name": e["name"], "nameEn": e["nameEn"]} for e in top],
         "simMedianSeconds": round(statistics.median(e["r"]["sim"]["start"]["seconds"] for e in entries)),
-        "stability": build_stability(entries), "method": METHOD,
+        "stability": build_stability(entries), "method": METHOD, "methodStats": method_stats.compute(),
         "simRange": [min(sec for e in entries for sec in (e["r"]["sim"]["start"]["seconds"], e["r"]["sim"]["best"]["seconds"])),
                      max(sec for e in entries for sec in (e["r"]["sim"]["start"]["seconds"], e["r"]["sim"]["best"]["seconds"]))],
         "presets": [e["dex"] for name in PRESETS for e in entries if e["name"] == name],
