@@ -416,7 +416,11 @@ def main(argv: list[str] | None = None) -> int:
             print("ERROR " + e, file=sys.stderr)
         return 1
     if "--check" in argv:
-        print(f"builds: {len(rows)} filas válidas")
+        key = lambda r: (int(r["dex"]), r["build"], r["group"], str(r["seeds"]), r["source"])
+        if sorted(map(key, rows)) != sorted(map(key, _rows(OUT_CSV))):
+            print("ERROR data/builds.csv no es lo que dan hoy los CSV del simulador: python3 build/builds.py", file=sys.stderr)
+            return 1
+        print(f"builds: {len(rows)} filas válidas y al día")
     else:
         write_csv(rows)
         print(f"builds: {len(rows)} filas → {OUT_CSV.relative_to(ROOT)}")

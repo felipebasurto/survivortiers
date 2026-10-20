@@ -402,7 +402,7 @@ def browser_check(base: str, index: list[dict], args, err, notes: list[str]) -> 
                     src: document.querySelector('.ficha-sprite img').src,
                     build: { starts: [...document.querySelectorAll('#build .bd-opt .bd-row.is-start')].length,
                              startRows: document.querySelectorAll('#build .bd-start .bd-row.is-start').length,
-                             pills: document.querySelectorAll('#build .bd-pill.is-gold').length,
+                             pills: document.querySelectorAll('#build .bd-start .bd-pill.is-gold').length,
                              defense: document.querySelectorAll('#build .bd-def').length,
                              defenseRows: [...document.querySelectorAll('#build .bd-def .bd-rows')].map(u => u.children.length),
                              defenseTable: document.querySelectorAll('#build .bd-def table.bd-vs').length,

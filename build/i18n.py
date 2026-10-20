@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from decimal import ROUND_HALF_UP, Decimal
 
 NBSP = "\u00a0"
 GAME_NAME = "PokéSurvivor"
@@ -986,7 +987,7 @@ class Lang:
         return s if self.en else s.replace(",", ".")
 
     def dec(self, x: float, d: int = 1) -> str:
-        s = f"{x:.{d}f}"
+        s = str(Decimal(x).quantize(Decimal(1).scaleb(-d), rounding=ROUND_HALF_UP))
         return s if self.en else s.replace(".", ",")
 
     def date(self, iso: str) -> str:
