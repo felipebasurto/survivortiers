@@ -235,7 +235,7 @@ def start_hist(L: Lang, start: dict) -> str:
     alt = L.t("dur_alt", s=med, lo=start["min"], hi=start["max"])
     body = svg + f'<p class="fig-note">{esc(L.t("dur_axis"))}</p>'
     return _figure("hist", L.t("dur_title"), body, alt,
-                   L.t("dur_lede", lo=start["min"], hi=start["max"], cap=L.num(900)))
+                   L.t("dur_lede", lo=start["min"], hi=start["max"], cap=L.num(1800)))
 
 
 def _curve(xmax: int, ref: int, x: float, s: float, ox: int, axis: str, ex_label: str, half_label: str) -> str:

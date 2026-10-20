@@ -28,7 +28,6 @@ import landing  # noqa: E402
 import legal  # noqa: E402
 import novedades  # noqa: E402
 import objetos  # noqa: E402
-import pasivas  # noqa: E402
 import pack  # noqa: E402
 import planner  # noqa: E402
 import regions  # noqa: E402
@@ -55,7 +54,6 @@ NAV_TOP = [("index", "index.html", "nav_tiers"), ("ataques", "ataques.html", "na
            ("objetos", "objetos.html", "nav_objetos"), ("gachas", "gachas.html", "nav_gachas")]
 NAV_GROUPS = [
     ("nav_more", [("novedades", "novedades.html", "nav_novedades"), ("planificador", "@planner", "nav_planificador"),
-                  ("pasivas", "pasivas.html", "nav_pasivas"),
                   ("metodo", "metodo.html", "nav_metodo"), ("acerca", "acerca.html", "nav_acerca")]),
 ]
 NAV = NAV_TOP + [item for _, items in NAV_GROUPS for item in items]
@@ -346,7 +344,7 @@ def render_index(c: Ctx, pokemon: list[dict], meta: dict) -> str:
 FICHA_KEYS = (
     "crumb_home", "legendary", "stars_alt", "sprite_alt", "ficha_title", "ficha_desc", "flag_status", "flag_melee",
     "pager_aria", "dex_no", "tier", "f_missing", "t_band", "t_pillars", "t_methods", "t_sim",
-    "band_rank", "band_range", "band_alt", "t_learn", "learn_boosts", "t_build", "build_items", "build_cards", "build_card_once", "build_card_more",
+    "band_rank", "band_range", "band_alt", "t_learn", "learn_boosts", "t_build", "build_items",
     "build_share", "build_copied", "build_brand", "build_best_item", "bd_start_with", "build_default_start", "build_super", "build_neutral",
     "t_rank", "rank_how", "ficha_rank", "pill_stats", "pill_moves", "pill_typedef", "pill_size", "pillars_alt_item",
     "median", "m_sheet", "m_simStart", "m_simBest", "m_lateMax", "m_lateFresh", "methods_final", "methods_alt",
@@ -408,10 +406,10 @@ def render_ficha(c: Ctx, index: list[dict], meta: dict) -> str:
 
 
 def render_species(c: Ctx, entry: dict, detail: list, pair: dict, moves: dict, prev: dict | None, nxt: dict | None,
-                   odds: tuple[float, int], cards: dict, before: str, after: str, meta: dict, summary: str) -> str:
+                   odds: tuple[float, int], before: str, after: str, meta: dict, summary: str) -> str:
     L = c.L
     title, desc = static_ficha.head_texts(L, entry, pair, moves, charts.TOTAL)
-    html, ld = static_ficha.build(L, c.home, SPRITES, EXT, entry, detail, pair, moves, cards, prev, nxt, odds,
+    html, ld = static_ficha.build(L, c.home, SPRITES, EXT, entry, detail, pair, moves, prev, nxt, odds,
                                   summary=summary,
                                   guides=landing.guides_nav(L, c.home, types=entry["types"]),
                                   updated=meta["generatedAt"][:10], url=page_url(c), title=title)
@@ -554,13 +552,6 @@ def render_objetos(c: Ctx, meta: dict) -> str:
     content = objetos.items_content(L, L.t("obj_h1"), L.t("obj_lede"), L.t("obj_phases_h"), L.t("obj_table_h"))
     return page(c, "objetos", L.t("obj_title", site=legal.SITE_NAME),
                 L.t("obj_desc", game=legal.GAME_NAME), content, meta)
-
-
-def render_pasivas(c: Ctx, meta: dict) -> str:
-    L = c.L
-    content = pasivas.content(L, c.home)
-    return page(c, "pasivas", L.t("pv_title", site=legal.SITE_NAME),
-                L.t("pv_desc", game=legal.GAME_NAME), content, meta)
 
 
 GACHA_STARS = (5, 4, 4, 3, 3, 3, 2, 2, 1)  # estrellas de cada banner, del mejor al peor
@@ -829,7 +820,6 @@ def main() -> int:
         put("novedades.html", lambda c: render_novedades(c, meta))
         put("ataques.html", lambda c: render_ataques(c, moves, meta, unranked))
         put("objetos.html", lambda c: render_objetos(c, meta))
-        put("pasivas.html", lambda c: render_pasivas(c, meta))
         put("gachas.html", lambda c: render_gachas(c, gachas, index, meta))
         put("coleccion.html", lambda c: render_coleccion(c, gachas, index, meta))
         put("metodo.html", lambda c: render_metodo(c, index, meta))
@@ -847,7 +837,7 @@ def main() -> int:
             rel = f"pokemon/{species_path(entry['dex'], entry['nameEn'])}/index.html"
             summary = static_ficha.summary_plain(summaries[L.code][str(entry["dex"])])
             put(rel, lambda c, e=entry, dt=detail, d=pair, pv=prev, nx=nxt, b=before, a=after, s=summary:
-                render_species(c, e, dt, d, moves_by, pv, nx, odds[e["dex"]], species["cards"], b, a, meta, s))
+                render_species(c, e, dt, d, moves_by, pv, nx, odds[e["dex"]], b, a, meta, s))
     write("data/game-stats.json", json.dumps(gamestats.site_json(), ensure_ascii=False, separators=(",", ":")) + "\n")
     write("404.html", render_404(meta))
     share_image.save(SITE / "og.png")

@@ -10,10 +10,10 @@ is not a downside: collision radius is capped at 18, so `hb-`, `hb--` and `down:
 
   1. checks that the fact behind each key holds (thresholds below);
   2. scans the plain text with a lexicon (fast, slow, HP, hitbox, damage, types, tier letters, every move, item and
-     card name...). A word that states something must sit inside a mark whose key licenses it, so neither the
+     ...). A word that states something must sit inside a mark whose key licenses it, so neither the
      writer nor a hand edit can add an unsupported claim;
-  3. checks move, item and card names against the build the ficha shows now (start move, bonded group,
-     alternatives, best item, priority cards), in that language;
+  3. checks move and item names against the build the ficha shows now (start move, bonded group,
+     alternatives, best item), in that language;
   4. checks 2-3 sentences, the length, that Spanish and English carry the same keys, and that the facts hash
      stored with the text is the current one.
 
@@ -48,11 +48,11 @@ _VERBS = "sube|baja|frena|hunde|lastra|ayuda|castiga|penaliza|lleva|empuja|impul
 AGREE = re.compile(
     rf"\b(?:lo|la)\s+(?:(?:{_VERBS})\s+(?:sus|los|las)|(?:{'|'.join(v + 'n' for v in _VERBS.split('|'))})\s+(?:su|el|la|tener|cómo))\b",
     re.IGNORECASE)
-NAME_ROLES = ("m.start", "m.group", "m.alt", "i.best", "c.first")
+NAME_ROLES = ("m.start", "m.group", "m.alt", "i.best")
 
 
 def is_name(key: str) -> bool:
-    """Marks whose text is a move, item or card name. The best move as a rank driver is said by its name too."""
+    """Marks whose text is a move or item name. The best move as a rank driver is said by its name too."""
     head, _, ref = key.partition(":")
     return head in NAME_ROLES or (head in ("up", "down") and ref.split(":")[0] == "best_move")
 
@@ -135,8 +135,6 @@ def holds(key: str, f: dict) -> str | None:
         return None if ref in [m["id"] for m in b["alts"]] else f"{key}: no es un ataque opcional"
     if head == "i.best":
         return None if ref == b["item"]["id"] else f"{key}: el mejor objeto es {b['item']['id']}"
-    if head == "c.first":
-        return None if b["cards"] and ref == b["cards"][0]["id"] else f"{key}: no es la primera carta"
     if head in DRIVER_HEADS:
         factor, _, tier = ref.partition(":")
         if factor not in DIRECTION:
@@ -216,8 +214,6 @@ def names_in(f: dict, lang: str) -> dict[str, list[str]]:
     for m in b["alts"]:
         out.setdefault(m[lang], []).append("m.alt:" + m["id"])
     out.setdefault(b["item"][lang], []).append("i.best:" + b["item"]["id"])
-    if b["cards"]:
-        out.setdefault(b["cards"][0][lang], []).append("c.first:" + b["cards"][0]["id"])
     out.setdefault(b["best"][lang], []).extend(
         f"{d}:best_move" for d in ("up", "down"))
     return out
@@ -257,7 +253,7 @@ def validate(dex: str, entry: dict, f: dict, all_names: dict[str, set[str]]) -> 
             for m in re.finditer(rx, flat, flags):
                 key = owner(m.start())
                 if key and is_name(key):
-                    continue  # inside a move, item or card name; checked against the build below
+                    continue  # inside a move or item name; checked against the build below
                 if key is None or not ok(key):
                     errs.append(f"{lang}: «{m.group(0)}» sin dato que lo respalde ({key or 'fuera de marca'})")
                 elif re.fullmatch(r"[SABCD]", m.group(0)) and not key.endswith(":" + m.group(0)):
@@ -311,12 +307,11 @@ def coverage(keys: list[str], f: dict) -> list[str]:
 
 
 def all_build_names(facts: dict[str, dict]) -> dict[str, set[str]]:
-    """Names of every move, item and card any build uses, so a name from another species is caught too."""
+    """Names of every move and item any build uses, so a name from another species is caught too."""
     out = {"es": set(), "en": set()}
     for f in facts.values():
         for lang in out:
             out[lang].update(names_in(f, lang))
-            out[lang].update(c[lang] for c in f["build"]["cards"])
     return out
 
 
@@ -403,8 +398,6 @@ def claims(f: dict) -> list[dict]:
     named = [("m.start", b["start"], "start move of its best build")] + [("m.group", m, "bonded group move") for m in b["group"]]
     named += [("m.alt", m, "alternative move") for m in b["alts"]]
     named.append(("i.best", b["item"], "best item"))
-    if b["cards"]:
-        named.append(("c.first", b["cards"][0], "first card to pick"))
     for role, m, means in named:
         out.append({"key": f"{role}:{m['id']}", "means": means, "es": m["es"], "en": m["en"]})
     for head, up in (("up", True), ("down", False)):

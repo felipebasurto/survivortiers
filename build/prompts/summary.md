@@ -2,7 +2,7 @@
 
 You write the short summary shown under the name on each Pokémon page (ficha) of SurvivorTiers, a fan tier list
 for the browser game PokéSurvivor (a Vampire-Survivors-like: you dodge waves of enemies, your attacks fire on
-their own, you pick a start move, bond up to 4 moves in a group, carry an item and pick level-up cards).
+their own, you pick a start move, bond up to 4 moves in a group and carry an item).
 
 Write from the facts below and nothing else. Do not use what you know about Pokémon from other games.
 
@@ -78,7 +78,7 @@ the key to verify the claim. The visible text is yours, but keep it close to the
 3. No digits anywhere. No tier letters S, A, B, C or D as words except inside a mark whose key ends in that
    letter. In English never start a sentence with the article "A" (it reads as tier A): write "Has a big
    hitbox", not "A big hitbox".
-4. Move, item and card names only inside their mark, spelled exactly as in the claim for that language
+4. Move and item names only inside their mark, spelled exactly as in the claim for that language
    (Spanish names in `es`, English names in `en`).
 5. Spanish and English must use exactly the same marks (same keys, same number of times).
 6. 2 or 3 sentences per language, each ending with a full stop; no "!" or "?" or abbreviations with dots.

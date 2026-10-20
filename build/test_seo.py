@@ -87,7 +87,7 @@ class Method(unittest.TestCase):
 
     def test_method_numbers_come_from_the_code(self) -> None:
         from catalog import METHOD
-        self.assertEqual(METHOD["score"], {"dpsRef": 80, "kpmRef": 40, "capSeconds": 900})
+        self.assertEqual(METHOD["score"], {"dpsRef": 80, "kpmRef": 40, "capSeconds": 1800})
         stats_rs = (ROOT / "simulator" / "sim-rs" / "src" / "stats.rs").read_text(encoding="utf8")
         self.assertIn("const DPS_REF: f64 = 80.0;", stats_rs)
         self.assertIn("const KPM_REF: f64 = 40.0;", stats_rs)

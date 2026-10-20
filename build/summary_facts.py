@@ -5,8 +5,7 @@ records and check every summary against today's data. The rank drivers need nump
 build/facts_export.py, which adds them and writes data/facts.parquet.
 
 Each record has the game stats as percentiles of the 966, the hitbox (game body radius), types and how they
-match the enemy pool, the build the ficha shows first (its start move, bonded group, best item, priority
-cards), the tier and rank, and (from facts_export.py) the rank drivers.
+match the enemy pool, the build the ficha shows first (its start move, bonded group, best item), the tier and rank, and (from facts_export.py) the rank drivers.
 
 Game sources (JPTER78/pokesurvivor at legal.GAME_COMMIT, read only):
   hitbox   js/core/sprites.js playerRadius: collision radius is min(18, bodyRadius). bodyRadius is
@@ -28,15 +27,12 @@ import builds  # noqa: E402
 import catalog  # noqa: E402
 import combos  # noqa: E402
 import objetos  # noqa: E402
-import passives  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
 SIM = ROOT / "simulator" / "results" / "fixed_group"
 N = 966
 PILLARS = ("stats", "moves", "typedef", "size")
-CARD_EN = {"hp": "Vigor", "atk": "Power", "spd": "Sprint", "cd": "Reflexes", "def": "Armor", "rgn": "Synthesis",
-           "mag": "Magnet", "xp": "Learning"}
 
 
 def load_csv(path: Path) -> list[dict]:
@@ -93,10 +89,8 @@ def base_records() -> dict[str, dict]:
     # Boosts are in the game and in bonded groups, but the tier list only ranks attacks.
     for m in catalog.load_unranked():
         moves.setdefault(m["id"], m)
-    cards_es = {k: v["title"] for k, v in json.loads((DATA / "card_icons.json").read_text(encoding="utf8")).items()}
     combo = combos.compute_all({d: px[d]["types"] for d in dex_list}, {int(r["dex"]): r["best_move"] for r in rows})
     lead = {int(d): lead_build(pair) for d, pair in builds.public(builds.read_rows()).items()}
-    psim = passives.load()
     items = objetos.recommended()
 
     # sprites.js playerRadius. A body larger than 18 collides at 18, so it is not a bigger target.
@@ -120,7 +114,6 @@ def base_records() -> dict[str, dict]:
         p = px[d]
         c = combo[d]
         ids = lead[d]["moves"]
-        card_ids, n_evo = passives.compute(d, ids, psim)
         out[str(d)] = {
             "dex": d, "name": p["name"], "nameEn": r["name"], "types": p["types"],
             "tier": r["tier"], "rank": int(r["rank"]), "p10": int(r["rank_p10"]), "p90": int(r["rank_p90"]),
@@ -135,7 +128,6 @@ def base_records() -> dict[str, dict]:
                 "group": [name(m) for m in ids[1:]], "attacks": len(ids) - lead[d]["nBoost"],
                 "alts": [],
                 "item": {"id": items[0]["id"], "es": items[0]["name"][0], "en": items[0]["name"][1]},
-                "cards": [{"id": k, "es": cards_es[k], "en": CARD_EN[k]} for k in card_ids], "evoCards": n_evo,
             },
             "sim": {"startS": start_s[i], "noshopS": float(r["start_noshop_s"]),
                     "bestS": float(r["best_median_s"]), "medianStartS": med_start},

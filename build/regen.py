@@ -18,7 +18,7 @@ Smoke tests never publish. Point SURVIVOR_FIXED at a scratch folder and shrink t
     SURVIVOR_FIXED=/tmp/smoke/fixed python3 build/regen.py --sim --quick 16 --scope 1,94,25
 
 `--quick N` divides every seed count by N. `--scope` keeps the listed species in the group, build,
-counterfactual and passive stages. Publishing refuses to run on a folder other than the default.
+counterfactual and held-item stages. Publishing refuses to run on a folder other than the default.
 
 The order matters: the group search ranks partners from the solo sweep.
 
@@ -34,14 +34,9 @@ The order matters: the group search ranks partners from the solo sweep.
 10. build refine  the two best groups of each shape and build, 96 seeds
 11. rank          the ranking, from the stage outputs (make_definitive.py)
 12. counterfactuals  per-species counterfactuals behind the ficha summaries (counterfactual_bench.py)
-13. passive coins    card-priority runs for the passives page (card_priority.py)
+13. held items     every modelled held item on every build the ranking shows, against no item
 
-Not regenerated here: the 150-species passive table (simulator/pasivas_rank.py reads items_g2p2.csv,
-which is not in the repo; the species list has to be decided first).
-
-pokedex_export.json and game_stats.json are extracts of the game
-(`build/import_game_combat.py`, `build/export_game_stats.js`, both read the game repo at
-`legal.GAME_COMMIT`). move_tierlist_v4.csv is the analysis table; the rank does not read it.
+Every species, every build, every item: nothing is cut to a subset. The game runs to minute 30.
 """
 from __future__ import annotations
 
@@ -75,7 +70,6 @@ SOLO_REFINE_SEEDS = 128
 SOLO_REFINE_TOP = 3
 SOLO_SEED0 = 1000
 CONTEND_SEEDS = 512
-CONTEND_SPECIES = 120
 CONTEND_MOVES = 2
 CONTEND_SEED0 = 3000
 GROUP_REFINE_SEEDS = 96
@@ -83,11 +77,11 @@ GROUP_REFINE_PER_SHAPE = picks.REFINE_PER_SHAPE
 GROUP_SEED0 = 1000
 START_SEEDS = 16
 COUNTERFACTUAL_SEEDS = 200
-COIN_SEEDS = 100
 GATE_SAMPLE = 300
 GROUP_CHUNK = 25_000
 BUILD_CHUNK = 4_000
-COMMON = ["--seconds", "900", "--status", "--terrain", "--xkinds"]
+SECONDS = 1800  # the game ends at minute 30 (judgment.js AT); the engine runs the Sentencia from t = 1800
+COMMON = ["--seconds", str(SECONDS), "--status", "--terrain", "--xkinds"]
 
 SOLO_SCREEN = FIXED / "solo_screen.csv"
 SOLO_REFINE = FIXED / "solo_refine.csv"
@@ -104,8 +98,6 @@ BUILD_REFINE = FIXED / "builds" / "refine_new.csv"
 RANKING = FIXED / "ranking_definitive.csv"
 COUNTERFACTUAL_G2P2 = FIXED / "counterfactuals_g2p2.csv"
 COUNTERFACTUAL_SOLO = FIXED / "counterfactuals_solo.csv"
-PASSIVE_COINS = FIXED / "passives_coins_g2p2.csv"
-PASSIVE_JSON = FIXED / "passive_sim.json"
 MANIFEST = FIXED / "MANIFEST.json"
 
 SEED_DIV = 1
@@ -185,7 +177,7 @@ def solo_refine() -> None:
 
 def contenders() -> dict[int, list[dict]]:
     best = picks.best_moves(picks.load_rows(SOLO_REFINE))
-    top = sorted(best.values(), key=lambda r: picks.move_order(r))[:CONTEND_SPECIES]
+    top = sorted(best.values(), key=lambda r: picks.move_order(r))  # every species, no cut
     by_dex = picks.shortlist_moves(picks.load_rows(SOLO_REFINE), CONTEND_MOVES)
     return {int(r["dex"]): by_dex[int(r["dex"])] for r in top}
 
@@ -229,7 +221,7 @@ def group_gate() -> None:
     gate = FIXED / "gate"
     only = write_only(gate / "sample.txt", sample)
     generator, explicit = gate / "generator.csv", gate / "explicit.csv"
-    common = ["--seeds", str(seeds(SCREEN_SEEDS)), "--seconds", "900", "--partners", rel(SOLO_SCREEN),
+    common = ["--seeds", str(seeds(SCREEN_SEEDS)), "--seconds", str(SECONDS), "--partners", rel(SOLO_SCREEN),
               "--only", rel(only)]
     pokesim("synergy", *common, "--out", rel(generator))
     pokesim("synergy", "--explicit", *common, "--out", rel(explicit))
@@ -253,7 +245,7 @@ def group_screen() -> None:
             continue
         only = write_only(part.with_suffix(".txt"), keys[i:i + GROUP_CHUNK])
         tmp = part.with_suffix(".tmp")
-        pokesim("synergy", "--explicit", "--seeds", str(seeds(SCREEN_SEEDS)), "--seconds", "900",
+        pokesim("synergy", "--explicit", "--seeds", str(seeds(SCREEN_SEEDS)), "--seconds", str(SECONDS),
                 "--partners", rel(SOLO_SCREEN), "--only", rel(only), "--out", rel(tmp))
         tmp.replace(part)
     merged = merge_csv(parts, GROUP_SCREEN)
@@ -265,7 +257,7 @@ def group_refine() -> None:
     short = picks.shortlist_groups(picks.load_rows(GROUP_SCREEN), GROUP_REFINE_PER_SHAPE)
     only = write_only(FIXED / "group_refine_only.txt", [f"{d}|{r['group']}" for d, rows in short.items() for r in rows])
     pokesim("synergy", "--explicit", "--seeds", str(seeds(GROUP_REFINE_SEEDS)), "--seed0", str(GROUP_SEED0),
-            "--seconds", "900", "--partners", rel(SOLO_SCREEN), "--only", rel(only), "--out", rel(GROUP_SEARCH))
+            "--seconds", str(SECONDS), "--partners", rel(SOLO_SCREEN), "--only", rel(only), "--out", rel(GROUP_SEARCH))
 
 
 def start_sweep() -> None:
@@ -298,7 +290,7 @@ def build_screen() -> None:
             continue
         only = builds.write_only(chunks / f"{n:03d}.txt", keys[i:i + BUILD_CHUNK])
         tmp = part.with_suffix(".tmp")
-        pokesim("synergy", "--explicit", "--seeds", str(seeds(builds.SCREEN_SEEDS)), "--seconds", "900",
+        pokesim("synergy", "--explicit", "--seeds", str(seeds(builds.SCREEN_SEEDS)), "--seconds", str(SECONDS),
                 "--partners", rel(SOLO_SCREEN), "--only", rel(only), "--out", rel(tmp))
         tmp.replace(part)
     merge_csv(parts, BUILD_SCREEN)
@@ -309,7 +301,7 @@ def build_refine() -> None:
     short = builds.shortlist(builds.screen_rows())
     only = builds.write_only(FIXED / "builds" / "refine_only.txt", builds.missing_refine(short))
     pokesim("synergy", "--explicit", "--seeds", str(seeds(builds.REFINE_SEEDS)), "--seed0", str(builds.REFINE_SEED0),
-            "--seconds", "900", "--partners", rel(SOLO_SCREEN), "--only", rel(only), "--out", rel(BUILD_REFINE))
+            "--seconds", str(SECONDS), "--partners", rel(SOLO_SCREEN), "--only", rel(only), "--out", rel(BUILD_REFINE))
 
 
 def merge_csv(parts: list[Path], out: Path) -> int:
@@ -325,7 +317,7 @@ def merge_csv(parts: list[Path], out: Path) -> int:
     return len(lines)
 
 
-# ---- ranking, counterfactuals and passives ----------------------------------------------------
+# ---- ranking and counterfactuals ----------------------------------------------------
 
 def rank() -> None:
     """make_definitive.py on the stage outputs, into FIXED (publishing copies it to data/)."""
@@ -355,22 +347,40 @@ def line_in_scope(line: str) -> bool:
     return not head.isdigit() or in_scope(int(head))
 
 
-def passive_coins() -> None:
-    """Card-priority runs (card_priority.py tasks), then the order that the passives page reads."""
-    tasks = FIXED / "passives" / "coin_tasks.txt"
-    tasks.parent.mkdir(parents=True, exist_ok=True)
-    subprocess.run([sys.executable, str(SIM / "card_priority.py"), "tasks", str(tasks)], cwd=SIM, check=True)
-    lines = [line for line in tasks.read_text(encoding="utf8").splitlines() if line_in_scope(line)]
-    tasks.write_text("".join(line + "\n" for line in lines), encoding="utf8")
-    tmp = PASSIVE_COINS.with_suffix(".tmp")
-    pokesim("tasks", rel(tasks), "--group", "2+2", "--terrain", "--status", "--full-cards", "--heal-below", "0.70",
-            "--partners", rel(SOLO_SWEEP), "--seeds", str(seeds(COIN_SEEDS)), "--out", rel(tmp))
-    tmp.replace(PASSIVE_COINS)
-    if SCOPE:
-        print("   passive order skipped: it needs all 966 species, and --scope is set", flush=True)
-        return
-    subprocess.run([sys.executable, str(SIM / "card_priority.py"), "order", str(PASSIVE_COINS), str(PASSIVE_JSON)],
-                   cwd=SIM, check=True)
+# ---- held items --------------------------------------------------------------------------------
+
+# The game's held items that the engine models. amuletcoin is in the game but not in the engine:
+# its effect is coins, and the score does not count coins. It is reported as not tested, not as 0.
+ITEMS = ("choiceband", "lifeorb", "quickclaw", "choicescarf", "assaultvest",
+         "leftovers", "luckyegg", "shellbell", "rockyhelmet", "focussash")
+ITEM_HEADER = ["dex", "name", "group", "item", "none_score", "item_score", "delta", "none_s", "item_s"]
+
+
+def items() -> None:
+    """Every modelled held item on every build the ranking shows (builds.finals), against no item, on the
+    seeds of the build refine, so each difference is paired. Then the paired deltas."""
+    chosen = builds.finals()
+    keys = sorted({f"{dex}|{row['group']}" for (dex, _), row in chosen.items() if in_scope(dex)})
+    only = write_only(FIXED / "items" / "keys.txt", keys)
+    for item in ("none", *ITEMS):
+        out = FIXED / "items" / f"{item}.csv"
+        if out.exists():
+            continue
+        tmp = out.with_suffix(".tmp")
+        pokesim("synergy", "--explicit", "--item", item, "--seeds", str(seeds(builds.REFINE_SEEDS)),
+                "--seed0", str(builds.REFINE_SEED0), "--seconds", str(SECONDS), "--partners", rel(SOLO_SCREEN),
+                "--only", rel(only), "--out", rel(tmp))
+        tmp.replace(out)
+    base = {(r["dex"], r["group"]): r for r in picks.load_rows(FIXED / "items" / "none.csv")}
+    rows = []
+    for item in ITEMS:
+        for r in picks.load_rows(FIXED / "items" / f"{item}.csv"):
+            b = base[(r["dex"], r["group"])]
+            rows.append({"dex": r["dex"], "name": r["name"], "group": r["group"], "item": item,
+                         "none_score": b["median_score"], "item_score": r["median_score"],
+                         "delta": f"{float(r['median_score']) - float(b['median_score']):.3f}",
+                         "none_s": b["median_s"], "item_s": r["median_s"]})
+    write_rows(FIXED / "items" / "delta.csv", ITEM_HEADER, rows)
 
 
 # ---- stage table, manifest and run -----------------------------------------------------------
@@ -388,7 +398,7 @@ STAGES = (
     ("build_refine", BUILD_REFINE, build_refine),
     ("rank", RANKING, rank),
     ("counterfactuals", COUNTERFACTUAL_G2P2, counterfactuals),
-    ("passive_coins", PASSIVE_JSON, passive_coins),
+    ("items", FIXED / "items" / "delta.csv", items),
 )
 
 
@@ -425,7 +435,7 @@ def write_manifest(stage_times: dict[str, float], done: list[str]) -> None:
         "run": {"quick": SEED_DIV, "scope": sorted(SCOPE) if SCOPE else None, "results": str(FIXED)},
         "seeds": {"screen": seeds(SCREEN_SEEDS), "solo_refine": seeds(SOLO_REFINE_SEEDS), "contend": seeds(CONTEND_SEEDS),
                   "group_refine": seeds(GROUP_REFINE_SEEDS), "start": seeds(START_SEEDS),
-                  "counterfactuals": seeds(COUNTERFACTUAL_SEEDS), "coins": seeds(COIN_SEEDS),
+                  "counterfactuals": seeds(COUNTERFACTUAL_SEEDS), 
                   "build_screen": seeds(builds.SCREEN_SEEDS), "build_refine": seeds(builds.REFINE_SEEDS)},
         "stage_seconds": stage_times,
         "stages_done": done,
@@ -495,8 +505,6 @@ def publish() -> None:
     print(f"wrote {ranking}")
     if builds.main([]):
         raise SystemExit("data/builds.csv: una fila no cumple las reglas de build")
-    if PASSIVE_JSON.exists():
-        (ROOT / "data" / "passive_sim.json").write_text(PASSIVE_JSON.read_text(encoding="utf8"), encoding="utf8")
 
 
 def facts() -> None:
@@ -513,7 +521,7 @@ def main() -> None:
     parser.add_argument("--force", action="store_true", help="With --sim: rerun stages whose output exists.")
     parser.add_argument("--quick", type=int, default=1, help="With --sim: divide every seed count by N (smoke tests).")
     parser.add_argument("--scope", default=None, help="With --sim: comma-separated dex numbers to keep in the group, "
-                                                     "build, counterfactual and passive stages.")
+                                                     "build, counterfactual and item stages.")
     parser.add_argument("--facts", action="store_true", help="Rewrite facts.parquet and the summaries that no longer match.")
     args = parser.parse_args()
     SEED_DIV = max(1, args.quick)

@@ -25,7 +25,6 @@ import sys
 from functools import lru_cache
 from pathlib import Path
 
-import passives
 import picks
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -44,7 +43,7 @@ FOURTH = ("harden", "agility")
 SCREEN_SEEDS = 16
 REFINE_SEEDS = 96
 REFINE_SEED0 = 1000
-SEARCH_SECONDS = 900
+SEARCH_SECONDS = 1800
 REFINE_PER_SHAPE = picks.REFINE_PER_SHAPE
 CSV_FIELDS = ["dex", "name", "build", "group", "median_s", "mean_s", "median_kills", "median_dealt",
               "median_score", "mean_score", "score_lo", "score_hi", "seeds"]
@@ -257,8 +256,7 @@ def violations(dex: int, build: str, group: str) -> list[str]:
 
 def public(rows: list[dict]) -> dict[str, dict]:
     """El JSON que lee la ficha (species.json, clave builds): dex -> {melee|ranged: {moves, nBoost, time, dealt,
-    kills, score, cards}}. Las cartas son la prioridad de build/passives.py para ese grupo."""
-    psim = passives.load()
+    kills, score}}."""
     out: dict[str, dict] = {}
     for r in rows:
         dex = int(r["dex"])
@@ -266,8 +264,7 @@ def public(rows: list[dict]) -> dict[str, dict]:
         out.setdefault(str(dex), {})[r["build"]] = {
             "moves": moves, "nBoost": n_boost,
             "time": round(float(r["median_s"]), 1), "dealt": round(float(r["median_dealt"])),
-            "kills": round(float(r["median_kills"]), 1), "score": round(float(r["median_score"]), 2),
-            "cards": passives.priority(dex, moves, psim)}
+            "kills": round(float(r["median_kills"]), 1), "score": round(float(r["median_score"]), 2)}
     return out
 
 

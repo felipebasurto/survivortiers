@@ -13,7 +13,7 @@
 //!   ... -- mapcheck <seed> [half]
 //!       terrain digest; must match `node sim-rs/mapcheck.js <game repo> <seed> [half]`
 //!
-//! Options: --seeds N (200) --seconds S (900) --bot repulse|line|kite --lvl1 --dodge F
+//! Options: --seeds N (200) --seconds S (1800, minute 30) --parity --lvl1 --dodge F
 //!          --terrain  play on the real map (walls, props, liquids, pathing)
 //!          --status   model slow, burn and poison with the game's values (enemy.js); moves the
 //!                     sim never fires keep status_ignored=1
@@ -94,7 +94,7 @@ struct Cfg {
 }
 
 fn parse(args: &[String]) -> Cfg {
-    let mut c = Cfg { seeds: 200, seconds: 900.0, bot: Bot::Repulse, cards: true, terrain: true, status: true, out: None, group: 0, dd: false, np: false, agi: false, xkinds: true, legacy: false, item: "none".into(), fill: vec![], buffs: None, atk_buff: None, comps: None, swap: false, crit: 0.0, full_cards: false, stop: 0, heal_below: 0.0, dodge: 0.0, locks: vec![], synergy: false, no_synergy: false, seed0: 0, count: false, list: false, only: None, explicit: false, parity: false, rest: vec![] };
+    let mut c = Cfg { seeds: 200, seconds: 1800.0, bot: Bot::Play, cards: true, terrain: true, status: true, out: None, group: 0, dd: false, np: false, agi: false, xkinds: true, legacy: false, item: "none".into(), fill: vec![], buffs: None, atk_buff: None, comps: None, swap: false, crit: 0.0, full_cards: false, stop: 0, heal_below: 0.0, dodge: 0.0, locks: vec![], synergy: false, no_synergy: false, seed0: 0, count: false, list: false, only: None, explicit: false, parity: false, rest: vec![] };
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {

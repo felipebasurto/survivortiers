@@ -16,7 +16,6 @@ simulator/results/**/*_out/
 simulator/results/**/group_screen_parts/
 simulator/results/**/screen_chunks/
 simulator/results/**/gate/
-simulator/results/**/passives/
 simulator/results/**/counterfactuals/
 simulator/results/**/*_only.txt
 simulator/results/**/*.tmp

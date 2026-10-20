@@ -1563,7 +1563,7 @@ struct Match<'a, M: MathFns> {
     g_spec: f64,
     /// bond_order members the level-up cards have already offered (levelup.js). Starter is not here.
     learned: Vec<bool>,
-    /// Sentencia is running (judgment.js). The published window ends at 900 s, before minute 30.
+    /// Sentencia is running (judgment.js). The ranking window runs to minute 30 (1800 s).
     judging: bool,
     jd_t: f64,
     jd_boss_t: f64,
@@ -2003,7 +2003,7 @@ impl<'a, M: MathFns> Match<'a, M> {
 
     // ------------------------------------------------ cards
 
-    /// levelup.js `max`. Vigor and Síntesis have none; the ranking path stops at 250, which a 900 s
+    /// levelup.js `max`. Vigor and Síntesis have none; the ranking path stops at 250, which a 1800 s
     /// run cannot reach. Parity keeps the old caps (hp 99, rgn 10).
     fn stat_cap(&self, st: Stat) -> u32 {
         if let Some(&(_, n)) = self.opts.ext.locks.iter().find(|(k, _)| *k == st as u8) {
@@ -3590,7 +3590,7 @@ impl<'a, M: MathFns> Match<'a, M> {
         top.iter().sum::<f64>() / top.len() as f64
     }
 
-    /// judgment.js fight(). The map is stashed and nothing else spawns. Published runs stop at 900 s,
+    /// judgment.js fight(). The map is stashed and nothing else spawns. Ranking runs stop at 1800 s,
     /// so this only changes a match that is allowed to pass minute 30.
     fn begin_judgment(&mut self) {
         self.judging = true;

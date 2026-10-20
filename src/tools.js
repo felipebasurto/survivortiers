@@ -107,15 +107,6 @@
     return out;
   }
 
-  // Cuatro cartas del planificador: las primeras de la lista por prioridad (d[10][0]), y la que evoluciona el ataque
-  // principal (d[10][1]) siempre dentro, en su sitio de la lista.
-  function plannerCards(prio) {
-    const [order, gate] = prio;
-    const top = order.slice(0, PLAN_SLOTS);
-    const picks = gate && !top.includes(gate) ? order.slice(0, PLAN_SLOTS - 1).concat(gate) : top;
-    return order.filter(id => picks.includes(id));
-  }
-
   // Build recomendada: la de mayor puntuación entre las dos que publica build/builds.py (cuerpo a cuerpo y a distancia).
   // Sin ninguna, el grupo de build/combos.py.
   function publishedBuilds(species, dex) {
@@ -130,18 +121,16 @@
     return {
       group: group.concat(Array(PLAN_SLOTS - group.length).fill(null)),
       item: species.items[0] ? species.items[0].id : null,
-      cards: plannerCards(top ? top.cards : d[10]).concat(Array(PLAN_SLOTS).fill(null)).slice(0, PLAN_SLOTS),
     };
   }
 
-  const PARAM = { dex: 'p', group: 'g', item: 'o', cards: 'c' };
+  const PARAM = { dex: 'p', group: 'g', item: 'o' };
 
   function encodeState(st) {
     const q = new URLSearchParams();
     q.set(PARAM.dex, String(st.dex));
     q.set(PARAM.group, st.group.map(x => x || '-').join(','));
     q.set(PARAM.item, st.item || '-');
-    q.set(PARAM.cards, st.cards.map(x => x || '-').join(','));
     return q.toString();
   }
 
@@ -172,14 +161,12 @@
     }
     const itemId = q.get(PARAM.item);
     const itemOk = itemId && itemId !== '-' && species.items.some(i => i.id === itemId);
-    const cardIds = Object.keys(species.cards);
-    const cards = (q.get(PARAM.cards) || '').split(',').slice(0, PLAN_SLOTS).map(id => (id && id !== '-' && cardIds.includes(id) ? id : null));
     const fill = (arr) => arr.concat(Array(PLAN_SLOTS).fill(null)).slice(0, PLAN_SLOTS);
-    return { dex: start, group: fill(group), item: itemOk ? itemId : null, cards: fill(cards), fromUrl: known };
+    return { dex: start, group: fill(group), item: itemOk ? itemId : null, fromUrl: known };
   }
 
   const toolsApi = {
-    slugOf, comboMult, weaknessMap, groupWeak, sideOf, poolOf, coverage, boostWarnings, recommended, plannerCards,
+    slugOf, comboMult, weaknessMap, groupWeak, sideOf, poolOf, coverage, boostWarnings, recommended,
     encodeState, decodeState, attackTypesOf, boostsOf, attacksOf, rnd, SUPER, NEUTRAL, PLAN_SLOTS, BOOST_CAP,
   };
 
@@ -339,7 +326,6 @@
     const monBox = document.getElementById('bp-mon');
     const slotsBox = document.getElementById('bp-slots');
     const itemSel = document.getElementById('bp-item');
-    const cardsBox = document.getElementById('bp-cards');
     const warnBox = document.getElementById('bp-warn');
     const result = document.getElementById('bp-result');
     const byDex = new Map(index.map(p => [p.dex, p]));
@@ -422,21 +408,6 @@
         esc(EN ? it.en.name : it.name) + (i === 0 ? ' · ' + esc(t('bp_item_best')) : '') + '</option>').join('');
     }
 
-    function renderCards() {
-      const cardList = Object.values(species.cards);
-      const [order, gate] = species.d[String(st.dex)][10];
-      const cardName = id => EN ? species.cards[id].en.name : species.cards[id].name;
-      cardsBox.innerHTML = st.cards.map((id, i) =>
-        '<label class="bp-card"><span class="bp-slot-n">' + esc(t('bp_card_n', { n: i + 1 })) + '</span>' +
-        '<select class="bp-select" data-card="' + i + '"><option value="">' + esc(t('bp_card_none')) + '</option>' +
-        cardList.map(c => '<option value="' + c.id.replace('card:', '') + '"' +
-          (id === c.id.replace('card:', '') ? ' selected' : '') + '>' + esc(EN ? c.en.name : c.name) + '</option>').join('') +
-        '</select></label>').join('') +
-        '<p class="tool-rule bp-cardorder">' + esc(t('bp_cards_all')) + ': ' +
-        order.map((id, i) => (i + 1) + '. ' + esc(cardName(id)) + (id === gate ? ' 1×' : '')).join(' · ') + '</p>' +
-        '<p class="tool-rule">' + esc(t('build_card_hint')) + (gate ? ' ' + esc(t('build_card_once')) : '') + '</p>';
-    }
-
     function renderMon() {
       const p = byDex.get(st.dex);
       const [pa, sa] = game.dex[String(p.dex)];
@@ -474,7 +445,6 @@
         '<span class="bp-chip-ico">' + (game.moves[id].i ? iconSvg(game.moves[id].i, 'tl-ico') : '') + '</span>' +
         '<span class="bp-chip-txt">' + esc(moveName(game, id)) + '<small>' + esc(catLabel(game, id)) + '</small></span></li>';
       const itemObj = species.items.find(i => i.id === st.item);
-      const cards = st.cards.filter(Boolean).map(id => species.cards[id]).filter(Boolean);
       const link = location.href;
       const coverLine = attacks.length
         ? t('bp_cover', { super: cov.super + '%', neutral: cov.neutral + '%' })
@@ -483,7 +453,6 @@
         '<p class="bp-result-who">' + esc(monName(p)) + ' <small>#' + p.dex + '</small></p>' +
         '<p class="bp-sub">' + esc(t('bp_group_h')) + '</p><ul class="bp-chips">' + attacks.map(chipOf).join('') + boosts.map(chipOf).join('') + '</ul>' +
         '<p class="bp-sub">' + esc(t('bp_item_h')) + '</p><p class="bp-line">' + (itemObj ? esc(EN ? itemObj.en.name : itemObj.name) : esc(t('bp_item_none'))) + '</p>' +
-        '<p class="bp-sub">' + esc(t('bp_cards_h')) + '</p><ol class="bp-cardlist">' + cards.map(c => '<li>' + esc(EN ? c.en.name : c.name) + '</li>').join('') + '</ol>' +
         '<p class="bp-line">' + esc(coverLine) + '</p>' +
         '<div class="bp-share"><label class="sr" for="bp-link">' + esc(t('bp_link')) + '</label>' +
         '<input id="bp-link" class="bp-link" readonly value="' + esc(link) + '">' +
@@ -506,14 +475,13 @@
 
     function recommendedState(dex) {
       const rec = recommended(dex, species);
-      return { dex, group: rec.group, item: rec.item, cards: rec.cards };
+      return { dex, group: rec.group, item: rec.item };
     }
 
     function renderAll() {
       renderMon();
       renderSlots();
       renderItems();
-      renderCards();
       renderWarnings();
       renderResult();
       itemSel.value = st.item || '';
@@ -544,12 +512,6 @@
     });
     itemSel.addEventListener('change', () => {
       st.item = itemSel.value || null;
-      writeUrl();
-      renderResult();
-    });
-    cardsBox.addEventListener('change', e => {
-      const i = Number(e.target.dataset.card);
-      st.cards[i] = e.target.value || null;
       writeUrl();
       renderResult();
     });

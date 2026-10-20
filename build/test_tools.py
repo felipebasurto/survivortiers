@@ -21,7 +21,6 @@ sys.path.insert(0, str(HERE))
 import sitefixture  # noqa: E402
 import finder  # noqa: E402
 import gamestats  # noqa: E402
-import pasivas  # noqa: E402
 import planner  # noqa: E402
 import repertorio  # noqa: E402
 import slugs  # noqa: E402
@@ -125,13 +124,6 @@ class ToolsHtmlTest(unittest.TestCase):
             self.assertNotIn("<li>", html)
             self.assertNotIn("rep-warn", html)
 
-    def test_boost_table_uses_game_values(self):
-        html = pasivas._boosts(ES, "../")
-        self.assertIn('id="potenciadores"', html)
-        self.assertIn("Danza Espada", html)
-        self.assertIn("+13\u00a0%", html)
-        self.assertIn(gamestats.COMMIT, html)
-
     def test_tool_folders_match_between_languages(self):
         self.assertEqual(toolpages.twin(ES, "finder"), "type-finder/index.html")
         self.assertEqual(toolpages.twin(EN, "planner"), "planificador-build/index.html")
@@ -148,7 +140,7 @@ class ToolsHtmlTest(unittest.TestCase):
 
     def test_planner_page_has_targets_for_script(self):
         html = planner.content(EN)
-        for hook in ('id="bp-app"', 'id="bp-q"', 'id="bp-slots"', 'id="bp-item"', 'id="bp-cards"', 'id="bp-warn"',
+        for hook in ('id="bp-app"', 'id="bp-q"', 'id="bp-slots"', 'id="bp-item"', 'id="bp-warn"',
                      'id="bp-result"', 'id="bp-boostcount"', 'id="bp-list"'):
             self.assertIn(hook, html)
         self.assertIn('id="bp-app" hidden', html)

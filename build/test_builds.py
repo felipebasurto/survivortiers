@@ -119,8 +119,8 @@ class Text(unittest.TestCase):
         self.assertEqual(static_ficha._verdict(ES, "melee", win, None, "melee"), "")
 
     def test_missing_build_renders_nothing(self) -> None:
-        self.assertEqual(static_ficha._build_option(ES, {}, {}, "melee", None, None, None), "")
-        self.assertEqual(static_ficha._build_option(EN, {}, {}, "ranged", None, None, None), "")
+        self.assertEqual(static_ficha._build_option(ES, {}, "melee", None, None, None), "")
+        self.assertEqual(static_ficha._build_option(EN, {}, "ranged", None, None, None), "")
 
 
 class FichaBuildLayout(unittest.TestCase):

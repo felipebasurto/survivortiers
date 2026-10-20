@@ -162,10 +162,10 @@ SECTIONS = SECTIONS_19 + [
             ("Danza Espada y Danza Dragón solo suben el ataque físico. Maquinación, nueva, sube solo el especial y "
              "la puede aprender cualquier Pokémon. Las tres son potenciadores: no hacen daño y duran 7 s. Las dos danzas "
              "comparten contador, así que no se suman. Con dos potenciadores, las cartas de movimiento nuevo ya no "
-             "ofrecen más. Los detalles están en Pasivas.",
+             "ofrecen más.",
              "Swords Dance and Dragon Dance now raise only physical attack. Nasty Plot, new, raises only special attack, "
              "and any Pokémon can learn it. All three are boosts: they deal no damage and last 7 s. The two dances share "
-             "a counter, so they don't add up. With two boosts, new-move cards stop offering more. Details are in Passives."),
+             "a counter, so they don't add up. With two boosts, new-move cards stop offering more."),
         ],
     },
     {

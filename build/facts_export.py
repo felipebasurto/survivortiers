@@ -192,7 +192,7 @@ def table(recs: dict[str, dict]) -> pa.Table:
         "dex", "name", "name_en", "types", "tier", "rank", "rank_p10", "rank_p90",
         "speed_pct", "hp_pct", "attack_pct", "hitbox_r", "hitbox_median", "hitbox_smaller_pct",
         "typedef_pct", "super_pct", "attack_types",
-        "start_move", "best_move", "group", "alts", "item", "cards",
+        "start_move", "best_move", "group", "alts", "item",
         "drivers_up", "drivers_down", "claims", "record", "fp", "bfp")}
     for d, f in sorted(recs.items(), key=lambda kv: int(kv[0])):
         b = f["build"]
@@ -206,7 +206,7 @@ def table(recs: dict[str, dict]) -> pa.Table:
                 ("attack_types", f["matchup"]["attackTypes"]),
                 ("start_move", b["start"]["en"]), ("best_move", b["best"]["en"]),
                 ("group", [m["en"] for m in b["group"]]), ("alts", [m["en"] for m in b["alts"]]),
-                ("item", b["item"]["en"]), ("cards", [c["en"] for c in b["cards"]]),
+                ("item", b["item"]["en"]),
                 ("drivers_up", summaries.ranked_drivers(f, True)), ("drivers_down", summaries.ranked_drivers(f, False)),
                 ("claims", json.dumps(summaries.claims(f), ensure_ascii=False)),
                 ("record", json.dumps(f, ensure_ascii=False, sort_keys=True)),
