@@ -441,6 +441,7 @@ def browser_check(base: str, index: list[dict], args, err, notes: list[str]) -> 
 
 
 THEME_LIGHT, THEME_DARK = "#f6f0dc", "#1b1528"
+PNG_OK = ("og.png", "apple-touch-icon.png")
 THEME_PAGES = ("", "novedades.html", "coleccion.html", "pokemon/25-pikachu/", "metodo.html", "ataques.html", "pasivas.html", "en/", "en/novedades.html", "en/pokemon/25-pikachu/", "en/coleccion.html", "en/pasivas.html")
 THEME_STATE_JS = """() => ({
     theme: document.documentElement.dataset.theme || null,
@@ -866,8 +867,8 @@ def main() -> int:
         notes.append(f"site/: {len(files)} archivos, {total / 1e6:.2f} MB")
         if len(files) > MAX_FILES or total > MAX_BYTES:
             err(f"site/ se pasa del presupuesto ({len(files)} archivos, {total / 1e6:.1f} MB; máximo {MAX_FILES} y {MAX_BYTES / 1e6:.0f} MB)")
-        if any(f.suffix == ".png" and f.name != "og.png" for f in files):
-            err("site/ lleva PNG: los sprites tienen que salir del CDN (og.png es la excepción: la imagen para compartir)")
+        if any(f.suffix == ".png" and f.name not in PNG_OK for f in files):
+            err("site/ lleva PNG: los sprites tienen que salir del CDN (og.png y apple-touch-icon.png son la excepción)")
 
     # ataques: barras en cada ataque y nada de jerga sin explicar
     rows_expected = len(moves)  # una barra por ataque; los potenciadores no tienen puesto ni barra

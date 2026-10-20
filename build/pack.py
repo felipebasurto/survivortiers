@@ -12,6 +12,7 @@ import shutil
 from pathlib import Path
 
 JS_FILES = ("share.js", "collection.js", "app.js", "ficha.js", "tools.js")
+BRAND_FILES = ("mark.svg", "favicon.ico", "apple-touch-icon.png")
 FONT_FILES = ("PixelifySans.ttf", "OFL.txt", "ZenKakuGothicNew-400.woff2", "ZenKakuGothicNew-500.woff2",
               "ZenKakuGothicNew-700.woff2", "ZenKakuGothicNew-OFL.txt")
 STRING = re.compile(r'"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'')
@@ -63,6 +64,8 @@ def build(src: Path, site: Path, public: Path) -> str:
     (site / "data").mkdir(exist_ok=True)
     for f in sorted(public.glob("*.json")):
         shutil.copy2(f, site / "data" / f.name)
+    for name in BRAND_FILES:
+        shutil.copy2(src / "brand" / name, site / name)
     shutil.copy2(src / "_headers", site / "_headers")
     for key in sorted(src.glob("*.txt")):
         if re.fullmatch(r"[0-9a-f]{32}", key.stem):

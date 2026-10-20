@@ -102,7 +102,8 @@ img.px { image-rendering: pixelated; image-rendering: crisp-edges; }
 /* ---------- cabecera y pie ---------- */
 .top { border-bottom: 1px solid var(--rule); }
 .top .wrap { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 32px; padding-block: 18px 14px; }
-.brand { color: var(--ink); font: 700 1.4rem/1 var(--pix); text-decoration: none; letter-spacing: -.01em; }
+.brand { color: var(--ink); font: 700 1.4rem/1 var(--pix); text-decoration: none; letter-spacing: -.01em; display: inline-flex; align-items: center; gap: .5rem; }
+.brand-mark { width: 30px; height: 30px; flex: none; image-rendering: pixelated; }
 .brand b { color: var(--accent); }
 .nav { display: flex; flex-wrap: wrap; gap: 4px 22px; margin-left: auto; font: 500 .9rem var(--sans); }
 .nav a { color: var(--ink-2); text-decoration: none; padding-block: 4px; border-bottom: 2px solid transparent; }

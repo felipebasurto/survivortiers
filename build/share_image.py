@@ -1,6 +1,6 @@
 """Imagen para compartir (og:image y twitter:image), 1200 × 630, en build/assets/og.png.
 
-Se dibuja con la fuente pixel del sitio (src/fonts, OFL) y las primeras fichas S del ranking, como cartas de gacha.
+Se dibuja con la fuente pixel del sitio (src/fonts, OFL), la marca de build/brand_mark.py y las primeras fichas S del ranking, como cartas de gacha.
     python3 build/share_image.py      # render.py la copia a site/og.png
 """
 from __future__ import annotations
@@ -10,6 +10,8 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
+import brand_mark
+
 ROOT = Path(__file__).resolve().parent.parent
 FONT = ROOT / "src" / "fonts" / "PixelifySans.ttf"
 RANKING = ROOT / "data" / "ranking_definitive.csv"
@@ -17,13 +19,13 @@ SPRITES = ROOT / "sprites"
 OUT = ROOT / "build" / "assets" / "og.png"
 
 W, H = 1200, 630
-BG = (27, 21, 40)          # --bg del modo oscuro
-INK = (242, 236, 216)      # --ink del modo oscuro
-MUTED = (168, 159, 189)    # --ink-2 del modo oscuro
-ACCENT = (232, 121, 249)   # --accent del modo oscuro
-CARD = (46, 37, 66)
+BG = (11, 24, 56)          # --ink del modo claro: un azul más oscuro que la marca
+INK = (255, 255, 255)      # --ink del modo oscuro
+MUTED = (195, 212, 245)    # --ink-2 del modo oscuro
+ACCENT = (255, 210, 63)    # --accent del modo oscuro
+CARD = (20, 38, 90)        # --bg del modo oscuro
 TIER = {"S": (255, 92, 92), "A": (255, 159, 67), "B": (255, 217, 61), "C": (107, 203, 119), "D": (77, 150, 255)}
-TIER_INK = (27, 21, 40)
+TIER_INK = (11, 24, 56)
 S_CARDS = 9
 
 
@@ -50,12 +52,12 @@ def background() -> Image.Image:
     grid = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     gd = ImageDraw.Draw(grid)
     for x in range(0, W, 40):
-        gd.line([(x, 0), (x, H)], fill=(242, 236, 216, 14))
+        gd.line([(x, 0), (x, H)], fill=(238, 244, 255, 14))
     for y in range(0, H, 40):
-        gd.line([(0, y), (W, y)], fill=(242, 236, 216, 14))
+        gd.line([(0, y), (W, y)], fill=(238, 244, 255, 14))
     img.paste(grid, (0, 0), grid)
     glow = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    ImageDraw.Draw(glow).ellipse([720, -160, 1280, 400], fill=(255, 92, 92, 90))
+    ImageDraw.Draw(glow).ellipse([720, -160, 1280, 400], fill=(255, 92, 92, 70))
     glow = glow.filter(ImageFilter.GaussianBlur(110))
     img.paste(glow, (0, 0), glow)
     return img
@@ -92,20 +94,20 @@ def card(img: Image.Image, x: int, y: int, size: int, row: dict, rank: int) -> N
 def build() -> Image.Image:
     img = background()
     d = ImageDraw.Draw(img)
-    # columna izquierda
-    text(d, (72, 84), "TIER LIST · NO OFICIAL", font(30), ACCENT)
-    line = fit_font("Survivor", 540, 150)
-    text(d, (66, 134), "Survivor", line, INK)
-    text(d, (66, 134 + line.size + 8), "Tiers", line, TIER["S"])
-    text(d, (72, 420), "Tier list no oficial de PokéSurvivor", font(34), INK)
-    text(d, (72, 466), "Unofficial PokéSurvivor tier list", font(26), MUTED)
-    # chips de tier
+    # columna izquierda: marca, nombre y chips de tier
+    unit = 8
+    brand_mark.draw(d, 72, 64, unit)
+    line = fit_font("Survivor", 500, 112)
+    text(d, (66, 218), "Survivor", line, INK)
+    text(d, (66, 218 + line.size + 4), "Tiers", line, ACCENT)
+    text(d, (72, 446), "Tier list no oficial de PokéSurvivor", font(32), INK)
+    text(d, (72, 490), "Unofficial PokéSurvivor tier list", font(24), MUTED)
     x = 72
     for tier in "SABCD":
-        d.rounded_rectangle([x, 520, x + 64, 584], radius=14, fill=TIER[tier])
-        d.text((x + 32, 552), tier, font=font(40), fill=TIER_INK, anchor="mm")
+        d.rounded_rectangle([x, 528, x + 64, 580], radius=12, fill=TIER[tier])
+        d.text((x + 32, 554), tier, font=font(36), fill=TIER_INK, anchor="mm")
         x += 64 + 12
-    text(d, (72, 598), "966 Pokémon · survivortiers.pages.dev", font(24), MUTED)
+    text(d, (72, 600), "966 Pokémon · survivortiers.pages.dev", font(22), MUTED)
     # cartas S a la derecha
     size, gap = 150, 14
     x0 = 1150 - (3 * size + 2 * gap)
