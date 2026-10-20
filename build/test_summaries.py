@@ -80,9 +80,10 @@ class Validator(unittest.TestCase):
         self.assertTrue(any("«S»" in x for x in errors(self.f, e)))
 
     def test_driver_must_be_a_top_driver(self):
+        # The factor that moves this species least is below driver_min, so naming it as a reason is an error.
         weak = min(S.DIRECTION, key=lambda k: abs(S._places(self.f, k)))
-        e = self.edit(es=self.entry["es"].replace("[up:best_move|", f"[up:{weak}|", 1),
-                      en=self.entry["en"].replace("[up:best_move|", f"[up:{weak}|", 1))
+        self.assertLess(abs(S._places(self.f, weak)), S.driver_min(self.f))
+        e = self.edit(es=self.entry["es"] + f" [up:{weak}|x].", en=self.entry["en"] + f" [up:{weak}|x].")
         self.assertTrue(any(f"up:{weak}" in x for x in errors(self.f, e)))
 
     def test_big_hitbox_is_not_a_downside(self):

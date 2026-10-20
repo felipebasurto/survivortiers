@@ -7,7 +7,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const GAME = path.resolve(__dirname, '../vendor/pokesurvivor-5a23d49');
+const GAME = path.resolve(__dirname, '../vendor/pokesurvivor-11fe868');
 
 global.window = global;
 global.G = {

@@ -18,13 +18,15 @@ and attack. A stat already at the median is skipped. The ranking files are not t
 from __future__ import annotations
 
 import csv
+import os
 import json
 import statistics
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
-RANKING = ROOT.parent / "data" / "ranking_definitive.csv"
+# SURVIVOR_RANKING: the ranking the run was built from (regen.py points it at its own output).
+RANKING = Path(os.environ["SURVIVOR_RANKING"]) if os.environ.get("SURVIVOR_RANKING") else ROOT.parent / "data" / "ranking_definitive.csv"
 STATS = ("r", "spd", "hp", "atk")
 
 

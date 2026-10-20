@@ -45,7 +45,7 @@ def physical_ids() -> frozenset[str]:
 
 
 # Notas de los potenciadores. Cada una es una pareja (es, en). Las reglas de contador (cuántos a la vez y el
-# límite de dos) están en pasivas y en el planificador, no aquí. Contadores: player.js:42-50 y :99-102, combat.js:201-202.
+# límite de dos) están en el planificador, no aquí. Contadores: player.js:42-50 y :99-102, combat.js:201-202.
 NOTES = {
     "swords-dance": (
         "Solo sube el ataque físico. Comparte contador con Danza Dragón: no se suman.",

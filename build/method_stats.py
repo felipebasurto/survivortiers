@@ -24,8 +24,6 @@ START_BINS = (80, 10, 16)  # inicio, ancho en segundos, número de barras: 80 a 
 WIDTH_BIN = 25  # ancho de cada barra de márgenes, en puestos
 WIDTH_BINS = 14  # 0 a 350 puestos; lo que pase de ahí cae en la última barra
 EXAMPLE_RANK = 1  # el Pokémon del puesto 1 explica la nota, con sus medianas de la apertura
-DPS_REF = 80.0  # debe ser stats.rs DPS_REF
-KPM_REF = 40.0  # debe ser stats.rs KPM_REF
 
 
 def _rows(path: Path) -> list[dict]:
@@ -66,27 +64,6 @@ def _histogram(values: list[float], start: float, width: float, bins: int) -> li
         i = min(max(int((v - start) // width), 0), bins - 1)
         counts[i] += 1
     return counts
-
-
-def _example(ranking: list[dict]) -> dict:
-    """La apertura del Pokémon del puesto 1, con las medianas de su fila en rank_200.csv.
-    dps y bajas por minuto salen de esas medianas; la nota es la mediana publicada."""
-    top = next(r for r in ranking if int(r["rank"]) == EXAMPLE_RANK)
-    row = next(r for r in _rows(FIXED / "g2p2" / "rank_200.csv") if int(r["dex"]) == int(top["dex"]))
-    secs = float(row["median_s"])
-    dps = float(row["median_dealt"]) / secs
-    kpm = float(row["median_kills"]) * 60 / secs
-    return {
-        "dex": int(top["dex"]),
-        "seconds": round(secs),
-        "dealt": round(float(row["median_dealt"])),
-        "kills": round(float(row["median_kills"])),
-        "dps": round(dps),
-        "kpm": round(kpm),
-        "sDps": round(dps / (dps + DPS_REF), 2),
-        "sKpm": round(kpm / (kpm + KPM_REF), 2),
-        "score": round(float(row["median_score"])),
-    }
 
 
 def compute() -> dict:
@@ -130,5 +107,4 @@ def compute() -> dict:
         "tierWidth": tier_width,
         "straddle": straddle,
         "straddleAny": any_cross,
-        "example": _example(ranking),
     }

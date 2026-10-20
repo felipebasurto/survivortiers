@@ -13,7 +13,7 @@
 //!   ... -- mapcheck <seed> [half]
 //!       terrain digest; must match `node sim-rs/mapcheck.js <game repo> <seed> [half]`
 //!
-//! Options: --seeds N (200) --seconds S (900) --bot repulse|line|kite --lvl1 --dodge F
+//! Options: --seeds N (200) --seconds S (1800, minute 30) --parity --lvl1 --dodge F
 //!          --terrain  play on the real map (walls, props, liquids, pathing)
 //!          --status   model slow, burn and poison with the game's values (enemy.js); moves the
 //!                     sim never fires keep status_ignored=1
@@ -28,7 +28,10 @@ mod stats;
 mod terrain;
 
 use data::{Data, Kind, Mon};
-use engine::{run_match, take_trace, Bot, Ext, Item, Opts, RunResult, Tables, DT};
+use engine::{run_match, take_trace, Bot, BuffKit, Ext, Item, Opts, RunResult, Tables, DT};
+
+/// The buffs of a searched group (engine.rs `BuffKit`).
+type Kit = BuffKit;
 use std::sync::{Mutex, OnceLock};
 
 /// dex -> simulated pool attacks sorted by solo (old-mode) median, best first
@@ -57,8 +60,11 @@ struct Cfg {
     legacy: bool,
     item: String,
     fill: Vec<u8>,
+    /// `--buffs N`: the bond bits of the default group (1 = track 0, 2 = track 1).
     buffs: Option<u8>,
-    /// The attack buff of a searched group. None picks it from the lead attack (`use_nasty`).
+    /// The buffs of a searched group (explicit names). None uses the default kit of `ext_for`.
+    kit: Option<Kit>,
+    /// The attack buff of the default group. None picks it from the lead attack (`use_nasty`).
     atk_buff: Option<AtkBuff>,
     comps: Option<Vec<String>>,
     /// second slot: swap when the active cooldown is above 35% of its base (player.js:148)
@@ -74,7 +80,6 @@ struct Cfg {
     /// fraction of combat damage ignored. 0 = the bot eats every hit.
     dodge: f64,
     /// `--bot` was passed. Otherwise a faithful run uses Play.
-    bot_set: bool,
     /// stat index:count pairs. Start with that many and do not take more. 7 = Aprendizaje.
     locks: Vec<(u8, u32)>,
     /// Score status+Hex groups, not only the solo-sorted partner.
@@ -89,11 +94,13 @@ struct Cfg {
     only: Option<std::collections::HashSet<String>>,
     /// synergy: run the `dex|group` lines of `--only` as given, not the generated groups.
     explicit: bool,
+    /// `--parity`: the JS-parity run (no status, terrain or extra kinds; Repulse). Nothing published uses it.
+    parity: bool,
     rest: Vec<String>,
 }
 
 fn parse(args: &[String]) -> Cfg {
-    let mut c = Cfg { seeds: 200, seconds: 900.0, bot: Bot::Repulse, cards: true, terrain: false, status: false, out: None, group: 0, dd: false, np: false, agi: false, xkinds: false, legacy: false, item: "none".into(), fill: vec![], buffs: None, atk_buff: None, comps: None, swap: false, crit: 0.0, full_cards: false, stop: 0, heal_below: 0.0, dodge: 0.0, locks: vec![], synergy: false, no_synergy: false, bot_set: false, seed0: 0, count: false, list: false, only: None, explicit: false, rest: vec![] };
+    let mut c = Cfg { seeds: 200, seconds: 1800.0, bot: Bot::Play, cards: true, terrain: true, status: true, out: None, group: 0, dd: false, np: false, agi: false, xkinds: true, legacy: false, item: "none".into(), fill: vec![], buffs: None, kit: None, atk_buff: None, comps: None, swap: false, crit: 0.0, full_cards: false, stop: 0, heal_below: 0.0, dodge: 0.0, locks: vec![], synergy: false, no_synergy: false, seed0: 0, count: false, list: false, only: None, explicit: false, parity: false, rest: vec![] };
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
@@ -117,17 +124,8 @@ fn parse(args: &[String]) -> Cfg {
                 i += 1;
                 c.seconds = args[i].parse().expect("--seconds");
             }
-            "--bot" => {
-                i += 1;
-                c.bot_set = true;
-                c.bot = match args[i].as_str() {
-                    "repulse" => Bot::Repulse,
-                    "line" => Bot::Line,
-                    "kite" => Bot::Kite,
-                    "play" => Bot::Play,
-                    b => panic!("unknown bot {b}"),
-                };
-            }
+            "--bot" => panic!("--bot was removed: ranking runs always use the Play bot, the parity run uses Repulse"),
+            "--parity" => c.parity = true,
             "--lvl1" => c.cards = false,
             "--terrain" => c.terrain = true,
             "--status" => c.status = true,
@@ -324,9 +322,18 @@ fn ext_for(data: &Data, mon: &Mon, start: usize, cfg: &Cfg) -> Ext {
             AtkBuff::Sd
         }
     });
+    // Without a named kit, the default group holds Swords Dance (or the atk buff picked above) and
+    // Harden (or Agility) from t=0, the way the 2+2 and 3+1 defaults always did.
+    let bits = cfg.buffs.unwrap_or(match cfg.group { 2 => 3, 3 => 1, _ => 0 });
+    let kit = cfg.kit.or_else(|| {
+        (bits > 0).then(|| Kit {
+            buffs: bits,
+            ix: [data.move_ix[atk.id()], data.move_ix[if cfg.agi { "agility" } else { "harden" }]],
+        })
+    });
     Ext {
         companions,
-        buffs: cfg.buffs.unwrap_or(match cfg.group { 2 => 3, 3 => 1, _ => 0 }),
+        kit,
         dd: atk == AtkBuff::Dd,
         np: atk == AtkBuff::Np,
         agi: cfg.agi,
@@ -334,7 +341,7 @@ fn ext_for(data: &Data, mon: &Mon, start: usize, cfg: &Cfg) -> Ext {
         fill: cfg.fill.clone(),
         xkinds: cfg.xkinds || (cfg.group > 0 && !cfg.legacy),
         rift: cfg.group > 0 && !cfg.legacy,
-        bosses: cfg.group > 0 && !cfg.legacy,
+        bosses: !cfg.legacy,
         alt,
         crit: cfg.crit,
         full_cards: cfg.full_cards,
@@ -346,14 +353,12 @@ fn ext_for(data: &Data, mon: &Mon, start: usize, cfg: &Cfg) -> Ext {
 }
 
 fn group_label(cfg: &Cfg) -> &'static str {
-    match (cfg.group, cfg.legacy) { (2, false) => "grupo fijo 2 ataques + Danza Espada o Maquinación y Fortaleza con vínculos de grieta, jefes y todos los tipos de ataque", (3, false) => "grupo fijo 3 ataques + Danza Espada o Maquinación con vínculos de grieta, jefes y todos los tipos de ataque", (2, true) => "grupo fijo 2 ataques + Danza Espada o Maquinación y Fortaleza desde t=0, sin grietas, sin jefes", (3, true) => "grupo fijo 3 ataques + Danza Espada o Maquinación desde t=0, sin grietas, sin jefes", _ => "un movimiento, sin grietas, sin jefes" }
+    match (cfg.group, cfg.legacy) { (2, false) => "grupo fijo 2 ataques + Danza Espada o Maquinación y Fortaleza o Agilidad con vínculos de grieta, jefes y todos los tipos de ataque", (3, false) => "grupo fijo 3 ataques + Danza Espada o Maquinación con vínculos de grieta, jefes y todos los tipos de ataque", (2, true) => "grupo fijo 2 ataques + Danza Espada o Maquinación y Fortaleza o Agilidad desde t=0, sin grietas, sin jefes", (3, true) => "grupo fijo 3 ataques + Danza Espada o Maquinación desde t=0, sin grietas, sin jefes", (0, false) => "un movimiento, sin grietas, con jefes", _ => "un movimiento, sin grietas, sin jefes" }
 }
 
 fn bot_name(b: Bot) -> &'static str {
     match b {
         Bot::Repulse => "repulse",
-        Bot::Line => "line",
-        Bot::Kite => "kite",
         Bot::Play => "play",
     }
 }
@@ -456,11 +461,7 @@ fn run_jobs<'a>(data: &'a Data, jobs: Vec<Job<'a>>, cfg: &Cfg) -> Vec<Row<'a>> {
                 if job.comps.is_some() {
                     sub.comps = Some(comps.iter().map(|&ix| data.moves[ix].id.clone()).collect());
                 }
-                if let Some(kit) = job.kit {
-                    sub.buffs = Some(kit.buffs);
-                    sub.atk_buff = Some(kit.atk);
-                    sub.agi = kit.agi;
-                }
+                sub.kit = job.kit;
                 run_species(data, &tables, job.mon, job.start, &sub)
             } else {
                 run_species(data, &tables, job.mon, job.start, cfg)
@@ -558,13 +559,6 @@ impl AtkBuff {
     }
 }
 
-/// The buffs of a group. `buffs` bit 1 bonds `atk`, bit 2 bonds Agility (`agi`) or Harden.
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
-struct Kit {
-    buffs: u8,
-    atk: AtkBuff,
-    agi: bool,
-}
 
 struct Spec {
     start: usize,
@@ -594,6 +588,9 @@ fn ensure_partners() {
             return;
         }
     }
+    // Without the file the partner order falls back to the tier list. Say so once, and keep it.
+    eprintln!("warning: no solo_sweep.csv found, so the solo partner order is empty and the tier list decides. Pass --partners to pin it.");
+    let _ = PARTNERS.set(HashMap::new());
 }
 
 /// move id -> score_rel from the v4 move tier list. Empty if the file is not next to the sim.
@@ -663,41 +660,27 @@ fn cat_of(data: &Data, ix: usize) -> u8 {
     data.moves[ix].levels[0].cat
 }
 
-/// Every buff fill of these attacks inside the four bond slots (start included).
-/// Two attacks: an attack buff plus Harden or Agility. Three attacks: an attack buff, or
-/// Harden or Agility. An attack buff that raises no attack of the group is left out
-/// (Danza Espada and Danza Dragón only raise physical moves, Maquinación only special
-/// ones), and Danza Dragón needs a species that learns it.
+/// Every buff set these attacks can hold: the buffs of the species pool (moves.js poolFor), with at most
+/// two buffs (levelup.js:47-49) and at most one next to three attacks (four bond slots, start included).
+/// Sets come in id order, so a group name is the same whatever order the pool lists them in.
 fn kits(data: &Data, mon: &Mon, attacks: &[usize]) -> Vec<Kit> {
-    let has = |cat: u8| attacks.iter().any(|&ix| cat_of(data, ix) == cat);
-    let mut atk = Vec::new();
-    if has(1) {
-        atk.push(AtkBuff::Sd);
-        if mon.pool.contains(&data.dragon_dance) {
-            atk.push(AtkBuff::Dd);
+    let mut buffs: Vec<usize> = mon.pool.iter().copied().filter(|&ix| data.moves[ix].kind_name == "buff").collect();
+    buffs.sort_by(|&x, &y| data.moves[x].id.cmp(&data.moves[y].id));
+    let max = match attacks.len() {
+        2 => 2,
+        3 => 1,
+        _ => 0,
+    };
+    let mut out = vec![Kit { buffs: 0, ix: [0, 0] }];
+    for (i, &x) in buffs.iter().enumerate() {
+        if max >= 1 {
+            out.push(Kit { buffs: 1, ix: [x, 0] });
         }
-    }
-    if has(2) {
-        atk.push(AtkBuff::Np);
-    }
-    let mut out = Vec::new();
-    match attacks.len() {
-        2 => {
-            for &a in &atk {
-                for agi in [false, true] {
-                    out.push(Kit { buffs: 3, atk: a, agi });
-                }
+        for &y in &buffs[i + 1..] {
+            if max >= 2 {
+                out.push(Kit { buffs: 3, ix: [x, y] });
             }
         }
-        3 => {
-            for &a in &atk {
-                out.push(Kit { buffs: 1, atk: a, agi: false });
-            }
-            for agi in [false, true] {
-                out.push(Kit { buffs: 2, atk: AtkBuff::Sd, agi });
-            }
-        }
-        _ => {}
     }
     out
 }
@@ -822,24 +805,16 @@ fn group_name(data: &Data, start: usize, comps: &[usize], kit: Kit) -> String {
     for &c in comps {
         parts.push(data.moves[c].id.clone());
     }
-    if kit.buffs & 1 != 0 {
-        parts.push(kit.atk.id().to_string());
-    }
-    if kit.buffs & 2 != 0 {
-        parts.push((if kit.agi { "agility" } else { "harden" }).to_string());
+    for k in 0..2 {
+        if kit.buffs & (1 << k) != 0 {
+            parts.push(data.moves[kit.ix[k]].id.clone());
+        }
     }
     parts.join("+")
 }
 
 fn ext_kit(ext: &Ext) -> Kit {
-    let atk = if ext.np {
-        AtkBuff::Np
-    } else if ext.dd {
-        AtkBuff::Dd
-    } else {
-        AtkBuff::Sd
-    };
-    Kit { buffs: ext.buffs, atk, agi: ext.agi }
+    ext.kit.unwrap_or(Kit { buffs: 0, ix: [0, 0] })
 }
 
 fn row_group(data: &Data, row: &Row, cfg: &Cfg) -> String {
@@ -901,7 +876,7 @@ fn sweep(data: &Data, cfg: &Cfg) {
     std::fs::create_dir_all(&out_dir).unwrap();
     let mut long = format!(
         "# barrido: todos los movimientos simulados del pool como inicial. seeds=1-{} seconds={} bot={}\n\
-         dex,name,start,kind,n,median_s,mean_s,boot_lo,boot_hi,p10_s,p90_s,median_kills,median_lvl,status_ignored,group,median_dealt,median_score,mean_score,score_lo,score_hi,score_a,score_b\n",
+         dex,name,start,kind,n,median_s,mean_s,boot_lo,boot_hi,p10_s,p90_s,median_kills,median_lvl,status_ignored,group,median_dealt,median_score,mean_score,score_lo,score_hi,score_a,score_b,{EXTRA_COLS}\n",
         cfg.seeds, cfg.seconds, bot_name(cfg.bot)
     );
     for r in &rows {
@@ -924,7 +899,7 @@ fn sweep(data: &Data, cfg: &Cfg) {
             num(s.median_lvl),
             s.status_ignored as u8,
             row_group(data, r, cfg),
-            score_tail(s)
+            tail_cols(s)
         )
         .unwrap();
     }
@@ -963,7 +938,7 @@ fn sweep(data: &Data, cfg: &Cfg) {
     let old = read_old_rank("out/rank_200.csv");
     let mut text = format!(
         "# mejor movimiento inicial por especie. seeds=1-{} seconds={} bot={}\n\
-         rank,dex,name,best_start,best_kind,median_s,mean_s,boot_lo,boot_hi,p10_s,p90_s,median_kills,median_lvl,status_ignored,n_candidates,alt_start,alt_median_s,rank_old_200,group,median_dealt,median_score,mean_score,score_lo,score_hi,score_a,score_b\n",
+         rank,dex,name,best_start,best_kind,median_s,mean_s,boot_lo,boot_hi,p10_s,p90_s,median_kills,median_lvl,status_ignored,n_candidates,alt_start,alt_median_s,rank_old_200,group,median_dealt,median_score,mean_score,score_lo,score_hi,score_a,score_b,{EXTRA_COLS}\n",
         cfg.seeds, cfg.seconds, bot_name(cfg.bot)
     );
     for (i, (r, n, alt)) in best.iter().enumerate() {
@@ -990,7 +965,7 @@ fn sweep(data: &Data, cfg: &Cfg) {
             alt.map(|a| num(a.s.median_s)).unwrap_or_default(),
             old.get(&r.mon.dex).map(|x| x.to_string()).unwrap_or_default(),
             row_group(data, r, cfg),
-            score_tail(&s)
+            tail_cols(&s)
         )
         .unwrap();
     }
@@ -1034,25 +1009,31 @@ fn tasks_cmd(data: &Data, cfg: &Cfg) {
             }
             sub.dd = cfg.dd;
             sub.agi = cfg.agi;
+            sub.kit = None;
             if !explicit.is_empty() {
                 sub.comps = Some(explicit);
             }
-            // optional 5th column: buffs held in the group, ';'-separated (sd, dd, hd, agi); "-" = none.
-            // An empty column keeps the group default (2+2 is Swords Dance and Harden).
+            // optional 5th column: buffs held in the group, ';'-separated move ids (the short names sd, dd,
+            // np, hd and agi also work); "-" = none. An empty column keeps the group default.
             if let Some(b) = c.get(4) {
                 if !b.is_empty() {
-                    let mut mask = 0u8;
+                    let mut kit = Kit { buffs: 0, ix: [0, 0] };
                     for x in b.split(';').filter(|x| !x.is_empty() && *x != "-") {
-                        match x {
-                            "sd" => mask |= 1,
-                            "dd" => { mask |= 1; sub.dd = true; }
-                            "np" => { mask |= 1; sub.np = true; }
-                            "hd" => mask |= 2,
-                            "agi" => { mask |= 2; sub.agi = true; }
-                            _ => panic!("buff {x}"),
-                        }
+                        let id = match x {
+                            "sd" => "swords-dance",
+                            "dd" => "dragon-dance",
+                            "np" => "nasty-plot",
+                            "hd" => "harden",
+                            "agi" => "agility",
+                            other => other,
+                        };
+                        let ix = *data.move_ix.get(id).unwrap_or_else(|| panic!("buff {x}"));
+                        assert!(data.moves[ix].kind_name == "buff" && kit.buffs != 3, "buff {x}");
+                        let k = if kit.buffs & 1 == 0 { 0 } else { 1 };
+                        kit.buffs |= 1 << k;
+                        kit.ix[k] = ix;
                     }
-                    sub.buffs = Some(mask);
+                    sub.kit = Some(kit);
                 }
             }
             // optional 9th column: species overrides for counterfactuals, "r=14.08;spd=105;hp=99;atk=1.17".
@@ -1091,12 +1072,12 @@ fn tasks_cmd(data: &Data, cfg: &Cfg) {
                 num(s.p90_coins),
                 num(s.p10_dealt),
                 num(s.p90_dealt),
-                score_tail(&s)
+                tail_cols(&s)
             )
         })
         .collect();
     let path = cfg.out.clone().expect("--out");
-    std::fs::write(&path, format!("dex,move,item,fill,buffs,stop,heal_below,lock,mods,median_s,mean_s,boot_lo,boot_hi,p75_s,p90_s,median_lvl,alive180,alive300,alive600,median_kills,p10_kills,p90_kills,median_bosses,median_kpm,median_coins,p10_coins,p90_coins,p10_dealt,p90_dealt,median_dealt,median_score,mean_score,score_lo,score_hi,score_a,score_b\n{}\n", rows.join("\n"))).unwrap();
+    std::fs::write(&path, format!("dex,move,item,fill,buffs,stop,heal_below,lock,mods,median_s,mean_s,boot_lo,boot_hi,p75_s,p90_s,median_lvl,alive180,alive300,alive600,median_kills,p10_kills,p90_kills,median_bosses,median_kpm,median_coins,p10_coins,p90_coins,p10_dealt,p90_dealt,median_dealt,median_score,mean_score,score_lo,score_hi,score_a,score_b,{EXTRA_COLS}\n{}\n", rows.join("\n"))).unwrap();
     eprintln!("wrote {path}");
 }
 
@@ -1117,7 +1098,7 @@ fn with_mods(mon: &Mon, mods: &str) -> Mon {
 }
 
 fn cfg_clone(c: &Cfg) -> Box<Cfg> {
-    Box::new(Cfg { seeds: c.seeds, seconds: c.seconds, bot: c.bot, cards: c.cards, terrain: c.terrain, status: c.status, out: None, group: c.group, dd: c.dd, np: c.np, agi: c.agi, xkinds: c.xkinds, legacy: c.legacy, item: c.item.clone(), fill: c.fill.clone(), buffs: c.buffs, atk_buff: c.atk_buff, comps: c.comps.clone(), swap: c.swap, crit: c.crit, full_cards: c.full_cards, stop: c.stop, heal_below: c.heal_below, dodge: c.dodge, locks: c.locks.clone(), synergy: c.synergy, no_synergy: c.no_synergy, bot_set: c.bot_set, seed0: c.seed0, count: c.count, list: c.list, only: c.only.clone(), explicit: c.explicit, rest: vec![] })
+    Box::new(Cfg { seeds: c.seeds, seconds: c.seconds, bot: c.bot, cards: c.cards, terrain: c.terrain, status: c.status, out: None, group: c.group, dd: c.dd, np: c.np, agi: c.agi, xkinds: c.xkinds, legacy: c.legacy, item: c.item.clone(), fill: c.fill.clone(), buffs: c.buffs, kit: c.kit, atk_buff: c.atk_buff, comps: c.comps.clone(), swap: c.swap, crit: c.crit, full_cards: c.full_cards, stop: c.stop, heal_below: c.heal_below, dodge: c.dodge, locks: c.locks.clone(), synergy: c.synergy, no_synergy: c.no_synergy, seed0: c.seed0, count: c.count, list: c.list, only: c.only.clone(), explicit: c.explicit, parity: c.parity, rest: vec![] })
 }
 
 fn cmp_run(a: &Summary, b: &Summary) -> std::cmp::Ordering {
@@ -1129,57 +1110,53 @@ fn cmp_run(a: &Summary, b: &Summary) -> std::cmp::Ordering {
         .then(cmp_desc(a.median_kills, b.median_kills))
 }
 
-fn score_tail(s: &Summary) -> String {
-    format!(
-        "{},{},{},{},{},{},{}",
+/// Column names after `score_b`, in the order `tail_cols` writes them.
+const EXTRA_COLS: &str = "share_start,share_comp,share_extra,share_other,share_bomb,share_bond,mean_bonds,share_evolved,mean_start_lvl,mean_cards_up,mean_cards_evo,mean_cards_buff,mean_cards_stat,mean_cards_learn,mean_cards_other,share_boss_seen";
+
+/// The score columns, then the damage-source, bond, evolution and card columns, all appended last.
+fn tail_cols(s: &Summary) -> String {
+    let mut cols = vec![
         num(s.median_dealt),
         num(s.median_score),
         num(s.mean_score),
         num(s.score_lo),
         num(s.score_hi),
         num(s.score_a),
-        num(s.score_b)
-    )
+        num(s.score_b),
+        num(s.start_share),
+        num(s.comp_share),
+        num(s.extra_share),
+        num(s.other_share),
+        num(s.bomb_share),
+        num(s.share_bond),
+        num(s.mean_bonds),
+        num(s.share_evolved),
+        num(s.mean_start_lvl),
+    ];
+    cols.extend(s.mean_cards.iter().map(|&v| num(v)));
+    cols.push(num(s.share_boss_seen));
+    cols.join(",")
 }
 
-/// A group name as `group_name` writes it: attacks (start first), then the attack buff, then Harden or Agility.
+/// A group name as `group_name` writes it: attacks (start first), then the buffs in track order.
+/// Any move of the data can be named; a buff goes to the next free track, and a third buff is refused.
 fn parse_group(data: &Data, group: &str) -> Option<(usize, Vec<usize>, Kit)> {
     let mut atoms = Vec::new();
-    let mut atk = None;
-    let mut buffs = 0u8;
-    let mut agi = false;
+    let mut kit = Kit { buffs: 0, ix: [0, 0] };
     for part in group.split('+') {
-        match part {
-            "swords-dance" => {
-                atk = Some(AtkBuff::Sd);
-                buffs |= 1;
+        let ix = *data.move_ix.get(part)?;
+        if data.moves[ix].kind_name == "buff" {
+            if kit.buffs == 3 {
+                return None;
             }
-            "nasty-plot" => {
-                atk = Some(AtkBuff::Np);
-                buffs |= 1;
-            }
-            "dragon-dance" => {
-                atk = Some(AtkBuff::Dd);
-                buffs |= 1;
-            }
-            "harden" | "agility" => {
-                if buffs & 2 != 0 {
-                    return None;
-                }
-                buffs |= 2;
-                agi = part == "agility";
-            }
-            id => {
-                let ix = *data.move_ix.get(id)?;
-                if data.moves[ix].kind_name == "buff" {
-                    return None;
-                }
-                atoms.push(ix);
-            }
+            let k = if kit.buffs & 1 == 0 { 0 } else { 1 };
+            kit.buffs |= 1 << k;
+            kit.ix[k] = ix;
+        } else {
+            atoms.push(ix);
         }
     }
     let start = *atoms.first()?;
-    let kit = Kit { buffs, atk: atk.unwrap_or(AtkBuff::Sd), agi };
     Some((start, atoms[1..].to_vec(), kit))
 }
 
@@ -1247,8 +1224,8 @@ fn synergy_cmd(data: &Data, cfg: &Cfg) {
             std::fs::create_dir_all(dir).unwrap();
         }
     }
-    let mut text = String::from(
-        "dex,name,group,median_s,mean_s,boot_lo,boot_hi,p10_s,p90_s,median_kills,median_lvl,status_ignored,median_dealt,median_score,mean_score,score_lo,score_hi,score_a,score_b\n",
+    let mut text = format!(
+        "dex,name,group,median_s,mean_s,boot_lo,boot_hi,p10_s,p90_s,median_kills,median_lvl,status_ignored,median_dealt,median_score,mean_score,score_lo,score_hi,score_a,score_b,{EXTRA_COLS}\n",
     );
     for r in &rows {
         let s = &r.s;
@@ -1267,7 +1244,7 @@ fn synergy_cmd(data: &Data, cfg: &Cfg) {
             num(s.median_kills),
             num(s.median_lvl),
             s.status_ignored as u8,
-            score_tail(s)
+            tail_cols(s)
         )
         .unwrap();
     }
@@ -1288,7 +1265,7 @@ fn rank(data: &Data, cfg: &Cfg) {
     let note = if cfg.swap { format!("{note}, cambio de hueco al 35% de la recarga") } else { note.to_string() };
     let mut text = format!(
         "# step={} seeds=1-{} seconds={} bot={} sin mejoras permanentes, {}, controlador compartido{}\n\
-         dex,name,n,median_s,mean_s,boot_lo,boot_hi,p10_s,p90_s,median_kills,median_lvl,n_cap,mean_hp_frac,status_ignored,median_dealt,median_score,mean_score,score_lo,score_hi,score_a,score_b\n",
+         dex,name,n,median_s,mean_s,boot_lo,boot_hi,p10_s,p90_s,median_kills,median_lvl,n_cap,mean_hp_frac,status_ignored,median_dealt,median_score,mean_score,score_lo,score_hi,score_a,score_b,{EXTRA_COLS}\n",
         DT, cfg.seeds, cfg.seconds, bot_name(cfg.bot), group_label(cfg), note
     );
     for r in &rows {
@@ -1310,7 +1287,7 @@ fn rank(data: &Data, cfg: &Cfg) {
             s.n_cap,
             s.mean_hp_frac.map(num).unwrap_or_default(),
             s.status_ignored as u8,
-            score_tail(s)
+            tail_cols(s)
         )
         .unwrap();
     }
@@ -1423,8 +1400,10 @@ fn find<'a>(data: &'a Data, dex: &str, mv: &str) -> (&'a Mon, usize) {
 
 fn print_result(r: &RunResult) {
     println!(
-        "{{\"time\":{:?},\"kills\":{},\"bosses\":{},\"coins\":{:?},\"level\":{},\"capped\":{},\"statusIgnored\":{},\"hp\":{:?},\"maxHp\":{:?},\"hpFrac\":{:?}}}",
-        r.time, r.kills, r.bosses, r.coins, r.level, r.capped, r.status_ignored, r.hp, r.max_hp, r.hp_frac
+        "{{\"time\":{:?},\"kills\":{},\"bosses\":{},\"coins\":{:?},\"level\":{},\"capped\":{},\"statusIgnored\":{},\"hp\":{:?},\"maxHp\":{:?},\"hpFrac\":{:?},\"dealt\":{:?},\"dealtStart\":{:?},\"dealtComps\":{:?},\"dealtExtra\":{:?},\"dealtOther\":{:?},\"dealtBomb\":{:?},\"bonds\":{},\"startLvl\":{},\"startEvolved\":{},\"compsEvolved\":{},\"cards\":{:?},\"firstBossT\":{}}}",
+        r.time, r.kills, r.bosses, r.coins, r.level, r.capped, r.status_ignored, r.hp, r.max_hp, r.hp_frac,
+        r.dealt, r.dealt_start, r.dealt_comps, r.dealt_extra, r.dealt_other, r.dealt_bomb, r.bonds, r.start_lvl, r.start_evolved, r.comps_evolved, r.cards,
+        if r.first_boss_t.is_nan() { "null".to_string() } else { format!("{:?}", r.first_boss_t) }
     );
 }
 
@@ -1446,11 +1425,17 @@ fn main() {
         cfg.status = true;
         cfg.terrain = true;
     }
-    // Faithful runs (status, extra kinds, or a fixed group) play with the kite bot.
-    // `--bot repulse` keeps the old policy for a before/after check. Parity never sets these.
-    if !cfg.bot_set && (cfg.status || cfg.xkinds || cfg.group > 0) {
+    // One simulator: every run is the ranking game (status, terrain, extra kinds) played by Play.
+    // `--parity` is the only way out: it switches those flags off and plays with Repulse.
+    if cfg.parity {
+        cfg.status = false;
+        cfg.terrain = false;
+        cfg.xkinds = false;
+        cfg.bot = Bot::Repulse;
+    } else {
         cfg.bot = Bot::Play;
     }
+    ensure_partners();
     let data = Data::load("v3/v3_data.json");
     let t0 = Instant::now();
     match cfg.rest.first().map(String::as_str) {

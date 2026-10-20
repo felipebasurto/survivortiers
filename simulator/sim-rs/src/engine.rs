@@ -22,19 +22,20 @@ const POISON_TICK: f64 = 0.6;
 const CAP: usize = 64;
 const ELITE: f64 = 0.85;
 const DMG_K: f64 = 2.4;
+/// enemy.js:939 BOSS_FAR: a boss this far from the player is lost.
+const BOSS_FAR: f64 = 2500.0;
+/// enemy.js:985-986: a lost boss respawns ahead after this many seconds out of reach.
+const BOSS_LAG_T: f64 = 4.0;
 /// Math.hypot(768, 432) / 2 + 40, as V8 computes it.
 const OUTER: f64 = 480.58143401645964;
 const INV: f64 = 0.45;
 const TOUCH: f64 = 0.55;
 
+/// The movement policy. Every ranking run (status, extra kinds or a fixed group) plays with Play, the bot
+/// that dodges telegraphs and shots and collects orbs. The parity run (no ranking flags) keeps Repulse.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Bot {
     Repulse,
-    Line,
-    /// Orbit the nearest enemy at the move's keep distance. Not the parity bot.
-    Kite,
-    /// Kite, dodge telegraphs and collect orbs. Used for published ranks.
-    /// The parity path stays on Repulse.
     Play,
 }
 
@@ -91,13 +92,21 @@ pub struct Opts {
     pub ext: Ext,
 }
 
+/// The buffs of a searched group: `buffs` bit 1 holds track 0 (`ix[0]`), bit 2 track 1 (`ix[1]`).
+/// `ix` are data move indices; the buff's stat decides what it raises (see `Match::stats`).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct BuffKit {
+    pub buffs: u8,
+    pub ix: [usize; 2],
+}
+
 #[derive(Clone, Default)]
 pub struct Ext {
     /// extra bonded attacks cast alongside the primary (each with its own cooldown)
     pub companions: Vec<usize>,
-    /// bitmask of buffs held in the group from t=0: 1 = atk buff (Swords/Dragon Dance), 2 = Harden (or Agility);
-    /// 0 = old mode (SD/Harden only via cards)
-    pub buffs: u8,
+    /// The buffs the group holds from t=0 (a searched group). None = old mode: Swords Dance and Harden
+    /// (or the dd/np/agi flags) only through the level-up cards.
+    pub kit: Option<BuffKit>,
     /// use Dragon Dance instead of Swords Dance as the atk buff
     pub dd: bool,
     /// use Nasty Plot (Maquinación, satk) instead of Swords Dance. Set when the bonded attacks are special.
@@ -211,7 +220,7 @@ pub fn take_trace() -> Vec<Frame> {
     TRACE.with(|t| std::mem::take(&mut *t.borrow_mut()))
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct RunResult {
     pub time: f64,
     pub kills: u32,
@@ -228,6 +237,26 @@ pub struct RunResult {
     /// HP and shield actually removed. Overkill is not counted. DoT is not included
     /// (combat.js adds the hit to `dmgDealt`, not the burn or poison ticks).
     pub dealt: f64,
+    /// `dealt` by source. The parts add up to `dealt` up to rounding. `dealt_start` is the starter,
+    /// `dealt_comps` the first three companions in `Ext::companions` order, `dealt_extra` the extra
+    /// attacks (`Match::extras`), `dealt_other` the rest (learned bonds, companions past the third),
+    /// `dealt_bomb` the screen bomb. All zero in `--parity` runs, where `faith()` is off and damage is not tracked.
+    pub dealt_start: f64,
+    pub dealt_comps: [f64; 3],
+    pub dealt_extra: f64,
+    pub dealt_other: f64,
+    pub dealt_bomb: f64,
+    /// Rift bonds made. Zero outside rift runs.
+    pub bonds: u32,
+    /// Starter level and evolution when the run ended.
+    pub start_lvl: u32,
+    pub start_evolved: bool,
+    /// Companions that evolved.
+    pub comps_evolved: u32,
+    /// Level-up cards taken: up, evo, buff, stat, learn, other (see `card_tag`).
+    pub cards: [u32; 6],
+    /// Seconds to the first boss spawn. NaN when no boss spawned.
+    pub first_boss_t: f64,
 }
 
 /// End-of-run Pokémonedas. game.js:295-301.
@@ -459,8 +488,8 @@ fn fan_angles(aim: f64, count: f64, spread: f64, out: &mut Vec<f64>) {
 enum Card {
     Up,
     Evo,
-    Sd,
-    Hd,
+    /// Level-up card for buff track 0 or 1 (`Match::buf_ix`).
+    Buf(u8),
     Up2(u8),
     Evo2(u8),
     Stat(Stat),
@@ -470,9 +499,22 @@ enum Card {
     Heal,
 }
 
+/// Index into `Match::cards`: up, evo, buff, stat, learn, other. A learned bond is `CARD_LEARN`.
+const CARD_LEARN: usize = 4;
+
+fn card_tag(c: Card) -> usize {
+    match c {
+        Card::Up | Card::Up2(_) => 0,
+        Card::Evo | Card::Evo2(_) => 1,
+        Card::Buf(_) => 2,
+        Card::Stat(_) => 3,
+        Card::Xp | Card::Heal => 5,
+    }
+}
+
 const FILL: [Card; 9] = [
-    Card::Sd,
-    Card::Hd,
+    Card::Buf(0),
+    Card::Buf(1),
     Card::Stat(Stat::Pow),
     Card::Stat(Stat::Run),
     Card::Stat(Stat::Hp),
@@ -487,15 +529,24 @@ struct State {
     cards: [u32; 7],
     move_lvl: usize,
     evolved: bool,
-    sd: usize,
-    hd: usize,
-    sd_stacks: f64,
-    sd_t: f64,
-    sd_cd: f64,
-    hd_stacks: f64,
-    hd_t: f64,
-    hd_cd: f64,
+    /// Level of each buff track (0 = not held).
+    buf: [usize; 2],
+    /// Recast cooldown of each buff track.
+    buf_cd: [f64; 2],
+    /// One bucket per buff stat code (data.rs `MoveLvl::buff`). Casts from either track stack into it.
+    bk: [Bucket; BUCKETS],
 }
+
+/// Stacks and time left of one buff stat. `src` is the track that cast last: its level sets the amount.
+#[derive(Clone, Copy, Default)]
+struct Bucket {
+    n: f64,
+    t: f64,
+    src: usize,
+}
+
+/// Buff stat codes run 1..=6 (atk, spd, def, regen, patk, satk); index 0 is unused.
+const BUCKETS: usize = 7;
 
 /// ATK_POW / SPD_POW / CD_POW from rules.js. V8 evaluates `1.1 ** i` with
 /// integer exponents by repeated squaring, which no libm pow reproduces, so
@@ -563,6 +614,7 @@ struct Jump {
     dur: f64,
 }
 
+#[derive(Clone)]
 struct Enemy {
     id: u32,
     dex: u16,
@@ -633,6 +685,12 @@ struct Enemy {
     rd: f64,
     /// Seconds of stun left (enemy.js applyStun / stunT). Frozen enemies skip movement, attacks and contact.
     stun_t: f64,
+    /// Boss attack state (enemy.js bossInit `ai`). Some only for bosses built by spawn_boss.
+    bai: Option<BossAi>,
+    /// Spawn scale the game passes as `this.sc` (enemy.js:94): hp (with hpK), spd, dmg. Summons use it.
+    sc: [f64; 3],
+    /// Id of the summoner that made this minion (enemy.js summon). Minions carry no DMG_K or XP_K.
+    owner: Option<u32>,
 }
 
 /// What one hit applies to an enemy: the move's slow, burn and poison values (applySlow,
@@ -668,6 +726,8 @@ struct Shot {
     drain: f64,
     /// Seconds since the cast (projectile.js p.t). Only the rebound reads it.
     age: f64,
+    /// Owning move index (`MoveLvl::ix`), for the per-move damage split.
+    src: u16,
 }
 
 struct Boom {
@@ -687,6 +747,8 @@ struct Boom {
     st: Status,
     knock: f64,
     cat: u8,
+    /// Owning move index (`MoveLvl::ix`), for the per-move damage split.
+    src: u16,
 }
 
 struct Orb {
@@ -787,6 +849,24 @@ fn nearest(enemies: &[Enemy], x: f64, y: f64) -> Option<usize> {
     best
 }
 
+/// projectile.js nearest(maxDist): the closest live enemy by centre, strictly inside `max`.
+fn nearest_within(enemies: &[Enemy], x: f64, y: f64, max: f64) -> Option<usize> {
+    let mut best = None;
+    let mut best_d = max * max;
+    for (i, e) in enemies.iter().enumerate() {
+        if e.hp <= 0.0 {
+            continue;
+        }
+        let (dx, dy) = (e.x - x, e.y - y);
+        let d = dx * dx + dy * dy;
+        if d < best_d {
+            best_d = d;
+            best = Some(i);
+        }
+    }
+    best
+}
+
 /// combat.js chain: `m.hex && (cur.burn > 0 || cur.poison > 0 || cur.slow > 0) ? m.hex : 1`.
 /// `slow` is the speed factor (enemy.js applySlow), not the timer.
 pub fn hex_multiplier(hex: f64, burn: f64, poison: f64, slow: f64) -> f64 {
@@ -878,28 +958,13 @@ fn strike(e: &mut Enemy, dmg: f64, atk: f64, ty: u8, tm: &[Vec<f64>], w: &Option
     e.hp -= left;
 }
 
-/// Damage over time, as Enemy.hurt() in the game: rounded, at least 1, and the shield takes it first.
-/// Returns the rounded tick (shield included) so a caller can record it. Combat is unchanged.
-fn hurt_dot(e: &mut Enemy, amount: f64) -> f64 {
+/// Damage over time: enemy.js update() calls this.hurt(), so it takes the same path as a hit (round,
+/// shield first, at least 1 HP after the shield, noteDmg). See raw_hurt.
+fn hurt_dot(e: &mut Enemy, amount: f64) {
     if e.hp <= 0.0 {
-        return 0.0;
+        return;
     }
-    let d = jmax(1.0, js_round(amount));
-    // enemy.js hurt: bosses add the rounded hit before the shield takes it.
-    if e.boss {
-        e.rd += d;
-    }
-    let mut left = d;
-    if e.shield > 0.0 {
-        let used = jmin(e.shield, d);
-        e.shield -= used;
-        left = d - used;
-        if left <= 0.0 {
-            return d;
-        }
-    }
-    e.hp -= left;
-    d
+    raw_hurt(e, amount, 0.0, 0.0, 0.0);
 }
 
 /// Enemy.hurt (enemy.js:100) once the ranking path is on: round, min 1, shield first, knock only if the
@@ -989,8 +1054,9 @@ fn note_bell(bell: &mut f64, on: bool, dealt: f64) {
     }
 }
 
+/// enemy.js:633-634: pow = Math.max(1, ...players' atk / baseAtk), then 0.07 * min(2.5, pow^0.35).
 fn heal_fraction<M: MathFns>(math: &M, atk: f64, base_atk: f64) -> f64 {
-    let p = if base_atk > 0.0 { atk / base_atk } else { 1.0 };
+    let p = jmax(1.0, if base_atk > 0.0 { atk / base_atk } else { 1.0 });
     0.07 * jmin(2.5, math.pow(p, 0.35))
 }
 
@@ -1056,14 +1122,18 @@ impl Default for Sep {
 
 /// Enemy positions in SoA form for the shot collision prefilter.
 struct ShotSoa {
-    xs: [f64; 64],
-    ys: [f64; 64],
-    rs: [f64; 64],
+    xs: [f64; SOA_LANES],
+    ys: [f64; SOA_LANES],
+    rs: [f64; SOA_LANES],
 }
+
+/// Lanes of the shot prefilter: two 64-bit masks. Summoned minions can take the enemy count past 64
+/// (enemy.js summon allows up to CAP + 15 + 2 = 81), so this is 128, not CAP.
+const SOA_LANES: usize = 128;
 
 impl Default for ShotSoa {
     fn default() -> Self {
-        ShotSoa { xs: [0.0; 64], ys: [0.0; 64], rs: [0.0; 64] }
+        ShotSoa { xs: [0.0; SOA_LANES], ys: [0.0; SOA_LANES], rs: [0.0; SOA_LANES] }
     }
 }
 
@@ -1071,7 +1141,7 @@ impl ShotSoa {
     /// Returns the padded lane count.
     fn load(&mut self, enemies: &[Enemy]) -> usize {
         let n = enemies.len();
-        assert!(n <= 64, "roll_spawn caps enemies at CAP = 64");
+        assert!(n <= SOA_LANES, "enemy count {n} exceeds the shot lanes");
         let lanes = (n + 7) & !7;
         for (j, e) in enemies.iter().enumerate() {
             self.xs[j] = e.x;
@@ -1087,8 +1157,8 @@ impl ShotSoa {
     }
 
     /// Bit j set unless enemy j fails the same axis-aligned box test the exact loop applies.
-    fn box_mask(&self, lanes: usize, n: usize, x: f64, y: f64, r: f64) -> u64 {
-        let mut mask = 0u64;
+    fn box_mask(&self, lanes: usize, n: usize, x: f64, y: f64, r: f64) -> [u64; 2] {
+        let mut mask = [0u64; 2];
         for c in (0..lanes).step_by(8) {
             let mut bits = 0u64;
             for k in 0..8 {
@@ -1099,10 +1169,15 @@ impl ShotSoa {
                 let keep = !((dx > rad) | (dx < -rad) | (dy > rad) | (dy < -rad));
                 bits |= (keep as u64) << k;
             }
-            mask |= bits << c;
+            mask[c / 64] |= bits << (c % 64);
         }
-        if n < 64 {
-            mask &= (1u64 << n) - 1;
+        for (w, word) in mask.iter_mut().enumerate() {
+            let lo = w * 64;
+            if n <= lo {
+                *word = 0;
+            } else if n < lo + 64 {
+                *word &= (1u64 << (n - lo)) - 1;
+            }
         }
         mask
     }
@@ -1379,6 +1454,307 @@ fn base_spd(mon: &Mon) -> f64 {
     (mon.spd - 78.0) / 0.42
 }
 
+/// Index of "flying" in the type list of data.rs (the boss nova pick checks it, enemy.js bossInit).
+const T_FLYING: u8 = 9;
+
+/// The eight boss attacks of enemy.js bossStart. Melee: Slam, then Dash or Leap. Ranged: two of Rain, Beam, Volley, Nova.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum BAtk {
+    Slam,
+    Dash,
+    Leap,
+    Rain,
+    Beam,
+    Volley,
+    Nova,
+}
+
+/// `ai.cast` in enemy.js: an attack that is winding up or firing. Leap never sets it (it becomes a jump).
+#[derive(Clone, Copy)]
+struct BCast {
+    id: BAtk,
+    t: f64,
+    wind: f64,
+    after: f64,
+    ang: f64,
+    len: f64,
+    dur: f64,
+    fired: bool,
+}
+
+/// enemy.js bossInit `ai`: the attack lists, far/close mode, cooldowns and fury (below half HP).
+#[derive(Clone)]
+struct BossAi {
+    melee: [BAtk; 2],
+    ranged: [BAtk; 2],
+    /// enemy.js farLike: 0.65 for a ranged boss, 0.35 for a charger or chaser.
+    far_like: f64,
+    /// true is 'far' (keeps its distance), false is 'close'.
+    far: bool,
+    mode_t: f64,
+    cd: f64,
+    cast: Option<BCast>,
+    fury: bool,
+    side: f64,
+}
+
+impl BossAi {
+    /// enemy.js bossInit. The attack picks come from the species (util.js hash), not from the run's rng.
+    fn new(dex: u32, types: &[u8], ranged: bool, rng: &mut Rng) -> BossAi {
+        let h = |a: i32, b: i32| crate::terrain::js_hash(dex as i32, a, b);
+        let has = |xs: &[u8]| types.iter().any(|t| xs.contains(t));
+        let melee = [BAtk::Slam, if h(3, 7) < 0.5 { BAtk::Dash } else { BAtk::Leap }];
+        let pref = if has(&[T_FIRE, T_GROUND, T_POISON, T_ROCK, T_GRASS]) {
+            BAtk::Rain
+        } else if has(&[T_ELECTRIC, T_PSYCHIC, T_DRAGON, T_ICE, T_STEEL]) {
+            BAtk::Beam
+        } else if has(&[T_FAIRY, T_GHOST, T_WATER, T_FLYING]) {
+            BAtk::Nova
+        } else {
+            BAtk::Volley
+        };
+        let others: Vec<BAtk> = [BAtk::Rain, BAtk::Beam, BAtk::Nova, BAtk::Volley].into_iter().filter(|&a| a != pref).collect();
+        let second = others[((h(5, 9) * 3.0).floor() as usize) % 3];
+        BossAi {
+            melee,
+            ranged: [pref, second],
+            far_like: if ranged { 0.65 } else { 0.35 },
+            far: ranged,
+            mode_t: 6.0 + rng.next() * 2.0,
+            cd: 1.6,
+            cast: None,
+            fury: false,
+            side: if rng.next() < 0.5 { -1.0 } else { 1.0 },
+        }
+    }
+}
+
+/// What a boss step reads from the enemy and the player this frame.
+struct BossEnv {
+    x: f64,
+    y: f64,
+    r: f64,
+    /// enemy.js this.dmg (zones) and this.shotDmg() (beams, rain, shots).
+    dmg: f64,
+    shot: f64,
+    ty: u8,
+    cat: u8,
+    px: f64,
+    py: f64,
+    dist: f64,
+    /// Unit vector from the boss to the player (enemy.js ddx, ddy).
+    nd: (f64, f64),
+    /// Movement direction after side-steps and path steering (enemy.js dx, dy).
+    dir: (f64, f64),
+    spd: f64,
+    dt: f64,
+    hp: f64,
+    max: f64,
+}
+
+/// What one boss frame asks of the enemy: velocity, whether it enraged, and a leap's start time.
+struct BossStep {
+    vx: f64,
+    vy: f64,
+    enraged: bool,
+    leap: Option<f64>,
+}
+
+fn pick_atk(rng: &mut Rng, xs: &[BAtk]) -> BAtk {
+    let i = ((rng.next() * xs.len() as f64).floor() as usize).min(xs.len() - 1);
+    xs[i]
+}
+
+fn zone_hz(env: &BossEnv, x: f64, y: f64, r: f64, delay: f64, dmg: f64) -> Hazard {
+    Hazard { kind: HKind::Zone, x, y, r, angle: 0.0, len: 0.0, w: 0.0, delay, t: 0.0, dmg, ty: env.ty, cat: env.cat, pure: false, pct: f64::NAN }
+}
+
+fn beam_hz(env: &BossEnv, angle: f64, len: f64, w: f64, delay: f64, dmg: f64) -> Hazard {
+    Hazard { kind: HKind::Beam, x: env.x, y: env.y, r: 0.0, angle, len, w, delay, t: 0.0, dmg, ty: env.ty, cat: env.cat, pure: false, pct: f64::NAN }
+}
+
+/// enemy.js bossMove. Returns the velocity, whether the boss enraged this frame, and a leap if one started.
+/// Hazards and shots go into `hz` and `shots`; the caller applies the speed-up (enemy.js enrage).
+fn boss_frame<M: MathFns>(m: &M, b: &mut BossAi, rng: &mut Rng, env: &BossEnv, hz: &mut Vec<Hazard>, shots: &mut Vec<EShot>) -> BossStep {
+    // enemy.js:460 — once, below half HP, before the cast check.
+    let enraged = !b.fury && env.hp < env.max * 0.5;
+    if enraged {
+        b.fury = true;
+    }
+    // enemy.js:461 — cadence and close-range speed ×1.25 while enraged.
+    let k = if b.fury { 1.25 } else { 1.0 };
+    if let Some(mut c) = b.cast.take() {
+        let (vx, vy, done) = boss_cast(m, b, rng, &mut c, env, shots);
+        if !done {
+            b.cast = Some(c);
+        }
+        return BossStep { vx, vy, enraged, leap: None };
+    }
+    b.mode_t -= env.dt;
+    b.cd -= env.dt * k;
+    // enemy.js:465-468 — the distance it likes is held longer (7-9 s) than the other (4-5 s).
+    if b.mode_t <= 0.0 {
+        b.far = !b.far;
+        b.mode_t = if b.far == (b.far_like > 0.5) { 7.0 + rng.next() * 2.0 } else { 4.0 + rng.next() };
+        b.side = -b.side;
+    }
+    let s = env.spd;
+    let (nx, ny) = env.nd;
+    let (mut vx, mut vy) = (env.dir.0 * s * k * 1.1, env.dir.1 * s * k * 1.1);
+    if b.far {
+        // enemy.js:472-475 — back off when close, circle when mid-range.
+        if env.dist < 170.0 {
+            vx = -nx * s;
+            vy = -ny * s;
+        } else if env.dist < 300.0 {
+            vx = -ny * s * 0.55 * b.side;
+            vy = nx * s * 0.55 * b.side;
+        }
+    }
+    let mut leap = None;
+    if b.cd <= 0.0 {
+        let id = if !b.far {
+            // enemy.js:478-481 — melee in range, and sometimes a shot even up close.
+            let ok: Vec<BAtk> = b
+                .melee
+                .iter()
+                .copied()
+                .filter(|&a| if a == BAtk::Slam { env.dist < 125.0 } else { env.dist < 320.0 })
+                .collect();
+            if !ok.is_empty() && rng.next() < 0.8 {
+                Some(pick_atk(rng, &ok))
+            } else if env.dist < 480.0 {
+                Some(pick_atk(rng, &b.ranged))
+            } else {
+                None
+            }
+        } else if env.dist < 115.0 {
+            Some(BAtk::Slam)
+        } else if env.dist < 430.0 {
+            Some(pick_atk(rng, &b.ranged))
+        } else {
+            None
+        };
+        if let Some(id) = id {
+            leap = boss_start(m, b, rng, id, env, hz);
+        }
+    }
+    BossStep { vx, vy, enraged, leap }
+}
+
+/// enemy.js bossStart: the warning zones and beams for one attack, with the game's delays and sizes.
+/// Returns the leap's start time for a leap (the jump itself is set by the caller).
+fn boss_start<M: MathFns>(m: &M, b: &mut BossAi, rng: &mut Rng, id: BAtk, env: &BossEnv, hz: &mut Vec<Hazard>) -> Option<f64> {
+    let f = if b.fury { 0.8 } else { 1.0 };
+    let ang = m.atan2(env.nd.1, env.nd.0);
+    let mut c = BCast { id, t: 0.0, wind: 0.6 * f, after: 0.35, ang, len: 0.0, dur: 0.0, fired: false };
+    match id {
+        BAtk::Slam => {
+            // enemy.js:505-507 — a ring around the boss.
+            c.wind = 0.85 * f;
+            hz.push(zone_hz(env, env.x, env.y, 96.0 + env.r, c.wind, env.dmg * 1.3));
+        }
+        BAtk::Dash => {
+            // enemy.js:510-513 — a straight charge along a 330 px beam.
+            c.wind = 0.75 * f;
+            c.len = 330.0;
+            c.dur = 0.32;
+            hz.push(beam_hz(env, ang, c.len + env.r, env.r * 2.0 + 16.0, c.wind + c.dur, env.dmg * 1.2));
+        }
+        BAtk::Leap => {
+            // enemy.js:516-520 — jump at the player's spot; the landing zone is r 82 at the player.
+            hz.push(zone_hz(env, env.px, env.py, 82.0, 0.5 * f + 0.65, env.dmg * 1.25));
+            b.cd = 1.4 + rng.next() * 0.6 + 0.6;
+            return Some(-0.5 * f);
+        }
+        BAtk::Rain => {
+            // enemy.js:522-531 — four zones around the player, six when enraged.
+            let n = if b.fury { 6 } else { 4 };
+            for i in 0..n {
+                let (a, d) = if i > 0 { (rng.next() * 6.2832, 40.0 + rng.next() * 80.0) } else { (0.0, 0.0) };
+                let (zx, zy) = (env.px + m.cos(a) * d, env.py + m.sin(a) * d * 0.8);
+                hz.push(zone_hz(env, zx, zy, 50.0, 1.05 + i as f64 * 0.12, env.shot * 1.15));
+            }
+            c.wind = 0.5;
+        }
+        BAtk::Beam => {
+            // enemy.js:532-540 — a fan of three beams, five when enraged.
+            let (n, sp) = if b.fury { (5, 0.42) } else { (3, 0.5) };
+            for i in 0..n {
+                let a = ang + (i as f64 - (n as f64 - 1.0) / 2.0) * sp;
+                hz.push(beam_hz(env, a, 400.0, 26.0, 1.0, env.shot * 1.2));
+            }
+            c.wind = 1.0;
+            c.after = 0.25;
+        }
+        // enemy.js:541-544 — the shots leave when the wind-up ends (see boss_cast).
+        BAtk::Volley => c.wind = 0.5 * f,
+        BAtk::Nova => c.wind = 0.7 * f,
+    }
+    b.cast = Some(c);
+    None
+}
+
+/// enemy.js bossCast. Returns the velocity and whether the attack is over (bossEnd ran).
+fn boss_cast<M: MathFns>(m: &M, b: &mut BossAi, rng: &mut Rng, c: &mut BCast, env: &BossEnv, shots: &mut Vec<EShot>) -> (f64, f64, bool) {
+    c.t += env.dt;
+    if c.id == BAtk::Dash && c.t >= c.wind {
+        if c.t >= c.wind + c.dur {
+            boss_end(b, rng);
+            return (0.0, 0.0, true);
+        }
+        let sp = c.len / c.dur;
+        return (m.cos(c.ang) * sp, m.sin(c.ang) * sp, false);
+    }
+    if c.t >= c.wind && !c.fired {
+        c.fired = true;
+        let (ax, ay) = env.nd;
+        match c.id {
+            // enemy.js:562 — fan of 7 (9 enraged), spread 1.1, damage ×0.8.
+            BAtk::Volley => boss_shoot(m, env, shots, ax, ay, 1.1, if b.fury { 9 } else { 7 }, 0.8),
+            // enemy.js:563 — ring of 14 (18 enraged), damage ×0.7.
+            BAtk::Nova => {
+                let n = if b.fury { 18 } else { 14 };
+                boss_shoot(m, env, shots, ax, ay, 6.2832 * (n as f64 - 1.0) / n as f64, n, 0.7);
+            }
+            _ => {}
+        }
+    }
+    if c.t >= c.wind + c.after {
+        boss_end(b, rng);
+        return (0.0, 0.0, true);
+    }
+    (0.0, 0.0, false)
+}
+
+/// enemy.js bossEnd: the cooldown after an attack, shorter with some chance when enraged.
+fn boss_end(b: &mut BossAi, rng: &mut Rng) {
+    b.cast = None;
+    b.cd = 1.3 + rng.next() * 0.7;
+    if b.fury && rng.next() < 0.35 {
+        b.cd = 0.3;
+    }
+}
+
+/// enemy.js shoot for a boss: `n` shots in a fan of `spread` around the aim, at the enemy's shot damage times `k`.
+fn boss_shoot<M: MathFns>(m: &M, env: &BossEnv, shots: &mut Vec<EShot>, ax: f64, ay: f64, spread: f64, n: usize, k: f64) {
+    let base = m.atan2(ay, ax);
+    for j in 0..n {
+        let a = base + if n == 1 { 0.0 } else { (j as f64 / (n as f64 - 1.0) - 0.5) * spread };
+        shots.push(EShot {
+            x: env.x,
+            y: env.y,
+            vx: m.cos(a) * 190.0,
+            vy: m.sin(a) * 190.0,
+            r: 7.0,
+            life: 2.4,
+            dmg: env.shot * k,
+            ty: env.ty,
+            cat: env.cat,
+        });
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 fn special_enemy(
     id: u32, dex: u16, x: f64, y: f64, r: f64, combo: u16, ty0: u8, xp: f64, beh: Beh, spd: f64, dmg: f64, hp: f64, shot_cd: f64, shot: f64, ai: Rng, def: Def, fly: bool, water: bool, fire: bool, boss: bool, legend: bool,
@@ -1444,6 +1820,9 @@ fn special_enemy(
         cat: 1,
         rd: 0.0,
         stun_t: 0.0,
+        bai: None,
+        sc: [1.0; 3],
+        owner: None,
     }
 }
 
@@ -1453,16 +1832,18 @@ struct Match<'a, M: MathFns> {
     tables: &'a Tables,
     mon: &'a Mon,
     start: &'a Move,
+    /// index of the run's starter in `data.moves` (the species default is `mon.start`)
+    start_ix: usize,
     opts: &'a Opts,
     dt: f64,
     knock_fade: f64,
     world: Rng,
     card_roll: Rng,
     state: State,
-    has_sd: bool,
-    has_hd: bool,
-    atk_buff: usize,
-    def_buff: usize,
+    /// Whether each buff track can gain levels from cards (the pool, or the kit's bonded tracks).
+    has_buf: [bool; 2],
+    /// Data move index of each buff track.
+    buf_ix: [usize; 2],
     comps: Vec<(usize, usize, f64)>,
     any_melee: bool,
     fields: Vec<Field<'a>>,
@@ -1511,6 +1892,11 @@ struct Match<'a, M: MathFns> {
     picked: f64,
     /// Post-type, post-guard, post-crit damage before the shield. Burn and poison are not included.
     dealt: f64,
+    /// Damage by move index (`MoveLvl::ix`) and the counters RunResult reports.
+    dealt_by: Vec<f64>,
+    dealt_bomb: f64,
+    cards: [u32; 6],
+    first_boss_t: f64,
     xp: f64,
     level: u32,
     need: f64,
@@ -1531,8 +1917,10 @@ struct Match<'a, M: MathFns> {
     near_buf: Vec<(f64, usize)>,
     terrain: Option<Box<Terr>>,
     lava_t: f64,
-    /// 0 fixed group, 1 the swap slot (player.js setActive). Stays 0 unless `Ext::alt` is set.
+    /// Active hole (player.js setActive): 0 the fixed group, 1 the swap move when `Ext::alt` is set, then one per extra.
     slot: u8,
+    /// The active hole's last cast found no target. maybe_swap moves on at once.
+    waiting: bool,
     alt_cd: f64,
     comp_evo: Vec<bool>,
     regen_n: f64,
@@ -1566,7 +1954,7 @@ struct Match<'a, M: MathFns> {
     g_spec: f64,
     /// bond_order members the level-up cards have already offered (levelup.js). Starter is not here.
     learned: Vec<bool>,
-    /// Sentencia is running (judgment.js). The published window ends at 900 s, before minute 30.
+    /// Sentencia is running (judgment.js). The ranking window runs to minute 30 (1800 s).
     judging: bool,
     jd_t: f64,
     jd_boss_t: f64,
@@ -1679,6 +2067,9 @@ fn blank_enemy(hp: f64, shield: f64, combo: u16, cat: u8, taken: f64) -> Enemy {
         cat,
         rd: 0.0,
         stun_t: 0.0,
+        bai: None,
+        sc: [1.0; 3],
+        owner: None,
     }
 }
 
@@ -1756,29 +2147,31 @@ impl<'a, M: MathFns> Match<'a, M> {
         }
         self.stat_dirty = false;
         self.stat_snow = snow;
-        let mv = self.current_move();
+        let mv = self.active_move();
         let s = &self.state;
+        // One bucket per buff stat (tick_buffs). A bucket multiplies by 1 + stacks x amount of the track
+        // that cast into it last. Def is a reduction: stacks x amount.
         let mut atk_buff = 0.0;
         let mut def_buff = 0.0;
         let mut patk = 1.0;
         let mut satk = 1.0;
-        if s.sd > 0 && s.sd_t > 0.0 {
-            let lvl = self.buff_level(self.atk_buff, s.sd);
-            let bonus = s.sd_stacks * lvl.amount;
-            // moves.js: Swords Dance and Dragon Dance are patk; Nasty Plot is satk.
-            match lvl.buff {
-                5 => patk = 1.0 + bonus,
-                6 => satk = 1.0 + bonus,
-                _ => atk_buff = bonus,
-            }
-        }
-        if s.hd > 0 && s.hd_t > 0.0 {
-            def_buff = s.hd_stacks * self.buff_level(self.def_buff, s.hd).amount;
-        }
         let mut spd_buff = 1.0;
-        if self.opts.ext.agi {
-            spd_buff = 1.0 + def_buff;
-            def_buff = 0.0;
+        let mut regen_buff = 0.0;
+        for (stat, b) in s.bk.iter().enumerate() {
+            if b.n <= 0.0 {
+                continue;
+            }
+            let amount = self.buff_level(self.buf_ix[b.src], s.buf[b.src]).amount;
+            let bonus = b.n * amount;
+            match stat {
+                1 => atk_buff += bonus,
+                2 => spd_buff += bonus,
+                3 => def_buff += bonus,
+                4 => regen_buff += bonus,
+                5 => patk += bonus,
+                6 => satk += bonus,
+                _ => {}
+            }
         }
         let it = self.opts.ext.item;
         let faithful = self.faith();
@@ -1789,7 +2182,7 @@ impl<'a, M: MathFns> Match<'a, M> {
         }
         // player.js:254. The cut applies whenever a melee move is in the active group.
         // The starter always is. A companion counts once that bond has landed, not from t=0.
-        let melee_cut = mv.kind == Kind::Melee || self.active_has_melee();
+        let melee_cut = mv.kind == Kind::Melee || (self.slot == 0 && self.active_has_melee());
         let st = &mut self.st;
         st.max_hp = self.mon.hp + 20.0 * s.cards[Stat::Hp as usize] as f64;
         st.atk = self.mon.atk * self.tables.atk[s.cards[Stat::Pow as usize] as usize] * (1.0 + atk_buff) * it.atk;
@@ -1814,6 +2207,7 @@ impl<'a, M: MathFns> Match<'a, M> {
         if self.regen_n > 0.0 && self.regen_t > 0.0 {
             st.regen += self.regen_n * self.regen_amt;
         }
+        st.regen += regen_buff;
         st.melee = if melee_cut { 0.75 } else { 1.0 };
         st.mv = mv;
         // interact.js POWERS, 25 s. Imán only changes the magnet radius (magnet_r).
@@ -1823,13 +2217,6 @@ impl<'a, M: MathFns> Match<'a, M> {
                 1 => st.spd *= 1.45,
                 3 => st.cd_mul *= 0.6,
                 _ => {}
-            }
-        }
-        if self.slot == 1 {
-            if let Some(id) = self.opts.ext.alt {
-                let alt = &self.data.moves[id].levels[0];
-                st.melee = if alt.kind == Kind::Melee { 0.75 } else { 1.0 };
-                st.mv = alt;
             }
         }
         // player.js spd getter: Judgment.capSpd only while Sentencia is active (judgment.js:46-48).
@@ -1921,26 +2308,64 @@ impl<'a, M: MathFns> Match<'a, M> {
         raw_hurt(e, dmg, 80.0, dx, dy);
     }
 
-    /// Swap when the active timer is still above 35% of base cd (player.js:148). cdMul at or below
-    /// 0.35 already waits less than the clamp, so swapping does not help. Choice Band never reaches this.
+    fn first_extra(&self) -> u8 {
+        if self.opts.ext.alt.is_some() { 2 } else { 1 }
+    }
+
+    fn holes(&self) -> u8 {
+        self.first_extra() + self.extras.len() as u8
+    }
+
+    fn alt_active(&self) -> bool {
+        self.opts.ext.alt.is_some() && self.slot == 1
+    }
+
+    /// Timer and base cooldown of the active hole.
+    fn active_timer(&self) -> (f64, f64) {
+        let mv = self.active_move();
+        // combat.js:29: an orbit has no cooldown to wait out, so its hole is always ready.
+        if mv.kind == Kind::Orbit {
+            return (0.0, mv.cd);
+        }
+        if self.slot == 0 {
+            (self.atk_cd, mv.cd)
+        } else if self.alt_active() {
+            (self.alt_cd, mv.cd)
+        } else {
+            (self.extras[(self.slot - self.first_extra()) as usize].1, mv.cd)
+        }
+    }
+
+    /// The move of the active hole: the group's first move on hole 0, the `--swap` move, or an extra.
+    fn active_move(&self) -> &'a MoveLvl {
+        if self.slot == 0 {
+            self.current_move()
+        } else if self.alt_active() {
+            &self.data.moves[self.opts.ext.alt.unwrap()].levels[0]
+        } else {
+            &self.data.moves[self.extras[(self.slot - self.first_extra()) as usize].0].levels[0]
+        }
+    }
+
+    /// Swap when the active timer is still above 35% of base cd (player.js:148), or when the active hole
+    /// found no target. The next hole in turn takes over. cdMul at or below 0.35 already waits less than
+    /// the clamp, so swapping does not help. Choice Band never reaches this.
     fn maybe_swap(&mut self) {
-        if self.opts.ext.alt.is_none() || self.opts.ext.item.lock || self.st.cd_mul <= 0.35 {
+        if self.holes() < 2 || self.opts.ext.item.lock || self.st.cd_mul <= 0.35 {
             return;
         }
-        let (timer, base) = if self.slot == 0 {
-            (self.atk_cd, self.current_move().cd)
-        } else {
-            let id = self.opts.ext.alt.unwrap();
-            (self.alt_cd, self.data.moves[id].levels[0].cd)
-        };
-        if timer > base * 0.35 {
-            self.enter_slot(1 - self.slot);
+        let (timer, base) = self.active_timer();
+        if timer > base * 0.35 || self.waiting {
+            let next = (self.slot + 1) % self.holes();
+            self.enter_slot(next);
         }
     }
 
     fn enter_slot(&mut self, slot: u8) {
         self.slot = slot;
         self.orbs.clear();
+        self.side_orbit = None;
+        self.waiting = false;
         self.stat_dirty = true;
         if slot == 0 {
             let base = self.current_move().cd;
@@ -1949,9 +2374,13 @@ impl<'a, M: MathFns> Match<'a, M> {
                 let cd = self.comp_lvl(i).cd;
                 self.comps[i].2 = jmin(self.comps[i].2, cd * 0.35);
             }
-        } else if let Some(id) = self.opts.ext.alt {
-            let cd = self.data.moves[id].levels[0].cd;
+        } else if self.alt_active() {
+            let cd = self.data.moves[self.opts.ext.alt.unwrap()].levels[0].cd;
             self.alt_cd = jmin(self.alt_cd, cd * 0.35);
+        } else {
+            let i = (slot - self.first_extra()) as usize;
+            let cd = self.data.moves[self.extras[i].0].levels[0].cd;
+            self.extras[i].1 = jmin(self.extras[i].1, cd * 0.35);
         }
     }
 
@@ -2006,7 +2435,7 @@ impl<'a, M: MathFns> Match<'a, M> {
 
     // ------------------------------------------------ cards
 
-    /// levelup.js `max`. Vigor and Síntesis have none; the ranking path stops at 250, which a 900 s
+    /// levelup.js `max`. Vigor and Síntesis have none; the ranking path stops at 250, which a 1800 s
     /// run cannot reach. Parity keeps the old caps (hp 99, rgn 10).
     fn stat_cap(&self, st: Stat) -> u32 {
         if let Some(&(_, n)) = self.opts.ext.locks.iter().find(|(k, _)| *k == st as u8) {
@@ -2085,11 +2514,10 @@ impl<'a, M: MathFns> Match<'a, M> {
             }
         }
         // With rift bonds the bot only levels group members it has already bonded (an unbonded buff never fires).
-        if self.has_sd && s.sd < 5 && (self.opts.ext.buffs == 0 || self.bonded(100)) {
-            out.push(Card::Sd);
-        }
-        if self.has_hd && s.hd < 5 && (self.opts.ext.buffs == 0 || self.bonded(101)) {
-            out.push(Card::Hd);
+        for k in 0..2 {
+            if self.has_buf[k] && s.buf[k] < 5 && (self.opts.ext.kit.is_none() || self.bonded(100 + k as u8)) {
+                out.push(Card::Buf(k as u8));
+            }
         }
         for st in STATS {
             if out.contains(&Card::Stat(st)) {
@@ -2149,7 +2577,7 @@ impl<'a, M: MathFns> Match<'a, M> {
             }
         }
         if !self.opts.ext.fill.is_empty() {
-            for c in [Card::Sd, Card::Hd] {
+            for c in [Card::Buf(0), Card::Buf(1)] {
                 if has(c) {
                     return c;
                 }
@@ -2182,8 +2610,7 @@ impl<'a, M: MathFns> Match<'a, M> {
         match c {
             Card::Up => self.state.move_lvl += 1,
             Card::Evo => self.state.evolved = true,
-            Card::Sd => self.state.sd = (self.state.sd + 1).min(5),
-            Card::Hd => self.state.hd = (self.state.hd + 1).min(5),
+            Card::Buf(k) => self.state.buf[k as usize] = (self.state.buf[k as usize] + 1).min(5),
             Card::Up2(i) => self.comps[i as usize].1 += 1,
             Card::Evo2(i) => {
                 self.comp_evo[i as usize] = true;
@@ -2224,6 +2651,7 @@ impl<'a, M: MathFns> Match<'a, M> {
         // Group mode spends the level on a missing bond move when the offer shows it.
         // Parity and solo runs leave rift off, so this returns before touching card_roll.
         if self.try_learn() {
+            self.cards[CARD_LEARN] += 1;
             return;
         }
         let mut legal = Vec::with_capacity(12);
@@ -2247,11 +2675,9 @@ impl<'a, M: MathFns> Match<'a, M> {
         let id = self.pick_card(&legal);
         let before = self.st.max_hp;
         self.apply_card(id);
-        if id == Card::Sd {
-            self.state.sd_cd = 0.0;
-        }
-        if id == Card::Hd {
-            self.state.hd_cd = 0.0;
+        self.cards[card_tag(id)] += 1;
+        if let Card::Buf(k) = id {
+            self.state.buf_cd[k as usize] = 0.0;
         }
         self.stat_dirty = true;
         self.stats();
@@ -2295,10 +2721,12 @@ impl<'a, M: MathFns> Match<'a, M> {
             let legend = self.enemies[i].legend;
             let elite = self.enemies[i].elite;
             let judge = self.enemies[i].judge;
+            let minion = self.enemies[i].owner.is_some();
             let (ex, ey) = (self.enemies[i].x, self.enemies[i].y);
             // spawner.js:107-108. Wild XP is round(xp * 5.6); an elite then round(that * 1.6).
             // Parity keeps the unrounded product so the XP trace matches match.js.
-            let gained = if boss || legend {
+            // enemy.js summon(): minions take no XP_K, so they give their raw xp.
+            let gained = if boss || legend || minion {
                 raw
             } else if self.faith() {
                 let v = js_round(raw * 5.6);
@@ -2414,19 +2842,32 @@ impl<'a, M: MathFns> Match<'a, M> {
         }
     }
 
+    /// Credits `dealt` to the move that dealt it. The bell item sees the same damage.
+    fn add_dealt(&mut self, ix: u16, dealt: f64) {
+        self.dealt += dealt;
+        self.dealt_by[ix as usize] += dealt;
+        note_bell(&mut self.bell, self.opts.ext.item.bell, dealt);
+    }
+
     /// game.js:525. Everything on screen takes 60 + 14 * level.
     fn detonate(&mut self) {
         let dmg = 60.0 + self.level as f64 * 14.0;
         let (px, py) = (self.pl.x, self.pl.y);
+        let counted = self.faith();
         let mut dealt = 0.0;
         for e in &mut self.enemies {
             if e.hp <= 0.0 || !sees_view(px, py, e.x, e.y, 0.0) {
                 continue;
             }
-            dealt += js_round(dmg).max(1.0);
+            let (before_hp, before_sh) = (e.hp, e.shield);
             raw_hurt(e, dmg, 160.0, e.x - px, e.y - py);
+            // Same count as hit_one: HP and shield actually removed, overkill excluded.
+            dealt += (before_hp - e.hp.max(0.0)).max(0.0) + (before_sh - e.shield.max(0.0)).max(0.0);
         }
-        self.dealt += dealt;
+        if counted {
+            self.dealt += dealt;
+            self.dealt_bomb += dealt;
+        }
     }
 
     /// pickup.js update. Pull inside the magnet, collect inside 15px.
@@ -2515,7 +2956,9 @@ impl<'a, M: MathFns> Match<'a, M> {
         false
     }
 
-    /// enemy.js:964-978. Unseen and behind for 2.5s, or farther than 1400px, respawns ahead.
+    /// enemy.js:964-978 for wild enemies: unseen and behind for 2.5 s, or farther than 1400 px, respawns ahead.
+    /// enemy.js:984-988 for bosses (rift legendaries are bosses too): farther than BOSS_FAR from the player for
+    /// 4 s respawns ahead. Nothing else happens to a boss, and a failed placement leaves it where it is.
     fn tick_stragglers(&mut self) {
         if self.arena_phase != 0 || self.judging {
             return;
@@ -2527,13 +2970,23 @@ impl<'a, M: MathFns> Match<'a, M> {
         let far = (OUTER + 40.0).powi(2);
         let mut i = 0;
         while i < self.enemies.len() {
-            if self.enemies[i].boss || self.enemies[i].legend || self.enemies[i].hp <= 0.0 {
+            if self.enemies[i].hp <= 0.0 {
                 i += 1;
                 continue;
             }
             let dx = self.enemies[i].x - px;
             let dy = self.enemies[i].y - py;
             let d2 = dx * dx + dy * dy;
+            if self.enemies[i].boss || self.enemies[i].legend {
+                let e = &mut self.enemies[i];
+                e.lag_t = if d2 > BOSS_FAR * BOSS_FAR { e.lag_t + step } else { 0.0 };
+                if e.lag_t > BOSS_LAG_T {
+                    e.lag_t = 0.0;
+                    self.ahead_of(i);
+                }
+                i += 1;
+                continue;
+            }
             let unseen = d2 > far && !sees_view(px, py, self.enemies[i].x, self.enemies[i].y, 60.0);
             let behind = sp > 40.0 && dx * vx + dy * vy < -0.2 * d2.sqrt() * sp;
             if unseen && behind {
@@ -2560,8 +3013,34 @@ impl<'a, M: MathFns> Match<'a, M> {
         }
     }
 
+    /// Aim target of the lead move (player.js:384-411). A ranged lead (projectile, beam) takes the boss
+    /// within 330 first, then what is touching you (radius + 24), then the nearest within 520. Any other
+    /// lead takes what touches you first, then the boss. Rocks and chests (200) are not vendored.
+    fn aim_target(&self) -> Option<usize> {
+        let (x, y, pr) = (self.pl.x, self.pl.y, self.pl.r);
+        let boss = self.enemies.iter().position(|e| e.boss && e.hp > 0.0 && len(e.x - x, e.y - y) < 330.0);
+        let touch = nearest_within(&self.enemies, x, y, pr + 24.0);
+        let first = if matches!(self.st.mv.kind, Kind::Projectile | Kind::Beam) { boss.or(touch) } else { touch.or(boss) };
+        first.or_else(|| nearest_within(&self.enemies, x, y, 520.0))
+    }
+
+    /// combat.js tickMove: a move that needs a target only fires while the aim target is inside its reach.
+    /// A miss waits 0.05 s without starting the cooldown, and never calls pl.cast (so no life orb).
+    fn target_in_reach(&self, mv: &MoveLvl) -> bool {
+        let Some(reach) = kinds::reach(mv) else {
+            return true;
+        };
+        match self.aim_target() {
+            Some(i) => len(self.enemies[i].x - self.pl.x, self.enemies[i].y - self.pl.y) <= reach,
+            None => false,
+        }
+    }
+
     fn cast(&mut self) -> bool {
         let mv = self.st.mv;
+        if !self.target_in_reach(mv) {
+            return false;
+        }
         // player.js cast(): life orb skips orbit and trail, and only runs when combat.js actually calls pl.cast.
         // A needsTarget miss never calls cast. Default (parity) kinds keep the previous order: life orb before the cast.
         let extra = self.opts.ext.xkinds && mv.kind == Kind::Inert && mv.xk != 0;
@@ -2600,9 +3079,9 @@ impl<'a, M: MathFns> Match<'a, M> {
 
     fn bond_move(&self, slot: u8) -> usize {
         if slot == 100 {
-            self.atk_buff
+            self.buf_ix[0]
         } else if slot == 101 {
-            self.def_buff
+            self.buf_ix[1]
         } else {
             self.comps[slot as usize].0
         }
@@ -2640,14 +3119,12 @@ impl<'a, M: MathFns> Match<'a, M> {
             }
             note_move(&mut evos, &mut waiting, lvl, m.max_lvl, self.comp_evo[i], m.evo.is_some(), m.needs, &self.state.cards);
         }
-        if self.has_sd && self.state.sd < 5 && (self.opts.ext.buffs == 0 || self.bonded(100)) {
-            ups += 8.0;
+        for k in 0..2 {
+            if self.has_buf[k] && self.state.buf[k] < 5 && (self.opts.ext.kit.is_none() || self.bonded(100 + k as u8)) {
+                ups += 8.0;
+            }
         }
-        if self.has_hd && self.state.hd < 5 && (self.opts.ext.buffs == 0 || self.bonded(101)) {
-            ups += 8.0;
-        }
-        let known = 1 + self.learned.iter().filter(|on| **on).count();
-        let slots_open = !self.opts.ext.rift || known < 4;
+        let slots_open = !self.opts.ext.rift || self.holes_used() < 4;
         let per = if slots_open { 4.0 } else { 7.0 };
         let mut room = 0usize;
         for st in STATS {
@@ -2680,7 +3157,7 @@ impl<'a, M: MathFns> Match<'a, M> {
         for c in legal {
             match c {
                 Card::Evo | Card::Evo2(_) => evo.push(c),
-                Card::Up | Card::Up2(_) | Card::Sd | Card::Hd => up.push(c),
+                Card::Up | Card::Up2(_) | Card::Buf(_) => up.push(c),
                 _ => stat.push(c),
             }
         }
@@ -2690,11 +3167,10 @@ impl<'a, M: MathFns> Match<'a, M> {
         }
         stat.truncate(5);
         let (_, evos) = self.level_offer_parts();
-        let per = if evos > 0 && self.learned.iter().filter(|on| **on).count() + 1 >= 4 {
+        let per = if evos > 0 && self.holes_used() >= 4 {
             7.0
         } else {
-            let known = 1 + self.learned.iter().filter(|on| **on).count();
-            if !self.opts.ext.rift || known < 4 { 4.0 } else { 7.0 }
+            if !self.opts.ext.rift || self.holes_used() < 4 { 4.0 } else { 7.0 }
         };
         let mut pool: Vec<(Card, f64)> = Vec::new();
         let mut picked: Vec<Card> = Vec::new();
@@ -2749,12 +3225,19 @@ impl<'a, M: MathFns> Match<'a, M> {
         if !self.opts.ext.rift || self.learned.iter().all(|on| *on) {
             return false;
         }
-        let known_n = 1 + self.learned.iter().filter(|on| **on).count();
-        if known_n >= 4 {
+        if self.holes_used() >= 4 {
             return false;
         }
         let buffs_known = self.learned.iter().enumerate().filter(|(i, on)| **on && self.bond_order[*i] >= 100).count();
-        let mut known = vec![self.mon.start];
+        // player.js:117 addMove refuses a move the player already has (levelup.js:55 drops those from the pool).
+        // A companion still waiting for its bond stays in the pool, or its bond could never be offered.
+        let queued: Vec<usize> = self.bond_order.iter().enumerate()
+            .filter(|&(i, _)| !self.learned.get(i).copied().unwrap_or(false))
+            .map(|(_, &b)| self.bond_move(b))
+            .collect();
+        let mut known = vec![self.start_ix];
+        known.extend(self.extras.iter().map(|e| e.0));
+        known.extend(self.comps.iter().map(|c| c.0).filter(|ix| !queued.contains(ix)));
         for (i, on) in self.learned.iter().enumerate() {
             if *on {
                 known.push(self.bond_move(self.bond_order[i]));
@@ -2828,9 +3311,19 @@ impl<'a, M: MathFns> Match<'a, M> {
         false
     }
 
-    /// Slots left after the starter, learned bonds, extras, and unlearned attack partners.
+    /// Holes in use (player.js:116 `slots`). The fixed group is one hole with the starter and its bonded
+    /// members, at most BOND_MAX = 4 (player.js:180, fuse at player.js:191). A learned member not yet
+    /// bonded and each extra take a hole of their own.
+    fn holes_used(&self) -> usize {
+        let loose = self.bond_order.iter().enumerate()
+            .filter(|&(i, &b)| self.learned.get(i).copied().unwrap_or(false) && !self.bonded(b))
+            .count();
+        1 + self.extras.len() + loose
+    }
+
+    /// Holes left after the fixed group, learned loose members, extras, and unlearned attack partners.
     fn extra_room(&self) -> bool {
-        let known = 1 + self.learned.iter().filter(|on| **on).count() + self.extras.len();
+        let known = self.holes_used();
         let reserved = self.bond_order.iter().enumerate().filter(|(i, b)| {
             **b < 100 && !self.learned.get(*i).copied().unwrap_or(false)
         }).count();
@@ -2880,6 +3373,10 @@ impl<'a, M: MathFns> Match<'a, M> {
     fn cast_extras(&mut self) {
         let n = self.extras.len();
         for i in 0..n {
+            // Only the active hole fires and ticks (combat.js:21-23). The others keep their timers.
+            if self.first_extra() + i as u8 != self.slot {
+                continue;
+            }
             if self.extras[i].1 > 0.0 {
                 self.extras[i].1 -= self.dt;
                 continue;
@@ -2890,8 +3387,9 @@ impl<'a, M: MathFns> Match<'a, M> {
             self.extras[i].1 = self.cooled(cd);
             if kind == Kind::Orbit {
                 self.side_orbit = Some((ix, 0));
-            } else if !self.cast_mv(mv) {
+            } else if !self.target_in_reach(mv) || !self.cast_mv(mv) {
                 self.extras[i].1 = 0.05;
+                self.waiting = true;
             }
         }
     }
@@ -2916,6 +3414,10 @@ impl<'a, M: MathFns> Match<'a, M> {
             self.comps[i].2 -= self.dt;
             if self.comps[i].2 <= 0.0 {
                 let mv = self.comp_lvl(i);
+                if !self.target_in_reach(mv) {
+                    self.comps[i].2 = 0.05;
+                    continue;
+                }
                 let (cd, kind, xk) = (mv.cd, mv.kind, mv.xk);
                 // combat.js:37. The floor is max(0.05, cd*cdMul). Parity keeps the raw product.
                 self.comps[i].2 = self.cooled(cd);
@@ -2944,7 +3446,7 @@ impl<'a, M: MathFns> Match<'a, M> {
         }
         let st = self.status_of(mv);
         let math = self.math;
-        let aim = match nearest(&self.enemies, self.pl.x, self.pl.y) {
+        let aim = match self.aim_target() {
             Some(i) => math.atan2(self.enemies[i].y - self.pl.y, self.enemies[i].x - self.pl.x),
             None => self.pl.aim,
         };
@@ -2968,8 +3470,7 @@ impl<'a, M: MathFns> Match<'a, M> {
                         }
                     }
                 }
-                self.dealt += dealt;
-                note_bell(&mut self.bell, self.opts.ext.item.bell, dealt);
+                self.add_dealt(mv.ix, dealt);
             }
             Kind::Beam => {
                 let (px, py) = (self.pl.x, self.pl.y);
@@ -2985,8 +3486,7 @@ impl<'a, M: MathFns> Match<'a, M> {
                         }
                     }
                 }
-                self.dealt += dealt;
-                note_bell(&mut self.bell, self.opts.ext.item.bell, dealt);
+                self.add_dealt(mv.ix, dealt);
             }
             Kind::Orbit => {
                 let count = or(mv.count, 1.0);
@@ -3016,11 +3516,12 @@ impl<'a, M: MathFns> Match<'a, M> {
             }
             Kind::Boomerang => {
                 let mut angles = std::mem::take(&mut self.angles);
-                fan_angles(aim, or(mv.count, 1.0), or(mv.spread, 0.0), &mut angles);
+                kinds::boom_angles(aim, or(mv.count, 1.0), mv.spread, &mut angles);
                 for &a in &angles {
                     let dx = math.cos(a);
                     let dy = math.sin(a);
                     self.booms.push(Boom {
+                        src: mv.ix,
                         st,
                         ox: self.pl.x,
                         oy: self.pl.y,
@@ -3084,6 +3585,7 @@ impl<'a, M: MathFns> Match<'a, M> {
             st,
             knock: or(mv.knock, 0.0),
             cat: mv.cat,
+            src: mv.ix,
             bounce: or(mv.bounce, 0.0) as u32,
             drain: or(mv.drain, 0.0),
             age: 0.0,
@@ -3127,8 +3629,7 @@ impl<'a, M: MathFns> Match<'a, M> {
                 }
             }
         }
-        self.dealt += dealt;
-        note_bell(&mut self.bell, self.opts.ext.item.bell, dealt);
+        self.add_dealt(mv.ix, dealt);
     }
 
     fn cast_x(&mut self, mv: &'a MoveLvl, aim: f64, st: Status) -> bool {
@@ -3175,17 +3676,18 @@ impl<'a, M: MathFns> Match<'a, M> {
             }
             // chain(): jumps to the nearest unhit enemy within radius, 15 % less each jump; hex x mv.hex on a status
             3 => {
-                // chain() first hop: projectile.js nearest within reach 280 (centre). Later hops: centre < radius
-                // (the radius^2 filter), not queryCircle's radius + e.r.
-                let mut cur = match nearest(&self.enemies, px, py) {
-                    Some(i) if len(self.enemies[i].x - px, self.enemies[i].y - py) < 280.0 => Some(i),
-                    _ => return false,
+                // chain() first hop is the aim target (combat.js:245 `pl.target`); the reach gate already
+                // checked it is within 280. Later hops: centre < radius (the radius^2 filter), not queryCircle's radius + e.r.
+                let Some(first) = self.aim_target() else {
+                    return false;
                 };
+                let mut cur = Some(first);
                 let mut done: Vec<usize> = Vec::new();
                 let mut k = 1.0;
                 let faithful = self.faith();
                 let chance = if faithful { self.opts.ext.crit } else { 0.0 };
-                let knock = if faithful { or(mv.knock, 0.0) } else { 0.0 };
+                // combat.js:258 chain hits pass knock 0.
+                let knock = 0.0;
                 let mut dealt = 0.0;
                 for _ in 0..count as usize {
                     let Some(i) = cur else { break };
@@ -3218,15 +3720,15 @@ impl<'a, M: MathFns> Match<'a, M> {
                     }
                     cur = best;
                 }
-                self.dealt += dealt;
-                note_bell(&mut self.bell, self.opts.ext.item.bell, dealt);
+                self.add_dealt(mv.ix, dealt);
             }
             // aura(): everything in the circle; drain heals at most 6 per cast
             4 => {
                 let mut healed = 0.0;
                 let faithful = self.faith();
                 let chance = if faithful { self.opts.ext.crit } else { 0.0 };
-                let knock = if faithful { or(mv.knock, 0.0) } else { 0.0 };
+                // combat.js:207 aura hits pass knock 0.
+                let knock = 0.0;
                 let mut dealt = 0.0;
                 {
                     let mut rng = self.crit_rng.borrow_mut();
@@ -3242,8 +3744,7 @@ impl<'a, M: MathFns> Match<'a, M> {
                         }
                     }
                 }
-                self.dealt += dealt;
-                note_bell(&mut self.bell, self.opts.ext.item.bell, dealt);
+                self.add_dealt(mv.ix, dealt);
                 if healed > 0.0 {
                     self.pl.hp = jmin(self.st.max_hp, self.pl.hp + jmin(healed, 6.0));
                 }
@@ -3324,13 +3825,13 @@ impl<'a, M: MathFns> Match<'a, M> {
                         let tt = if ll > 0.0 { (((e.x - px) * vx + (e.y - py) * vy) / ll).clamp(0.0, 1.0) } else { 0.0 };
                         let (qx, qy) = (px + vx * tt - e.x, py + vy * tt - e.y);
                         if qx * qx + qy * qy <= (w / 2.0 + e.r) * (w / 2.0 + e.r) {
-                            let (dx, dy) = (e.x - px, e.y - py);
+                            // combat.js:332 the dash pushes along its own direction, not away from the player.
+                            let (dx, dy) = (ca, sa);
                             dealt += hit_one(faithful, e, mv.dmg, atk, mv.ty, tm, weather, st, knock, dx, dy, chance, &mut rng, mv.cat);
                         }
                     }
                 }
-                self.dealt += dealt;
-                note_bell(&mut self.bell, self.opts.ext.item.bell, dealt);
+                self.add_dealt(mv.ix, dealt);
             }
             // mines(): armed after 0.35 s, burst when stepped on (half damage when they expire); 4 + 2n at most
             6 => {
@@ -3593,7 +4094,7 @@ impl<'a, M: MathFns> Match<'a, M> {
         top.iter().sum::<f64>() / top.len() as f64
     }
 
-    /// judgment.js fight(). The map is stashed and nothing else spawns. Published runs stop at 900 s,
+    /// judgment.js fight(). The map is stashed and nothing else spawns. Ranking runs stop at 1800 s,
     /// so this only changes a match that is allowed to pass minute 30.
     fn begin_judgment(&mut self) {
         self.judging = true;
@@ -3952,8 +4453,9 @@ impl<'a, M: MathFns> Match<'a, M> {
         let dmg = pick.dmg * sc;
         let shot = pick.shot * sc;
         let shot_cd = 0.3 + self.fx.next() * (1.1 - 0.3);
-        let ai = Rng::new((self.fx.next() * 4294967296.0) as u32);
+        let mut ai = Rng::new((self.fx.next() * 4294967296.0) as u32);
         let mon = &self.data.dex[pick.ix];
+        let bai = BossAi::new(mon.dex, &mon.types, pick.beh == Beh::Ranged, &mut ai);
         let def = Def {
             beh: pick.beh,
             hp: pick.hp,
@@ -3980,8 +4482,12 @@ impl<'a, M: MathFns> Match<'a, M> {
         e.cat = if mon.sa > mon.pa { 2 } else { 1 };
         e.g_phys = guard(self.math, mon.df);
         e.g_spec = guard(self.math, mon.sd);
+        e.bai = Some(bai);
         self.seq += 1;
         self.enemies.push(e);
+        if self.first_boss_t.is_nan() {
+            self.first_boss_t = self.t;
+        }
         true
     }
 
@@ -3997,6 +4503,7 @@ impl<'a, M: MathFns> Match<'a, M> {
         let enemies = &mut self.enemies;
         let shots = &mut self.shots;
         let terrain = &mut self.terrain;
+        let by = &mut self.dealt_by;
         let mut dealt = 0.0;
         let mut healed = 0.0;
         // strike() only touches hp/shield, so positions stay fixed for the whole shot pass.
@@ -4066,10 +4573,18 @@ impl<'a, M: MathFns> Match<'a, M> {
                 }
             }
             }
-            let mut mask = soa.box_mask(lanes, enemies.len(), shot.x, shot.y, shot.r);
-            while mask != 0 {
-                let k = mask.trailing_zeros() as usize;
-                mask &= mask - 1;
+            let masks = soa.box_mask(lanes, enemies.len(), shot.x, shot.y, shot.r);
+            let hits = masks.into_iter().enumerate().flat_map(|(w, mut mask)| {
+                std::iter::from_fn(move || {
+                    if mask == 0 {
+                        return None;
+                    }
+                    let k = w * 64 + mask.trailing_zeros() as usize;
+                    mask &= mask - 1;
+                    Some(k)
+                })
+            });
+            for k in hits {
                 let e = &mut enemies[k];
                 if e.hp <= 0.0 || has(&shot.hit, e.id) {
                     continue;
@@ -4086,7 +4601,9 @@ impl<'a, M: MathFns> Match<'a, M> {
                     let (sd, sa, sty, sst, sk, svx, svy, scat) = (shot.dmg, shot.atk, shot.ty, shot.st, if faithful { shot.knock } else { 0.0 }, shot.vx, shot.vy, shot.cat);
                     {
                         let mut rng = crit_rng.borrow_mut();
-                        dealt += hit_one(faithful, e, sd, sa, sty, tm, weather, sst, sk, svx, svy, chance, &mut rng, scat);
+                        let got = hit_one(faithful, e, sd, sa, sty, tm, weather, sst, sk, svx, svy, chance, &mut rng, scat);
+                        dealt += got;
+                        by[shot.src as usize] += got;
                     }
                     healed += shot.drain;
                     if shot.bounce > 0 {
@@ -4155,10 +4672,13 @@ impl<'a, M: MathFns> Match<'a, M> {
                 if len(e.x - x, e.y - y) < b.r + e.r {
                     b.hit.push(e.id);
                     let (bd, ba, bt, bst, bk, bcat) = (b.dmg, b.atk, b.ty, b.st, if faithful { b.knock } else { 0.0 }, b.cat);
-                    let (dx, dy) = (e.x - x, e.y - y);
+                    // combat.js:848 pushes along the blade's velocity: out along its fan, back toward you on the return.
+                    let (dx, dy) = if b.dir > 0.0 { (b.dx, b.dy) } else { (-b.dx, -b.dy) };
                     {
                         let mut rng = crit_rng.borrow_mut();
-                        dealt += hit_one(faithful, e, bd, ba, bt, tm, weather, bst, bk, dx, dy, chance, &mut rng, bcat);
+                        let got = hit_one(faithful, e, bd, ba, bt, tm, weather, bst, bk, dx, dy, chance, &mut rng, bcat);
+                        dealt += got;
+                        by[b.src as usize] += got;
                     }
                 }
             }
@@ -4173,7 +4693,7 @@ impl<'a, M: MathFns> Match<'a, M> {
 
     fn step_orbs(&mut self) {
         // setActive clears orbs; a swapped-away orbit must not keep hitting.
-        if self.slot == 1 {
+        if self.slot != 0 {
             self.orbs.clear();
             self.step_side_orbs();
             return;
@@ -4207,8 +4727,7 @@ impl<'a, M: MathFns> Match<'a, M> {
             let tm = &self.data.tmult;
             for orb in self.orbs.iter_mut() {
                 orb.angle += or(mv.speed, 1.0) * dt;
-                let x = plx + math.cos(orb.angle) * mv.radius;
-                let y = ply + math.sin(orb.angle) * mv.radius;
+                let (x, y) = kinds::orb_point(math, plx, ply, orb.angle, mv.radius);
                 for e in self.enemies.iter_mut() {
                     if e.hp <= 0.0 {
                         continue;
@@ -4231,7 +4750,8 @@ impl<'a, M: MathFns> Match<'a, M> {
                             } else {
                                 orb.log.push((e.id, now));
                             }
-                            let (dx, dy) = (e.x - x, e.y - y);
+                            // combat.js:848 orbs have no velocity, so the push runs player -> enemy.
+                            let (dx, dy) = (e.x - plx, e.y - ply);
                             dealt += hit_one(true, e, mv.dmg, atk, mv.ty, tm, weather, st, knock, dx, dy, chance, &mut rng, mv.cat);
                         }
                     }
@@ -4239,6 +4759,7 @@ impl<'a, M: MathFns> Match<'a, M> {
             }
         }
         self.dealt += dealt;
+        self.dealt_by[mv.ix as usize] += dealt;
         note_bell(&mut self.bell, bell_on, dealt);
         self.step_side_orbs();
     }
@@ -4275,8 +4796,7 @@ impl<'a, M: MathFns> Match<'a, M> {
             let tm = &self.data.tmult;
             for orb in self.side_orbs.iter_mut() {
                 orb.angle += speed * dt;
-                let x = plx + math.cos(orb.angle) * radius;
-                let y = ply + math.sin(orb.angle) * radius;
+                let (x, y) = kinds::orb_point(math, plx, ply, orb.angle, radius);
                 for e in self.enemies.iter_mut() {
                     if e.hp <= 0.0 {
                         continue;
@@ -4293,13 +4813,13 @@ impl<'a, M: MathFns> Match<'a, M> {
                     } else {
                         orb.log.push((e.id, now));
                     }
-                    let (dx, dy) = (e.x - x, e.y - y);
+                    // combat.js:848 orbs have no velocity, so the push runs player -> enemy.
+                    let (dx, dy) = (e.x - plx, e.y - ply);
                     dealt += hit_one(true, e, dmg, atk, ty, tm, weather, st, knock, dx, dy, chance, &mut rng, cat);
                 }
             }
         }
-        self.dealt += dealt;
-        note_bell(&mut self.bell, self.opts.ext.item.bell, dealt);
+        self.add_dealt(mv.ix, dealt);
     }
 
     // ------------------------------------------------ bot
@@ -4840,9 +5360,9 @@ impl<'a, M: MathFns> Match<'a, M> {
                 }
             }
             let align = c * wantx + s * wanty;
-            // clear <= 100 (d = 10, 28, .. 100), so this bound is exact: a ray that cannot
-            // beat `best_s` even fully clear is skipped without marching it.
-            if align * 1.4 + 100.0 / 100.0 - pen * 2.8 <= best_s {
+            // clear <= 100 (d = 10, 28, .. 100), so clear / 100 <= 1 and this bound is exact: a ray
+            // that cannot beat `best_s` even fully clear is skipped without marching it.
+            if align * 1.4 + 1.0 - pen * 2.8 <= best_s {
                 continue;
             }
             let mut clear = 0.0;
@@ -4900,16 +5420,9 @@ impl<'a, M: MathFns> Match<'a, M> {
                 near_d = dist;
                 near = Some(i);
             }
-            if self.opts.bot == Bot::Repulse && !closing {
+            if !closing {
                 let gap = dist - e.r - pl.r;
                 if gap < 160.0 {
-                    let w = 1.0 / jmax(8.0, gap);
-                    fx -= (dx / dist) * w;
-                    fy -= (dy / dist) * w;
-                }
-            } else if self.opts.bot == Bot::Kite {
-                let gap = dist - e.r - pl.r;
-                if gap < 240.0 {
                     let w = 1.0 / jmax(8.0, gap);
                     fx -= (dx / dist) * w;
                     fy -= (dy / dist) * w;
@@ -4926,29 +5439,7 @@ impl<'a, M: MathFns> Match<'a, M> {
         let dy = e.y - pl.y;
         let dist = or(len(dx, dy), 1e-6);
         let gap = dist - e.r - pl.r;
-        if self.opts.bot == Bot::Line {
-            if gap < keep {
-                fx = -dx / dist;
-                fy = -dy / dist;
-            } else if gap > keep {
-                fx = dx / dist;
-                fy = dy / dist;
-            } else {
-                fx = 0.0;
-                fy = 0.0;
-            }
-        } else if self.opts.bot == Bot::Kite {
-            // Hold the attack's range and strafe. Contact is no longer the way the bot plays.
-            if gap < keep {
-                fx -= dx / dist;
-                fy -= dy / dist;
-            } else if gap > keep + 28.0 {
-                fx += dx / dist * 0.35;
-                fy += dy / dist * 0.35;
-            }
-            fx += -dy / dist;
-            fy += dx / dist;
-        } else if gap > keep {
+        if gap > keep {
             fx += dx / dist;
             fy += dy / dist;
         }
@@ -5210,9 +5701,11 @@ impl<'a, M: MathFns> Match<'a, M> {
         }
         let hpk = 3.3 + jmin(1.7, t / 210.0);
         let shot_cd = or(def.shot_cd, 2.0) * ai.next();
-        let skill = ai.next() * 3.0;
+        // enemy.js:97 skillCd = rand(1, 4) for the jumper's first skill.
+        let skill = 1.0 + 3.0 * ai.next();
         let heal_cd = or(def.shot_cd, 3.5) * ai.next();
-        let shield_cd = 6.0 * ai.next();
+        // Shielders then reset every 6 s (enemy.js:352).
+        let shield_cd = 1.0 + 3.0 * ai.next();
         let dmg = def.dmg * sc_dmg * DMG_K;
         let mut e = Enemy {
             id: self.seq,
@@ -5275,6 +5768,9 @@ impl<'a, M: MathFns> Match<'a, M> {
             cat,
             rd: 0.0,
             stun_t: 0.0,
+            bai: None,
+            sc: [sc_hp * hpk, sc_spd, sc_dmg],
+            owner: None,
         };
         self.seq += 1;
         e.shot = or(e.def.shot_dmg, 10.0) * (e.dmg / or(e.def.dmg, 1.0));
@@ -5351,47 +5847,39 @@ impl<'a, M: MathFns> Match<'a, M> {
         }
     }
 
+    /// Buff clocks. Each stat's bucket runs its duration on its own, and a track casts on its cooldown
+    /// while its slot is active (combat.js:21-23). A cast stacks into the bucket of its stat (up to the
+    /// move's stacks), restarts the duration and sets the amount through `src`.
     fn tick_buffs(&mut self) {
-        for which in 0..2 {
-            if self.opts.ext.rift && self.opts.ext.buffs != 0 && !self.bonded(100 + which as u8) {
-                continue;
-            }
-            let (id, lvl) = if which == 0 {
-                (self.atk_buff, self.state.sd)
-            } else {
-                (self.def_buff, self.state.hd)
-            };
-            if lvl == 0 {
-                continue;
-            }
-            let inst = self.buff_level(id, lvl);
-            let cd_mul = self.st.cd_mul;
-            let dt = self.dt;
-            let frozen = self.slot != 0;
-            let s = &mut self.state;
-            let (time, stacks, cd) = if which == 0 {
-                (&mut s.sd_t, &mut s.sd_stacks, &mut s.sd_cd)
-            } else {
-                (&mut s.hd_t, &mut s.hd_stacks, &mut s.hd_cd)
-            };
-            if *time > 0.0 {
-                *time -= dt;
-                if *time <= 0.0 {
+        let dt = self.dt;
+        for b in self.state.bk.iter_mut() {
+            if b.t > 0.0 {
+                b.t -= dt;
+                if b.t <= 0.0 {
                     self.stat_dirty = true;
                 }
             }
-            if *time <= 0.0 {
-                *stacks = 0.0;
+            if b.t <= 0.0 {
+                b.n = 0.0;
             }
-            // Recast cooldown freezes on the inactive slot. The buff's own duration still ticks.
-            if frozen {
+        }
+        for k in 0..2 {
+            if self.opts.ext.rift && self.opts.ext.kit.is_some() && !self.bonded(100 + k as u8) {
                 continue;
             }
-            *cd -= dt;
-            if *cd <= 0.0 {
-                *stacks = jmin(inst.stacks, *stacks + 1.0);
-                *time = inst.dur;
-                *cd = inst.cd * cd_mul;
+            let lvl = self.state.buf[k];
+            // Recast cooldown freezes on the inactive slot. The buff's own duration still ticks.
+            if lvl == 0 || self.slot != 0 {
+                continue;
+            }
+            let inst = self.buff_level(self.buf_ix[k], lvl);
+            self.state.buf_cd[k] -= dt;
+            if self.state.buf_cd[k] <= 0.0 {
+                let b = &mut self.state.bk[inst.buff as usize];
+                b.n = jmin(inst.stacks, b.n + 1.0);
+                b.t = inst.dur;
+                b.src = k;
+                self.state.buf_cd[k] = inst.cd * self.st.cd_mul;
                 self.stat_dirty = true;
                 if self.opts.ext.item.lifeorb {
                     self.pl.hp = jmax(1.0, self.pl.hp - jmax(1.0, self.st.max_hp * 0.01));
@@ -5401,6 +5889,79 @@ impl<'a, M: MathFns> Match<'a, M> {
     }
 
     // ------------------------------------------------ enemies
+
+    /// enemy.js:665-682 summon(): two chasers next to the summoner at `i`. Skipped while it already has 4
+    /// alive minions (the game checks >= 4 before adding two, so 5 is possible) or while more than
+    /// CAP + 15 enemies are alive. A minion is the summoner's species (enemy.js:669, def.minion is not
+    /// vendored) with 0.35 x hp, 0.6 x dmg, 1.1 x spd and max(1, 0.25 x xp), scaled by the summoner's own
+    /// spawn scale and without DMG_K or XP_K.
+    fn summon(&mut self, i: usize) {
+        let parent = self.enemies[i].clone();
+        let id = parent.id;
+        let mine = self.enemies.iter().filter(|m| m.owner == Some(id) && m.hp > 0.0).count();
+        let alive = self.enemies.iter().filter(|m| m.hp > 0.0).count();
+        if mine >= 4 || alive > CAP + 15 {
+            return;
+        }
+        let mut def = parent.def.clone();
+        def.beh = Beh::Chase;
+        def.hp = js_round(parent.def.hp * 0.35);
+        def.spd = js_round(parent.def.spd * 1.1);
+        def.dmg = js_round(parent.def.dmg * 0.6);
+        let xp = jmax(1.0, js_round(parent.def.xp * 0.25));
+        for _ in 0..2 {
+            let a = self.enemies[i].ai.next() * PI * 2.0;
+            let seed = (self.enemies[i].ai.next() * 4294967296.0) as u32;
+            let mut m = parent.clone();
+            m.id = self.seq;
+            self.seq += 1;
+            m.owner = Some(id);
+            m.beh = Beh::Chase;
+            m.def = def.clone();
+            m.x = parent.x + a.cos() * 30.0;
+            m.y = parent.y + a.sin() * 22.0;
+            m.hp = def.hp * parent.sc[0];
+            m.max = m.hp;
+            m.spd = def.spd * parent.sc[1];
+            m.dmg = def.dmg * parent.sc[2];
+            m.shot = or(def.shot_dmg, 10.0) * (m.dmg / or(def.dmg, 1.0));
+            m.xp = xp;
+            m.ai = Rng::new(seed);
+            m.shot_cd = 0.0;
+            m.heal_cd = 0.0;
+            m.shield_cd = 0.0;
+            m.skill = 0.0;
+            m.touch = 0.0;
+            m.kx = 0.0;
+            m.ky = 0.0;
+            m.phase = Phase::Walk;
+            m.pt = 0.0;
+            m.jump = None;
+            m.fuse = -1.0;
+            m.shield = 0.0;
+            m.shield_t = 0.0;
+            m.side_t = 0.0;
+            m.stuck_t = 0.0;
+            m.lava_t = 0.0;
+            m.slow = 0.0;
+            m.slow_t = 0.0;
+            m.burn = 0.0;
+            m.burn_t = 0.0;
+            m.burn_tick = 0.0;
+            m.poison = 0.0;
+            m.poison_t = 0.0;
+            m.poison_tick = 0.0;
+            m.stun_t = 0.0;
+            m.boss = false;
+            m.legend = false;
+            m.elite = false;
+            m.lag_t = 0.0;
+            m.judge = false;
+            m.dps_acc = 0.0;
+            m.rd = 0.0;
+            self.enemies.push(m);
+        }
+    }
 
     fn step_enemies(&mut self) {
         let faithful = self.faith();
@@ -5483,7 +6044,9 @@ impl<'a, M: MathFns> Match<'a, M> {
             let dist = or(len(dx, dy), 1e-3);
             dx /= dist;
             dy /= dist;
-            if dist > OUTER + 250.0 {
+            // Parity only. enemy.js has no such teleport: on the ranking path the straggler rules
+            // (tick_stragglers, enemy.js:989-1002 and 984-987) move far enemies, and they run after this loop.
+            if !faithful && dist > OUTER + 250.0 {
                 let a = math.atan2(pdiry, pdirx) + (e.ai.next() * 1.8 - 0.9);
                 let dd = OUTER + 10.0 + e.ai.next() * 60.0;
                 e.x = plx + math.cos(a) * dd;
@@ -5563,7 +6126,42 @@ impl<'a, M: MathFns> Match<'a, M> {
             let mut vx = mdx * spd * 1.0;
             let mut vy = mdy * spd * 1.0;
             let beh = e.beh;
-            if beh == Beh::Chase || beh == Beh::Tank {
+            // enemy.js:457 bossMove replaces the generic movement of a boss, with its own attacks and modes.
+            // Its contact damage and knockback still come from the common tail below.
+            let boss = e.bai.is_some();
+            let mut leap = None;
+            if let Some(bai) = e.bai.as_mut() {
+                let env = BossEnv {
+                    x: e.x,
+                    y: e.y,
+                    r: e.r,
+                    dmg: e.dmg,
+                    shot: e.shot,
+                    ty: e.ty0,
+                    cat: e.cat,
+                    px: plx,
+                    py: ply,
+                    dist,
+                    nd: (dx, dy),
+                    dir: (mdx, mdy),
+                    spd,
+                    dt,
+                    hp: e.hp,
+                    max: e.max,
+                };
+                let st = boss_frame(math, bai, &mut e.ai, &env, &mut self.hazards, &mut self.e_shots);
+                vx = st.vx;
+                vy = st.vy;
+                leap = st.leap;
+                // enemy.js:492 — enrage speed, applied after this frame's speed was read.
+                if st.enraged {
+                    e.spd *= 1.15;
+                }
+            }
+            if let Some(t0) = leap {
+                e.jump = Some(Jump { tx: plx, ty: ply, t: t0, dur: 0.65 });
+            }
+            if (beh == Beh::Chase || beh == Beh::Tank) && !boss {
                 e.x += e.kx * dt;
                 e.y += e.ky * dt;
                 e.kx *= knock_fade;
@@ -5647,7 +6245,7 @@ impl<'a, M: MathFns> Match<'a, M> {
                     e.skill = 0.5;
                 }
             }
-            if beh == Beh::Charger {
+            if beh == Beh::Charger && !boss {
                 e.pt -= dt;
                 match e.phase {
                     Phase::Walk => {
@@ -5676,7 +6274,8 @@ impl<'a, M: MathFns> Match<'a, M> {
                     }
                 }
             }
-            if beh.keeps() {
+            let mut summon_now = false;
+            if beh.keeps() && !boss {
                 let range = or(e.def.range, 200.0);
                 let hold = range * 0.82;
                 if dist < hold * 0.75 {
@@ -5755,18 +6354,23 @@ impl<'a, M: MathFns> Match<'a, M> {
                                 });
                             }
                         }
+                        Beh::Summoner => summon_now = true,
                         _ => {}
                     }
                 }
             }
+            // enemy.js:403: a healer fires only inside its range. The cooldown keeps running outside it.
             if beh == Beh::Healer {
                 e.heal_cd -= dt;
-                if e.heal_cd <= 0.0 {
+                if e.heal_cd <= 0.0 && dist < or(e.def.range, 200.0) {
                     e.heal_cd = or(e.def.shot_cd, 3.5);
                     let (hx, hy) = (e.x, e.y);
                     let (atk, base) = (self.st.atk, self.mon.atk);
                     pulse_healer(math, hx, hy, &mut self.enemies, atk, base);
                 }
+            }
+            if summon_now {
+                self.summon(i);
             }
             let e = &mut self.enemies[i];
             if beh == Beh::Shielder {
@@ -5904,16 +6508,29 @@ fn init_match<'a, M: MathFns>(
         tables,
         mon,
         start: start_move,
+        start_ix: start,
         opts,
         dt,
         knock_fade,
         world,
         card_roll,
-        state: State { move_lvl: 1, sd: (opts.ext.buffs & 1) as usize, hd: ((opts.ext.buffs >> 1) & 1) as usize, ..State::default() },
-        has_sd: if opts.ext.buffs > 0 { opts.ext.buffs & 1 != 0 } else { mon.pool.contains(&data.swords_dance) },
-        has_hd: if opts.ext.buffs > 0 { opts.ext.buffs & 2 != 0 } else { mon.pool.contains(&data.harden) },
-        def_buff: if opts.ext.agi { data.agility } else { data.harden },
-        atk_buff: if opts.ext.np { data.nasty_plot } else if opts.ext.dd { data.dragon_dance } else { data.swords_dance },
+        state: State {
+            move_lvl: 1,
+            buf: opts.ext.kit.map_or([0, 0], |k| [(k.buffs & 1) as usize, ((k.buffs >> 1) & 1) as usize]),
+            ..State::default()
+        },
+        // Old mode keeps the level-up pool it always had: Swords Dance and Harden (parity).
+        has_buf: match opts.ext.kit {
+            Some(k) => [k.buffs & 1 != 0, k.buffs & 2 != 0],
+            None => [mon.pool.contains(&data.swords_dance), mon.pool.contains(&data.harden)],
+        },
+        buf_ix: match opts.ext.kit {
+            Some(k) => k.ix,
+            None => [
+                if opts.ext.np { data.nasty_plot } else if opts.ext.dd { data.dragon_dance } else { data.swords_dance },
+                if opts.ext.agi { data.agility } else { data.harden },
+            ],
+        },
         comps: opts.ext.companions.iter().map(|&c| (c, 1usize, 0.0)).collect(),
         // Seeded false. player.js applies the melee cut to activeGroup() only, and a companion
         // is not in that group until the rift bond lands. Evolving a bonded move into melee sets it.
@@ -5923,10 +6540,10 @@ fn init_match<'a, M: MathFns>(
         bonds: 0,
         bond_order: {
             let mut o: Vec<u8> = (0..opts.ext.companions.len() as u8).collect();
-            if opts.ext.buffs & 1 != 0 {
+            if opts.ext.kit.is_some_and(|k| k.buffs & 1 != 0) {
                 o.push(100);
             }
-            if opts.ext.buffs & 2 != 0 {
+            if opts.ext.kit.is_some_and(|k| k.buffs & 2 != 0) {
                 o.push(101);
             }
             o.truncate(3);
@@ -5977,6 +6594,10 @@ fn init_match<'a, M: MathFns>(
         bosses: 0,
         picked: 0.0,
         dealt: 0.0,
+        dealt_by: vec![0.0; data.moves.len()],
+        dealt_bomb: 0.0,
+        cards: [0; 6],
+        first_boss_t: f64::NAN,
         xp: 0.0,
         level: 1,
         need: 0.0,
@@ -6011,6 +6632,7 @@ fn init_match<'a, M: MathFns>(
         }),
         lava_t: 0.0,
         slot: 0,
+        waiting: false,
         alt_cd: 0.0,
         comp_evo: vec![false; opts.ext.companions.len()],
         regen_n: 0.0,
@@ -6058,13 +6680,13 @@ fn init_match<'a, M: MathFns>(
     // The starter is already known.
     m.learned = m.bond_order.iter().map(|&slot| {
         let ix = if slot == 100 {
-            m.atk_buff
+            m.buf_ix[0]
         } else if slot == 101 {
-            m.def_buff
+            m.buf_ix[1]
         } else {
             m.comps[slot as usize].0
         };
-        ix == mon.start || !mon.pool.contains(&ix)
+        ix == start || !mon.pool.contains(&ix)
     }).collect();
     m.need = xp_for(math, 1);
     m.roll_roster();
@@ -6216,19 +6838,23 @@ pub fn run_match<M: MathFns>(
             if m.slot == 0 {
                 m.atk_cd -= step;
                 if m.atk_cd <= 0.0 {
-                    m.atk_cd = if m.cast() { m.cooled(m.st.mv.cd) } else { 0.05 };
+                    let hit = m.cast();
+                    m.waiting = !hit;
+                    m.atk_cd = if hit { m.cooled(m.st.mv.cd) } else { 0.05 };
                 }
                 if !m.comps.is_empty() {
                     m.cast_comps();
                 }
-                if !m.extras.is_empty() {
-                    m.cast_extras();
-                }
-            } else {
+            } else if m.alt_active() {
                 m.alt_cd -= step;
                 if m.alt_cd <= 0.0 {
-                    m.alt_cd = if m.cast() { m.cooled(m.st.mv.cd) } else { 0.05 };
+                    let hit = m.cast();
+                    m.waiting = !hit;
+                    m.alt_cd = if hit { m.cooled(m.st.mv.cd) } else { 0.05 };
                 }
+            }
+            if !m.extras.is_empty() {
+                m.cast_extras();
             }
             if !m.fields.is_empty() {
                 m.step_fields();
@@ -6271,6 +6897,22 @@ pub fn run_match<M: MathFns>(
     }
 
     m.stats();
+    let start_ix = data.moves.iter().position(|mv| mv.id == m.start.id).unwrap_or(usize::MAX);
+    let mut dealt_start = 0.0;
+    let mut dealt_comps = [0.0; 3];
+    let mut dealt_extra = 0.0;
+    let mut dealt_other = 0.0;
+    for (ix, &d) in m.dealt_by.iter().enumerate() {
+        if ix == start_ix {
+            dealt_start += d;
+        } else if let Some(k) = m.comps.iter().take(3).position(|c| c.0 == ix) {
+            dealt_comps[k] += d;
+        } else if m.extras.iter().any(|e| e.0 == ix) {
+            dealt_extra += d;
+        } else {
+            dealt_other += d;
+        }
+    }
     let capped = m.pl.hp > 0.0;
     let time = if capped { max_time } else { m.t };
     RunResult {
@@ -6285,6 +6927,17 @@ pub fn run_match<M: MathFns>(
         max_hp: m.st.max_hp,
         hp_frac: if capped { m.pl.hp / m.st.max_hp } else { 0.0 },
         dealt: m.dealt,
+        dealt_start,
+        dealt_comps,
+        dealt_extra,
+        dealt_other,
+        dealt_bomb: m.dealt_bomb,
+        bonds: m.bonds as u32,
+        start_lvl: m.state.move_lvl as u32,
+        start_evolved: m.state.evolved,
+        comps_evolved: m.comp_evo.iter().filter(|&&e| e).count() as u32,
+        cards: m.cards,
+        first_boss_t: m.first_boss_t,
     }
 }
 

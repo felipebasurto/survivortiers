@@ -10,3 +10,12 @@ NOTA_PARA_JPTER78.md
 .venv/
 .cache/
 simulator/results/fixed_group/builds/screen_chunks/
+
+# regen.py intermediates: rebuilt by every run, never versioned (the finals stay in git)
+simulator/results/**/*_out/
+simulator/results/**/group_screen_parts/
+simulator/results/**/screen_chunks/
+simulator/results/**/gate/
+simulator/results/**/counterfactuals/
+simulator/results/**/*_only.txt
+simulator/results/**/*.tmp

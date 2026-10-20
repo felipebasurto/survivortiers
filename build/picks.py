@@ -23,6 +23,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 V3 = ROOT / "simulator" / "v3" / "v3_data.json"
 BOND_SLOTS = 4
+# Grupos por (especie, forma) que pasan de la criba de 16 semillas al afinado de 96. Lo usan regen.py y builds.py.
+REFINE_PER_SHAPE = 2
 
 
 @lru_cache(maxsize=1)
@@ -121,33 +123,30 @@ def shortlist_moves(rows: list[dict], k: int) -> dict[int, list[dict]]:
 
 # --------------------------------------------------------------------------- one group
 
-def split_group(group: str) -> tuple[list[str], str | None, str | None]:
-    """(attacks, attack buff id, other buff id) of a searched group name."""
+def split_group(group: str) -> tuple[list[str], list[str]]:
+    """(attacks, buffs) of a searched group name, in the order the name gives them. A buff is any move of
+    kind buff; which stat it raises is the game's business (attack_buff_side only classifies it)."""
     k = kinds()
-    attacks, attack_buff, fourth = [], None, None
+    attacks, buffs = [], []
     for part in group.split("+"):
-        if part in attack_buff_side():
-            attack_buff = part
-        elif k.get(part) == "buff":
-            fourth = part
-        else:
-            attacks.append(part)
-    return attacks, attack_buff, fourth
+        (buffs if k.get(part) == "buff" else attacks).append(part)
+    return attacks, buffs
 
 
 def group_ok(group: str) -> bool:
-    attacks, buff, fourth = split_group(group)
-    return len(attacks) >= 2 and len(attacks) + (buff is not None) + (fourth is not None) <= BOND_SLOTS
+    """Two or three attacks, at most two buffs (levelup.js:47-49), and the four bond slots of the simulator."""
+    attacks, buffs = split_group(group)
+    return len(attacks) >= 2 and len(buffs) <= 2 and len(attacks) + len(buffs) <= BOND_SLOTS
 
 
 def shape_of(group: str) -> str:
-    """'2+atk+def', '3+atk' or '3+def': attack count and which buff slots are filled."""
-    attacks, buff, fourth = split_group(group)
-    return "+".join([str(len(attacks))] + (["atk"] if buff else []) + (["def"] if fourth else []))
+    """'<attacks>+<buffs>', for example '2+2' or '3+1'."""
+    attacks, buffs = split_group(group)
+    return f"{len(attacks)}+{len(buffs)}"
 
 
 def group_order(row: dict) -> tuple:
-    attacks, _, _ = split_group(row["group"])
+    attacks, _ = split_group(row["group"])
     return _order(row, len(attacks), row["group"])
 
 

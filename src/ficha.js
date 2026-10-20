@@ -208,7 +208,7 @@
     const ref = '<div class="mt-ref"><span class="' + side(xm) + '" style="left:' + f2(xm) + '%">' + esc(t('sim_median', { s: rnd(median) })) + '</span></div>';
     const gainNote = items.length === 2 && items[1].s > items[0].s
       ? '<p class="fig-note sim-gain">' + esc(t('sim_gain', { d: rnd(items[1].s - items[0].s) })) + '</p>' : '';
-    const noshop = d[11];
+    const noshop = d[10];
     const shopNote = noshop != null && Math.abs(noshop - items[0].s) >= 0.5
       ? '<p class="fig-note sim-noshop">' + esc(t('sim_noshop', { name: moveName(d[2]), s: rnd(noshop) })) + '</p>' : '';
     const body = '<div class="sim-chart">' + ref + rows + '<div class="mt-axis sim-axis" aria-hidden="true">' + axis + '</div></div>' + gainNote + shopNote;
@@ -342,7 +342,7 @@
       (pill ? '<span class="bd-pill' + (pill.gold ? ' is-gold' : '') + '">' + esc(pill.text) + '</span>' : '') + '</li>';
   }
 
-  function buildOption(kind, b, other, moves, cards, win) {
+  function buildOption(kind, b, other, moves, win) {
     if (!b) return '';
     const head = '<h3 class="bd-kind">' + comboHtml(buildDamage(moves, b.moves), kind) + '</h3>';
     const ids = b.moves, nb = b.nBoost;
@@ -355,30 +355,19 @@
       '<div><dt>' + esc(t('bd_dealt')) + '</dt><dd>' + numText(b.dealt) + '</dd></div>' +
       '<div><dt>' + esc(t('bd_kills')) + '</dt><dd>' + decText(b.kills, 1) + '</dd></div>' +
       '<div><dt>' + esc(t('bd_score')) + '</dt><dd>' + decText(b.score, 1) + '</dd></div></dl>';
-    const [cardIds, gateId] = b.cards;
-    const cardItems = cardIds.map((id, i) => {
-      const m = cards[id];
-      if (!m) return '';
-      const gate = id === gateId;
-      return '<li class="' + (gate ? 'is-gate' : '') + '"><span class="bd-n">' + (i + 1) + '</span>' +
-        '<span class="bd-nm">' + esc(EN ? m.en.name : m.name) + '</span>' +
-        (gate ? '<b class="bd-gate" title="' + esc(t('build_card_once')) + '">1×</b>' : '') + '</li>';
-    }).join('');
-    const cardsHtml = '<p class="bd-cap">' + esc(t('build_cards')) + '</p><ol class="bd-cardlist">' + cardItems + '</ol>' +
-      (gateId ? '<p class="bd-legend">' + esc(t('build_card_once')) + '</p>' : '');
     const note = kind === 'melee' ? '<p class="bd-note">' + esc(t('bd_melee_note')) + '</p>' : '';
     return '<article class="bd-opt' + (win === kind && other ? ' is-best' : '') + '" data-build="' + kind + '">' + head +
-      verdict(kind, b, other, win) + '<ol class="bd-rows">' + rows + '</ol>' + stats + cardsHtml + note + '</article>';
+      verdict(kind, b, other, win) + '<ol class="bd-rows">' + rows + '</ol>' + stats + note + '</article>';
   }
 
-  function build(p, d, moves, items, name, scale, cards, pair) {
+  function build(p, d, moves, items, name, scale, pair) {
     const [superPct, neutralPct] = d[9];
     const win = winnerOf(pair);
     const sprite = '<span class="bd-sprite" style="--tc:' + (TYPE_COLOR[p.types[0]] || '#888') +
       '"><img class="px" src="' + sprites + p.dex + spriteExt + '" width="' + p.w * scale + '" height="' + p.h * scale + '" alt=""></span>';
     const start = moves.find(m => m.id === d[2]);
     const defaultStart = start ? '<p class="bd-default">' + esc(t('build_default_start', { move: EN ? start.en.name : start.name })) + '</p>' : '';
-    const options = BUILD_KINDS.map(kind => buildOption(kind, pair[kind], pair[BUILD_KINDS.find(k => k !== kind)], moves, cards, win)).filter(Boolean);
+    const options = BUILD_KINDS.map(kind => buildOption(kind, pair[kind], pair[BUILD_KINDS.find(k => k !== kind)], moves, win)).filter(Boolean);
     const itemRows = items.map((m, i) => moveRow(m, '', i === 0 ? { text: t('build_best_item'), gold: true } : null)).join('');
     return '<section class="fig anim fig-build" id="build" aria-labelledby="bd-h"><div class="bd-card" style="' + typeVars(p) + '">' +
       '<header class="bd-head">' + sprite + '<div><h2 id="bd-h">' + esc(t('t_build')) + '</h2><span class="bd-who">' + esc(name) + '</span></div>' +
@@ -458,7 +447,6 @@
       const [role, id] = key.split(':');
       if (role.startsWith('m.') && byId.has(id)) return '<span class="sm-m">' + img(byId.get(id)) + label + '</span>';
       if (role === 'i.best' && item.has(id)) return '<span class="sm-m">' + img(item.get(id)) + label + '</span>';
-      if (role === 'c.first' && cards[id]) return '<span class="sm-m">' + img(cards[id]) + label + '</span>';
       if (role === 'up' || role === 'down') {
         const icon = id === 'best_move' && byId.has(bestId) ? img(byId.get(bestId)) : '';
         return '<b class="sm-d ' + role + '"><i aria-hidden="true"></i>' + icon + label + '</b>';
@@ -543,7 +531,7 @@
       flagsHtml(d[7]) + rankBand(p, name) + pillars(d, name) + sim(d, range, moveName) + methods(p, d, name) +
       '<p class="fx-more"><a href="' + home + 'metodo.html">' + esc(t('rank_how')) + '</a></p>');
     root.innerHTML = back + hero(p, name, rank, tier, text ? summary(text, moves, items, cards, d[4]) : '') +
-      build(p, d, moves, items, name, Math.max(1, Math.min(4, Math.floor(56 / Math.max(p.w, p.h)))), cards, pair) +
+      build(p, d, moves, items, name, Math.max(1, Math.min(4, Math.floor(56 / Math.max(p.w, p.h)))), pair) +
       combat(p) +
       '<div class="fx-list">' + stats + learnable + ranking + '</div>' + pager(prev, next);
     if (!baked) {

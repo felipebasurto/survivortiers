@@ -80,9 +80,16 @@ check('cada build recomendada: sin repetidos, máximo 2 potenciadores, ids en el
   }
 });
 
-check('la build recomendada es el grupo publicado, sin cambios', () => {
+// La publicada de mayor puntuación (cuerpo a cuerpo o a distancia); sin ninguna, null.
+const topBuild = dex => ['melee', 'ranged']
+  .map(k => ((species.builds || {})[String(dex)] || {})[k])
+  .filter(Boolean)
+  .reduce((best, b) => (!best || b.score > best.score ? b : best), null);
+
+check('la build recomendada es la publicada de mayor puntuación, o el grupo de combos si no hay ninguna', () => {
   for (const p of index) {
-    const ids = species.d[String(p.dex)][9][2].slice(0, tools.PLAN_SLOTS);
+    const top = topBuild(p.dex);
+    const ids = (top ? top.moves : species.d[String(p.dex)][9][2]).slice(0, tools.PLAN_SLOTS);
     assert.deepEqual(tools.recommended(p.dex, species).group.filter(Boolean), ids, String(p.dex));
   }
 });
@@ -90,32 +97,30 @@ check('la build recomendada es el grupo publicado, sin cambios', () => {
 check('la URL de una build recomendada se lee igual', () => {
   for (const p of index) {
     const rec = tools.recommended(p.dex, species);
-    const st = { dex: p.dex, group: rec.group, item: rec.item, cards: rec.cards };
+    const st = { dex: p.dex, group: rec.group, item: rec.item };
     const search = '?' + tools.encodeState(st);
     const back = tools.decodeState(search, game, species, index, p.dex);
     assert.equal(back.fromUrl, true, String(p.dex));
     assert.deepEqual(back.group, st.group, String(p.dex));
     assert.equal(back.item, st.item, String(p.dex));
-    assert.deepEqual(back.cards, st.cards, String(p.dex));
   }
 });
 
 check('una URL editada a mano no rompe el estado', () => {
-  const back = tools.decodeState('?p=999999&g=nope,tackle,tackle,swords-dance,harden&o=zzz&c=zz', game, species, index, 1);
+  const back = tools.decodeState('?p=999999&g=nope,tackle,tackle,swords-dance,harden&o=zzz', game, species, index, 1);
   assert.equal(back.fromUrl, false);
   assert.equal(back.dex, 1);
   assert.equal(back.item, null);
   assert.equal(back.group.filter(Boolean).length <= tools.PLAN_SLOTS, true);
   const boosts = tools.boostsOf(game.moves, back.group.filter(Boolean));
   assert.ok(boosts.length <= tools.BOOST_CAP);
-  assert.deepEqual(back.cards, [null, null, null, null]);
 });
 
 check('el tercer potenciador se descarta en la URL', () => {
   const ids = ['swords-dance', 'harden', 'agility'].filter(id => game.moves[id]);
   const dex = [...byDex.keys()].find(d => ids.every(id => tools.poolOf(byDex.get(d).types, game.pool).has(id)));
   assert.ok(dex != null, 'ningún Pokémon tiene los tres potenciadores');
-  const back = tools.decodeState('?p=' + dex + '&g=' + ids.join(',') + '&o=-&c=-,-,-,-', game, species, index, dex);
+  const back = tools.decodeState('?p=' + dex + '&g=' + ids.join(',') + '&o=-', game, species, index, dex);
   assert.equal(tools.boostsOf(game.moves, back.group.filter(Boolean)).length, 2);
 });
 
@@ -139,19 +144,6 @@ check('la categoría de cada movimiento viene del juego (físico o especial)', (
   assert.equal(game.moves['ember'].c, 'special');
 });
 
-check('cartas del planificador: cuatro, en orden de prioridad, y con la que evoluciona el ataque dentro', () => {
-  for (const p of index) {
-    const [order, gate] = species.d[String(p.dex)][10];
-    const picks = tools.plannerCards([order, gate]);
-    assert.equal(picks.length, tools.PLAN_SLOTS, String(p.dex));
-    assert.equal(new Set(picks).size, picks.length, 'repetida en ' + p.dex);
-    const pos = picks.map(id => order.indexOf(id));
-    assert.deepEqual(pos, [...pos].sort((a, b) => a - b), 'fuera de orden en ' + p.dex);
-    if (gate) assert.ok(picks.includes(gate), 'falta la carta que evoluciona en ' + p.dex);
-    assert.deepEqual(tools.recommended(p.dex, species).cards, picks, String(p.dex));
-  }
-});
-
 check('la danza de la build recomendada se elige por categoría, sin Danza Espada fija', () => {
   for (const p of index) {
     const rec = tools.recommended(p.dex, species);
@@ -166,7 +158,6 @@ check('la danza de la build recomendada se elige por categoría, sin Danza Espad
 const report = {
   pokemon: index.length,
   coverageMismatch: coverageMismatch.length,
-  swapped: swaps.length,
 };
 if (failures.length) {
   console.error(failures.join('\n'));

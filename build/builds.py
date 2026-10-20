@@ -1,15 +1,11 @@
 """Dos builds por Pokémon: la mejor cuerpo a cuerpo y la mejor a distancia.
 
-Reglas (Felipe):
-- Clase del atacante: físico si pa > sa, especial en otro caso (data/pokedex_export.json).
-- Cuerpo a cuerpo: el grupo tiene al menos un ataque de tipo `melee` (data/game_stats.json, los 11 son físicos).
-  A distancia: ningún ataque `melee`.
-- Físico lleva Danza Espada (swords-dance); especial lleva Maquinación (nasty-plot). Los dos.
-- Cada ataque es de la categoría de la clase (así el potenciador le sirve a todo el grupo). Un especial no tiene
-  cuerpo a cuerpo: todos los `melee` son físicos.
-- Sin relleno: Ataque Rápido, Placaje y Golpe Cuerpo no entran en ninguna build.
-- Un grupo tiene dos o tres ataques y los huecos del vínculo del simulador (`picks.BOND_SLOTS`). Con dos ataques
-  lleva el potenciador de ataque y Fortaleza o Agilidad; con tres, solo el de ataque.
+Espacio completo, sin reglas de Felipe escritas en el código (las reglas irán después, como filtros):
+- Ataques: todos los del pool del simulador (y el inicial) que hacen daño, sin buffs.
+- Buffs: todos los del pool de la especie (poolFor), como mucho dos (levelup.js:47-49).
+- Grupo: dos o tres ataques (cada uno puede ser el inicial) más de cero a dos buffs, con cuatro huecos de vínculo
+  (`picks.BOND_SLOTS`). Con dos ataques, el orden de los ataques importa (el primero es el inicial).
+- Build: cuerpo a cuerpo si algún ataque es `melee` (data/game_stats.json), a distancia si ninguno lo es.
 
 El espacio de búsqueda es el mismo que la búsqueda de grupo (`simulator/results/fixed_group/`): las filas
 que ya existen y cumplen las reglas se reutilizan, y solo se simula lo que falta, con las mismas semillas
@@ -20,30 +16,28 @@ from __future__ import annotations
 import csv
 import itertools
 import json
+import os
 import sys
 from functools import lru_cache
 from pathlib import Path
 
-import passives
 import picks
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
-FIXED = ROOT / "simulator" / "results" / "fixed_group"
+# SURVIVOR_FIXED moves every run output (smoke tests); the published folder is the default.
+FIXED = Path(os.environ["SURVIVOR_FIXED"]) if os.environ.get("SURVIVOR_FIXED") else ROOT / "simulator" / "results" / "fixed_group"
 BUILDS_DIR = FIXED / "builds"
 SCREEN_CSV = FIXED / "group_screen.csv"
 REFINE_CSV = FIXED / "group_search.csv"
 OUT_CSV = DATA / "builds.csv"
 
 BUILDS = ("melee", "ranged")
-FILLER = frozenset({"tackle", "quick-attack", "body-slam"})
-CLASS_BUFF = {"physical": "swords-dance", "special": "nasty-plot"}
-FOURTH = ("harden", "agility")
 SCREEN_SEEDS = 16
 REFINE_SEEDS = 96
 REFINE_SEED0 = 1000
-SEARCH_SECONDS = 900
-REFINE_PER_SHAPE = 2
+SEARCH_SECONDS = 1800
+REFINE_PER_SHAPE = picks.REFINE_PER_SHAPE
 CSV_FIELDS = ["dex", "name", "build", "group", "median_s", "mean_s", "median_kills", "median_dealt",
               "median_score", "mean_score", "score_lo", "score_hi", "seeds"]
 
@@ -64,17 +58,13 @@ def _sim_pools() -> dict[int, dict]:
     return {int(m["dex"]): m for m in v3["dex"]}
 
 
-def attacker_class(dex: int) -> str:
-    """physical si pa > sa; special en cualquier otro caso (también en empate, como pide la regla)."""
-    p = _pokedex()[dex]
-    return "physical" if float(p["pa"]) > float(p["sa"]) else "special"
+def _is_melee(mid: str) -> bool:
+    return _game_moves()[mid]["kind"] == "melee"
 
 
 def decent_attacks(dex: int) -> list[str]:
-    """Ataques del pool del simulador (y el inicial) que lanzan daño, de la categoría de la clase y sin relleno."""
-    cls = attacker_class(dex)
+    """Ataques del pool del simulador (y el inicial) que lanzan daño. Sin filtro de categoría ni de relleno."""
     moves = picks._v3_moves()
-    game = _game_moves()
     mon = _sim_pools()[dex]
     out = []
     for mid in sorted(set(mon["pool"]) | {mon["start"]}):
@@ -84,35 +74,46 @@ def decent_attacks(dex: int) -> list[str]:
         level = move["levels"][0]
         if (level.get("buff") or 0) != 0 or not float(level.get("dmg") or 0) > 0:
             continue
-        if game[mid]["cat"] != cls or mid in FILLER:
-            continue
         out.append(mid)
     return out
 
 
-def _is_melee(mid: str) -> bool:
-    return _game_moves()[mid]["kind"] == "melee"
+def pool_buffs(dex: int) -> list[str]:
+    """Buffs que la especie puede aprender (su pool del simulador), en orden de id."""
+    moves = picks._v3_moves()
+    return sorted(mid for mid in _sim_pools()[dex]["pool"] if moves.get(mid, {}).get("kind") == "buff")
 
 
-def _group(attacks: list[str], buff: str, fourth: str | None) -> str:
-    return "+".join([*attacks, buff, *([fourth] if fourth else [])])
+def buff_sets(dex: int) -> list[tuple[str, ...]]:
+    """Todos los conjuntos de buffs de cero a dos del pool, en orden de id (sin repetir)."""
+    buffs = pool_buffs(dex)
+    out: list[tuple[str, ...]] = [()]
+    out += [(b,) for b in buffs]
+    out += [pair for pair in itertools.combinations(buffs, 2)]
+    return out
+
+
+def _group(attacks: list[str], buffs: tuple[str, ...]) -> str:
+    return "+".join([*attacks, *buffs])
 
 
 def candidates(dex: int) -> dict[str, str]:
-    """group name -> build (melee | ranged) for every group of this species that meets the rules."""
-    cls = attacker_class(dex)
-    buff = CLASS_BUFF[cls]
+    """group name -> build (melee | ranged) for every group of this species: dos ataques (el primero es el
+    inicial) con cero a dos buffs; tres ataques con cero o un buff."""
     atk = decent_attacks(dex)
     out: dict[str, str] = {}
     if len(atk) < 2:
         return out
+    sets = buff_sets(dex)
     for a, b in itertools.permutations(atk, 2):
-        for fourth in FOURTH:
-            out[_group([a, b], buff, fourth)] = _kind([a, b])
+        for buffs in sets:
+            out[_group([a, b], buffs)] = _kind([a, b])
     for trio in itertools.combinations(atk, 3):
         for lead in trio:
             comps = [x for x in trio if x != lead]
-            out[_group([lead, *comps], buff, None)] = _kind(list(trio))
+            for buffs in sets:
+                if len(buffs) <= 1:
+                    out[_group([lead, *comps], buffs)] = _kind(list(trio))
     return out
 
 
@@ -229,22 +230,18 @@ def write_csv(rows: list[dict], path: Path = OUT_CSV) -> None:
 
 def build_moves(group: str) -> tuple[list[str], int]:
     """Ids de la build en el orden del juego (ataques y luego potenciadores) y cuántos son potenciadores."""
-    attacks, buff, fourth = picks.split_group(group)
-    boosts = [b for b in (buff, fourth) if b]
+    attacks, boosts = picks.split_group(group)
     return attacks + boosts, len(boosts)
 
 
 def violations(dex: int, build: str, group: str) -> list[str]:
-    """Reglas de Felipe que una fila tiene que cumplir. Lista vacía si la fila es válida."""
+    """Comprobaciones de forma (no reglas de juego). Lista vacía si la fila es válida."""
     errs = []
-    attacks, buff, fourth = picks.split_group(group)
-    cls = attacker_class(dex)
-    if buff != CLASS_BUFF[cls]:
-        errs.append(f"{dex} {group}: el potenciador de clase es {buff}, no {CLASS_BUFF[cls]}")
-    if any(a in FILLER for a in attacks):
-        errs.append(f"{dex} {group}: lleva relleno normal")
-    if any(_game_moves()[a]["cat"] != cls for a in attacks):
-        errs.append(f"{dex} {group}: ataque de otra categoría que la clase {cls}")
+    attacks, buffs = picks.split_group(group)
+    if not picks.group_ok(group):
+        errs.append(f"{dex} {group}: grupo fuera de forma")
+    if any(b not in pool_buffs(dex) for b in buffs):
+        errs.append(f"{dex} {group}: un buff que la especie no tiene en su pool")
     melee = any(_is_melee(a) for a in attacks)
     if build == "melee" and not melee:
         errs.append(f"{dex} {group}: build cuerpo a cuerpo sin ataque melee")
@@ -255,8 +252,7 @@ def violations(dex: int, build: str, group: str) -> list[str]:
 
 def public(rows: list[dict]) -> dict[str, dict]:
     """El JSON que lee la ficha (species.json, clave builds): dex -> {melee|ranged: {moves, nBoost, time, dealt,
-    kills, score, cards}}. Las cartas son la prioridad de build/passives.py para ese grupo."""
-    psim = passives.load()
+    kills, score}}."""
     out: dict[str, dict] = {}
     for r in rows:
         dex = int(r["dex"])
@@ -264,8 +260,7 @@ def public(rows: list[dict]) -> dict[str, dict]:
         out.setdefault(str(dex), {})[r["build"]] = {
             "moves": moves, "nBoost": n_boost,
             "time": round(float(r["median_s"]), 1), "dealt": round(float(r["median_dealt"])),
-            "kills": round(float(r["median_kills"]), 1), "score": round(float(r["median_score"]), 2),
-            "cards": passives.priority(dex, moves, psim)}
+            "kills": round(float(r["median_kills"]), 1), "score": round(float(r["median_score"]), 2)}
     return out
 
 

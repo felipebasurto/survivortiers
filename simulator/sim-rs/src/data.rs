@@ -120,6 +120,8 @@ pub struct MoveLvl {
     pub buff: u8,
     /// 0 none (buffs), 1 physical, 2 special. moves.js PHYSICAL set.
     pub cat: u8,
+    /// Index of the owning move in `Data::moves`, set by `Data::load`. Damage is credited per move with it.
+    pub ix: u16,
 }
 
 #[derive(Clone, Debug)]
@@ -178,12 +180,9 @@ impl Beh {
         }
     }
 
-    /// KEEPS in match.js: hold range and shoot.
+    /// enemy.js keepsDistance(): hold range and shoot. Shielders walk in like any chaser (enemy.js:578).
     pub fn keeps(self) -> bool {
-        matches!(
-            self,
-            Beh::Ranged | Beh::Fan | Beh::Beamer | Beh::Zoner | Beh::Healer | Beh::Summoner | Beh::Shielder
-        )
+        matches!(self, Beh::Ranged | Beh::Fan | Beh::Beamer | Beh::Zoner | Beh::Healer | Beh::Summoner)
     }
 
     pub fn no_touch(self) -> bool {
@@ -295,6 +294,7 @@ fn type_ix(s: &str) -> u8 {
 
 fn move_lvl(v: &Value) -> MoveLvl {
     MoveLvl {
+        ix: 0,
         kind: Kind::parse(v["kind"].as_str().unwrap()),
         ty: type_ix(v["type"].as_str().unwrap()),
         cd: num(v, "cd"),
@@ -402,8 +402,11 @@ impl Data {
         ids.sort();
         for id in ids {
             let m = &raw["moves"][id];
-            let levels: Vec<MoveLvl> = m["levels"].as_array().unwrap().iter().map(move_lvl).collect();
-            let evo = if m["evo"].is_null() { None } else { Some(move_lvl(&m["evo"])) };
+            let mut levels: Vec<MoveLvl> = m["levels"].as_array().unwrap().iter().map(move_lvl).collect();
+            let mut evo = if m["evo"].is_null() { None } else { Some(move_lvl(&m["evo"])) };
+            for l in levels.iter_mut().chain(evo.iter_mut()) {
+                l.ix = moves.len() as u16;
+            }
             move_ix.insert(id.clone(), moves.len());
             let kind_name = m["kind"].as_str().unwrap().to_string();
             moves.push(Move {

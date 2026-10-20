@@ -31,7 +31,7 @@ Web: https://survivortiers.pages.dev
 | `build/move_tierlist_v4.py` | Regenera `data/move_tierlist_v4.csv`, solo ataques, desde `simulator/results/fixed_group/solo_screen.csv` y una copia del juego. «Cuerpo a cuerpo» es la forma `melee` del juego; el resto, «distancia» |
 | `build/shiny_sprites.py` | Deriva qué especies pueden ser shiny (`data/shiny_species.json`) desde los metadatos de sprites del juego, en un commit fijo, y recorta sus sprites shiny a `sprites/shiny/`. Sin argumentos comprueba el repositorio del juego en caché; `--fetch` lo descarga |
 | `build/import_game_combat.py` | Añade a `data/pokedex_export.json` `pa`, `sa`, `df` y `sd` (ataque físico y especial, Defensa y Def. Especial) desde `js/data/pokedex.js` del juego en el commit `5a23d49`. Comprueba que hp, spd, atk, tipos, rareza y generación no hayan cambiado |
-| `build/landing.py` | Las 22 páginas de consulta por idioma (mejores Pokémon, iniciales, legendarios, uno por tipo y pasivas), generadas solo desde los datos del build. Ver «Páginas de consulta» |
+| `build/landing.py` | Las 21 páginas de consulta por idioma (mejores Pokémon, iniciales, legendarios y uno por tipo), generadas solo desde los datos del build. Ver «Páginas de consulta» |
 | `build/export_game_stats.js` | Lee `js/data/moves.js`, `pokedex.js` y `lang-en.js` de una copia del juego (`node build/export_game_stats.js /ruta/al/juego`) y escribe `data/game_stats.json`: ataques con su categoría física o especial, potenciadores a nivel 1 y con todas las mejoras, y pa/sa, df/sd de cada Pokémon, y el commit |
 | `build/gamestats.py` | Carga `data/game_stats.json`, `data/move_icons.json` y `data/type_matrix.json`. Da el orden de potenciadores, la categoría de cada ataque y el lado fuerte de cada Pokémon (`side_of`) |
 | `build/toolpages.py` | Rutas de las herramientas en cada idioma (`buscador-tipos/`, `planificador-build/`), sus enlaces y los datos del navegador (`#i18n`) |
@@ -54,7 +54,7 @@ python3 build/check_site.py http://127.0.0.1:8765/    # enlaces, atribución, da
 python3 build/check_site.py http://127.0.0.1:8765/ --external   # además, enlaces externos (red)
 ```
 
-`check_site.py` dibuja una muestra de fichas en un navegador si tienes Playwright (`pip install playwright`); con `--all-species` dibuja las 966 de cada idioma. También recorre las 22 páginas de consulta a 390 px y comprueba que su lista visible sea la del JSON-LD, en el mismo orden.
+`check_site.py` dibuja una muestra de fichas en un navegador si tienes Playwright (`pip install playwright`); con `--all-species` dibuja las 966 de cada idioma. También recorre las 21 páginas de consulta a 390 px y comprueba que su lista visible sea la del JSON-LD, en el mismo orden.
 
 `site/` y `build/out/` son salida generada y no se versionan. Para publicar, genera el sitio **sin** `SPRITE_BASE` y ejecuta `npx wrangler deploy` (Cloudflare Workers, ver `wrangler.jsonc`). `vercel.json` queda por si se despliega allí.
 
@@ -87,7 +87,7 @@ Los cortes de tier están en `data/tiers.json`; no los repitas en otro sitio.
 
 ## Páginas de consulta
 
-`build/landing.py` genera, en cada idioma, 22 páginas de respuesta corta:
+`build/landing.py` genera, en cada idioma, 21 páginas de respuesta corta:
 
 | Página (ES / EN) | Lista |
 | --- | --- |
@@ -95,7 +95,6 @@ Los cortes de tier están en `data/tiers.json`; no los repitas en otro sitio.
 | `/mejores-iniciales/` · `/en/best-starters/` | los 20 Pokémon que más aguantan como inicial en la apertura simulada (`rank_sim_start`) |
 | `/mejores-legendarios/` · `/en/best-legendaries/` | todos los legendarios, por puesto |
 | `/mejores-tipo/<tipo>/` · `/en/best-type/<type>/` | los 20 mejores de cada uno de los 18 tipos |
-| `/mejores-pasivas/` · `/en/best-passives/` | las 8 cartas de nivel de `build/pasivas.py`, por monedas |
 
 Cada página responde en sus dos primeras líneas (el título de la lista y una frase con los primeros nombres) y luego enseña la lista. El JSON-LD `CollectionPage` con `ItemList` repite exactamente esa lista, en el mismo orden; `check_site.py` lo comprueba. Todas están en `sitemap.xml`, enlazadas desde la portada y desde cada ficha, y con `hreflang` es/en y `x-default`. No hay texto escrito a mano por Pokémon: si cambian los datos, cambian las listas.
 

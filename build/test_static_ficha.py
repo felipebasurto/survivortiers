@@ -142,7 +142,7 @@ class StaticMewtwo(unittest.TestCase):
         self.assertEqual(len(re.findall(r'<li><a href="[^"]*pokemon/\d+-', shell)), 966)
         self.assertIn(f'<link rel="canonical" href="{legal.SITE_URL}/">', shell)
         sitemap = (SITE / "sitemap.xml").read_text(encoding="utf8")
-        self.assertEqual(sitemap.count("<url>"), (8 + 966 + 22 + len(toolpages.FOLDERS) + 1) * 2)
+        self.assertEqual(sitemap.count("<url>"), (7 + 966 + 21 + len(toolpages.FOLDERS) + 1) * 2)
         self.assertIn("/pokemon/150-mewtwo/", sitemap)
         self.assertIn("/en/pokemon/150-mewtwo/", sitemap)
         robots = (SITE / "robots.txt").read_text(encoding="utf8")
@@ -168,15 +168,14 @@ class FaqCopy(unittest.TestCase):
             page = (SITE / rel).read_text(encoding="utf8")
             ld = json.loads(re.search(r'<script type="application/ld\+json">(.*?)</script>', page, re.S).group(1))
             pairs = _faq_pairs(page)
-            self.assertEqual(len(pairs), 4, rel)
+            self.assertEqual(len(pairs), 3, rel)
             self.assertEqual(pairs, [(e["name"], e["acceptedAnswer"]["text"]) for e in ld["mainEntity"]], rel)
 
     def test_mewtwo_questions_are_the_player_ones(self) -> None:
         es = [q for q, _ in _faq_pairs((SITE / "pokemon" / "150-mewtwo" / "index.html").read_text(encoding="utf8"))]
         en = [q for q, _ in _faq_pairs((SITE / "en" / "pokemon" / "150-mewtwo" / "index.html").read_text(encoding="utf8"))]
-        self.assertEqual(es, ["¿Vale la pena?", "¿Qué ataques le pongo?", "¿Qué cartas le conviene coger?", "¿Cómo se consigue?"])
-        self.assertEqual(en, ["Is it worth it?", "Which moves should I use?", "Which upgrade cards should I take?",
-                              "How do you get it?"])
+        self.assertEqual(es, ["¿Vale la pena?", "¿Qué ataques le pongo?", "¿Cómo se consigue?"])
+        self.assertEqual(en, ["Is it worth it?", "Which moves should I use?", "How do you get it?"])
 
     def test_faq_answers_do_not_repeat_the_name(self) -> None:
         for rel in ("pokemon/150-mewtwo/index.html", "en/pokemon/150-mewtwo/index.html"):
@@ -195,18 +194,16 @@ class FaqCopy(unittest.TestCase):
         self.assertEqual(static_ficha._join(ES, []), "")
 
     def test_faq_branches(self) -> None:
-        cards = "Según nuestra simulación, en este orden: Imán una vez y después Vigor."
-        plain = static_ficha._faqs(ES, "A", 87, "Cuerpo a cuerpo: Psíquico y Vozarrón.", cards, "Kanto", False, "0,25", 400)
+        plain = static_ficha._faqs(ES, "A", 87, "Cuerpo a cuerpo: Psíquico y Vozarrón.", "Kanto", False, "0,25", 400)
         self.assertEqual(plain[1][1], "Cuerpo a cuerpo: Psíquico y Vozarrón.")
         self.assertEqual(plain[0][1], "Sí, está entre los buenos: tier A, puesto 87 de 966.")
         self.assertEqual(plain[-1][1], "Sale en el banner Kanto. Cada tirada tiene un 0,25\u00a0% de probabilidad, "
                                        "así que de media hacen falta unas 400 tiradas, sin contar las garantías.")
-        one = static_ficha._faqs(ES, "B", 300, "A distancia: Vozarrón y Golpe Cuerpo, con Danza Espada.", "", "Galar",
+        one = static_ficha._faqs(ES, "B", 300, "A distancia: Vozarrón y Golpe Cuerpo, con Danza Espada.", "Galar",
                                  True, "2", 51)
         self.assertEqual([q for q, _ in one], ["¿Vale la pena?", "¿Qué ataques le pongo?", "¿Cómo se consigue?"])
         self.assertTrue(one[-1][1].startswith("Es de los legendarios y sale en el banner Galar."))
-        en = static_ficha._faqs(EN, "D", 966, "Ranged: Hyper Voice, with Swords Dance.", "Based on our simulation, "
-                                "in this order: Reflexes.", "Galar", False, "2.0", 51)
+        en = static_ficha._faqs(EN, "D", 966, "Ranged: Hyper Voice, with Swords Dance.", "Galar", False, "2.0", 51)
         self.assertEqual(en[1][1], "Ranged: Hyper Voice, with Swords Dance.")
         self.assertEqual(en[-1][1], "It is on the Galar banner. Each pull has a 2.0% chance, so on average it takes "
                                     "about 51 pulls, not counting pity guarantees.")

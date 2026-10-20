@@ -22,9 +22,9 @@ from i18n import EN, ES, TYPE_NAMES, Lang
 
 ROOT = Path(__file__).resolve().parent.parent
 RANKING_SRC = ROOT / "data" / "ranking_definitive.csv"
-PAGES = ["", "novedades.html", "ataques.html", "objetos.html", "pasivas.html", "gachas.html", "coleccion.html", "metodo.html", "acerca.html"]
+PAGES = ["", "novedades.html", "ataques.html", "objetos.html", "gachas.html", "coleccion.html", "metodo.html", "acerca.html"]
 LANG_PREFIX = {"es": "", "en": "en/"}
-SIM_CAP_S = 900  # tope de la simulación de supervivencia (sim_lede en build/i18n.py)
+SIM_CAP_S = 1800  # tope de la simulación de supervivencia (sim_lede en build/i18n.py)
 
 
 def _url(rel: str) -> str:
@@ -113,9 +113,7 @@ Base URL: {u}
 - [Best Pokémon (EN)]({_page_url(True, 'best')}): the top 30, tier S, in order.
 - [Best starters (EN)]({_page_url(True, 'starters')}): the starting picks that last longest in the simulated opening.
 - [Best legendaries (EN)]({_page_url(True, 'legendary')}): every legendary by rank.
-- [Best passives (EN)]({_page_url(True, 'passives')}): level-up cards ranked by coin reward. The Sitrus Berry at 70% HP is a simulation rule, not a game rule.
 - Best Pokémon by type (EN), one page per type: {_type_links(True)}.
-- [Passives (EN)]({u}/en/pasivas.html): what each level-up card does, how boosts stack and the two-boost cap.
 - [What's new (EN)]({u}/en/novedades): the October 18, 2026 update: physical and special moves, bosses, Arceus' Judgment and the controller.
 - [Moves (EN)]({u}/en/ataques): attack tier list.
 - [Items (EN)]({u}/en/objetos): item tier list.
@@ -124,12 +122,12 @@ Base URL: {u}
 - [Method (EN)]({u}/en/metodo): how the ranking is built, with the numbers.
 - [About (EN)]({u}/en/acerca): fan-site notice, sprite credits and licences.
 - [Type finder (EN)]({u}/en/type-finder/): pick one or two types and see which Pokémon have them, with their weaknesses.
-- [Build planner (EN)]({u}/en/build-planner/): the bonded group, item and cards of a Pokémon, with a shareable link.
+- [Build planner (EN)]({u}/en/build-planner/): the bonded group and item of a Pokémon, with a shareable link.
 - [Sitemap]({u}/sitemap.xml)
 
 ## Optional
 
-- [Tier list (ES)]({u}/): the same site in Spanish, with [Mejores Pokémon]({_page_url(False, 'best')}), [Mejores iniciales]({_page_url(False, 'starters')}), [Mejores legendarios]({_page_url(False, 'legendary')}) and [Mejores pasivas]({_page_url(False, 'passives')}), and per-type pages: {_type_links(False)}.
+- [Tier list (ES)]({u}/): the same site in Spanish, with [Mejores Pokémon]({_page_url(False, 'best')}), [Mejores iniciales]({_page_url(False, 'starters')}), [Mejores legendarios]({_page_url(False, 'legendary')}), and per-type pages: {_type_links(False)}.
 - [Source repository](https://github.com/felipebasurto/survivortiers): the generator that builds these files.
 - [Game repository](https://github.com/JPTER78/pokesurvivor): PokéSurvivor. The site is updated to commit {legal.UPDATED_COMMIT}, the {EN.date(legal.UPDATED_DATE)} patch.
 """
@@ -172,10 +170,10 @@ def llms_full_txt(meta: dict) -> str:
         "## How the rank is built",
         "",
         f"1. Simulate. A bot plays full games of {legal.GAME_NAME} with each Pokémon in a simulator that follows the game's code (Rust engine, with a JavaScript twin that matches it in its basic mode). The bot circles the horde inside pickup range so shots, melee hits and orbs connect, dodges telegraphed attacks and collects orbs. Each Pokémon plays {counts['sims']} games with different seeds, capped at {score['capSeconds']} s. Bonds arrive when a rift legendary is beaten, not at t=0; bosses, heal orbs and every attack kind are modelled. The opening measure is the Repertoire opening (a random second non-buff attack, with Veto bans). Simulated seconds on the site run from {sim_lo:.0f} s to {sim_hi:.0f} s, median {meta['simMedianSeconds']} s; all of them are simulated.",
-        f"2. Score. A game is worth time alive × sqrt(saturated damage rate × saturated kill rate). The damage rate is dps / (dps + {score['dpsRef']}) and the kill rate is kpm / (kpm + {score['kpmRef']}), so about {score['dpsRef']} damage per second or {score['kpmRef']} kills per minute is halfway to saturated. A game that deals no damage scores 0. The score of a Pokémon is the median over its games, with a bootstrap interval.",
+        "2. Score. A game is worth the total damage it deals, so damage comes first: a hard hitter that falls sooner can rank above a tank that lasts and hits less. A game with no damage is worth 0. No constants. The score of a Pokémon is the median over its games, with a bootstrap interval.",
         "3. Best move. Every move the Pokémon can learn is tried as the starting attack. The best move is the best attacking move (buffs and moves that deal nothing do not count). If intervals overlap, ties go to longer survival, then kills, then move id. The move group follows the owner's build rules: Swords Dance for a physical lead and Nasty Plot for a special lead (a mixed group follows the lead attack's side), a fourth slot of Harden or a third attack (whichever scores higher), and Gengar never keeps a melee move.",
         f"4. Repeat. {m['repeats']} repeats (seed 20261014) draw each Pokémon's score uniformly inside its interval and sort all {meta['total']}. Overlapping intervals are ties. Final rank = median of the {m['repeats']} resulting ranks; rank_p10 and rank_p90 are the 10th and 90th percentile of those ranks.",
-        f"5. Tiers are filled in order of final rank, with fixed sizes and no entry requirements. melee_locked is reported only. No stats, move, type or size sheet moves the rank: only the simulator counts.",
+        "5. Tiers are filled in order of final rank, with fixed sizes and no entry requirements. melee_locked is reported only. No stats, move, type or size sheet moves the rank: only the simulator counts.",
         "6. Checks. The engine is compared against the game's own JavaScript (damage formulas, single-type bonus, combat scenes, vendored game source), and the Rust and JavaScript engines are compared with each other. Code, data and tests are in the repository.",
         "7. Flags (bit values in `species.json` `d[7]`): 1 = an attack applies a status this sim pass does not reproduce (burn, poison, slow, Hex and the extra attack kinds are simulated; confusion is not a game status and is ignored); 2 = still melee on every Repertoire draw (melee_locked); 4 and 8 (stats cap, fewer than three attack types) are legacy values from the old sheet gates and no longer change a tier.",
         "",
@@ -226,10 +224,9 @@ def llms_full_txt(meta: dict) -> str:
         "  - d[6]: `[move, move]`, the two attacks of the coverage pair.",
         "  - d[7]: flags bitmask (see flags above).",
         "  - d[8]: official base stats `[HP, Attack, Defence, Sp. Atk, Sp. Def, Speed]`.",
-        "  - d[9]: fixed group `[super %, neutral %, move ids, attack types 1–2, optional move ids, number of boosts]`. Move ids are the attacks (two or three, either category; the first leads the group) followed by the boosts the group search picked (Swords Dance, Dragon Dance or Nasty Plot, and/or Harden or Agility). super % = share of the 966 species that the attacks hit super effectively (multiplier above 1.05). neutral % = share they never resist (multiplier at least 0.95).",
-        "  - d[10]: level-up cards by priority `[8 card ids, best first, gate card id or null]` (atk, spd, hp, cd, def, rgn, mag, xp). The order is the fixed-group sim's coin ranking for this Pokémon. The gate is the card the lead attack needs to evolve: take it once, wherever it sits in the order. Estimate.",
-        "  - d[11]: simulated seconds with the starter alone, no Repertoire and no Veto.",
-        "- builds: object keyed by dex (string), with `melee` and/or `ranged`. A missing key means no build of that kind meets the rules (special attackers have no `melee` build, since every melee attack is physical). Each build: `moves` (attacks, then boosts; the first attack is the one the simulated run starts with and the one to pick with the Starting Move upgrade), `nBoost` (how many of the last ids are boosts), `time` (median simulated seconds survived), `dealt` (median damage), `kills` (median kills), `score` (median score, the value the build is picked by), `cards` (`[8 card ids best first, gate card id or null]`, as d[10]). The class boost is Swords Dance for a physical attacker (physical attack above special) and Nasty Plot for a special one (ties count as special). Quick Attack, Tackle and Body Slam are never used. A melee build has at least one attack of kind melee; a ranged build has none.",
+        "  - d[9]: fixed group `[super %, neutral %, move ids, attack types 1–2, optional move ids, number of boosts]`. Move ids are the attacks (two or three, either category; the first leads the group) followed by the boosts the group search picked (Swords Dance, Dragon Dance or Nasty Plot, and/or Harden or Agility). super % = share of the 966 species that the attacks hit super effectively (multiplier above 1). neutral % = share they never resist (multiplier at least 0.95, the game's fit threshold, levelup.js:53).",
+        "  - d[10]: simulated seconds with the starter alone, no Repertoire and no Veto.",
+        "- builds: object keyed by dex (string), with `melee` and/or `ranged`. A missing key means no build of that kind meets the rules (special attackers have no `melee` build, since every melee attack is physical). Each build: `moves` (attacks, then boosts; the first attack is the one the simulated run starts with and the one to pick with the Starting Move upgrade), `nBoost` (how many of the last ids are boosts), `time` (median simulated seconds survived), `dealt` (median damage), `kills` (median kills), `score` (median score, the value the build is picked by). The class boost is Swords Dance for a physical attacker (physical attack above special) and Nasty Plot for a special one (ties count as special). Quick Attack, Tackle and Body Slam are never used. A melee build has at least one attack of kind melee; a ranged build has none.",
         "",
         "### data/moves.json",
         "",

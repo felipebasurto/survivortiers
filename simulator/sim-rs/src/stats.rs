@@ -78,7 +78,7 @@ pub struct Summary {
     pub n_cap: usize,
     pub mean_hp_frac: Option<f64>,
     pub status_ignored: bool,
-    /// Median of time * dealt * (1 + kills). Zero damage scores 0.
+    /// Median of the damage dealt. A run that deals nothing scores 0.
     pub median_score: f64,
     pub mean_score: f64,
     pub score_lo: f64,
@@ -87,6 +87,22 @@ pub struct Summary {
     /// independent blocks of the same run, for the stability check.
     pub score_a: f64,
     pub score_b: f64,
+    /// Share of all damage dealt, summed over the runs, by source. NaN when no run dealt damage.
+    pub start_share: f64,
+    pub comp_share: f64,
+    pub extra_share: f64,
+    pub other_share: f64,
+    pub bomb_share: f64,
+    /// Share of runs with at least one rift bond, and the mean bonds per run.
+    pub share_bond: f64,
+    pub mean_bonds: f64,
+    /// Share of runs whose starter evolved, and the mean starter level at the end.
+    pub share_evolved: f64,
+    pub mean_start_lvl: f64,
+    /// Mean level-up cards taken per run: up, evo, buff, stat, learn, other.
+    pub mean_cards: [f64; 6],
+    /// Share of runs in which a boss spawned.
+    pub share_boss_seen: f64,
 }
 
 /// `runs` must be in seed order (1..N), as runSpecies produces them.
@@ -162,7 +178,36 @@ pub fn summarize(runs: &[RunResult]) -> Summary {
         score_hi,
         score_a,
         score_b,
+        start_share: damage_share(runs, |r| r.dealt_start),
+        comp_share: damage_share(runs, |r| r.dealt_comps.iter().sum()),
+        extra_share: damage_share(runs, |r| r.dealt_extra),
+        other_share: damage_share(runs, |r| r.dealt_other),
+        bomb_share: damage_share(runs, |r| r.dealt_bomb),
+        share_bond: mean_of(runs, |r| flag(r.bonds > 0)),
+        mean_bonds: mean_of(runs, |r| r.bonds as f64),
+        share_evolved: mean_of(runs, |r| flag(r.start_evolved)),
+        mean_start_lvl: mean_of(runs, |r| r.start_lvl as f64),
+        mean_cards: std::array::from_fn(|k| mean_of(runs, |r| r.cards[k] as f64)),
+        share_boss_seen: mean_of(runs, |r| flag(!r.first_boss_t.is_nan())),
     }
+}
+
+fn mean_of(runs: &[RunResult], f: impl Fn(&RunResult) -> f64) -> f64 {
+    runs.iter().map(f).sum::<f64>() / runs.len() as f64
+}
+
+/// Share of the damage dealt by all runs together. NaN when nothing was dealt.
+fn damage_share(runs: &[RunResult], f: impl Fn(&RunResult) -> f64) -> f64 {
+    let total: f64 = runs.iter().map(|r| r.dealt).sum();
+    if total > 0.0 {
+        runs.iter().map(f).sum::<f64>() / total
+    } else {
+        f64::NAN
+    }
+}
+
+fn flag(on: bool) -> f64 {
+    if on { 1.0 } else { 0.0 }
 }
 
 /// Medians of the first half and the second half of `scores` in seed order.
@@ -180,28 +225,18 @@ fn half_medians(scores: &[f64]) -> (f64, f64) {
     (median(&scores[..mid]), median(&scores[mid..]))
 }
 
-/// Survival with a damage-rate and a kill-rate gate.
+/// Total damage dealt in the run (HP and shield removed). A run that deals nothing scores 0.
 ///
-/// `time * dealt * (1 + kills)` counted the same long fight three times, so a turret
-/// that chipped away for a few extra seconds outscored a real attack. Rates do not:
-/// damage per second and kills per minute each saturate, and a run that deals nothing
-/// scores 0. Time is the only unsaturating factor, so living longer still helps once
-/// the mon is actually fighting. `dealt` is HP and shield actually removed.
+/// Damage first: a hard hitter that dies sooner beats a tank that lives longer and hits less,
+/// because the damage is the output the run is judged on. Survival counts only through the
+/// damage it lets the mon deal, so no constant is needed to weigh the two. The score is not
+/// dps (damage per second): dps would reward a burst that ends the run in a few seconds.
 pub fn run_score(r: &RunResult) -> f64 {
     if r.dealt <= 0.0 || r.time <= 0.0 {
         return 0.0;
     }
-    let dps = r.dealt / r.time;
-    let kpm = r.kills as f64 * 60.0 / r.time;
-    let dps_s = dps / (dps + DPS_REF);
-    let kpm_s = kpm / (kpm + KPM_REF);
-    r.time * (dps_s * kpm_s).sqrt()
+    r.dealt
 }
-
-/// A clear of ~80 damage per second, or ~40 kills per minute, is halfway to saturated.
-/// Below that, chip damage cannot win on lifetime alone.
-const DPS_REF: f64 = 80.0;
-const KPM_REF: f64 = 40.0;
 
 /// `num()` from the JS writers: round to 3 decimals, shortest round-trip text.
 pub fn num(v: f64) -> String {
@@ -228,19 +263,7 @@ mod tests {
     use super::*;
 
     fn run(time: f64, dealt: f64, kills: u32) -> RunResult {
-        RunResult {
-            time,
-            kills,
-            bosses: 0,
-            coins: 0.0,
-            level: 1,
-            capped: false,
-            status_ignored: false,
-            hp: 0.0,
-            max_hp: 1.0,
-            hp_frac: 0.0,
-            dealt,
-        }
+        RunResult { time, kills, level: 1, max_hp: 1.0, dealt, ..Default::default() }
     }
 
     #[test]
@@ -250,24 +273,24 @@ mod tests {
     }
 
     #[test]
+    fn shares_split_the_damage() {
+        let mut r = run(120.0, 100.0, 1);
+        r.dealt_start = 60.0;
+        r.dealt_comps = [30.0, 0.0, 0.0];
+        r.dealt_other = 10.0;
+        let s = summarize(&[r]);
+        assert_eq!((s.start_share, s.comp_share, s.other_share, s.bomb_share), (0.6, 0.3, 0.1, 0.0));
+    }
+
+    #[test]
     fn no_damage_scores_zero() {
         assert_eq!(run_score(&run(120.0, 0.0, 40)), 0.0);
     }
 
     #[test]
-    fn chip_turret_does_not_beat_a_shorter_real_attack() {
-        // Old product: 150 * 3000 * 31 = 13.95e6 vs 100 * 8000 * 61 = 48.8e6, attacker wins.
-        // The failure mode is a long chip fight against a shorter harder one when the
-        // product's time and kill factors pile up. Half the DPS for 1.8x the lifetime:
-        let turret = run_score(&run(180.0, 1800.0, 36));
-        let attack = run_score(&run(100.0, 8000.0, 70));
-        assert!(attack > turret, "attack {attack} turret {turret}");
-    }
-
-    #[test]
-    fn same_rates_prefer_the_longer_run() {
-        let short = run_score(&run(60.0, 4800.0, 40));
-        let long = run_score(&run(120.0, 9600.0, 80));
-        assert!(long > short);
+    fn score_is_the_damage_dealt() {
+        assert_eq!(run_score(&run(120.0, 9600.0, 80)), 9600.0);
+        // A hard hitter that dies sooner beats a tank that lives longer and hits less.
+        assert!(run_score(&run(100.0, 8000.0, 70)) > run_score(&run(180.0, 1800.0, 36)));
     }
 }

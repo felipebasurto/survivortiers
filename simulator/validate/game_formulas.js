@@ -11,7 +11,7 @@ const path = require("path");
 const { execFileSync } = require("child_process");
 
 const ROOT = path.resolve(__dirname, "../..");
-const GAME = path.join(ROOT, "simulator/vendor/pokesurvivor-5a23d49");
+const GAME = path.join(ROOT, "simulator/vendor/pokesurvivor-11fe868");
 
 global.G = {
   U: {
@@ -24,6 +24,7 @@ global.G = {
   Weather: { mult() { return 1; }, speedFor() { return 1; } },
   Moves: { BY_ID: {}, poolFor() { return []; }, evoInfo() { return null; }, nextUpText() { return null; } },
   Audio: { sfx() {} },
+  T: (s) => s,
   FX: { ring() {}, burst() {} },
   Progress: { event() {} },
   Sprites: { hasShiny() { return false; } },

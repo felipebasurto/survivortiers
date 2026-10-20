@@ -59,9 +59,10 @@ class BestGroup(unittest.TestCase):
         self.assertFalse(picks.group_ok("water-gun+hydro-pump+bubble+nasty-plot+harden"))
 
     def test_shapes(self):
-        self.assertEqual(picks.shape_of("water-gun+tackle+nasty-plot+harden"), "2+atk+def")
-        self.assertEqual(picks.shape_of("water-gun+hydro-pump+bubble+nasty-plot"), "3+atk")
-        self.assertEqual(picks.shape_of("water-gun+hydro-pump+bubble+agility"), "3+def")
+        self.assertEqual(picks.shape_of("water-gun+tackle+nasty-plot+harden"), "2+2")
+        self.assertEqual(picks.shape_of("water-gun+hydro-pump+bubble+nasty-plot"), "3+1")
+        self.assertEqual(picks.shape_of("water-gun+hydro-pump+bubble+agility"), "3+1")
+        self.assertEqual(picks.shape_of("water-gun+tackle+nasty-plot"), "2+1")
 
     def test_fewer_attacks_does_not_win_a_tie_on_a_lower_score(self):
         rows = [group_row(647, "water-gun+hydro-pump+nasty-plot+harden", 100),
@@ -73,7 +74,7 @@ class BestGroup(unittest.TestCase):
                 group_row(647, "water-gun+hydro-pump+bubble+nasty-plot", 90),
                 group_row(647, "water-gun+hydro-pump+bubble+harden", 80)]
         shapes = {picks.shape_of(r["group"]) for r in picks.shortlist_groups(rows, 1)[647]}
-        self.assertEqual(shapes, {"2+atk+def", "3+atk", "3+def"})
+        self.assertEqual(shapes, {"2+2", "3+1"})
 
 
 if __name__ == "__main__":

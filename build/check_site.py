@@ -19,6 +19,7 @@ import argparse
 import csv
 import html as html_lib
 import json
+import os
 import random
 import re
 import sys
@@ -59,8 +60,6 @@ LANGS = ("", "en/")
 EXPECTED_GACHA = {"Paldea": 17.4, "Alola": 15.7, "Galar": 12.6, "Sinnoh": 15.9, "Kanto": 8.6, "Teselia": 14.2,
                   "Johto": 13.0, "Kalos": 8.6, "Hoenn": 8.1}
 
-
-CARD_IDS = {"atk", "spd", "hp", "cd", "def", "rgn", "mag", "xp"}
 
 class Page(HTMLParser):
     def __init__(self) -> None:
@@ -290,17 +289,14 @@ def landing_check(base: str, body_by_url: dict[str, str], err, notes: list[str])
             if not items:
                 err(f"{url}: falta el ItemList en JSON-LD")
                 continue
-            if page.key == "passives":
-                visible = re.findall(r'<span class="ql-name">(.*?)</span>', html)
-            else:
-                visible = re.findall(r'<span class="nm">(.*?)</span>', html)
+            visible = re.findall(r'<span class="nm">(.*?)</span>', html)
             if [html_lib.unescape(v) for v in visible] != [i["name"] for i in items]:
                 err(f"{url}: la lista visible no coincide con el ItemList del JSON-LD")
             if html.index('<p class="ql-lede">') > html.index('<section class="ql-list"'):
                 err(f"{url}: la respuesta no va antes de la lista")
             if f"({legal.UPDATED_COMMIT})" not in html:
                 err(f"{url}: falta la línea de datos del juego")
-            if page.key != "passives" and not re.search(r'<p class="ql-lede">[^<]*' + re.escape(html_lib.unescape(items[0]["name"])), html):
+            if not re.search(r'<p class="ql-lede">[^<]*' + re.escape(html_lib.unescape(items[0]["name"])), html):
                 err(f"{url}: la primera línea no nombra al primero de la lista")
     fichas = [(u, h) for u, h in body_by_url.items() if re.search(r"/pokemon/\d+-[a-z0-9-]+/$", u)]
     for url, html in fichas:
@@ -335,11 +331,11 @@ def landing_browser_check(base: str, err, notes: list[str]) -> None:
 
 
 def launch_chromium(pw):
-    """Chromium de Playwright, o el Chrome del sistema si no está instalado. None si no hay ninguno."""
+    """Chromium de Playwright, o CHROMIUM_PATH, o el Chrome del sistema si no está instalado. None si no hay ninguno."""
     try:
         return pw.chromium.launch()
     except Error:
-        exe = which("google-chrome") or which("chromium") or which("chromium-browser")
+        exe = os.environ.get("CHROMIUM_PATH") or which("google-chrome") or which("chromium") or which("chromium-browser")
         if not exe:
             return None
         return pw.chromium.launch(executable_path=exe, args=["--no-sandbox"])
@@ -410,7 +406,6 @@ def browser_check(base: str, index: list[dict], args, err, notes: list[str]) -> 
                              rows: [...document.querySelectorAll('#build .bd-opt .bd-rows')].map(u => u.children.length),
                              stats: document.querySelectorAll('#build .bd-opt .bd-stats dd').length,
                              notes: document.querySelectorAll('#build .bd-opt[data-build=melee] .bd-note').length,
-                             cards: [...document.querySelectorAll('#build .bd-opt .bd-cardlist')].map(o => [...o.querySelectorAll('.bd-n')].map(n => n.textContent.trim())),
                              items: document.querySelectorAll('#build .bd-gear .bd-row').length,
                              icons: [...document.querySelectorAll('#build .bd-gear .bd-ico img')].every(i => i.complete && i.naturalWidth > 0),
                              expands: document.querySelectorAll('#build details').length,
@@ -425,7 +420,6 @@ def browser_check(base: str, index: list[dict], args, err, notes: list[str]) -> 
                 if len(info["alts"]) != 5 or min(info["alts"]) < 20:
                     err(f"{lang}pokemon/?id={d}: {len(info['alts'])} gráficos con texto alternativo (se esperaban 5 de 20+ letras)")
                 b = info["build"]
-                want_cards = [str(i) for i in range(1, 9)]
                 kinds = build_kinds.get(d, set())
                 if b["title"] != "Build" or b["best"] > 1 or sorted(info["buildKinds"]) != sorted(kinds) \
                         or b["options"] != len(kinds) or len(b["rows"]) != len(kinds):
@@ -437,8 +431,6 @@ def browser_check(base: str, index: list[dict], args, err, notes: list[str]) -> 
                     err(f"{lang}pokemon/?id={d}: cada build debe llevar solo su primer ataque marcado como el de empezar, y una sola nota de serie ({b})")
                 if any(not 2 <= n <= 4 for n in b["rows"]) or b["stats"] != 4 * len(b["rows"]):
                     err(f"{lang}pokemon/?id={d}: una build sin 2 a 4 ataques o sin sus cuatro cifras ({b})")
-                if any(c != want_cards for c in b["cards"]) or len(b["cards"]) != len(b["rows"]):
-                    err(f"{lang}pokemon/?id={d}: las cartas por prioridad no salen 1 a 8 en cada build ({b['cards']})")
                 if b["notes"] != (1 if "melee" in info["buildKinds"] else 0):
                     err(f"{lang}pokemon/?id={d}: la nota de cuerpo a cuerpo no aparece o sobra ({b['notes']})")
                 if b["items"] != 3 or not b["icons"]:
@@ -471,7 +463,7 @@ def browser_check(base: str, index: list[dict], args, err, notes: list[str]) -> 
 
 THEME_LIGHT, THEME_DARK = "#f6f0dc", "#1b1528"
 PNG_OK = ("og.png", "apple-touch-icon.png")
-THEME_PAGES = ("", "novedades.html", "coleccion.html", "pokemon/25-pikachu/", "metodo.html", "ataques.html", "pasivas.html", "en/", "en/novedades.html", "en/pokemon/25-pikachu/", "en/coleccion.html", "en/pasivas.html")
+THEME_PAGES = ("", "novedades.html", "coleccion.html", "pokemon/25-pikachu/", "metodo.html", "ataques.html", "en/", "en/novedades.html", "en/pokemon/25-pikachu/", "en/coleccion.html")
 THEME_STATE_JS = """() => ({
     theme: document.documentElement.dataset.theme || null,
     bg: getComputedStyle(document.documentElement).getPropertyValue('--bg').trim(),
@@ -632,7 +624,7 @@ def main() -> int:
 
     for d in dexes:
         e = species.get(str(d))
-        ok = (isinstance(e, list) and len(e) == 12 and len(e[0]) == 4 and all(0 <= v <= 1 for v in e[0])
+        ok = (isinstance(e, list) and len(e) == 11 and len(e[0]) == 4 and all(0 <= v <= 1 for v in e[0])
               and len(e[1]) == 5 and all(isinstance(v, int) and 1 <= v <= 966 for v in e[1])
               and e[2] in move_ids and e[4] in move_ids and e[3] > 0 and e[5] > 0
               and all(m in move_ids for m in e[6]) and isinstance(e[7], int) and 0 <= e[7] <= 15
@@ -643,10 +635,7 @@ def main() -> int:
               and 2 <= len(e[9][2]) <= 4 and all(m in move_ids for m in e[9][2]) and e[9][3] in (1, 2, 3)
               and len(e[9][4]) <= 3 and all(m in move_ids for m in e[9][4])
               and not set(e[9][4]) & set(e[9][2]) and group_matches(d, e)
-              # cartas por prioridad (build/passives.py): las 8 ids, de mejor a peor, y la que evoluciona el ataque o null
-              and len(e[10]) == 2 and sorted(e[10][0]) == sorted(CARD_IDS)
-              and (e[10][1] is None or e[10][1] in CARD_IDS)
-              and isinstance(e[11], (int, float)) and e[11] > 0)
+              and isinstance(e[10], (int, float)) and e[10] > 0)
         if not ok:
             err(f"data/species.json: datos incompletos o raros para el Pokémon {d}")
 
@@ -695,7 +684,7 @@ def main() -> int:
 
     # rastreo
     start = [f"{base}{lang}{p}" for lang in LANGS
-             for p in ("", "novedades.html", "metodo.html", "ataques.html", "objetos.html", "pasivas.html", "gachas.html", "coleccion.html", "acerca.html",
+             for p in ("", "novedades.html", "metodo.html", "ataques.html", "objetos.html", "gachas.html", "coleccion.html", "acerca.html",
                        "pokemon/")]
     start.append(base + "404.html")
     seen: dict[str, Page | None] = {}

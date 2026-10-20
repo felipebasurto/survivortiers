@@ -22,8 +22,8 @@ TYPE_KEYS = tuple(TYPE_NAMES["es"])
 DANCE_IDS = ("swords-dance", "dragon-dance")  # las dos de ataque físico: comparten casilla de potenciador
 BOOST_ORDER = ("swords-dance", "dragon-dance", "nasty-plot", "agility", "harden", "aqua-ring")
 CAT_OF_STAT = {"patk": "physical", "satk": "special"}
-BOOST_LABEL = {"patk": "pv_buff_cat_phys", "satk": "pv_buff_cat_spec", "spd": "pv_buff_stat_spd",
-               "def": "pv_buff_stat_def", "regen": "pv_buff_stat_regen"}
+BOOST_LABEL = {"patk": "buff_cat_phys", "satk": "buff_cat_spec", "spd": "buff_stat_spd",
+               "def": "buff_stat_def", "regen": "buff_stat_regen"}
 
 
 def boost_amount(L: Lang, value: float, stat: str) -> str:

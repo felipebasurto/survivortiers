@@ -84,7 +84,7 @@ def load_cf(path: Path = CF_CSV) -> tuple[dict[tuple[int, str, str], float], dic
     """(dex, move, mod key or '') -> median seconds, and the same key -> composite score.
 
     Seconds are the protocol check: they must match start_noshop_s and best_median_s.
-    The published rank orders the sim score (time times saturating damage and kill rates).
+    The published rank orders the sim score (total damage dealt in the run).
     A bench from before that score has no column; the score map then copies the seconds.
     """
     if not path.exists():
@@ -192,7 +192,7 @@ def table(recs: dict[str, dict]) -> pa.Table:
         "dex", "name", "name_en", "types", "tier", "rank", "rank_p10", "rank_p90",
         "speed_pct", "hp_pct", "attack_pct", "hitbox_r", "hitbox_median", "hitbox_smaller_pct",
         "typedef_pct", "super_pct", "attack_types",
-        "start_move", "best_move", "group", "alts", "item", "cards",
+        "start_move", "best_move", "group", "alts", "item",
         "drivers_up", "drivers_down", "claims", "record", "fp", "bfp")}
     for d, f in sorted(recs.items(), key=lambda kv: int(kv[0])):
         b = f["build"]
@@ -206,7 +206,7 @@ def table(recs: dict[str, dict]) -> pa.Table:
                 ("attack_types", f["matchup"]["attackTypes"]),
                 ("start_move", b["start"]["en"]), ("best_move", b["best"]["en"]),
                 ("group", [m["en"] for m in b["group"]]), ("alts", [m["en"] for m in b["alts"]]),
-                ("item", b["item"]["en"]), ("cards", [c["en"] for c in b["cards"]]),
+                ("item", b["item"]["en"]),
                 ("drivers_up", summaries.ranked_drivers(f, True)), ("drivers_down", summaries.ranked_drivers(f, False)),
                 ("claims", json.dumps(summaries.claims(f), ensure_ascii=False)),
                 ("record", json.dumps(f, ensure_ascii=False, sort_keys=True)),

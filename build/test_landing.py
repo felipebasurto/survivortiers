@@ -27,7 +27,6 @@ from slugs import species_path  # noqa: E402
 SITE = ROOT / "site"
 LD_RE = re.compile(r'<script type="application/ld\+json">\s*(.*?)\s*</script>', re.S)
 NAME_RE = re.compile(r'<span class="nm">(.*?)</span>')
-PASSIVE_RE = re.compile(r'<span class="ql-name">(.*?)</span>')
 
 
 def _read(rel: str) -> str:
@@ -72,7 +71,7 @@ class LandingPages(unittest.TestCase):
                 text = _read(_page_rel(lang, page))
                 items = _ld(text)["mainEntity"]["itemListElement"]
                 self.assertEqual(_ld(text)["mainEntity"]["numberOfItems"], len(items))
-                found = PASSIVE_RE.findall(text) if page.key == "passives" else NAME_RE.findall(text)
+                found = NAME_RE.findall(text)
                 self.assertEqual([html_lib.unescape(n) for n in found], [i["name"] for i in items], _page_rel(lang, page))
 
     def test_answer_comes_before_the_list(self) -> None:
@@ -86,8 +85,6 @@ class LandingPages(unittest.TestCase):
 
     def test_lede_names_the_first_rows(self) -> None:
         for page in landing.pages():
-            if page.key == "passives":
-                continue
             for lang in (ES, EN):
                 text = _read(_page_rel(lang, page))
                 lede = html_lib.unescape(re.search(r'<p class="ql-lede">(.*?)</p>', text, re.S).group(1))

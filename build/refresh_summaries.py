@@ -176,16 +176,13 @@ def _reason(claims: list[dict], lang: str) -> str:
 
 
 def compose(f: dict) -> tuple[str, str]:
-    """Two or three sentences whose marks are exactly the claims that hold."""
+    """Two or three sentences whose marks are exactly the claims that hold. Always the same for the same record."""
     claims = S.claims(f)
-    for groups, alt, ntrait in ((2, True, 3), (2, False, 3), (1, False, 3), (1, False, 2), (0, False, 2), (0, False, 1)):
-        parts = []
-        for lang in ("es", "en"):
-            bits = [b for b in (_traits(claims, lang, ntrait), _build(f, claims, lang, groups, alt), _reason(claims, lang)) if b]
-            parts.append(" ".join(bits))
-        if all(len(S.plain(p)) <= S.MAX_LEN for p in parts):
-            return parts[0], parts[1]
-    raise SystemExit(f"{f['dex']}: el resumen no cabe en {S.MAX_LEN} caracteres")
+    parts = []
+    for lang in ("es", "en"):
+        bits = [b for b in (_traits(claims, lang, 3), _build(f, claims, lang, 2, True), _reason(claims, lang)) if b]
+        parts.append(" ".join(bits))
+    return parts[0], parts[1]
 
 
 def _real_errors(errs: list[str]) -> list[str]:
@@ -207,23 +204,14 @@ def refresh(write: bool = True) -> dict[str, int]:
     base = sf.base_records()
     doc = S.load()
     names = S.all_build_names(facts)
-    kept = rewritten = 0
+    rewritten = 0
     species = {}
     for d, f in facts.items():
+        # Every summary is written again from the claims. The script is deterministic; an LLM route can replace it later.
         live = _live(base[d], f)
-        old = doc["species"].get(d)
         fp, bfp = sf.fingerprint(live), sf.fingerprint(base[d])
-        if old is None:
-            text = dict(zip(("es", "en"), compose(live)))
-            rewritten += 1
-        else:
-            trial = {**old, "fp": fp, "bfp": bfp}
-            if _real_errors(S.validate(d, trial, live, names)):
-                text = dict(zip(("es", "en"), compose(live)))
-                rewritten += 1
-            else:
-                text = {"es": old["es"], "en": old["en"]}
-                kept += 1
+        text = dict(zip(("es", "en"), compose(live)))
+        rewritten += 1
         entry = {"fp": fp, "bfp": bfp, **text}
         errs = S.validate(d, entry, live, names)
         if errs:
@@ -238,12 +226,12 @@ def refresh(write: bool = True) -> dict[str, int]:
     doc["flagged"] = {}
     if write:
         S.PATH.write_text(json.dumps(doc, ensure_ascii=False, indent=1) + "\n", encoding="utf8")
-    return {"kept": kept, "rewritten": rewritten, "species": len(species)}
+    return {"rewritten": rewritten, "species": len(species)}
 
 
 def main() -> int:
     counts = refresh(write="--check" not in sys.argv)
-    print(f"resúmenes: {counts['kept']} conservados, {counts['rewritten']} reescritos, {counts['species']} en total")
+    print(f"resúmenes: {counts['rewritten']} reescritos desde las afirmaciones, {counts['species']} en total")
     return 0
 
 

@@ -14,7 +14,7 @@ const fs = require("fs");
 const path = require("path");
 
 const ROOT = path.resolve(__dirname, "../..");
-const GAME = path.join(ROOT, "simulator/vendor/pokesurvivor-5a23d49");
+const GAME = path.join(ROOT, "simulator/vendor/pokesurvivor-11fe868");
 
 function sink() {
   const fn = () => undefined;

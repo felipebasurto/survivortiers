@@ -23,11 +23,12 @@ class AttackKindTest(unittest.TestCase):
         self.assertEqual(catalog.attack_kind(1.16, 1.3), "spec")
         self.assertEqual(catalog.attack_kind(1.3, 1.16), "phys")
 
-    def test_mixed_within_five_hundredths_inclusive(self) -> None:
-        self.assertEqual(catalog.attack_kind(1.0, 0.95), "mix")
-        self.assertEqual(catalog.attack_kind(1.10, 1.05), "mix")
-        self.assertEqual(catalog.attack_kind(1.05, 1.10), "mix")
-        self.assertEqual(catalog.attack_kind(1.11, 1.05), "phys")
+    def test_no_mixed_band_like_the_game(self) -> None:
+        # stats.js:34 sideOf: special only when sa > pa. Any gap counts, with no tolerance band.
+        self.assertEqual(catalog.attack_kind(1.0, 0.95), "phys")
+        self.assertEqual(catalog.attack_kind(1.10, 1.05), "phys")
+        self.assertEqual(catalog.attack_kind(1.05, 1.10), "spec")
+        self.assertEqual(catalog.attack_kind(1.00, 1.00), "phys")
 
     def test_group_side_uses_move_damage_class(self) -> None:
         self.assertEqual(catalog.group_side(["tackle", "quick-attack"]), "phys")
@@ -85,10 +86,10 @@ class StaticBlockTest(unittest.TestCase):
         self.assertIn("hasta un 25\u00a0% más", html)
         self.assertNotIn("5a23d49", html)
 
-    def test_block_in_english_and_mixed_label(self) -> None:
+    def test_block_in_english_and_special_label(self) -> None:
         html = static_ficha.combat(EN, self.entry(1.0, 1.02, 40, 120))
-        self.assertIn('data-kind="mix"', html)
-        self.assertIn("Mixed", html)
+        self.assertIn('data-kind="spec"', html)
+        self.assertIn("Special", html)
         self.assertIn("×1.02", html)
         self.assertIn("up to 22\u00a0% and low defense adds up to 25\u00a0%", html)
 

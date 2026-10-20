@@ -80,17 +80,17 @@ class Method(unittest.TestCase):
             self.assertNotIn("ficha pesa", html)
             self.assertNotIn("sheet weighs", html)
             self.assertNotIn("2.000 ordenaciones", html)
-        self.assertIn("raíz de dos cosas", es)
-        self.assertIn("square root of two things", en)
-        self.assertIn("Una partida sin daño vale 0", es)
-        self.assertIn("A game with no damage is worth 0", en)
+        self.assertIn("daño total que hace", es)
+        self.assertIn("total damage it deals", en)
+        self.assertIn("Sin daño vale 0", es)
+        self.assertIn("With no damage it is worth 0", en)
 
     def test_method_numbers_come_from_the_code(self) -> None:
         from catalog import METHOD
-        self.assertEqual(METHOD["score"], {"dpsRef": 80, "kpmRef": 40, "capSeconds": 900})
+        self.assertEqual(METHOD["score"], {"capSeconds": 1800})
         stats_rs = (ROOT / "simulator" / "sim-rs" / "src" / "stats.rs").read_text(encoding="utf8")
-        self.assertIn("const DPS_REF: f64 = 80.0;", stats_rs)
-        self.assertIn("const KPM_REF: f64 = 40.0;", stats_rs)
+        self.assertNotIn("DPS_REF", stats_rs)
+        self.assertNotIn("KPM_REF", stats_rs)
         make = (ROOT / "build" / "make_definitive.py").read_text(encoding="utf8")
         self.assertIn(f"REPEATS = {METHOD['repeats']}", make)
 
@@ -113,7 +113,7 @@ class AgentFiles(unittest.TestCase):
         self.assertIn(f"{legal.SITE_URL}/en/metodo", text)
         self.assertNotIn("sheet percentiles", text)
         full = _read("llms-full.txt")
-        self.assertIn("time alive × sqrt(saturated damage rate × saturated kill rate)", full)
+        self.assertIn("No constants.", full)
         self.assertNotIn("Three pieces", full)
 
     def test_sitemap_has_lastmod_and_hreflang_for_every_url(self) -> None:

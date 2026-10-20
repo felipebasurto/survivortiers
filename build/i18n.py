@@ -25,7 +25,6 @@ STR: dict[str, tuple[str, str]] = {
     "nav_metodo": ("Método", "Method"),
     "nav_ataques": ("Ataques", "Moves"),
     "nav_objetos": ("Objetos", "Items"),
-    "nav_pasivas": ("Pasivas", "Passives"),
     "nav_gachas": ("Gacha", "Gacha"),
     "nav_acerca": ("Info", "About"),
     "lang_label": ("Idioma", "Language"),
@@ -49,7 +48,6 @@ STR: dict[str, tuple[str, str]] = {
     "guide_best": ("Mejores Pokémon", "Best Pokémon"),
     "guide_starters": ("Mejores iniciales", "Best starters"),
     "guide_legendary": ("Legendarios", "Legendaries"),
-    "guide_passives": ("Mejores pasivas", "Best passives"),
     "guide_tierlist": ("Tier list completa", "Full tier list"),
     "fh_game": ("en {game}", "in {game}"),
     "dataset_name": ("Ranking no oficial de los Pokémon de {game}", "Unofficial ranking of the Pokémon in {game}"),
@@ -111,13 +109,13 @@ STR: dict[str, tuple[str, str]] = {
     "fh_title": ("{name} en {game}: tier {tier}, mejor build y ataques | {site}",
                  "{name} in {game}: {tier} tier, best build and moves | {site}"),
     "fh_desc": ("{name} es tier {tier} en {game}: puesto {rank} de {total}. Mejor build: {attacks}. "
-                "Con las cartas que conviene coger y el banner {banner} donde sale.",
+                "Con el banner {banner} donde sale.",
                 "{name} is {tier} tier in {game}: rank {rank} of {total}. Best build: {attacks}. "
-                "With the cards worth taking and the {banner} banner it comes from."),
+                "From the {banner} banner."),
     "fh_desc_buffs": ("{name} es tier {tier} en {game}: puesto {rank} de {total}. Mejor build: {attacks}, con {buffs}. "
-                      "Con las cartas que conviene coger y el banner {banner} donde sale.",
+                      "Con el banner {banner} donde sale.",
                       "{name} is {tier} tier in {game}: rank {rank} of {total}. Best build: {attacks}, with {buffs}. "
-                      "With the cards worth taking and the {banner} banner it comes from."),
+                      "From the {banner} banner."),
     "sheet_obtain_h": ("Cómo conseguirlo", "How to get it"),
     "sheet_faq_h": ("Preguntas", "Questions"),
     "faq_q_worth": ("¿Vale la pena?", "Is it worth it?"),
@@ -132,11 +130,6 @@ STR: dict[str, tuple[str, str]] = {
     "faq_a_D": ("No, está entre los peores: tier D, puesto {rank} de {total}.",
                 "No, it is one of the worst: tier D, rank {rank} of {total}."),
     "faq_q_moves": ("¿Qué ataques le pongo?", "Which moves should I use?"),
-    "faq_q_cards": ("¿Qué cartas le conviene coger?", "Which upgrade cards should I take?"),
-    "faq_a_cards": ("Según nuestra simulación, en este orden: {cards}.",
-                    "Based on our simulation, in this order: {cards}."),
-    "faq_a_cards_gate": ("Según nuestra simulación, en este orden: {cards}. {once} solo hace falta una vez, para evolucionar el ataque.",
-                         "Based on our simulation, in this order: {cards}. {once} is only needed once, to evolve the move."),
     "faq_q_get": ("¿Cómo se consigue?", "How do you get it?"),
     "faq_get_where": ("Sale en el banner {banner}.", "It is on the {banner} banner."),
     "faq_get_where_leg": ("Es de los legendarios y sale en el banner {banner}.",
@@ -155,12 +148,12 @@ STR: dict[str, tuple[str, str]] = {
     "pager_aria": ("Pokémon vecinos", "Neighbouring Pokémon"),
     "dex_no": ("nº {dex}", "no. {dex}"),
     "tpl_title": ("Fichas de los Pokémon de {game} | {site}", "Pokémon pages of {game} | {site}"),
-    "tpl_desc": ("Las {n} fichas de {game}, una por Pokémon: tier, build, cartas y cómo conseguirlo.",
-                 "All {n} {game} pages, one per Pokémon: tier, build, cards and how to get it."),
+    "tpl_desc": ("Las {n} fichas de {game}, una por Pokémon: tier, build y cómo conseguirlo.",
+                 "All {n} {game} pages, one per Pokémon: tier, build and how to get it."),
     "tpl_h1": ("Fichas de los Pokémon de {game}", "Pokémon pages of {game}"),
-    "tpl_lede": ("Cada uno de los {n} Pokémon tiene su ficha con el tier, el puesto, la build, las cartas que conviene coger y "
+    "tpl_lede": ("Cada uno de los {n} Pokémon tiene su ficha con el tier, el puesto, la build y "
                  "cómo conseguirlo. Elige uno de la lista.",
-                 "Each of the {n} Pokémon has its own page with its tier, rank, build, the cards worth taking and how to get "
+                 "Each of the {n} Pokémon has its own page with its tier, rank, build and how to get "
                  "it. Pick one from the list."),
     "f_missing": ("Pokémon no encontrado", "Pokémon not found"),
 
@@ -211,12 +204,6 @@ STR: dict[str, tuple[str, str]] = {
                             "Default: {move}; change it with Starting Move (400 coins)"),
     "build_super": ("Super efectivo", "Super effective"),
     "build_neutral": ("Sin resistencia", "Never resisted"),
-    "build_cards": ("Cartas por prioridad", "Cards by priority"),
-    "build_card_hint": ("Si no te sale una, coge la siguiente de la lista.", "If one doesn't show up, take the next one on the list."),
-    "build_card_once": ("1× = cógela una vez, para evolucionar el ataque del grupo.",
-                        "1× = take it once, to evolve the group move."),
-    "build_card_more": ("Ver orden completo", "See full order"),
-    "bp_cards_all": ("Orden completo", "Full order"),
     "build_share": ("Compartir esta build", "Share this build"),
     "build_copied": ("Enlace copiado", "Link copied"),
     "build_brand": ("{site}", "{site}"),
@@ -317,11 +304,11 @@ STR: dict[str, tuple[str, str]] = {
     "sim_lede": ("Un bot juega con un grupo fijo (el ataque de serie, otro más, Danza Espada o Maquinación según el primer ataque, y Fortaleza). "
                  "La barra de apertura es una estimación: con Repertorio sale un segundo ataque al azar, con Veto se bloquean los 3 que más bajan esa media, y se juega el mejor de los dos. "
                  "Los vínculos llegan al ganar la grieta, no al empezar; hay jefes y orbes de curación, y se lanzan todos los tipos de ataque. "
-                 "Hasta 900 s. El bot no esquiva como una persona.",
+                 "Hasta 30 minutos (1800 s). El bot no esquiva como una persona.",
                  "A bot plays one fixed group (the default attack, one more attack, Swords Dance or Nasty Plot to match the first attack, and Harden). "
                  "The opening bar is an estimate: Repertoire deals a random second attack, Veto bans the 3 that pull that average down the most, and the better of the two is played. "
                  "Bonds arrive when a rift is won, not at the start; bosses and heal orbs are in, and every attack kind fires. "
-                 "Up to 900 s. The bot does not dodge the way a person does."),
+                 "Up to 30 minutes (1800 s). The bot does not dodge the way a person does."),
     "sim_scale": ("Escala: de {lo} s a {hi} s, lo que aguantan todos los Pokémon.",
                   "Scale: {lo} s to {hi} s, what all Pokémon last."),
     "sim_gain": ("Con el mejor ataque aguanta {d} s más que con esa apertura. Cifra simulada.",
@@ -364,19 +351,6 @@ STR: dict[str, tuple[str, str]] = {
                      "The best {type} Pokémon in {game}: {top}."),
     "lp_type_lede": ("Los mejores Pokémon de tipo {type} en {game} son {top}. De los {n} de ese tipo, {s} están en el tier S.",
                      "The best {type} Pokémon in {game} are {top}. Of the {n} of that type, {s} are in tier S."),
-    "lp_pas_title": ("Mejores pasivas de {game} · {site}", "Best passives in {game} · {site}"),
-    "lp_pas_h1": ("Mejores pasivas de {game}", "Best passives in {game}"),
-    "lp_pas_desc": ("Las cartas de nivel de {game} que más monedas dan: {top}.",
-                    "The level-up cards in {game} that earn the most coins: {top}."),
-    "lp_pas_lede": ("En {game}, la carta que más monedas da es {best}. Después: {next}. Las demás no suben las monedas.",
-                    "In {game}, the card that earns the most coins is {best}. Then: {next}. The rest do not raise coins."),
-    "lp_pas_lede_tie": ("Priorizar una carta no mueve la mediana de monedas. Las ocho quedan empatadas.",
-                        "Prioritizing a card does not move the median coins. All eight are tied."),
-    "lp_pas_desc_tie": ("Ninguna carta de nivel de {game} mueve la mediana de monedas.",
-                        "No level-up card in {game} moves the median coins."),
-    "lp_pas_note": ("Monedas: subida al priorizar la carta. La tabla completa, con la baya Zidra y las combinaciones con objetos, está en Pasivas.",
-                    "Coins: the rise from prioritizing the card. The full table, with the Sitrus Berry and item combinations, is on Passives."),
-    "lp_pas_link": ("Tabla completa en Pasivas", "Full table on Passives"),
 
     # ------------------------------------------------------------ ataques
     "ataques_title": ("Ataques de {game} · {site}", "Moves in {game} · {site}"),
@@ -452,25 +426,6 @@ STR: dict[str, tuple[str, str]] = {
     "obj_phases_h": ("Tier por fase", "Tier by phase"),
     "obj_table_h": ("Qué hace cada objeto", "What each item does"),
 
-    # ------------------------------------------------------------ pasivas
-    "pv_title": ("Pasivas de {game} · {site}", "Passives in {game} · {site}"),
-    "pv_desc": ("Qué carta de nivel coger en {game}, en orden, y cuándo la baya Zidra.",
-                "Which level-up card to take in {game}, in order, and when to take the Sitrus Berry."),
-    "pv_h1": ("Pasivas de {game}", "Passives in {game}"),
-    "pv_lede": ("Cartas de nivel de {game} ordenadas por las monedas que dan.", "Level-up cards in {game}, ranked by the coins they earn."),
-    "pv_rank_h": ("Orden", "Order"),
-    "pv_rank_note": ("Monedas: subida al priorizar la carta. Aguante y bajas/min: cómo cambia la partida.",
-                     "Coins: the rise from prioritizing the card. Survival and kills/min: how the run changes."),
-    "pv_surv": ("Aguante", "Survival"),
-    "pv_kills": ("Bajas/min", "Kills/min"),
-    "pv_take": ("Cógela", "Take it"),
-    "pv_wait": ("Espera", "Wait"),
-    "pv_items_h": ("Con objeto", "With an item"),
-    "pv_items_note": ("Lo que suma la carta si ya llevas el objeto.", "What the card adds once you hold the item."),
-    "pv_offers_h": ("Qué cartas salen", "Which cards come up"),
-    "pv_except_h": ("Ataques que cambian el orden", "Moves that change the order"),
-    "pv_method_sum": ("Cómo se calcula", "How it is calculated"),
-    "pv_method_link": ("Método completo", "Full method"),
 
     # ------------------------------------------------------------ gacha
     "gachas_title": ("Gacha de {game} · {site}", "Gacha for {game} · {site}"),
@@ -576,23 +531,6 @@ STR: dict[str, tuple[str, str]] = {
     "dur_alt": ("Pokémon por tramo de segundos en su apertura. Mediana {s} s, entre {lo} y {hi} s.",
                 "Pokémon per time span in their opening. Median {s} s, between {lo} and {hi} s."),
     "dur_axis": ("segundos que aguanta la apertura, cada barra cubre 10 s", "seconds the opening lasts, each bar covers 10 s"),
-    "score_title": ("Cada factor se satura", "Each factor saturates"),
-    "score_lede": ("Con {dps} de daño por segundo el factor ya vale la mitad, y con {kpm} bajas por minuto, lo mismo. "
-                   "Después, cada punto extra suma menos.",
-                   "At {dps} damage per second the factor is already half, and at {kpm} kills per minute, the same. "
-                   "After that, each extra point adds less."),
-    "score_formula": ("nota = tiempo × √( (daño por segundo ÷ (daño por segundo + {dps})) × (bajas por minuto ÷ (bajas por minuto + {kpm})) )",
-                      "score = time × √( (damage per second ÷ (damage per second + {dps})) × (kills per minute ÷ (kills per minute + {kpm})) )"),
-    "score_dps_axis": ("daño por segundo", "damage per second"),
-    "score_kpm_axis": ("bajas por minuto", "kills per minute"),
-    "score_half": ("{v}: la mitad", "{v}: half"),
-    "score_dot": ("{name}: {v}", "{name}: {v}"),
-    "score_ex": ("{name} en su apertura: {s} s, {dps} de daño por segundo y {kpm} bajas por minuto. "
-                 "Con esos factores, la nota es {s} × √({sd} × {sk}) = {score}.",
-                 "{name} on their opening: {s} s, {dps} damage per second and {kpm} kills per minute. "
-                 "With those factors, the score is {s} × √({sd} × {sk}) = {score}."),
-    "score_alt": ("Curvas de saturación del daño por segundo (mitad en {dps}) y de las bajas por minuto (mitad en {kpm}).",
-                  "Saturation curves for damage per second (half at {dps}) and kills per minute (half at {kpm})."),
     "fm_screen": ("En la pantalla", "On the screen"),
     "fm_refine": ("Afinadas", "Refined"),
     "fm_duel": ("En el duelo", "In the duel"),
@@ -633,14 +571,12 @@ STR: dict[str, tuple[str, str]] = {
                    "horde so shots, hits and orbs connect, dodges telegraphed attacks and picks up orbs. Each Pokémon plays "
                    "{sims} games with different seeds, capped at {cap} seconds."),
     "met_step_2_h": ("Puntuar", "Score"),
-    "met_step_2": ("Cada partida vale el tiempo que aguanta vivo, multiplicado por la raíz de dos cosas: el daño por segundo y las "
-                   "bajas por minuto. Las dos se saturan: a unos {dps} de daño por segundo o {kpm} bajas por minuto ya se ha "
-                   "llegado a la mitad, y a partir de ahí cada punto extra pesa menos. Una partida sin daño vale 0, así que "
-                   "aguantar sin pelear no sube puestos.",
-                   "A game is worth the time it stays alive, multiplied by the square root of two things: damage per second "
-                   "and kills per minute. Both saturate: at about {dps} damage per second or {kpm} kills per minute you are "
-                   "halfway there, and past that every extra point counts for less. A game with no damage is worth 0, so "
-                   "surviving without fighting does not climb the ranking."),
+    "met_step_2": ("Cada partida vale el daño total que hace. Así manda el daño: un Pokémon que pega fuerte y cae antes "
+                   "puede quedar por encima de uno que aguanta y pega poco. Sin daño vale 0, así que aguantar sin pegar no "
+                   "sube puestos. La nota no tiene constantes.",
+                   "Each game is worth the total damage it deals. Damage comes first: a hard hitter that falls sooner can "
+                   "rank above a tank that lasts and hits less. With no damage it is worth 0, so surviving without hitting "
+                   "does not climb the ranking. The score has no constants."),
     "met_step_3_h": ("Elegir el ataque", "Pick the move"),
     "met_step_3": ("Se prueba, uno por uno, cada ataque que el Pokémon puede aprender. El mejor ataque de daño es el que sale "
                    "en su ficha; si dos empatan dentro del margen de error, gana el que más sobrevive, luego el que más "
@@ -755,38 +691,11 @@ STR: dict[str, tuple[str, str]] = {
     "rep_note": ("Repertorio te da un segundo ataque al azar y no se puede deshacer.",
                  "Repertoire gives you a random second attack and can't be undone."),
 
-    # ------------------------------------------------------------ potenciadores (pasivas)
-    "pv_buff_h": ("Potenciadores: el tope de dos y la categoría", "Boosts: the two-boost cap and the category"),
-    "pv_buff_lede": ("Un potenciador no hace daño: sube una estadística mientras dura. Con dos potenciadores en el grupo, "
-                     "las cartas de movimiento nuevo ya no ofrecen más potenciadores. Las mejoras de los que ya tienes siguen saliendo.",
-                     "A boost does no damage: it raises one stat while it lasts. With two boosts in your group, new-move cards "
-                     "stop offering boosts. Upgrades for the boosts you already have still show up."),
-    "pv_buff_th_boost": ("Potenciador", "Boost"),
-    "pv_buff_th_stat": ("Sube", "Raises"),
-    "pv_buff_th_cd": ("Recarga", "Cooldown"),
-    "pv_buff_th_dur": ("Dura", "Lasts"),
-    "pv_buff_th_max": ("Máximo sin mejoras", "Max, no upgrades"),
-    "pv_buff_th_top": ("Con todas las mejoras", "Fully upgraded"),
-    "pv_buff_top": ("{amt}, {dur} s", "{amt}, {dur} s"),
-    "pv_buff_cat_phys": ("ataque físico", "physical attack"),
-    "pv_buff_cat_spec": ("ataque especial", "special attack"),
-    "pv_buff_stat_spd": ("velocidad", "speed"),
-    "pv_buff_stat_def": ("defensa", "defense"),
-    "pv_buff_stat_regen": ("regeneración", "regeneration"),
-    "pv_buff_r1": ("Sin mejoras, cada potenciador dura 7 s (Acua Aro, 8 s); la mejora de duración lo alarga un 50 %. "
-                   "Si vuelve a salir antes de que acabe, el tiempo empieza de nuevo.",
-                   "Without upgrades each boost lasts 7 s (Aqua Ring, 8 s); the duration upgrade adds 50%. "
-                   "If it fires again before it ends, the timer starts over."),
-    "pv_buff_r2": ("Danza Espada y Danza Dragón solo suben el ataque físico y comparten el contador de acumulaciones. "
-                   "El porcentaje por acumulación lo pone la última que se lanza: no se suman.",
-                   "Swords Dance and Dragon Dance raise only physical attack and share the stack counter. The percentage per stack "
-                   "is set by the last one to fire: they don't add up."),
-    "pv_buff_r3": ("Maquinación sube solo el ataque especial y tiene su propio contador. En un grupo mixto puedes llevar una danza "
-                   "física y Maquinación, y cada una sube su lado.",
-                   "Maquinación raises only special attack and has its own counter. In a mixed group you can take a physical dance "
-                   "and Maquinación, and each one raises its side."),
-    "pv_buff_link": ("Arma tu grupo en el planificador de build", "Build your group in the build planner"),
-    "pv_buff_cap_note": ("Valores del juego en el commit {commit}.", "Values from the game at commit {commit}."),
+    "buff_cat_phys": ("ataque físico", "physical attack"),
+    "buff_cat_spec": ("ataque especial", "special attack"),
+    "buff_stat_spd": ("velocidad", "speed"),
+    "buff_stat_def": ("defensa", "defense"),
+    "buff_stat_regen": ("regeneración", "regeneration"),
 
     # ------------------------------------------------------------ buscador por tipos
     "tf_title": ("Buscador por tipos de {game} · {site}", "Type finder for {game} · {site}"),
@@ -836,9 +745,9 @@ STR: dict[str, tuple[str, str]] = {
 
     # ------------------------------------------------------------ planificador de build
     "bp_title": ("Planificador de build de {game} · {site}", "Build planner for {game} · {site}"),
-    "bp_desc": ("Arma el grupo vinculado, el objeto y las cartas de un Pokémon de {game}. Empieza con su build recomendada "
+    "bp_desc": ("Arma el grupo vinculado y el objeto de un Pokémon de {game}. Empieza con su build recomendada "
                 "y comparte el enlace.",
-                "Build the bonded group, item and cards for a {game} Pokémon. Starts from its recommended build and shares as a link."),
+                "Build the bonded group and item for a {game} Pokémon. Starts from its recommended build and shares as a link."),
     "bp_h1": ("Planificador de build", "Build planner"),
     "bp_lede": ("Elige un Pokémon. Empieza con su build recomendada: cambia lo que quieras y copia el enlace.",
                 "Pick a Pokémon. It starts on its recommended build: change anything you like and copy the link."),
@@ -865,11 +774,6 @@ STR: dict[str, tuple[str, str]] = {
     "bp_item_h": ("Objeto", "Item"),
     "bp_item_none": ("Sin objeto", "No item"),
     "bp_item_best": ("Recomendado", "Recommended"),
-    "bp_cards_h": ("Cartas, en orden", "Cards, in order"),
-    "bp_cards_note": ("Por orden de prioridad, sin repetir. Cómo se ordenan, en Pasivas.",
-                      "In priority order, no repeats. How they are ranked is on Passives."),
-    "bp_card_n": ("{n}.ª carta", "Card {n}"),
-    "bp_card_none": ("—", "—"),
     "bp_result_h": ("Tu build", "Your build"),
     "bp_cover": ("Super efectivo contra el {super} de los Pokémon. Al menos neutral contra el {neutral}.",
                  "Super effective against {super} of Pokémon. At least neutral against {neutral}."),
