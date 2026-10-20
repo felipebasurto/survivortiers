@@ -175,7 +175,7 @@ def shortlist(rows: dict[tuple[int, str], dict]) -> dict[tuple[int, str], list[d
 
 def missing_refine(short: dict[tuple[int, str], list[dict]]) -> list[tuple[int, str]]:
     have = _index(_rows(REFINE_CSV))
-    keys = {(dex, row["group"]) for rows in short.values() for row in rows}
+    keys = {(dex, row["group"]) for (dex, _), rows in short.items() for row in rows}
     return sorted(k for k in keys if k not in have)
 
 
