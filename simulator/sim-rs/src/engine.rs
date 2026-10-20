@@ -2801,16 +2801,21 @@ impl<'a, M: MathFns> Match<'a, M> {
     fn detonate(&mut self) {
         let dmg = 60.0 + self.level as f64 * 14.0;
         let (px, py) = (self.pl.x, self.pl.y);
+        let counted = self.faith();
         let mut dealt = 0.0;
         for e in &mut self.enemies {
             if e.hp <= 0.0 || !sees_view(px, py, e.x, e.y, 0.0) {
                 continue;
             }
-            dealt += js_round(dmg).max(1.0);
+            let (before_hp, before_sh) = (e.hp, e.shield);
             raw_hurt(e, dmg, 160.0, e.x - px, e.y - py);
+            // Same count as hit_one: HP and shield actually removed, overkill excluded.
+            dealt += (before_hp - e.hp.max(0.0)).max(0.0) + (before_sh - e.shield.max(0.0)).max(0.0);
         }
-        self.dealt += dealt;
-        self.dealt_bomb += dealt;
+        if counted {
+            self.dealt += dealt;
+            self.dealt_bomb += dealt;
+        }
     }
 
     /// pickup.js update. Pull inside the magnet, collect inside 15px.

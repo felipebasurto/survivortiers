@@ -698,3 +698,18 @@ fn boomerang_fan_widens_by_spread_per_blade_up_to_three_gaps() {
     kinds::boom_angles(0.7, 1.0, 0.5, &mut out);
     assert_eq!(out, vec![0.7]);
 }
+
+#[test]
+fn the_bomb_counts_only_the_hp_it_removes() {
+    let mut m = scene(1, "vine-whip");
+    let weak = foe(&mut m, 0, 50.0, 0.0, false, 0.0);
+    m.enemies[weak].hp = 1.0;
+    m.enemies[weak].max = 1.0;
+    let tank = foe(&mut m, 0, -50.0, 0.0, false, 0.0);
+    let full = 60.0 + m.level as f64 * 14.0;
+    m.detonate();
+    assert!(m.enemies[weak].hp <= 0.0);
+    assert_eq!(m.enemies[tank].hp, 1e9 - full);
+    assert_eq!(m.dealt_bomb, 1.0 + full);
+    assert_eq!(m.dealt, 1.0 + full);
+}
