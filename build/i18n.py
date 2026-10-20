@@ -431,6 +431,10 @@ STR: dict[str, tuple[str, str]] = {
     "dmg_tip_physical": ("Ataque físico: pega con el Ataque", "Physical attack: deals damage with Attack"),
     "dmg_tip_special": ("Ataque especial: pega con el Ataque Especial", "Special attack: deals damage with Sp. Attack"),
     "dmg_tip_status": ("Potenciador: no hace daño", "Boost: deals no damage"),
+    "rng_tip_melee": ("Cuerpo a cuerpo: el ataque te obliga a acercarte al enemigo",
+                      "Melee: the attack makes you get close to the enemy"),
+    "rng_tip_ranged": ("A distancia: el ataque pega desde lejos", "Ranged: the attack hits from far away"),
+    "mv_range_h": ("Distancia de cada ataque", "Range of each move"),
     "odds_title": ("Probabilidad por rareza", "Odds by rarity"),
 
     # ------------------------------------------------------------ objetos

@@ -358,6 +358,7 @@ FICHA_KEYS = (
     "bd_pair_cap", "bd_melee", "bd_ranged", "bd_time", "bd_dealt", "bd_kills", "bd_score", "bd_best", "bd_tie",
     "bd_gap_small", "bd_gap", "bd_other_melee", "bd_other_ranged", "bd_none_melee", "bd_none_ranged", "bd_melee_note",
     "dmg_physical", "dmg_special", "dmg_status", "dmg_tip_physical", "dmg_tip_special", "dmg_tip_status",
+    "rng_tip_melee", "rng_tip_ranged",
     "mv_new") + tuple(k for k in STR if k.startswith("mv_kind_"))
 
 
@@ -473,10 +474,13 @@ def move_card(L: Lang, m: dict) -> str:
     note_html = f'<p class="mv-desc">{esc(note["en"] if L.en else note["es"])}</p>' if note else ""
     types = TYPE_NAMES["en" if L.en else "es"]
     search = " ".join([m["name"], m["en"]["name"] or "", types[m["type"]], kind]).lower()
+    # El cuerpo a cuerpo no repite su forma: el rango ya lo dice.
+    shape_html = "" if m["kind"] == "melee" else f'<span class="mv-kind">{esc(kind)}</span>'
     return (f'<li class="mv-card" data-q="{esc(search)}">'
             f'<div class="mv-top">{move_icon_svg(m["icon"])}<div class="mv-title"><h4>{esc(name)}</h4>'
-            f'<div class="mv-tags">{type_pill(L, m["type"])}<span class="mv-kind">{esc(kind)}</span>'
-            f'{static_ficha.damage_badge(L, m["damage"])}</div></div></div>{note_html}'
+            f'<div class="mv-tags">{type_pill(L, m["type"])}{static_ficha.range_html(L, m)}'
+            f'{static_ficha.damage_badge(L, m["damage"])}{shape_html}'
+            f'</div></div></div>{note_html}'
             f'{meter}{move_facts(L, m)}</li>')
 
 
@@ -484,6 +488,12 @@ def damage_legend(L: Lang) -> str:
     items = "".join(f'<li>{static_ficha.damage_badge(L, cls)}<span>{esc(L.t("dmg_tip_" + cls))}</span></li>'
                     for cls in game_moves.DAMAGE_CLASSES)
     return f'<ul class="cat-legend" aria-label="{esc(L.t("mv_damage_h"))}">{items}</ul>'
+
+
+def range_legend(L: Lang) -> str:
+    items = "".join(f'<li>{static_ficha.range_html(L, {"kind": k})}<span>{esc(L.t("rng_tip_" + c))}</span></li>'
+                    for k, c in (("melee", "melee"), ("ranged", "ranged")))
+    return f'<ul class="cat-legend" aria-label="{esc(L.t("mv_range_h"))}">{items}</ul>'
 
 
 def render_ataques(c: Ctx, moves: list[dict], meta: dict, unranked: list[dict]) -> str:
@@ -518,6 +528,7 @@ def render_ataques(c: Ctx, moves: list[dict], meta: dict, unranked: list[dict]) 
 <details class="more">
 <summary>{esc(L.t("mv_read_h"))}</summary>
 {damage_legend(L)}
+{range_legend(L)}
 {charts.move_scale(L)}
 </details>
 {"".join(blocks)}

@@ -246,6 +246,12 @@
   // Físico, especial o estado (build/game_moves.py). Solo los movimientos lo llevan: objetos y cartas no.
   const dmgTag = m => m.damage ? '<span class="cat-tag is-' + m.damage + '" title="' + esc(t('dmg_tip_' + m.damage)) + '">' +
     esc(t('dmg_' + m.damage)) + '</span>' : '';
+  // Cuerpo a cuerpo o a distancia (build/static_ficha.py range_html): color e icono propios.
+  const rangeTag = m => {
+    if (!m || !m.kind) return '';  // objetos: no tienen ataque cuerpo a cuerpo ni a distancia
+    const c = m.kind === 'melee' ? 'melee' : 'ranged';
+    return '<span class="rng-tag is-' + c + '" title="' + esc(t('rng_tip_' + c)) + '">' + esc(t('bd_' + c)) + '</span>';
+  };
   // Misma clave que game_moves.shape_key y que la etiqueta de ataques.html (mv_kind_*).
   const shapeKey = m => {
     const mech = m.mech || {};
@@ -255,11 +261,12 @@
   };
   const shapeTag = m => {
     if (!m || !m.kind) return '';
+    const label = m.kind === 'melee' ? '' : '<span class="mv-shape">' + esc(t('mv_kind_' + shapeKey(m))) + '</span>';
     const mark = m.nuevo ? '<span class="mv-new">' + esc(t('mv_new')) + '</span>' : '';
-    return '<span class="mv-shape">' + esc(t('mv_kind_' + shapeKey(m))) + '</span>' + mark;
+    return label + mark;
   };
   const moveTags = (m, withShape) => {
-    const bits = dmgTag(m) + (withShape ? shapeTag(m) : '');
+    const bits = rangeTag(m) + dmgTag(m) + (withShape ? shapeTag(m) : '');
     return bits ? '<span class="bd-tags">' + bits + '</span>' : '';
   };
   const learnPool = (p, moves) => moves.filter(m => m.type === 'normal' || p.types.includes(m.type));
@@ -329,7 +336,7 @@
   }
 
   function buildOption(kind, b, other, moves, cards, win) {
-    const head = '<h3 class="bd-kind">' + esc(t(BUILD_NAME[kind])) + '</h3>';
+    const head = '<h3 class="bd-kind is-' + kind + '">' + esc(t(BUILD_NAME[kind])) + '</h3>';
     if (!b) return '<article class="bd-opt is-none" data-build="' + kind + '">' + head +
       '<p class="bd-none">' + esc(t(BUILD_NONE[kind])) + '</p></article>';
     const ids = b.moves, nb = b.nBoost;

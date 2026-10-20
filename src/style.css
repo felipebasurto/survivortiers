@@ -671,17 +671,29 @@ summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
 .mv-meter .mb-track { grid-column: 1 / -1; grid-row: 2; height: 1.9rem; }
 .mv-facts { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font: .8125rem/1.4 var(--sans); color: var(--ink-2); }
 
-/* Físico, especial y estado (build/game_moves.py): cada color tiene su par claro y oscuro; los tres se leen en ambos temas. */
-:root { --cat-phys: #a8351a; --cat-spec: #2a5cb0; --cat-stat: #5d5470; }
-:root[data-theme="dark"] { --cat-phys: #ff9a6b; --cat-spec: #8fb4ff; --cat-stat: #b3aac9; }
+/* Dos ejes por ataque, cada uno con color e icono propios (build/game_moves.py):
+   daño (físico, especial, estado) = etiqueta rellena; rango (cuerpo a cuerpo, a distancia) = borde y texto
+   del color del rango, sin relleno. La forma (Cono, Proyectil…) queda en gris. Los iconos son máscaras de img/ui. */
+:root { --cat-phys: #c2410c; --cat-spec: #2563eb; --cat-stat: #6b6480; --cat-melee: #15803d; --cat-ranged: #c026d3; --cat-ink: #ffffff; }
+:root[data-theme="dark"] { --cat-phys: #ff9a6b; --cat-spec: #8fb4ff; --cat-stat: #b3aac9; --cat-melee: #6fd98a; --cat-ranged: #f0abfc; --cat-ink: #0b1020; }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) { --cat-phys: #ff9a6b; --cat-spec: #8fb4ff; --cat-stat: #b3aac9; }
+  :root:not([data-theme="light"]) { --cat-phys: #ff9a6b; --cat-spec: #8fb4ff; --cat-stat: #b3aac9; --cat-melee: #6fd98a; --cat-ranged: #f0abfc; --cat-ink: #0b1020; }
 }
-.cat-tag { display: inline-flex; align-items: center; padding: 1px 6px 2px; border: 1px solid var(--cat); white-space: nowrap;
-  background: color-mix(in srgb, var(--cat) 12%, var(--bg)); color: var(--cat); font: 600 .75rem/1.5 var(--ui); vertical-align: middle; }
-.cat-tag.is-physical { --cat: var(--cat-phys); }
-.cat-tag.is-special { --cat: var(--cat-spec); }
-.cat-tag.is-status { --cat: var(--cat-stat); }
+.cat-tag, .rng-tag { display: inline-flex; align-items: center; gap: 4px; padding: 1px 6px 2px 5px; white-space: nowrap; vertical-align: middle;
+  font: 700 .6875rem/1.5 var(--ui); letter-spacing: .02em; border: 1px solid var(--cat, var(--rng)); }
+.cat-tag { background: var(--cat); color: var(--cat-ink); }
+.rng-tag { background: transparent; color: var(--rng); }
+.cat-tag::before, .rng-tag::before, .bd-kind::before { content: ""; flex: none; width: 12px; height: 12px;
+  -webkit-mask: var(--ico) center / contain no-repeat; mask: var(--ico) center / contain no-repeat; }
+.cat-tag::before { background: var(--cat-ink); }
+.rng-tag::before { background: var(--rng); }
+.cat-tag.is-physical { --cat: var(--cat-phys); --ico: url(img/ui/sword.png); }
+.cat-tag.is-special { --cat: var(--cat-spec); --ico: url(img/ui/sparkle.png); }
+.cat-tag.is-status { --cat: var(--cat-stat); --ico: url(img/ui/potion.png); }
+.rng-tag.is-melee, .bd-kind.is-melee { --rng: var(--cat-melee); --ico: url(img/ui/fist.png); }
+.rng-tag.is-ranged, .bd-kind.is-ranged { --rng: var(--cat-ranged); --ico: url(img/ui/bow.png); }
+.bd-kind.is-melee::before, .bd-kind.is-ranged::before { width: 18px; height: 18px; background: var(--rng); }
+.bd-kind.is-melee, .bd-kind.is-ranged { display: flex; align-items: center; gap: 8px; }
 .lt-move > .cat-tag { margin-left: 6px; }
 .bond li > .bd-tags { margin-left: 6px; }
 .bd-tags { display: inline-flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 3px; max-width: 100%; min-width: 0; }

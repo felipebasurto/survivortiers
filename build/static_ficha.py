@@ -33,15 +33,24 @@ def damage_badge(L: Lang, cls: str) -> str:
     return f'<span class="cat-tag is-{cls}" title="{esc(L.t("dmg_tip_" + cls))}">{esc(L.t("dmg_" + cls))}</span>'
 
 
+def range_html(L: Lang, move: dict) -> str:
+    """Cuerpo a cuerpo o a distancia, el eje que separa las dos builds. Cada uno tiene su color e icono."""
+    cls = "melee" if move["kind"] == "melee" else "ranged"
+    return (f'<span class="rng-tag is-{cls}" title="{esc(L.t("rng_tip_" + cls))}">'
+            f'{esc(L.t("bd_" + cls))}</span>')
+
+
 def shape_html(L: Lang, move: dict) -> str:
-    """La forma del ataque (la misma etiqueta que ataques.html) y, si el dato trae `nuevo`, una marca pequeña."""
-    label = L.t("mv_kind_" + game_moves.shape_key(move))
+    """La forma del ataque (la misma etiqueta que ataques.html) y, si el dato trae `nuevo`, una marca pequeña.
+    El cuerpo a cuerpo no repite su forma: ya lo dice la etiqueta de rango."""
+    label = "" if move["kind"] == "melee" else \
+        f'<span class="mv-shape">{esc(L.t("mv_kind_" + game_moves.shape_key(move)))}</span>'
     mark = f'<span class="mv-new">{esc(L.t("mv_new"))}</span>' if move.get("nuevo") else ""
-    return f'<span class="mv-shape">{esc(label)}</span>{mark}'
+    return label + mark
 
 
 def move_tags(L: Lang, move: dict) -> str:
-    return f'<span class="bd-tags">{damage_badge(L, move["damage"])}{shape_html(L, move)}</span>'
+    return f'<span class="bd-tags">{range_html(L, move)}{damage_badge(L, move["damage"])}{shape_html(L, move)}</span>'
 
 
 def js_round(x: float) -> int:
@@ -289,7 +298,7 @@ def _meter(label: str, v: int, cls: str) -> str:
 def _build_option(L: Lang, moves: dict[str, dict], cards: dict, kind: str, b: dict | None, other: dict | None,
                   win: str | None) -> str:
     """Una de las dos builds: veredicto, ataques en filas, estadísticas y las cartas en orden, todo a la vista."""
-    head = f'<h3 class="bd-kind">{esc(L.t(BUILD_NAME[kind]))}</h3>'
+    head = f'<h3 class="bd-kind is-{kind}">{esc(L.t(BUILD_NAME[kind]))}</h3>'
     if not b:
         return (f'<article class="bd-opt is-none" data-build="{kind}">{head}'
                 f'<p class="bd-none">{esc(L.t(BUILD_NONE[kind]))}</p></article>')
