@@ -80,8 +80,8 @@ class Method(unittest.TestCase):
             self.assertNotIn("ficha pesa", html)
             self.assertNotIn("sheet weighs", html)
             self.assertNotIn("2.000 ordenaciones", html)
-        self.assertIn("si hizo algún daño", es)
-        self.assertIn("if it dealt any damage", en)
+        self.assertIn("daño total que hace", es)
+        self.assertIn("total damage it deals", en)
         self.assertIn("Sin daño vale 0", es)
         self.assertIn("With no damage it is worth 0", en)
 
@@ -113,7 +113,7 @@ class AgentFiles(unittest.TestCase):
         self.assertIn(f"{legal.SITE_URL}/en/metodo", text)
         self.assertNotIn("sheet percentiles", text)
         full = _read("llms-full.txt")
-        self.assertIn("No constants: nothing saturates.", full)
+        self.assertIn("No constants.", full)
         self.assertNotIn("Three pieces", full)
 
     def test_sitemap_has_lastmod_and_hreflang_for_every_url(self) -> None:

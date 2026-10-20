@@ -84,7 +84,7 @@ def load_cf(path: Path = CF_CSV) -> tuple[dict[tuple[int, str, str], float], dic
     """(dex, move, mod key or '') -> median seconds, and the same key -> composite score.
 
     Seconds are the protocol check: they must match start_noshop_s and best_median_s.
-    The published rank orders the sim score (survival time, for a run that dealt damage).
+    The published rank orders the sim score (total damage dealt in the run).
     A bench from before that score has no column; the score map then copies the seconds.
     """
     if not path.exists():

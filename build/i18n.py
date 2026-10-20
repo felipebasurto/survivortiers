@@ -571,10 +571,12 @@ STR: dict[str, tuple[str, str]] = {
                    "horde so shots, hits and orbs connect, dodges telegraphed attacks and picks up orbs. Each Pokémon plays "
                    "{sims} games with different seeds, capped at {cap} seconds."),
     "met_step_2_h": ("Puntuar", "Score"),
-    "met_step_2": ("Cada partida vale el tiempo que aguanta vivo, si hizo algún daño. Sin daño vale 0, así que aguantar sin "
-                   "pelear no sube puestos. La nota no tiene constantes: no hay ningún tope de daño ni de bajas.",
-                   "A game is worth the time it stays alive, if it dealt any damage. With no damage it is worth 0, so "
-                   "surviving without fighting does not climb the ranking. The score has no constants: no damage or kill cap."),
+    "met_step_2": ("Cada partida vale el daño total que hace. Así manda el daño: un Pokémon que pega fuerte y cae antes "
+                   "puede quedar por encima de uno que aguanta y pega poco. Sin daño vale 0, así que aguantar sin pegar no "
+                   "sube puestos. La nota no tiene constantes.",
+                   "Each game is worth the total damage it deals. Damage comes first: a hard hitter that falls sooner can "
+                   "rank above a tank that lasts and hits less. With no damage it is worth 0, so surviving without hitting "
+                   "does not climb the ranking. The score has no constants."),
     "met_step_3_h": ("Elegir el ataque", "Pick the move"),
     "met_step_3": ("Se prueba, uno por uno, cada ataque que el Pokémon puede aprender. El mejor ataque de daño es el que sale "
                    "en su ficha; si dos empatan dentro del margen de error, gana el que más sobrevive, luego el que más "

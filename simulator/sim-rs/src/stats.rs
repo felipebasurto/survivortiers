@@ -180,17 +180,17 @@ fn half_medians(scores: &[f64]) -> (f64, f64) {
     (median(&scores[..mid]), median(&scores[mid..]))
 }
 
-/// Survival time, for a run that dealt damage. A run that deals nothing scores 0.
+/// Total damage dealt in the run (HP and shield removed). A run that deals nothing scores 0.
 ///
-/// No rate terms and no constants. A damage rate or a kill rate needs a saturation point to
-/// stay bounded (the old 80 dps and 40 kpm), and nothing in the game sets one. Without it the
-/// time cancels: time × sqrt(dps × kpm) = sqrt(60 × dealt × kills), which ignores how long the
-/// run lasted. So a run that lives longer wins even when it hits less per second.
+/// Damage first: a hard hitter that dies sooner beats a tank that lives longer and hits less,
+/// because the damage is the output the run is judged on. Survival counts only through the
+/// damage it lets the mon deal, so no constant is needed to weigh the two. The score is not
+/// dps (damage per second): dps would reward a burst that ends the run in a few seconds.
 pub fn run_score(r: &RunResult) -> f64 {
     if r.dealt <= 0.0 || r.time <= 0.0 {
         return 0.0;
     }
-    r.time
+    r.dealt
 }
 
 /// `num()` from the JS writers: round to 3 decimals, shortest round-trip text.
@@ -245,8 +245,9 @@ mod tests {
     }
 
     #[test]
-    fn score_is_the_survival_time() {
-        assert_eq!(run_score(&run(120.0, 9600.0, 80)), 120.0);
-        assert!(run_score(&run(180.0, 1800.0, 36)) > run_score(&run(100.0, 8000.0, 70)));
+    fn score_is_the_damage_dealt() {
+        assert_eq!(run_score(&run(120.0, 9600.0, 80)), 9600.0);
+        // A hard hitter that dies sooner beats a tank that lives longer and hits less.
+        assert!(run_score(&run(100.0, 8000.0, 70)) > run_score(&run(180.0, 1800.0, 36)));
     }
 }

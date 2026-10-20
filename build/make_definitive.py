@@ -58,7 +58,7 @@ HEADER = (
 COMMENT = (
     "# Ranking from the sim only. The sheet (stats, moves, type defence, hitbox) and the v4 table "
     "stay in the file and do not move a rank. The order is the bootstrap of the sim score: "
-    "survival time, for a run that dealt damage. "
+    "total damage dealt in the run. "
     "A run that deals no damage scores 0. Overlapping score intervals show as the rank band, not as a winner. "
     "Tiers are fixed-size slices of that order with no entry requirements. "
     "best_move is an attacking move from the solo sweep. "
