@@ -35,12 +35,9 @@ ROOT = Path(__file__).resolve().parent.parent
 PATH = ROOT / "data" / "summaries.json"
 
 HIGH, LOW = 0.75, 0.25      # stat percentile for "fast" / "slow", "lots of HP" / "low HP", "hits hard" / "hits soft"
-HUGE_R = 24.6               # body radius from which a hitbox is "huge" (median 14.1; game sizes 10.6 ... 52)
-DRIVER_MIN = 10             # places a factor must move the species to be named as a reason for its rank
-MAX_LEN = 240               # characters of plain text per language
 TIERS = "SABCD"
 TIER_BANDS = tiers.BANDS
-THRESHOLDS = {"high": HIGH, "low": LOW, "hugeRadius": HUGE_R, "driverMin": DRIVER_MIN, "maxLen": MAX_LEN}
+THRESHOLDS = {"high": HIGH, "low": LOW}
 DRIVER_HEADS = ("up", "down")
 
 MARK = re.compile(r"\[([^\[\]|]+)\|([^\[\]]+)\]")
@@ -76,6 +73,11 @@ def _hb(f: dict) -> tuple[float, float]:
     return f["hitbox"]["r"], f["hitbox"]["median"]
 
 
+def _huge(f: dict) -> bool:
+    """A body in the largest quarter of the 966: fewer species are bigger (pctSmaller at or below the low cut)."""
+    return f["hitbox"]["pctSmaller"] <= LOW
+
+
 def _places(f: dict, factor: str) -> int:
     return f["drivers"][factor]["places"]
 
@@ -96,12 +98,19 @@ DIRECTION = {
 }
 
 
+def driver_min(f: dict) -> int:
+    """Places a factor must move the species to be named: half its own rank interval (p10 to p90), the
+    bootstrap noise of the rank. At least one place, so a zero-width interval still needs a real move."""
+    return max(1, (f["p90"] - f["p10"]) // 2)
+
+
 def ranked_drivers(f: dict, up: bool) -> list[str]:
-    """Factors that move the species at least DRIVER_MIN places in that direction, strongest first."""
+    """Factors that move the species at least driver_min(f) places in that direction, strongest first."""
     out = []
+    need = driver_min(f)
     for factor, ok in DIRECTION.items():
         p = _places(f, factor)
-        if (p >= DRIVER_MIN if up else p <= -DRIVER_MIN) and ok(f, up):
+        if (p >= need if up else p <= -need) and ok(f, up):
             out.append((abs(p), factor))
     return [k for _, k in sorted(out, reverse=True)]
 
@@ -266,7 +275,7 @@ def validate(dex: str, entry: dict, f: dict, all_names: dict[str, set[str]]) -> 
                     continue  # part of a longer name in a name mark, checked whole below
                 if key is None or key not in build_names.get(nm, []):
                     errs.append(f"{lang}: «{nm}» no coincide con la build ({key or 'fuera de marca'})")
-        huge = _hb(f)[0] >= HUGE_R
+        huge = _huge(f)
         for s, e, key in spans:
             if key.startswith("down:hitbox") and re.search(r"\b(grande|big)\b" if huge else r"\b(enorme|huge)\b", flat[s:e]):
                 errs.append(f"{lang}: el hitbox es {'enorme' if huge else 'grande, no enorme'}: «{flat[s:e]}»")
@@ -280,8 +289,6 @@ def validate(dex: str, entry: dict, f: dict, all_names: dict[str, set[str]]) -> 
             errs += [f"es: concordancia: «{m.group(0)}»" for m in AGREE.finditer(p)]
         if not 2 <= len(sentences) <= 3:
             errs.append(f"{lang}: {len(sentences)} frases (2-3)")
-        if len(p) > MAX_LEN:
-            errs.append(f"{lang}: {len(p)} caracteres (máximo {MAX_LEN})")
     errs += coverage(keysets.get("es", []), f)
     if keysets.get("es") != keysets.get("en"):
         errs.append(f"español e inglés no dicen lo mismo: {keysets.get('es')} / {keysets.get('en')}")
@@ -378,7 +385,7 @@ def factor_words(f: dict, factor: str, up: bool) -> tuple[str, str]:
     if factor == "hitbox":
         if up:
             return "su hitbox pequeño", "its small hitbox"
-        return ("su hitbox enorme", "its huge hitbox") if _hb(f)[0] >= HUGE_R else ("su hitbox grande", "its big hitbox")
+        return ("su hitbox enorme", "its huge hitbox") if _huge(f) else ("su hitbox grande", "its big hitbox")
     if factor == "late":
         return (("cómo aguanta las partidas largas", "how it holds up in long runs") if up
                 else ("cómo flojea en partidas largas", "how it fades in long runs"))

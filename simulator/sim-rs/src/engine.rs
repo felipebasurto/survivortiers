@@ -22,6 +22,10 @@ const POISON_TICK: f64 = 0.6;
 const CAP: usize = 64;
 const ELITE: f64 = 0.85;
 const DMG_K: f64 = 2.4;
+/// enemy.js:939 BOSS_FAR: a boss this far from the player is lost.
+const BOSS_FAR: f64 = 2500.0;
+/// enemy.js:985-986: a lost boss respawns ahead after this many seconds out of reach.
+const BOSS_LAG_T: f64 = 4.0;
 /// Math.hypot(768, 432) / 2 + 40, as V8 computes it.
 const OUTER: f64 = 480.58143401645964;
 const INV: f64 = 0.45;
@@ -2512,7 +2516,9 @@ impl<'a, M: MathFns> Match<'a, M> {
         false
     }
 
-    /// enemy.js:964-978. Unseen and behind for 2.5s, or farther than 1400px, respawns ahead.
+    /// enemy.js:964-978 for wild enemies: unseen and behind for 2.5 s, or farther than 1400 px, respawns ahead.
+    /// enemy.js:984-988 for bosses (rift legendaries are bosses too): farther than BOSS_FAR from the player for
+    /// 4 s respawns ahead. Nothing else happens to a boss, and a failed placement leaves it where it is.
     fn tick_stragglers(&mut self) {
         if self.arena_phase != 0 || self.judging {
             return;
@@ -2524,13 +2530,23 @@ impl<'a, M: MathFns> Match<'a, M> {
         let far = (OUTER + 40.0).powi(2);
         let mut i = 0;
         while i < self.enemies.len() {
-            if self.enemies[i].boss || self.enemies[i].legend || self.enemies[i].hp <= 0.0 {
+            if self.enemies[i].hp <= 0.0 {
                 i += 1;
                 continue;
             }
             let dx = self.enemies[i].x - px;
             let dy = self.enemies[i].y - py;
             let d2 = dx * dx + dy * dy;
+            if self.enemies[i].boss || self.enemies[i].legend {
+                let e = &mut self.enemies[i];
+                e.lag_t = if d2 > BOSS_FAR * BOSS_FAR { e.lag_t + step } else { 0.0 };
+                if e.lag_t > BOSS_LAG_T {
+                    e.lag_t = 0.0;
+                    self.ahead_of(i);
+                }
+                i += 1;
+                continue;
+            }
             let unseen = d2 > far && !sees_view(px, py, self.enemies[i].x, self.enemies[i].y, 60.0);
             let behind = sp > 40.0 && dx * vx + dy * vy < -0.2 * d2.sqrt() * sp;
             if unseen && behind {

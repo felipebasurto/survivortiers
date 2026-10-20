@@ -56,7 +56,7 @@ EXPECTED_POOL = {1: 151, 2: 100, 3: 135, 4: 107, 5: 141, 6: 70, 7: 83, 8: 87, 9:
 # Estructura numérica del método (simulador de Rust: stats.rs run_score; make_definitive.py: REPEATS, CUTS y qualifies).
 # Los textos de cada paso viven en build/i18n.py (claves met_*, pipe_*).
 METHOD = {
-    "score": {"dpsRef": 80, "kpmRef": 40, "capSeconds": 1800},  # DPS_REF y KPM_REF de stats.rs; tope de la simulación
+    "score": {"capSeconds": 1800},  # el minuto 30 del juego (judgment.js AT); la partida no pasa de ahí
     "repeats": 2000,
 }
 METHOD_KEYS = ("sheet", "simStart", "simBest", "lateMax", "lateFresh")
@@ -384,12 +384,9 @@ def group_sides(combo: dict[int, dict]) -> dict[int, str]:
 
 
 def attack_kind(pa: float, sa: float) -> str:
-    """'phys', 'spec' o 'mix': el lado fuerte del Pokémon. Mixto si pa y sa están a 0,05 o menos (en centésimas, sin
-    errores de coma flotante). Lo leen la ficha estática, la lista (src/app.js) y la ficha interactiva (src/ficha.js)."""
-    gap = round((pa - sa) * 100)
-    if abs(gap) <= 5:
-        return "mix"
-    return "phys" if gap > 0 else "spec"
+    """'phys' o 'spec': el lado fuerte del Pokémon, como G.Stats.sideOf del juego (stats.js:34): especial solo si
+    sa > pa, y físico en cualquier otro caso. Lo leen la ficha estática, la lista (src/app.js) y la ficha interactiva."""
+    return "spec" if sa > pa else "phys"
 
 
 def sort_values(e: dict) -> dict:

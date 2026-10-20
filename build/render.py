@@ -20,6 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import agents  # noqa: E402
 import balls  # noqa: E402
+import tiers  # noqa: E402
 import charts  # noqa: E402
 import finder  # noqa: E402
 import game_moves  # noqa: E402
@@ -59,7 +60,7 @@ NAV_GROUPS = [
 NAV = NAV_TOP + [item for _, items in NAV_GROUPS for item in items]
 SORT_KEYS = ("rank", "name", "dex", "atk", "pa", "sa", "hp", "spd", "df", "sd", "ehp", "rad", "td", "mv", "st",
              "rar")  # orden de la lista
-REPEAT_RANKS = (2, 40, 150, 350, 650)  # puestos de los Pokémon que salen en la ilustración de repeticiones
+REPEAT_RANKS = [(a + b) // 2 for _, a, b in tiers.CUTS]  # el puesto del medio de cada tier: un Pokémon por tier en la ilustración
 ARENA_DEX = 25
 BANNER_NAMES = {1: "Kanto", 2: "Johto", 3: "Hoenn", 4: "Sinnoh", 5: "Teselia", 6: "Kalos", 7: "Alola", 8: "Galar", 9: "Paldea"}
 
@@ -671,12 +672,10 @@ def render_metodo(c: Ctx, index: list[dict], meta: dict) -> str:
     arena_src = f"{SPRITES}{ARENA_DEX}{EXT}"
     st = meta["methodStats"]
     stages = {s["id"]: s for s in st["stages"]}
-    ex = st["example"]
-    ex_name = next(L.mon(p) for p in index if p["dex"] == ex["dex"])
     sizes = " · ".join(f'{c["tier"]} {L.num(c["to"] - c["from"] + 1)}' for c in meta["tierCuts"])
     texts = [
         L.t("met_step_1", sims=counts["sims"], cap=L.num(m["score"]["capSeconds"])),
-        L.t("met_step_2", dps=L.num(m["score"]["dpsRef"]), kpm=L.num(m["score"]["kpmRef"])),
+        L.t("met_step_2"),
         L.t("met_step_3"),
         L.t("met_step_4"),
         L.t("met_step_5"),
@@ -698,7 +697,6 @@ def render_metodo(c: Ctx, index: list[dict], meta: dict) -> str:
 {repertorio.note(L)}
 {charts.arena(L, arena_src)}
 {step(2)}
-{charts.score_curves(L, m["score"], ex, ex_name)}
 {step(3)}
 {charts.funnels(L, stages)}
 {step(4)}

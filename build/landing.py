@@ -12,10 +12,11 @@ from html import escape
 import legal
 import repertorio
 import static_ficha
+import tiers
 from i18n import EN, ES, TYPE_NAMES, Lang
 from slugs import slugify, species_path
 
-TOP_BEST = 30  # el tier S entero
+TOP_BEST = tiers.COUNTS["S"]  # el tier S entero
 TOP_STARTERS = 20
 TOP_TYPE = 20
 CARD_SCALE = 2  # la misma escala de sprite que la tier list

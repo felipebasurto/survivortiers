@@ -41,8 +41,9 @@ import picks
 
 DATA = Path(__file__).resolve().parent.parent / "data"
 
-SUPER = 1.05     # como G.Types.label(): por encima es super efectivo
-NEUTRAL = 0.95   # por debajo es resistido
+# Super efectivo: multiplicador por encima de 1. En la tabla de tipos, lo que queda entre 1 y 1,6 no existe,
+# así que cualquier umbral en ese tramo da lo mismo. No se pone un número a mano.
+# No resistido: como levelup.js:53 (f < 0.95 es «pega poco»). El multiplicador 0,96 cuenta como no resistido.
 
 
 def _load():
@@ -82,8 +83,8 @@ def _coverage(matrix: dict, types: list[str], enemies: list[list[str]], cache: d
         super_hits = neutral_hits = 0
         for enemy in enemies:
             best = max(_mult(matrix, t, enemy) for t in key)
-            super_hits += best > SUPER
-            neutral_hits += best >= NEUTRAL
+            super_hits += best > 1
+            neutral_hits += best >= 0.95
         cache[key] = (super_hits, neutral_hits)
     return cache[key]
 

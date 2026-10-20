@@ -235,8 +235,7 @@ def rebuild(args) -> int:
         for lang, old, new in (("es", "Lo que más lo sube es [up:best_move", "En el ranking, lo que más lo sube es [up:best_move"),
                                ("en", "What lifts it most is [up:best_move", "In the ranking, what lifts it most is [up:best_move")):
             longer = entry[lang].replace(old, new)
-            if len(summaries.plain(longer)) <= summaries.MAX_LEN:
-                entry[lang] = longer
+            entry[lang] = longer
         entry["fp"], entry["bfp"] = sf.fingerprint(f), sf.fingerprint(sf.base_of(f))
     summaries.PATH.write_text(json.dumps(doc, ensure_ascii=False, indent=1) + "\n", encoding="utf8")
     print(f"rebuild: {len(doc['species'])} resúmenes con la frase de build al día")

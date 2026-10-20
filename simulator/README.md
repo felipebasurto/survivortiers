@@ -1,7 +1,7 @@
 # Simulator
 
 The headless PokéSurvivor simulator behind the SurvivorTiers ranks. One bot plays full games; the median survival
-time feeds the score (`time × √(dps × kills per minute)`, both rates saturating; see `run_score` in `sim-rs/src/stats.rs`).
+time is the score (survival time, for a run that dealt damage; see `run_score` in `sim-rs/src/stats.rs`).
 
 ## One simulator
 
@@ -74,7 +74,7 @@ Group mode also models, from the game source (`js/` in JPTER78/pokesurvivor):
   Each win bonds one more member. The real game lets the player choose the fusion (player.js bondOptions); the sim
   assumes attacks, then the attack buff, then Harden/Agility, at most 3 bonds (BOND_MAX is 4 including the start move).
   Buff cards for members not bonded yet are not offered.
-- **Bosses** (data/enemies.js:44–50, rollRun 156–169, bossScale 184): at 180/360/540/720/900 s, a non-legendary in that
+- **Bosses** (data/enemies.js:44–50, rollRun 156–169, bossScale 184): at 180/360/540/720/900 s (from an older game snapshot: the vendored 11fe868 has no enemies.js, so this table is not checked against it), a non-legendary in that
   BST band, HP and damage ×1.35 and ×1.2 then ×(1+t/600). Behavior is ranged only when behaviorOf would say so, else
   charger if base speed > 90, else chase. Spawns drop to ×0.25 and surges stop while one is alive (systems/spawner.js:114–137).
   The boss still spawns at the cap (EnemyMgr.add does not check it).
@@ -143,7 +143,7 @@ Group mode also models, from the game source (`js/` in JPTER78/pokesurvivor):
     inside the 0.7 cap on each card (levelup.js:19), and the 0.8 cap is applied after Harden (player.js:96). A vest
     equipped at the start sits in that same 0.7 bucket, so later Coraza cards eat it. Parity (no item) still stops at 0.7.
   - Leftovers adds 1.5 % of max HP once, at equip (items.js:14). The sim equips at t=0, so that is base HP, not HP after Vigor.
-  - Vigor and Síntesis have no `max` in levelup.js. The ranking path allows 250, which a 900 s run does not reach.
+  - Vigor and Síntesis have no `max` in levelup.js. The ranking path allows 250; whether a run to minute 30 reaches it is not measured.
     Parity keeps the old caps (HP 99, regen 10). On the faithful path a kill drops an orb (pickup.js). The magnet starts at 78 and collects inside 15px. Parity still grants the XP on the kill.
 
 Numbers from this sim are estimates. The type chart (soft ×1.6/0.6/0.3, clamp [0.3, 2.4]) and the exported melee and
@@ -166,12 +166,12 @@ Physical and special split, from PokéSurvivor `5a23d49a99a795f9262d2fb24a9842f0
 - `levelup.js:42-144` `offer`. A new move weighs 10 (up to 6, on-side weight 2). A ready evolution weighs 40 and is shown first. Each upgradable move weighs 8. Five of the nine stat cards weigh 4 while a move slot is open (20 together) and 7 when the four slots are full; a stat that unlocks an evolution weighs 14 and is always offered. A missing bond member that shows up is learned and that level is spent. The sim does not learn a move outside the fixed group, so a missed offer spends the level on a second weighted draw of upgrades and those stat cards. Two buffs already known drop further buffs. Parity keeps the uniform three-card shuffle.
 - `judgment.js`. At t ≥ 1800 in a rift run, Sentencia caps speed (`capSpd`), Arceus pursues (`chase k`) and his touch and hazards are pure damage (`touchPct`, ignoring guard and reduction). A legendary arrives every 5 s at double the previous HP and damage. The published rank is 900 s, so this does not move the tier list. Map-side judgment legends do not grant rift bonds.
 
-The ranking score of a run is `time * sqrt(dps / (dps + 80) * kpm / (kpm + 40))` (`sim-rs/src/stats.rs` `run_score`; 80 and 40 are scale constants of the score, not game numbers). Damage dealt is the post-type, post-guard, post-crit amount before the shield, and it does not include burn or poison damage over time (the game does not add those to `dmgDealt`). A run that survives without dealing damage scores 0, so surviving alone never ranks. Displayed medians stay in seconds. Order, bootstrap jitter and the sim piece of the ensemble use the score.
+The ranking score of a run is its survival time (`sim-rs/src/stats.rs` `run_score`). It has no constants: an earlier form, `time * sqrt(dps / (dps + 80) * kpm / (kpm + 40))`, cancelled time out once the saturation points were removed, so it was dropped. Damage dealt is the post-type, post-guard, post-crit amount before the shield, and it does not include burn or poison damage over time (the game does not add those to `dmgDealt`). A run that survives without dealing damage scores 0, so surviving alone never ranks. Displayed medians stay in seconds. Order, bootstrap jitter and the sim piece of the ensemble use the score.
 
 Known bias (estimates, written when the bot was Repulse, which does not dodge; Play dodges telegraphs and shots, and its dodge bias is not measured): sustain (Synthesis `rgn`, Vigor `hp`, Leftovers) may still look strong. Incoming damage is ×0.75 whenever a melee move is in the active group (player.js:254). A melee group is published only when its bootstrap floor is strictly above the best ranged group's median and its mean is not worse. The step is `1/20` s (`game.js:610` steps at about `1/60`, clamped at `1/30`). An audit measurement at `DT = 1/60` moved mean median survival from 77.1–77.4 s to 80.3 s (+3 s, +4%) and shuffled ranks by 38, inside the 42.6-rank seed noise of a 40-seed block. A published 200-seed resim at `1/60` is about three times the runtime and was not run. A check that ignores half of each combat hit (`--dodge 0.5`) lengthens runs and does not move Power or Reflexes ahead of Synthesis.
 Boss personalities other
 than ranged/charger/chase are collapsed. The arena is fought in open space at the map position (no Distortion World
-columns or arena weather). The published 900 s window ends before Sentencia; a longer run uses the judgment path above.
+columns or arena weather). The 1800 s horizon ends at Sentencia (judgment.js AT), so the judgment path above is the one that matters past minute 30.
 Results used for the site are in `results/fixed_group/`.
 
 ### PokéSurvivor update (66610d9, 5a23d49)

@@ -531,23 +531,6 @@ STR: dict[str, tuple[str, str]] = {
     "dur_alt": ("Pokémon por tramo de segundos en su apertura. Mediana {s} s, entre {lo} y {hi} s.",
                 "Pokémon per time span in their opening. Median {s} s, between {lo} and {hi} s."),
     "dur_axis": ("segundos que aguanta la apertura, cada barra cubre 10 s", "seconds the opening lasts, each bar covers 10 s"),
-    "score_title": ("Cada factor se satura", "Each factor saturates"),
-    "score_lede": ("Con {dps} de daño por segundo el factor ya vale la mitad, y con {kpm} bajas por minuto, lo mismo. "
-                   "Después, cada punto extra suma menos.",
-                   "At {dps} damage per second the factor is already half, and at {kpm} kills per minute, the same. "
-                   "After that, each extra point adds less."),
-    "score_formula": ("nota = tiempo × √( (daño por segundo ÷ (daño por segundo + {dps})) × (bajas por minuto ÷ (bajas por minuto + {kpm})) )",
-                      "score = time × √( (damage per second ÷ (damage per second + {dps})) × (kills per minute ÷ (kills per minute + {kpm})) )"),
-    "score_dps_axis": ("daño por segundo", "damage per second"),
-    "score_kpm_axis": ("bajas por minuto", "kills per minute"),
-    "score_half": ("{v}: la mitad", "{v}: half"),
-    "score_dot": ("{name}: {v}", "{name}: {v}"),
-    "score_ex": ("{name} en su apertura: {s} s, {dps} de daño por segundo y {kpm} bajas por minuto. "
-                 "Con esos factores, la nota es {s} × √({sd} × {sk}) = {score}.",
-                 "{name} on their opening: {s} s, {dps} damage per second and {kpm} kills per minute. "
-                 "With those factors, the score is {s} × √({sd} × {sk}) = {score}."),
-    "score_alt": ("Curvas de saturación del daño por segundo (mitad en {dps}) y de las bajas por minuto (mitad en {kpm}).",
-                  "Saturation curves for damage per second (half at {dps}) and kills per minute (half at {kpm})."),
     "fm_screen": ("En la pantalla", "On the screen"),
     "fm_refine": ("Afinadas", "Refined"),
     "fm_duel": ("En el duelo", "In the duel"),
@@ -588,14 +571,10 @@ STR: dict[str, tuple[str, str]] = {
                    "horde so shots, hits and orbs connect, dodges telegraphed attacks and picks up orbs. Each Pokémon plays "
                    "{sims} games with different seeds, capped at {cap} seconds."),
     "met_step_2_h": ("Puntuar", "Score"),
-    "met_step_2": ("Cada partida vale el tiempo que aguanta vivo, multiplicado por la raíz de dos cosas: el daño por segundo y las "
-                   "bajas por minuto. Las dos se saturan: a unos {dps} de daño por segundo o {kpm} bajas por minuto ya se ha "
-                   "llegado a la mitad, y a partir de ahí cada punto extra pesa menos. Una partida sin daño vale 0, así que "
-                   "aguantar sin pelear no sube puestos.",
-                   "A game is worth the time it stays alive, multiplied by the square root of two things: damage per second "
-                   "and kills per minute. Both saturate: at about {dps} damage per second or {kpm} kills per minute you are "
-                   "halfway there, and past that every extra point counts for less. A game with no damage is worth 0, so "
-                   "surviving without fighting does not climb the ranking."),
+    "met_step_2": ("Cada partida vale el tiempo que aguanta vivo, si hizo algún daño. Sin daño vale 0, así que aguantar sin "
+                   "pelear no sube puestos. La nota no tiene constantes: no hay ningún tope de daño ni de bajas.",
+                   "A game is worth the time it stays alive, if it dealt any damage. With no damage it is worth 0, so "
+                   "surviving without fighting does not climb the ranking. The score has no constants: no damage or kill cap."),
     "met_step_3_h": ("Elegir el ataque", "Pick the move"),
     "met_step_3": ("Se prueba, uno por uno, cada ataque que el Pokémon puede aprender. El mejor ataque de daño es el que sale "
                    "en su ficha; si dos empatan dentro del margen de error, gana el que más sobrevive, luego el que más "

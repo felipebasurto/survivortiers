@@ -353,3 +353,34 @@ fn charge_holds_still_then_fires_the_beam_on_the_line() {
     assert_eq!(lost(&m, on), per_hit(&m, c, m.enemies[on].combo));
     assert_eq!(lost(&m, off), 0.0);
 }
+
+#[test]
+fn a_boss_past_boss_far_respawns_ahead_after_four_seconds() {
+    // enemy.js:984-988: a boss farther than BOSS_FAR for more than 4 s is placed ahead of the player.
+    // The boss is held at BOSS_FAR + 200 so only the rule moves it.
+    let mut m = scene(133, "rapid-spin");
+    let b = foe(&mut m, 0, BOSS_FAR + 200.0, 0.0, true, 0.0);
+    let mut respawned_at = None;
+    for call in 1..=100 {
+        m.enemies[b].x = BOSS_FAR + 200.0;
+        m.enemies[b].y = 0.0;
+        m.tick_stragglers();
+        if m.enemies[b].x.hypot(m.enemies[b].y) < BOSS_FAR {
+            respawned_at = Some(call);
+            break;
+        }
+    }
+    // Each call adds DT = 0.05 s, so the 4 s mark is passed on call 81 (call 80 may land on it exactly).
+    let call = respawned_at.expect("the boss never respawned");
+    assert!((80..=81).contains(&call), "respawned on call {call}");
+}
+
+#[test]
+fn a_boss_within_boss_far_is_never_moved_by_stragglers() {
+    let mut m = scene(133, "rapid-spin");
+    let b = foe(&mut m, 0, BOSS_FAR - 200.0, 0.0, true, 0.0);
+    for _ in 0..200 {
+        m.tick_stragglers();
+    }
+    assert_eq!(m.enemies[b].x, BOSS_FAR - 200.0);
+}

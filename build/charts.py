@@ -238,49 +238,6 @@ def start_hist(L: Lang, start: dict) -> str:
                    L.t("dur_lede", lo=start["min"], hi=start["max"], cap=L.num(1800)))
 
 
-def _curve(xmax: int, ref: int, x: float, s: float, ox: int, axis: str, ex_label: str, half_label: str) -> str:
-    """Una curva de saturación s = v / (v + ref) con su punto de ejemplo. ox desplaza el panel dentro del SVG."""
-    pl, pt, pw, ph = 40, 28, 300, 150
-    base = pt + ph
-
-    def X(v: float) -> float:
-        return ox + pl + v / xmax * pw
-
-    def Y(v: float) -> float:
-        return pt + (1 - v) * ph
-
-    pts = [(X(v), Y(v / (v + ref))) for v in range(0, xmax + 1, max(xmax // 60, 1))]
-    path = "M" + " L".join(f"{px:.1f} {py:.1f}" for px, py in pts)
-    ticks = "".join(f'<text x="{X(v):.1f}" y="{base + 18}" text-anchor="middle">{v}</text>' for v in range(0, xmax + 1, ref))
-    yt = "".join(f'<text x="{ox + pl - 8}" y="{Y(v) + 4:.1f}" text-anchor="end">{t}</text>'
-                 for v, t in ((0, "0"), (0.5, "0,5"), (1, "1")))
-    return (f'<path class="c" d="{path}"/>'
-            f'<path class="ref" d="M{X(ref):.1f} {pt}V{base}M{ox + pl} {Y(0.5):.1f}H{X(ref):.1f}"/>'
-            f'<text class="lbl" x="{X(ref) + 6:.1f}" y="{pt + 12}">{esc(half_label)}</text>'
-            f'<line class="axis" x1="{ox + pl}" x2="{ox + pl + pw}" y1="{base}" y2="{base}"/>'
-            f'{ticks}{yt}'
-            f'<text class="ax" x="{ox + pl + pw / 2:.0f}" y="{base + 36}" text-anchor="middle">{esc(axis)}</text>'
-            f'<circle class="ex" cx="{X(x):.1f}" cy="{Y(s):.1f}" r="5"/>'
-            f'<text class="lbl ex-l" x="{X(x) + 9:.1f}" y="{Y(s) + 20:.1f}">{esc(ex_label)}</text>')
-
-
-def score_curves(L: Lang, score: dict, ex: dict, name: str) -> str:
-    """La fórmula de la nota y las dos curvas de saturación, con el Pokémon del puesto 1 sobre ellas."""
-    dps_ref, kpm_ref = score["dpsRef"], score["kpmRef"]
-    formula = L.t("score_formula", dps=L.num(dps_ref), kpm=L.num(kpm_ref))
-    left = _curve(240, dps_ref, ex["dps"], ex["sDps"], 0, L.t("score_dps_axis"),
-                  L.t("score_dot", name=name, v=L.num(ex["dps"])), L.t("score_half", v=L.num(dps_ref)))
-    right = _curve(120, kpm_ref, ex["kpm"], ex["sKpm"], 400, L.t("score_kpm_axis"),
-                   L.t("score_dot", name=name, v=L.num(ex["kpm"])), L.t("score_half", v=L.num(kpm_ref)))
-    svg = f'<svg class="curves" viewBox="0 0 760 240" aria-hidden="true" focusable="false">{left}{right}</svg>'
-    line = L.t("score_ex", name=name, s=L.num(ex["seconds"]), dps=L.num(ex["dps"]), kpm=L.num(ex["kpm"]),
-               sd=L.dec(ex["sDps"], 2), sk=L.dec(ex["sKpm"], 2), score=L.num(ex["score"]))
-    body = f'<p class="formula">{esc(formula)}</p>{svg}<p class="fig-note">{esc(line)}</p>'
-    alt = L.t("score_alt", dps=L.num(dps_ref), kpm=L.num(kpm_ref))
-    return _figure("curves", L.t("score_title"), body, alt,
-                   L.t("score_lede", dps=L.num(dps_ref), kpm=L.num(kpm_ref)))
-
-
 def funnels(L: Lang, stages: dict[str, dict]) -> str:
     """Cuántas aperturas y cuántos grupos prueba de media cada Pokémon antes de quedarse con uno."""
     moves = [(L.t("fm_screen"), stages["start_screen"]["perSpecies"]),

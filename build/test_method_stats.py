@@ -1,6 +1,5 @@
 """Las cifras de la página Método salen de los CSV. Estas pruebas comprueban que cuadran entre sí y con las columnas n."""
 import csv
-import math
 import unittest
 
 import method_stats as ms
@@ -59,11 +58,6 @@ class MethodStatsTest(unittest.TestCase):
             self.assertTrue(0 <= c["count"] <= tiers.TOTAL)
         self.assertLessEqual(self.stats["straddleAny"], tiers.TOTAL)
         self.assertGreaterEqual(self.stats["straddleAny"], max(c["count"] for c in cuts))
-
-    def test_example_score_reproduces_its_own_formula(self):
-        ex = self.stats["example"]
-        score = ex["seconds"] * math.sqrt(ex["sDps"] * ex["sKpm"])
-        self.assertLess(abs(score - ex["score"]), 1.5)
 
 
 if __name__ == "__main__":

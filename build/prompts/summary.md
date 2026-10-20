@@ -93,11 +93,10 @@ the key to verify the claim. The visible text is yours, but keep it close to the
    ataques que aprende") take "lo suben / lo bajan / lo frenan"; singular ones ("su hitbox", "su mejor ataque",
    "tener un solo tipo de ataque", "cómo aguanta...") take "lo sube / lo baja / lo frena".
 
-## Example (Kommo-o, dex 784; its claims include atk+, td+, m.start:dragon-claw, m.group:rapid-spin,
-## m.group:swords-dance, m.group:harden, i.best:luckyegg, up:best_move, nodown)
+## Example (Kommo-o, dex 784; its marks are the claims that hold for it: atk+, calm, i.best:luckyegg, m.group:rapid-spin, m.group:swords-dance, m.start:dragon-claw, td+)
 
 ```json
-{"dex": 784, "es": "[atk+|Pega fuerte] y [td+|aguanta bien los tipos rivales]. Empieza con [m.start:dragon-claw|Garra Dragón] y vincula [m.group:rapid-spin|Giro Rápido], [m.group:swords-dance|Danza Espada] y [m.group:harden|Fortaleza]; lleva [i.best:luckyegg|Huevo Suerte]. En el ranking, lo que más lo sube es [up:best_move|Furia Dragón], y [nodown|nada lo frena] de verdad.", "en": "[atk+|Hits hard] and [td+|shrugs off enemy types]. Start with [m.start:dragon-claw|Dragon Claw], bond [m.group:rapid-spin|Rapid Spin], [m.group:swords-dance|Swords Dance] and [m.group:harden|Harden]; carry [i.best:luckyegg|Lucky Egg]. In the ranking, what lifts it most is [up:best_move|Dragon Rage], and [nodown|nothing holds it back] much."}
+{"dex": 784, "es": "[atk+|Pega fuerte] y [td+|aguanta bien los tipos rivales]. Empieza con [m.start:dragon-claw|Garra Dragón] y vincula [m.group:rapid-spin|Giro Rápido] y [m.group:swords-dance|Danza Espada]; lleva [i.best:luckyegg|Huevo Suerte]. [calm|Ningún factor] pesa en el puesto.", "en": "[atk+|Hits hard] and [td+|shrugs off enemy types]. Start with [m.start:dragon-claw|Dragon Claw], bond [m.group:rapid-spin|Rapid Spin] and [m.group:swords-dance|Swords Dance]; carry [i.best:luckyegg|Lucky Egg]. [calm|No single factor] moves it much.", "fp": "494ebb627bfd", "bfp": "fcc0793ac1c6"}
 ```
 
 Vary the sentence shapes between species; do not copy this example's wording for every one.

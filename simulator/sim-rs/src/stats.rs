@@ -180,28 +180,18 @@ fn half_medians(scores: &[f64]) -> (f64, f64) {
     (median(&scores[..mid]), median(&scores[mid..]))
 }
 
-/// Survival with a damage-rate and a kill-rate gate.
+/// Survival time, for a run that dealt damage. A run that deals nothing scores 0.
 ///
-/// `time * dealt * (1 + kills)` counted the same long fight three times, so a turret
-/// that chipped away for a few extra seconds outscored a real attack. Rates do not:
-/// damage per second and kills per minute each saturate, and a run that deals nothing
-/// scores 0. Time is the only unsaturating factor, so living longer still helps once
-/// the mon is actually fighting. `dealt` is HP and shield actually removed.
+/// No rate terms and no constants. A damage rate or a kill rate needs a saturation point to
+/// stay bounded (the old 80 dps and 40 kpm), and nothing in the game sets one. Without it the
+/// time cancels: time × sqrt(dps × kpm) = sqrt(60 × dealt × kills), which ignores how long the
+/// run lasted. So a run that lives longer wins even when it hits less per second.
 pub fn run_score(r: &RunResult) -> f64 {
     if r.dealt <= 0.0 || r.time <= 0.0 {
         return 0.0;
     }
-    let dps = r.dealt / r.time;
-    let kpm = r.kills as f64 * 60.0 / r.time;
-    let dps_s = dps / (dps + DPS_REF);
-    let kpm_s = kpm / (kpm + KPM_REF);
-    r.time * (dps_s * kpm_s).sqrt()
+    r.time
 }
-
-/// A clear of ~80 damage per second, or ~40 kills per minute, is halfway to saturated.
-/// Below that, chip damage cannot win on lifetime alone.
-const DPS_REF: f64 = 80.0;
-const KPM_REF: f64 = 40.0;
 
 /// `num()` from the JS writers: round to 3 decimals, shortest round-trip text.
 pub fn num(v: f64) -> String {
@@ -255,19 +245,8 @@ mod tests {
     }
 
     #[test]
-    fn chip_turret_does_not_beat_a_shorter_real_attack() {
-        // Old product: 150 * 3000 * 31 = 13.95e6 vs 100 * 8000 * 61 = 48.8e6, attacker wins.
-        // The failure mode is a long chip fight against a shorter harder one when the
-        // product's time and kill factors pile up. Half the DPS for 1.8x the lifetime:
-        let turret = run_score(&run(180.0, 1800.0, 36));
-        let attack = run_score(&run(100.0, 8000.0, 70));
-        assert!(attack > turret, "attack {attack} turret {turret}");
-    }
-
-    #[test]
-    fn same_rates_prefer_the_longer_run() {
-        let short = run_score(&run(60.0, 4800.0, 40));
-        let long = run_score(&run(120.0, 9600.0, 80));
-        assert!(long > short);
+    fn score_is_the_survival_time() {
+        assert_eq!(run_score(&run(120.0, 9600.0, 80)), 120.0);
+        assert!(run_score(&run(180.0, 1800.0, 36)) > run_score(&run(100.0, 8000.0, 70)));
     }
 }

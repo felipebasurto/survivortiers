@@ -8,7 +8,8 @@
 (() => {
   'use strict';
 
-  const SUPER = 1.05;
+  // Super efectivo: multiplicador por encima de 1 (la tabla no tiene nada entre 1 y 1,6). No resistido: como levelup.js:53, 0,95.
+  const SUPER = 1;
   const NEUTRAL = 0.95;
   const MIN_MULT = 0.3;
   const MAX_MULT = 2.4;
