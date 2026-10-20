@@ -709,14 +709,17 @@ STR: dict[str, tuple[str, str]] = {
     "pipe_6": ("Tier", "Tier"),
     "pipe_alt": ("Pasos del cálculo: ", "Calculation steps: "),
     "met_rules_h": ("Reglas de build", "Build rules"),
-    "met_rules": ("No hay reglas a mano: ningún Pokémon tiene ataques prohibidos ni un factor contra el cuerpo a cuerpo. Un grupo "
-                  "ocupa como máximo cuatro huecos y lleva al menos dos ataques; Sustituto cuenta como ataque. Los grupos pueden "
-                  "mezclar ataques físicos y especiales con cualquier potenciador (Danza Espada, Danza Dragón, Maquinación, "
-                  "Fortaleza, Agilidad). Gana el grupo con la nota más alta del simulador.",
-                  "There are no hand-made rules: no Pokémon has banned moves or a factor against melee. A group takes at most "
-                  "four slots and holds at least two attacks; Substitute counts as an attack. Groups can mix physical and "
-                  "special attacks with any boost (Swords Dance, Dragon Dance, Nasty Plot, Harden, Agility). The group with "
-                  "the highest simulator score wins."),
+    "met_rules": ("La búsqueda de grupos no lleva reglas a mano: ningún Pokémon tiene ataques prohibidos ni un factor contra el "
+                  "cuerpo a cuerpo. Un grupo ocupa como máximo cuatro huecos y lleva al menos dos ataques; Sustituto cuenta "
+                  "como ataque. Los grupos pueden mezclar ataques físicos y especiales con cualquier potenciador (Danza Espada, "
+                  "Danza Dragón, Maquinación, Fortaleza, Agilidad), y Fortaleza o Agilidad son una variante más, no un hueco "
+                  "obligatorio. Gana el grupo con la nota más alta del simulador. Qué grupos enseña la ficha lo decide el "
+                  "apartado «Builds por Pokémon», solo con grupos ya simulados.",
+                  "The group search has no hand-made rules: no Pokémon has banned moves or a factor against melee. A group "
+                  "takes at most four slots and holds at least two attacks; Substitute counts as an attack. Groups can mix "
+                  "physical and special attacks with any boost (Swords Dance, Dragon Dance, Nasty Plot, Harden, Agility), and "
+                  "Harden or Agility are one more variant, not a required slot. The group with the highest simulator score "
+                  "wins. Which groups the sheet shows is decided in \u201cBuilds per Pokémon\u201d, using only groups already simulated."),
     "met_check_h": ("Cómo se comprueba", "How it is checked"),
     "met_check": ("El motor está escrito dos veces, en JavaScript y en Rust, y en su modo básico un test comprueba que dan el mismo "
                   "resultado paso a paso. Las fórmulas de daño, el modo de tipo único y otras reglas se comparan con las "

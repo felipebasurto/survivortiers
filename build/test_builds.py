@@ -1,4 +1,4 @@
-"""Builds cuerpo a cuerpo y a distancia (build/builds.py) y su texto en la ficha.
+"""Builds de la ficha (build/builds.py): salen de los grupos ya simulados, sin reglas a mano ni simulación nueva.
 
     python3 -m unittest build/test_builds.py
 """
@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import csv
 import html as html_lib
+import json
 import re
 import sys
 import unittest
@@ -18,66 +19,134 @@ import builds  # noqa: E402
 import static_ficha  # noqa: E402
 from i18n import EN, ES  # noqa: E402
 
-
-def _sample_dex(cls: str, n: int = 1) -> list[int]:
-    return [d for d, groups in builds.space().items() if builds.attacker_class(d) == cls and groups][:n]
+SINISTCHA, GENGAR, BANETTE, CORVISQUIRE = 1013, 94, 354, 822
 
 
-def _kinds_by_dex() -> dict[str, set[str]]:
-    out: dict[str, set[str]] = {}
+def _published() -> list[dict]:
     with (ROOT / "data" / "builds.csv").open(encoding="utf8", newline="") as f:
-        for row in csv.DictReader(f):
-            out.setdefault(row["dex"], set()).add(row["build"])
+        return list(csv.DictReader(f))
+
+
+def _kinds_by_dex() -> dict[int, set[str]]:
+    out: dict[int, set[str]] = {}
+    for row in _published():
+        out.setdefault(int(row["dex"]), set()).add(row["build"])
     return out
 
 
-class Candidates(unittest.TestCase):
-    def test_every_candidate_meets_the_rules(self) -> None:
-        for dex in sorted(builds.space())[:60]:
-            for group, build in builds.candidates(dex).items():
-                with self.subTest(dex=dex, group=group):
-                    self.assertEqual(builds.violations(dex, build, group), [])
+def _move_names(prefix: str) -> dict[str, str]:
+    moves = json.loads((ROOT / "site" / "data" / "moves.json").read_text(encoding="utf8"))
+    return {m["id"]: (m["en"]["name"] if prefix else m["name"]) for m in moves}
 
-    def test_no_filler_in_any_build(self) -> None:
-        for dex, groups in builds.space().items():
-            for group in groups:
-                attacks, _, _ = builds.picks.split_group(group)
-                self.assertFalse(set(attacks) & builds.FILLER, (dex, group))
 
-    def test_special_attackers_have_no_melee_build(self) -> None:
-        for dex in _sample_dex("special", 80):
-            self.assertNotIn("melee", set(builds.space()[dex].values()), dex)
+class Rules(unittest.TestCase):
+    def test_published_rows_meet_the_rules(self) -> None:
+        for row in _published():
+            with self.subTest(dex=row["dex"], build=row["build"]):
+                self.assertEqual(builds.violations(int(row["dex"]), row["build"], row["group"]), [])
 
-    def test_class_buff_follows_attacker_class(self) -> None:
-        for dex in sorted(builds.space())[:200]:
-            cls = builds.attacker_class(dex)
-            for group in builds.candidates(dex):
-                _, buff, _ = builds.picks.split_group(group)
-                self.assertEqual(buff, builds.CLASS_BUFF[cls], (dex, group))
+    def test_offensive_builds_are_three_attacks_and_their_buff(self) -> None:
+        for row in _published():
+            if row["build"] == builds.DEFENSIVE:
+                continue
+            attacks, buff, fourth = builds.picks.split_group(row["group"])
+            cat = builds.offensive_category(attacks)
+            with self.subTest(dex=row["dex"], group=row["group"]):
+                self.assertEqual(len(set(attacks)), 3)
+                self.assertIsNone(fourth)
+                self.assertEqual(buff, builds.ATTACK_BUFF[cat])
 
-    def test_attacker_class_ties_go_to_special(self) -> None:
-        p = builds._pokedex()
-        tied = next((d for d, v in p.items() if float(v["pa"]) == float(v["sa"])), None)
-        if tied is not None:
-            self.assertEqual(builds.attacker_class(tied), "special")
+    def test_no_filler_in_any_published_build(self) -> None:
+        for row in _published():
+            attacks, _, _ = builds.picks.split_group(row["group"])
+            for mid in attacks:
+                with self.subTest(dex=row["dex"], move=mid):
+                    self.assertFalse(builds.is_filler(int(row["dex"]), mid))
+
+    def test_defensive_builds_carry_fortaleza_and_only_those(self) -> None:
+        rows = [r for r in _published() if r["build"] == builds.DEFENSIVE]
+        self.assertGreater(len(rows), 700)
+        for row in rows:
+            self.assertEqual(row["group"].split("+")[-1], "harden", row["group"])
+        for row in _published():
+            if row["build"] != builds.DEFENSIVE:
+                self.assertNotIn("harden", row["group"].split("+"))
+
+    def test_special_only_groups_never_have_a_melee_build(self) -> None:
+        for row in _published():
+            if row["build"] == "melee":
+                attacks, _, _ = builds.picks.split_group(row["group"])
+                self.assertEqual(builds.offensive_category(attacks), "physical", row["group"])
+
+    def test_published_rows_are_what_the_code_picks_from_the_sim_files(self) -> None:
+        got = {(int(r["dex"]), r["build"]): (r["group"], r["source"]) for r in builds.assemble()}
+        have = {(int(r["dex"]), r["build"]): (r["group"], r["source"]) for r in _published()}
+        self.assertEqual(got, have)
+
+    def test_every_species_starts_with_a_damaging_attack(self) -> None:
+        starts = builds.starts()
+        self.assertEqual(len(starts), 966)
+        for dex, mid in starts.items():
+            self.assertNotEqual(mid, builds.NOT_AN_ATTACK, dex)
+            self.assertNotEqual(builds.category(mid), "status", dex)
+
+    def test_sinistcha_does_not_start_with_its_default_attack(self) -> None:
+        self.assertEqual(builds.starts()[SINISTCHA], "shadow-ball")
+        self.assertEqual(builds.default_starts()[SINISTCHA], "vine-whip")
+
+
+class Filler(unittest.TestCase):
+    def test_hyper_beam_stays_because_the_tier_list_keeps_it(self) -> None:
+        self.assertFalse(builds.is_filler(GENGAR, "hyper-beam"))
+
+    def test_weak_normal_attacks_are_filler_for_other_types(self) -> None:
+        for mid in ("hyper-voice", "tackle", "body-slam", "rapid-spin", "quick-attack", "substitute"):
+            with self.subTest(move=mid):
+                self.assertTrue(builds.is_filler(SINISTCHA, mid))
+
+    def test_a_normal_type_species_keeps_its_own_type(self) -> None:
+        self.assertFalse(builds.is_filler(143, "hyper-voice"))
+        self.assertTrue(builds.is_filler(143, "substitute"))
 
 
 class Violations(unittest.TestCase):
-    def test_melee_build_without_melee_move_is_reported(self) -> None:
-        dex = _sample_dex("physical")[0]
-        group = next(g for g, b in builds.candidates(dex).items() if b == "ranged")
-        self.assertTrue(builds.violations(dex, "melee", group))
-
-    def test_ranged_build_with_melee_move_is_reported(self) -> None:
-        dex = _sample_dex("physical")[0]
-        group = next(g for g, b in builds.candidates(dex).items() if b == "melee")
-        self.assertTrue(builds.violations(dex, "ranged", group))
-
     def test_filler_is_reported(self) -> None:
-        dex = _sample_dex("physical")[0]
-        group = next(iter(builds.candidates(dex)))
-        bad = group.replace(builds.picks.split_group(group)[0][0], "tackle", 1)
-        self.assertTrue(any("relleno" in e for e in builds.violations(dex, "ranged", bad)))
+        group = "ominous-wind+hyper-voice+seed-bomb+nasty-plot"
+        self.assertTrue(builds.violations(SINISTCHA, "ranged", group))
+
+    def test_harden_is_not_an_offensive_build(self) -> None:
+        group = next(r["group"] for r in _published() if r["build"] == builds.DEFENSIVE)
+        dex = int(next(r["dex"] for r in _published() if r["build"] == builds.DEFENSIVE))
+        self.assertTrue(builds.violations(dex, "ranged", group))
+        self.assertEqual(builds.violations(dex, builds.DEFENSIVE, group), [])
+
+    def test_a_melee_build_is_not_a_ranged_one(self) -> None:
+        row = next(r for r in _published() if r["build"] == "melee")
+        self.assertTrue(builds.violations(int(row["dex"]), "ranged", row["group"]))
+        row = next(r for r in _published() if r["build"] == "ranged")
+        self.assertTrue(builds.violations(int(row["dex"]), "melee", row["group"]))
+
+
+class Choose(unittest.TestCase):
+    @staticmethod
+    def _row(group: str, score: float, lo: float, seconds: float, boot_lo: float) -> dict:
+        return {"group": group, "median_score": str(score), "mean_score": str(score), "median_kills": "100",
+                "median_dealt": "1000", "median_s": str(seconds), "score_lo": str(lo), "boot_lo": str(boot_lo)}
+
+    def test_start_lead_wins_inside_the_noise(self) -> None:
+        best = self._row("hex+shadow-ball+hyper-beam+nasty-plot", 100, 90, 100, 90)
+        near = self._row("shadow-ball+hex+hyper-beam+nasty-plot", 95, 85, 95, 85)
+        self.assertEqual(builds.choose([best, near], "shadow-ball")["group"], near["group"])
+
+    def test_start_lead_loses_outside_the_noise(self) -> None:
+        best = self._row("hex+shadow-ball+hyper-beam+nasty-plot", 100, 90, 100, 90)
+        far = self._row("shadow-ball+hex+hyper-beam+nasty-plot", 80, 70, 80, 70)
+        self.assertEqual(builds.choose([best, far], "shadow-ball")["group"], best["group"])
+
+    def test_both_time_and_score_must_stay_inside(self) -> None:
+        best = self._row("hex+shadow-ball+hyper-beam+nasty-plot", 100, 90, 100, 90)
+        slow = self._row("shadow-ball+hex+hyper-beam+nasty-plot", 95, 85, 80, 70)
+        self.assertEqual(builds.choose([best, slow], "shadow-ball")["group"], best["group"])
 
 
 class Moves(unittest.TestCase):
@@ -121,81 +190,123 @@ class Text(unittest.TestCase):
         self.assertEqual(static_ficha._build_option(ES, {}, {}, "melee", None, None, None), "")
         self.assertEqual(static_ficha._build_option(EN, {}, {}, "ranged", None, None, None), "")
 
+    def test_defense_verdict_reports_time_and_damage(self) -> None:
+        off = {"time": 160.0, "dealt": 20000}
+        deff = {"time": 170.0, "dealt": 15000}
+        self.assertEqual(static_ficha.defense_verdict(ES, deff, off),
+                         "Con Fortaleza, frente a la ofensiva: aguantas 10,0 s más y haces un 25\u00a0% menos de daño.")
+        self.assertEqual(static_ficha.defense_verdict(EN, deff, off),
+                         "With Harden, against the offensive build: you last 10.0 s longer and you deal 25% less damage.")
+        self.assertEqual(static_ficha.defense_verdict(ES, deff, None), "")
+
 
 class FichaBuildLayout(unittest.TestCase):
-    """Las fichas ya generadas (python3 build/render.py): una especie sin build cuerpo a cuerpo no pinta su caja."""
+    """Las fichas ya generadas (python3 build/render.py)."""
 
     def _page(self, prefix: str, slug: str) -> str:
         path = ROOT / "site" / prefix / "pokemon" / slug / "index.html"
         self.assertTrue(path.is_file(), "falta la ficha estática: python3 build/render.py")
         return path.read_text(encoding="utf8")
 
-    def test_single_build_species_has_one_full_width_box(self) -> None:
+    def _slug(self, dex: int) -> str:
+        return next(p.name for p in (ROOT / "site" / "pokemon").glob(f"{dex}-*"))
+
+    def _build_section(self, prefix: str, dex: int) -> str:
+        page = self._page(prefix, self._slug(dex))
+        return re.search(r'id="build".*?<p class="bd-brand">', page, re.S).group(0)
+
+    def _text(self, html: str) -> str:
+        text = re.sub(r"<script.*?</script>|<style.*?</style>", "", html, flags=re.S)
+        return html_lib.unescape(re.sub(r"<[^>]+>", " ", text))
+
+    def test_the_start_is_one_gold_row_outside_the_builds(self) -> None:
         for prefix in ("", "en"):
-            page = self._page(prefix, "94-gengar")
+            names = _move_names(prefix)
+            for dex in (SINISTCHA, GENGAR, BANETTE, CORVISQUIRE):
+                with self.subTest(prefix=prefix, dex=dex):
+                    page = self._page(prefix, self._slug(dex))
+                    block = re.search(r'<div class="bd-block bd-start">.*?</div>', page, re.S).group(0)
+                    self.assertEqual(page.count("is-start"), 1)
+                    self.assertEqual(block.count("is-start"), 1)
+                    self.assertIn("bd-pill is-gold", block)
+                    self.assertIn(f'<span class="bd-nm">{names[builds.starts()[dex]]}</span>', block)
+                    self.assertEqual(page.count('class="bd-default"'), 1)
+
+    def test_default_start_is_a_small_note_next_to_the_start(self) -> None:
+        notes = {"": "De serie: Látigo Cepa; cámbialo con Movimiento inicial (400 monedas)",
+                 "en": "Default: Vine Whip; change it with Starting Move (400 coins)"}
+        for prefix, note in notes.items():
+            page = self._page(prefix, self._slug(SINISTCHA))
+            self.assertIn(f'<p class="bd-default">{note}</p>', page)
+            self.assertIn('<span class="bd-nm">' + ("Shadow Ball" if prefix else "Bola Sombra") + "</span>", page)
+
+    def test_default_start_that_is_the_best_one_says_so(self) -> None:
+        dex = next(d for d, mid in builds.starts().items() if builds.default_starts()[d] == mid)
+        for prefix, lang in (("", ES), ("en", EN)):
+            self.assertIn(f'<p class="bd-default">{html_lib.escape(lang.t("build_default_same"))}</p>',
+                          self._page(prefix, self._slug(dex)))
+
+    def test_no_offensive_row_is_marked_as_the_start(self) -> None:
+        for dex in (SINISTCHA, GENGAR, BANETTE):
+            section = self._build_section("", dex)
+            for box in re.findall(r'<article class="bd-opt.*?</article>', section, re.S):
+                self.assertNotIn("is-start", box)
+                self.assertNotIn("bd-pill is-gold", box)
+
+    def test_shape_follows_the_build_data(self) -> None:
+        for dex, kinds in sorted(_kinds_by_dex().items())[:40] + [(SINISTCHA, _kinds_by_dex()[SINISTCHA])]:
+            page = self._page("", self._slug(dex))
+            offensive = kinds - {builds.DEFENSIVE}
+            with self.subTest(dex=dex):
+                self.assertEqual(page.count('class="bd-opt'), len(offensive))
+                self.assertEqual("melee" in kinds, 'data-build="melee"' in page)
+                self.assertEqual(builds.DEFENSIVE in kinds, 'data-build="defensive"' in page)
+
+    def test_single_offensive_build_has_one_full_width_box(self) -> None:
+        for prefix, lang in (("", ES), ("en", EN)):
+            page = self._page(prefix, self._slug(SINISTCHA))
             with self.subTest(prefix=prefix):
                 self.assertEqual(page.count('class="bd-opt'), 1)
-                self.assertIn('data-build="ranged"', page)
-                self.assertNotIn('data-build="melee"', page)
                 self.assertIn('class="bd-pair is-single"', page)
-                self.assertNotIn("bd-none", page)
-                self.assertNotIn("is-none", page)
+                self.assertNotIn('data-build="melee"', page)
                 self.assertNotIn("bd-note", page)
-                self.assertNotIn('<p class="bd-cap">' + html_lib.escape(ES.t("bd_pair_cap")), page)
-                self.assertNotIn('<p class="bd-cap">' + html_lib.escape(EN.t("bd_pair_cap")), page)
+                self.assertNotIn('<p class="bd-cap">' + html_lib.escape(lang.t("bd_pair_cap")), page)
 
-    def test_species_with_both_builds_is_unchanged(self) -> None:
+    def test_defensive_variant_shows_its_time_next_to_the_offensive_one(self) -> None:
         for prefix, lang in (("", ES), ("en", EN)):
-            page = self._page(prefix, "354-banette")
+            section = self._build_section(prefix, GENGAR)
             with self.subTest(prefix=prefix):
-                self.assertEqual(page.count('class="bd-opt'), 2)
-                self.assertIn('data-build="melee"', page)
-                self.assertIn('data-build="ranged"', page)
-                self.assertIn('class="bd-pair"', page)
-                self.assertNotIn("is-single", page)
-                self.assertIn('<p class="bd-cap">' + html_lib.escape(lang.t("bd_pair_cap")), page)
+                self.assertIn('data-build="defensive"', section)
+                self.assertIn(html_lib.escape(lang.t("bd_def_h")), section)
+                self.assertIn('<table class="bd-vs">', section)
+                self.assertEqual(section.count("<tr>"), 4)
+                self.assertIn(html_lib.escape(lang.t("bd_def_col_off")), section)
+                self.assertIn(html_lib.escape(lang.t("bd_def_col_def")), section)
+                self.assertIn('<p class="bd-verdict">' + ("With Harden" if prefix else "Con Fortaleza"), section)
 
-    def test_each_build_starts_with_its_own_first_attack(self) -> None:
-        expect = {("", "94-gengar"): {"ranged": "Viento Aciago"},
-                  ("en", "94-gengar"): {"ranged": "Ominous Wind"},
-                  ("", "354-banette"): {"melee": "Lengüetazo", "ranged": "Giro Rápido"},
-                  ("en", "354-banette"): {"melee": "Lick", "ranged": "Rapid Spin"}}
-        for (prefix, slug), starts in expect.items():
-            page = self._page(prefix, slug)
-            for kind, name in starts.items():
-                with self.subTest(prefix=prefix, slug=slug, kind=kind):
-                    box = re.search(rf'<article class="bd-opt[^"]*" data-build="{kind}">.*?</article>', page, re.S).group(0)
-                    self.assertEqual(box.count("is-start"), 1)
-                    row = re.search(r'<li class="bd-row[^"]*is-start">.*?</li>', box, re.S).group(0)
-                    self.assertIn(f'<span class="bd-nm">{name}</span>', row)
-                    self.assertIn("bd-pill is-gold", row)
-                    self.assertIn(">" + ("Start with" if prefix else "Empieza con") + "<", row)
+    def test_species_without_a_defensive_group_never_mentions_it(self) -> None:
+        self.assertNotIn(builds.DEFENSIVE, _kinds_by_dex()[SINISTCHA])
+        for prefix, words in (("", r"Fortaleza|defensiv"), ("en", r"Harden|defensive")):
+            page = self._page(prefix, self._slug(SINISTCHA))
+            self.assertNotRegex(self._text(page), words)
 
-    def test_default_start_is_a_small_note_without_a_row(self) -> None:
-        notes = {"": "De serie: Bola Sombra; cámbialo con Movimiento inicial (400 monedas)",
-                 "en": "Default: Shadow Ball; change it with Starting Move (400 coins)"}
-        for prefix, note in notes.items():
-            page = self._page(prefix, "94-gengar")
+    def test_species_without_an_offensive_build_shows_the_defensive_one_as_its_build(self) -> None:
+        self.assertEqual(_kinds_by_dex()[CORVISQUIRE], {builds.DEFENSIVE})
+        for prefix in ("", "en"):
+            page = self._page(prefix, self._slug(CORVISQUIRE))
             with self.subTest(prefix=prefix):
-                self.assertIn(f'<p class="bd-default">{note}</p>', page)
-                self.assertEqual(page.count("bd-default"), 1)
-                self.assertNotIn("bd-start", page)
+                self.assertNotIn('class="bd-opt', page)
+                self.assertNotIn('class="bd-pair', page)
+                self.assertIn('data-build="defensive"', page)
+                self.assertIn('class="bd-cardlist"', page)
+                self.assertNotIn("Ofensiva", self._text(self._build_section(prefix, CORVISQUIRE)))
 
     def test_special_attacker_text_never_mentions_melee(self) -> None:
         for prefix in ("", "en"):
-            page = self._page(prefix, "94-gengar")
-            text = re.sub(r"<script.*?</script>|<style.*?</style>", "", page, flags=re.S)
-            text = re.sub(r"<[^>]+>", " ", text) + " ".join(re.findall(r'content="([^"]*)"', page))
+            page = self._page(prefix, self._slug(GENGAR))
+            text = self._text(page) + " ".join(re.findall(r'content="([^"]*)"', page))
             with self.subTest(prefix=prefix):
                 self.assertNotRegex(text, r"(?i)cuerpo a cuerpo|melee|dos builds|two builds")
-
-    def test_shape_follows_the_build_data(self) -> None:
-        for dex, kinds in list(_kinds_by_dex().items())[:40]:
-            slug = next(p.name for p in (ROOT / "site" / "pokemon").glob(f"{dex}-*"))
-            page = self._page("", slug)
-            with self.subTest(dex=dex):
-                self.assertEqual(page.count('class="bd-opt'), len(kinds))
-                self.assertEqual("melee" in kinds, 'data-build="melee"' in page)
 
 
 if __name__ == "__main__":

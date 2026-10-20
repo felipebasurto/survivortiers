@@ -98,7 +98,7 @@ Group mode also models, from the game source (`js/` in JPTER78/pokesurvivor):
     measured, and an attack is any non-buff move with damage (`data::Move::is_attack`). Picotazo Veneno is a projectile
     (speed 420, life 1.0) and is not melee. Pairs and trios may mix categories. Each attack set is simulated with every
     buff fill of the four bond slots (`kits` in `main.rs`): two attacks with Danza Espada, Danza Dragón (species that
-    learn it) or Maquinación plus Harden or Agility, and three attacks with one of those attack buffs or with Harden or
+    learn it) or Maquinación alone, or plus Harden or Agility (the fourth slot is an optional variant, not forced), and three attacks with one of those attack buffs or with Harden or
     Agility. An attack buff that raises none of the group's attacks is not tried (`patk` buffs only raise physical
     moves, `satk` only special). The best row by score (then mean score, then survival time) is published, and each
     shape (`build/picks.py` `shape_of`) keeps its own shortlist into the refine. Not searched: four attacks with no buff

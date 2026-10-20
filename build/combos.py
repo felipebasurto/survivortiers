@@ -15,7 +15,8 @@ Qué elige, de los ataques que ofrece el juego a ese Pokémon (POOL.normal + POO
      cada uno con cada relleno de potenciadores (Danza Espada, Danza Dragón o Maquinación; Fortaleza
      o Agilidad), y gana el que más puntúa en la simulación (aguantar, daño y bajas). Los
      potenciadores publicados son los del grupo ganador. La elección sale de build/picks.py, la
-     misma que usa el ranking.
+     misma que usa el ranking. La ficha no publica este grupo tal cual: `follow_builds` lo cambia por la build que
+     enseña (build/builds.py), y de ahí salen los ataques, los potenciadores y la cobertura que se ven.
   2. Si no hay búsqueda, hueco 1 es el mejor ataque de la simulación (`best_move`). Si ese ataque
      tiene un compañero de sinergia (Hex con estado, o dos dashes), el hueco 2 es ese compañero
      a distancia cuando hay uno; si no, el de más cobertura.
@@ -223,6 +224,26 @@ def compute_all(types_by_dex: dict[int, list[str]], best_move_by_dex: dict[int, 
         # types: tipos de ataque distintos (3 como máximo). Con menos de tres, el combo cubre menos rivales.
         out[dex] = {"moves": group, "nBoost": len(boosts), "alts": alts, "types": len({rows[i]["type"] for i in trio}),
                     "super": round(100 * super_hits / n), "neutral": round(100 * neutral_hits / n)}
+    return out
+
+
+def follow_builds(combo: dict[int, dict], lead: dict[int, dict], types_by_dex: dict[int, list[str]]) -> dict[int, dict]:
+    """El grupo y la cobertura de cada especie, tomados de la build que enseña la ficha (build/builds.py lead_builds) en
+    vez de la del grupo buscado. Las especies sin build conservan el grupo de compute_all."""
+    _, mech, matrix, rows = _load()
+    everyone = list(types_by_dex.values())
+    cache: dict = {}
+    out = dict(combo)
+    for dex, b in lead.items():
+        group = list(b["moves"])
+        attacks = [m for m in group if mech[m]["kind"] != "buff"]
+        if not attacks:
+            continue
+        types = [rows[m]["type"] for m in attacks]
+        super_hits, neutral_hits = _coverage(matrix, types, everyone, cache)
+        out[dex] = {**combo[dex], "moves": group, "nBoost": len(group) - len(attacks),
+                    "alts": [m for m in combo[dex]["alts"] if m not in group], "types": len(set(types)),
+                    "super": round(100 * super_hits / len(everyone)), "neutral": round(100 * neutral_hits / len(everyone))}
     return out
 
 

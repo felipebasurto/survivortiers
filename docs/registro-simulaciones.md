@@ -71,6 +71,7 @@ Nota de conteo: el mensaje de `dd11ca8` dice 7.498 corridas. Los dos CSV de cont
 2. **El binario actual no reproduce los CSV publicados en modo `--only`.** La ejecución completa de `3b6585e` reprodujo 11.498 filas idénticas de `8ce8d1d`; las 20 claves de prueba ejecutadas con `--only` no coinciden con `group_screen.csv`. Hipótesis sin comprobar: el filtro `--only` cambia algo del trabajo generado. No investigado. Mientras no se resuelva, no usar `--only` para comparar con datos publicados.
 3. **`REGEN_RESUME.md` está obsoleto.** Dice que `group_screen` no tiene salida y que faltan etapas. Ambas cosas son falsas hoy (ver el registro). Se ha añadido una nota al inicio que remite a este archivo.
 4. **Valores de `solo_refine` anteriores a `3b6585e`** (commit `7a499a4`) no se deben usar: todas las filas cambiaron o no son comparables.
+5. **Las builds publicadas se reeligieron sin simulación nueva** (`build/builds.py`, `data/builds.csv`). Salen de `group_search`, `refine_new`, `group_screen` y `screen_new` ya guardados: primero las filas de 96 semillas y, si una especie no tiene ningún grupo válido, las de 16 (columna `seeds` del CSV; el método de la web dice cuántas son). El ataque de salida sale de `solo_screen_out/rank_best_starter.csv`. Ningún grupo con Fortaleza se inventa: la variante defensiva solo existe si hay una fila simulada. El problema 1 sigue afectando a la mezcla `group_search` / `refine_new`.
 
 ## Procedimiento para una corrida nueva
 

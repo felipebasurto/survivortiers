@@ -488,9 +488,10 @@ def main() -> int:
               file=sys.stderr)
         return 1
     dex_types = {p["dex"]: p["types"] for p in json.loads((DATA / "pokedex_export.json").read_text(encoding="utf8"))}
-    combo = combos.compute_all(dex_types, {e["dex"]: e["r"]["sim"]["best"]["id"] for e in entries})
-    sides = group_sides(combo)
     rows = builds.read_rows()
+    combo = combos.follow_builds(combos.compute_all(dex_types, {e["dex"]: e["r"]["sim"]["best"]["id"] for e in entries}),
+                                 builds.lead_builds(rows), dex_types)
+    sides = group_sides(combo)
     shutil.rmtree(OUT, ignore_errors=True)
     write_json("pokemon.json", entries)
     write_json("moves.json", moves)

@@ -76,19 +76,6 @@ def r2(x: float) -> float:
     return round(float(x), 3)
 
 
-def lead_build(pair: dict[str, dict], defensive: dict | None) -> dict:
-    """The build the ficha puts first (build/static_ficha.py lead_build): the offensive one with the higher score, the
-    melee one on a tie, and the Fortaleza one for the species with no simulated offensive build."""
-    if not pair:
-        if defensive is None:
-            raise SystemExit("una especie sin ninguna build")
-        return defensive
-    if len(pair) == 1:
-        return next(iter(pair.values()))
-    melee, ranged = pair["melee"], pair["ranged"]
-    return ranged if ranged["score"] > melee["score"] else melee
-
-
 def base_records() -> dict[str, dict]:
     """Every fact except the rank drivers, keyed by dex as a string."""
     rows = ranking_rows()
@@ -99,10 +86,11 @@ def base_records() -> dict[str, dict]:
     for m in catalog.load_unranked():
         moves.setdefault(m["id"], m)
     cards_es = {k: v["title"] for k, v in json.loads((DATA / "card_icons.json").read_text(encoding="utf8")).items()}
-    combo = combos.compute_all({d: px[d]["types"] for d in dex_list}, {int(r["dex"]): r["best_move"] for r in rows})
     build_rows = builds.read_rows()
-    offensive, defensive, starts = builds.public(build_rows), builds.public_defensive(build_rows), builds.starts()
-    lead = {d: lead_build(offensive.get(str(d), {}), defensive.get(str(d))) for d in dex_list}
+    lead = builds.lead_builds(build_rows)
+    starts = builds.starts()
+    types = {d: px[d]["types"] for d in dex_list}
+    combo = combos.follow_builds(combos.compute_all(types, {int(r["dex"]): r["best_move"] for r in rows}), lead, types)
     psim = passives.load()
     items = objetos.recommended()
 

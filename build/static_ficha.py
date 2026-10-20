@@ -367,6 +367,19 @@ def _meter(label: str, v: int, cls: str) -> str:
             f'<strong>{v}&nbsp;%</strong></div>')
 
 
+def _cards_block(L: Lang, cards: dict, b: dict) -> str:
+    """Las cartas de una build por prioridad, con la que evoluciona el ataque marcada."""
+    card_ids, gate = b["cards"]
+    items = []
+    for i, cid in enumerate(card_ids, 1):
+        once = f' <small class="bd-gate" title="{esc(L.t("build_card_once"))}">1×</small>' if cid == gate else ""
+        items.append(f'<li class="{"is-gate" if cid == gate else ""}"><span class="bd-n">{i}</span>'
+                     f'<span class="bd-nm">{esc(_card_name(L, cards[cid]))}</span>{once}</li>')
+    return (f'<p class="bd-cap">{esc(L.t("build_cards"))}</p>'
+            f'<ol class="bd-cardlist">{"".join(items)}</ol>'
+            + (f'<p class="bd-legend">{esc(L.t("build_card_once"))}</p>' if gate else ""))
+
+
 def _build_option(L: Lang, moves: dict[str, dict], cards: dict, kind: str, b: dict | None, other: dict | None,
                   win: str | None) -> str:
     """Una de las dos builds: veredicto, ataques en filas, estadísticas y las cartas en orden, todo a la vista."""
@@ -381,15 +394,7 @@ def _build_option(L: Lang, moves: dict[str, dict], cards: dict, kind: str, b: di
              f'<div><dt>{esc(L.t("bd_dealt"))}</dt><dd>{esc(L.num(b["dealt"]))}</dd></div>'
              f'<div><dt>{esc(L.t("bd_kills"))}</dt><dd>{esc(L.dec(b["kills"], 1))}</dd></div>'
              f'<div><dt>{esc(L.t("bd_score"))}</dt><dd>{esc(L.dec(b["score"], 1))}</dd></div></dl>')
-    card_ids, gate = b["cards"]
-    items = []
-    for i, cid in enumerate(card_ids, 1):
-        once = f' <small class="bd-gate" title="{esc(L.t("build_card_once"))}">1×</small>' if cid == gate else ""
-        items.append(f'<li class="{"is-gate" if cid == gate else ""}"><span class="bd-n">{i}</span>'
-                     f'<span class="bd-nm">{esc(_card_name(L, cards[cid]))}</span>{once}</li>')
-    cards_html = (f'<p class="bd-cap">{esc(L.t("build_cards"))}</p>'
-                  f'<ol class="bd-cardlist">{"".join(items)}</ol>'
-                  + (f'<p class="bd-legend">{esc(L.t("build_card_once"))}</p>' if gate else ""))
+    cards_html = _cards_block(L, cards, b)
     note = f'<p class="bd-note">{esc(L.t("bd_melee_note"))}</p>' if kind == "melee" else ""
     best = " is-best" if win == kind and other else ""
     return (f'<article class="bd-opt{best}" data-build="{kind}">{head}'
@@ -411,8 +416,9 @@ def _vs_table(L: Lang, d: dict, off: dict | None) -> str:
     return f'<table class="bd-vs"><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table>'
 
 
-def _defensive(L: Lang, moves: dict[str, dict], d: dict | None, off: dict | None) -> str:
-    """La variante con Fortaleza: sus ataques y, si hay build ofensiva, la comparación con ella."""
+def _defensive(L: Lang, moves: dict[str, dict], cards: dict, d: dict | None, off: dict | None) -> str:
+    """La variante con Fortaleza: sus ataques y, si hay build ofensiva, la comparación con ella. Sin ninguna ofensiva
+    es la build de la especie, así que lleva también sus cartas."""
     if not d:
         return ""
     ids, nb = d["moves"], int(d["nBoost"])
@@ -422,7 +428,8 @@ def _defensive(L: Lang, moves: dict[str, dict], d: dict | None, off: dict | None
     return (f'<section class="bd-def" data-build="defensive" aria-labelledby="bd-def-h">'
             f'<h3 class="bd-cap" id="bd-def-h">{esc(L.t("bd_def_h"))}</h3>'
             f'<p class="bd-def-lede">{esc(L.t("bd_def_lede"))}</p>'
-            f'<ol class="bd-rows">{rows}</ol>{_vs_table(L, d, off)}{verdict_html}</section>')
+            f'<ol class="bd-rows">{rows}</ol>{_vs_table(L, d, off)}{verdict_html}'
+            f'{"" if off else _cards_block(L, cards, d)}</section>')
 
 
 def _start_block(L: Lang, moves: dict[str, dict], start: str, default: str) -> str:
@@ -483,7 +490,7 @@ def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, detail: list,
     legendary = f'<span class="chip">{esc(L.t("legendary"))}</span>' if entry["legendary"] else ""
     region = regions.badge(L, sprites, entry["bannerId"], banner, {}, small=True)
     start_block = _start_block(L, moves, start, detail[2])
-    defense_html = _defensive(L, moves, defensive, pair[_lead(pair)] if pair else None)
+    defense_html = _defensive(L, moves, cards, defensive, pair[_lead(pair)] if pair else None)
     super_pct, neutral_pct = detail[9][0], detail[9][1]
     options = [
         _build_option(L, moves, cards, kind, pair.get(kind), pair.get(BUILD_OTHER_KIND[kind]), win)

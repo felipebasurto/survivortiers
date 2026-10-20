@@ -32,7 +32,7 @@ from urllib.parse import parse_qs, urldefrag, urljoin, urlparse
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 import agents  # noqa: E402
-import combos  # noqa: E402
+import builds  # noqa: E402
 import indexnow  # noqa: E402
 import landing  # noqa: E402
 import legal  # noqa: E402
@@ -364,11 +364,12 @@ def browser_check(base: str, index: list[dict], args, err, notes: list[str]) -> 
     by_dex = {p["dex"]: p for p in index}
     dexes = sorted(by_dex)
     rng = random.Random(7)
-    sample = dexes if args.all_species else sorted(set(rng.sample(dexes, min(args.species, len(dexes)))) | {dexes[0], dexes[-1]} | ({94, 354} & set(dexes)))
+    sample = dexes if args.all_species else sorted(set(rng.sample(dexes, min(args.species, len(dexes)))) | {dexes[0], dexes[-1]} | ({94, 354, 822, 926, 1013} & set(dexes)))
     with (ROOT / "data" / "builds.csv").open(encoding="utf8", newline="") as f:
         build_kinds: dict[int, set[str]] = {}
         for row in csv.DictReader(f):
             build_kinds.setdefault(int(row["dex"]), set()).add(row["build"])
+    defensive_kind = "defensive"
     drawn = 0
     with sync_playwright() as pw:
         browser = launch_chromium(pw)
@@ -399,8 +400,12 @@ def browser_check(base: str, index: list[dict], args, err, notes: list[str]) -> 
                     h1: document.querySelector('h1').firstChild.textContent.trim(),
                     img: document.querySelector('.ficha-sprite img').naturalWidth,
                     src: document.querySelector('.ficha-sprite img').src,
-                    build: { starts: [...document.querySelectorAll('#build .bd-opt')].map(o => [...o.querySelectorAll('.bd-row')].map(r => r.classList.contains('is-start'))),
-                             pills: document.querySelectorAll('#build .bd-opt .bd-pill.is-gold').length,
+                    build: { starts: [...document.querySelectorAll('#build .bd-opt .bd-row.is-start')].length,
+                             startRows: document.querySelectorAll('#build .bd-start .bd-row.is-start').length,
+                             pills: document.querySelectorAll('#build .bd-pill.is-gold').length,
+                             defense: document.querySelectorAll('#build .bd-def').length,
+                             defenseRows: [...document.querySelectorAll('#build .bd-def .bd-rows')].map(u => u.children.length),
+                             defenseTable: document.querySelectorAll('#build .bd-def table.bd-vs').length,
                              defaultNotes: document.querySelectorAll('#build p.bd-default').length,
                              options: document.querySelectorAll('#build .bd-opt').length,
                              pairCap: document.querySelectorAll('#build > .bd-card > p.bd-cap').length,
@@ -410,7 +415,7 @@ def browser_check(base: str, index: list[dict], args, err, notes: list[str]) -> 
                              rows: [...document.querySelectorAll('#build .bd-opt .bd-rows')].map(u => u.children.length),
                              stats: document.querySelectorAll('#build .bd-opt .bd-stats dd').length,
                              notes: document.querySelectorAll('#build .bd-opt[data-build=melee] .bd-note').length,
-                             cards: [...document.querySelectorAll('#build .bd-opt .bd-cardlist')].map(o => [...o.querySelectorAll('.bd-n')].map(n => n.textContent.trim())),
+                             cards: [...document.querySelectorAll('#build .bd-cardlist')].map(o => [...o.querySelectorAll('.bd-n')].map(n => n.textContent.trim())),
                              items: document.querySelectorAll('#build .bd-gear .bd-row').length,
                              icons: [...document.querySelectorAll('#build .bd-gear .bd-ico img')].every(i => i.complete && i.naturalWidth > 0),
                              expands: document.querySelectorAll('#build details').length,
@@ -426,18 +431,23 @@ def browser_check(base: str, index: list[dict], args, err, notes: list[str]) -> 
                     err(f"{lang}pokemon/?id={d}: {len(info['alts'])} gráficos con texto alternativo (se esperaban 5 de 20+ letras)")
                 b = info["build"]
                 want_cards = [str(i) for i in range(1, 9)]
-                kinds = build_kinds.get(d, set())
+                all_kinds = build_kinds.get(d, set())
+                kinds = all_kinds - {defensive_kind}
+                has_defense = defensive_kind in all_kinds
                 if b["title"] != "Build" or b["best"] > 1 or sorted(info["buildKinds"]) != sorted(kinds) \
                         or b["options"] != len(kinds) or len(b["rows"]) != len(kinds):
                     err(f"{lang}pokemon/?id={d}: la sección Build no tiene las builds de sus datos {sorted(kinds)} ({b})")
                 if b["pairCap"] != (1 if len(kinds) > 1 else 0) or b["single"] != (1 if len(kinds) == 1 else 0) \
                         or b["empties"]:
                     err(f"{lang}pokemon/?id={d}: la rejilla de builds deja titulo, columna o hueco vacío ({b})")
-                if b["defaultNotes"] != 1 or b["pills"] != len(kinds) or any(r[:1] != [True] or any(r[1:]) for r in b["starts"]):
-                    err(f"{lang}pokemon/?id={d}: cada build debe llevar solo su primer ataque marcado como el de empezar, y una sola nota de serie ({b})")
-                if any(not 2 <= n <= 4 for n in b["rows"]) or b["stats"] != 4 * len(b["rows"]):
-                    err(f"{lang}pokemon/?id={d}: una build sin 2 a 4 ataques o sin sus cuatro cifras ({b})")
-                if any(c != want_cards for c in b["cards"]) or len(b["cards"]) != len(b["rows"]):
+                if b["defaultNotes"] != 1 or b["pills"] != 1 or b["startRows"] != 1 or b["starts"]:
+                    err(f"{lang}pokemon/?id={d}: el ataque de empezar sale una sola vez, en dorado y fuera de las builds, con una sola nota de serie ({b})")
+                if b["defense"] != (1 if has_defense else 0) or len(b["defenseRows"]) != b["defense"] \
+                        or b["defenseTable"] != b["defense"] or any(not 2 <= n <= 4 for n in b["defenseRows"]):
+                    err(f"{lang}pokemon/?id={d}: la variante defensiva no sale o sobra según sus datos ({b})")
+                if any(n != 4 for n in b["rows"]) or b["stats"] != 4 * len(b["rows"]):
+                    err(f"{lang}pokemon/?id={d}: una build ofensiva sin sus tres ataques y potenciador o sin sus cuatro cifras ({b})")
+                if any(c != want_cards for c in b["cards"]) or len(b["cards"]) != (len(kinds) or int(has_defense)):
                     err(f"{lang}pokemon/?id={d}: las cartas por prioridad no salen 1 a 8 en cada build ({b['cards']})")
                 if b["notes"] != (1 if "melee" in info["buildKinds"] else 0):
                     err(f"{lang}pokemon/?id={d}: la nota de cuerpo a cuerpo no aparece o sobra ({b['notes']})")
@@ -618,17 +628,13 @@ def main() -> int:
         err("data/species.json, data/moves.json o data/moves_unranked.json no se pueden leer")
         species, moves, unranked = {}, [], []
     move_ids = {m["id"] for m in moves} | {m["id"] for m in unranked}
-    # The bonded attacks are the simulated best move, unless the fixed-group search
-    # (simulator/results/fixed_group/group_search.csv) picked a longer-lasting group.
-    search_picks = combos._search_picks()
+    # d[9] is the build the sheet shows first (build/builds.py lead_builds), so its attacks are that build's.
+    lead = {dex: [m for m in b["moves"][:len(b["moves"]) - b["nBoost"]]] for dex, b in builds.lead_builds(builds.read_rows()).items()}
 
     def group_matches(dex: int, entry: list) -> bool:
         n_boost = entry[9][5]
         attacks = entry[9][2][: len(entry[9][2]) - n_boost]
-        picked = search_picks.get(dex)
-        if picked is None:
-            return bool(attacks) and attacks[0] == entry[4]
-        return attacks == picked[0]
+        return attacks == lead.get(dex, attacks) and bool(attacks)
 
     for d in dexes:
         e = species.get(str(d))

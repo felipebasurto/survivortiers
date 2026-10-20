@@ -294,6 +294,22 @@ def public_defensive(rows: list[dict]) -> dict[str, dict]:
     return out
 
 
+def lead_builds(rows: list[dict]) -> dict[int, dict]:
+    """dex -> la build que encabeza la ficha: la ofensiva de mayor puntuación (la cuerpo a cuerpo si empatan) o, sin
+    ninguna ofensiva, la defensiva. Es la misma elección que build/static_ficha.py lead_build."""
+    offensive, defensive = public(rows), public_defensive(rows)
+    out = {}
+    for dex in sorted(set(offensive) | set(defensive), key=int):
+        pair = offensive.get(dex)
+        if not pair:
+            out[int(dex)] = defensive[dex]
+        elif len(pair) == 1:
+            out[int(dex)] = next(iter(pair.values()))
+        else:
+            out[int(dex)] = pair["ranged"] if pair["ranged"]["score"] > pair["melee"]["score"] else pair["melee"]
+    return out
+
+
 def seed_counts() -> dict[str, int]:
     """Cuántas builds ofensivas publicadas salen de filas de 16 semillas (`n16`) y cuántas hay (`n`)."""
     offensive = [r for r in read_rows() if r["build"] in BUILDS]

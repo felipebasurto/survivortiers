@@ -343,6 +343,20 @@
       (pill ? '<span class="bd-pill' + (pill.gold ? ' is-gold' : '') + '">' + esc(pill.text) + '</span>' : '') + '</li>';
   }
 
+  function cardsBlock(b, cards) {
+    const [cardIds, gateId] = b.cards;
+    const cardItems = cardIds.map((id, i) => {
+      const m = cards[id];
+      if (!m) return '';
+      const gate = id === gateId;
+      return '<li class="' + (gate ? 'is-gate' : '') + '"><span class="bd-n">' + (i + 1) + '</span>' +
+        '<span class="bd-nm">' + esc(EN ? m.en.name : m.name) + '</span>' +
+        (gate ? '<b class="bd-gate" title="' + esc(t('build_card_once')) + '">1×</b>' : '') + '</li>';
+    }).join('');
+    return '<p class="bd-cap">' + esc(t('build_cards')) + '</p><ol class="bd-cardlist">' + cardItems + '</ol>' +
+      (gateId ? '<p class="bd-legend">' + esc(t('build_card_once')) + '</p>' : '');
+  }
+
   function buildOption(kind, b, other, moves, cards, win) {
     if (!b) return '';
     const head = '<h3 class="bd-kind">' + comboHtml(buildDamage(moves, b.moves), kind) + '</h3>';
@@ -356,17 +370,7 @@
       '<div><dt>' + esc(t('bd_dealt')) + '</dt><dd>' + numText(b.dealt) + '</dd></div>' +
       '<div><dt>' + esc(t('bd_kills')) + '</dt><dd>' + decText(b.kills, 1) + '</dd></div>' +
       '<div><dt>' + esc(t('bd_score')) + '</dt><dd>' + decText(b.score, 1) + '</dd></div></dl>';
-    const [cardIds, gateId] = b.cards;
-    const cardItems = cardIds.map((id, i) => {
-      const m = cards[id];
-      if (!m) return '';
-      const gate = id === gateId;
-      return '<li class="' + (gate ? 'is-gate' : '') + '"><span class="bd-n">' + (i + 1) + '</span>' +
-        '<span class="bd-nm">' + esc(EN ? m.en.name : m.name) + '</span>' +
-        (gate ? '<b class="bd-gate" title="' + esc(t('build_card_once')) + '">1×</b>' : '') + '</li>';
-    }).join('');
-    const cardsHtml = '<p class="bd-cap">' + esc(t('build_cards')) + '</p><ol class="bd-cardlist">' + cardItems + '</ol>' +
-      (gateId ? '<p class="bd-legend">' + esc(t('build_card_once')) + '</p>' : '');
+    const cardsHtml = cardsBlock(b, cards);
     const note = kind === 'melee' ? '<p class="bd-note">' + esc(t('bd_melee_note')) + '</p>' : '';
     return '<article class="bd-opt' + (win === kind && other ? ' is-best' : '') + '" data-build="' + kind + '">' + head +
       verdict(kind, b, other, win) + '<ol class="bd-rows">' + rows + '</ol>' + stats + cardsHtml + note + '</article>';
@@ -386,7 +390,7 @@
     return t('bd_def_verdict', { time: when, dmg });
   }
 
-  function defensiveHtml(df, off, moves) {
+  function defensiveHtml(df, off, moves, cards) {
     if (!df) return '';
     const ids = df.moves, nb = df.nBoost;
     const rows = ids.map((id, i) => {
@@ -402,7 +406,7 @@
     return '<section class="bd-def" data-build="defensive" aria-labelledby="bd-def-h"><h3 class="bd-cap" id="bd-def-h">' + esc(t('bd_def_h')) + '</h3>' +
       '<p class="bd-def-lede">' + esc(t('bd_def_lede')) + '</p><ol class="bd-rows">' + rows + '</ol>' +
       '<table class="bd-vs"><thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody></table>' +
-      (verdict ? '<p class="bd-verdict">' + esc(verdict) + '</p>' : '') + '</section>';
+      (verdict ? '<p class="bd-verdict">' + esc(verdict) + '</p>' : '') + (off ? '' : cardsBlock(df, cards)) + '</section>';
   }
 
   function build(p, d, moves, items, name, scale, cards, pair, defensive, startId) {
@@ -415,7 +419,7 @@
     const defaultNote = dflt ? '<p class="bd-default">' + esc(dflt.id === startId ? t('build_default_same')
       : t('build_default_start', { move: EN ? dflt.en.name : dflt.name })) + '</p>' : '';
     const startBlock = start ? '<div class="bd-block bd-start"><ul class="bd-rows">' + moveRow(start, '', null, false, true) + '</ul>' + defaultNote + '</div>' : '';
-    const defense = defensiveHtml(defensive, leadOf(pair, win), moves);
+    const defense = defensiveHtml(defensive, leadOf(pair, win), moves, cards);
     const options = BUILD_KINDS.map(kind => buildOption(kind, pair[kind], pair[BUILD_KINDS.find(k => k !== kind)], moves, cards, win)).filter(Boolean);
     const itemRows = items.map((m, i) => moveRow(m, '', i === 0 ? { text: t('build_best_item'), gold: true } : null)).join('');
     return '<section class="fig anim fig-build" id="build" aria-labelledby="bd-h"><div class="bd-card" style="' + typeVars(p) + '">' +

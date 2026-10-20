@@ -849,7 +849,7 @@ def main() -> int:
             prev = ordered[i - 1] if i else None
             nxt = ordered[i + 1] if i + 1 < len(ordered) else None
             detail = species["d"][str(entry["dex"])]
-            pair = species["builds"][str(entry["dex"])]
+            pair = species["builds"].get(str(entry["dex"]), {})
             defensive = species["defensive"].get(str(entry["dex"]))
             start = species["starts"][str(entry["dex"])]
             rel = f"pokemon/{species_path(entry['dex'], entry['nameEn'])}/index.html"
