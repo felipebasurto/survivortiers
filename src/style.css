@@ -21,7 +21,7 @@
   --ink-2: #3d5585;
   --rule: #8aa6d6;
   --rule-soft: #dbe6fb;
-  --grid: transparent;
+  --grid: rgba(11, 24, 56, .07);
   --accent: #2c519f;
   --on-accent: #ffffff;
   --gold: #ffd23f;
@@ -54,7 +54,7 @@
 }
 /* Tokens oscuros (la paleta del juego): con el tema elegido a mano (data-theme) o, sin elección, con el sistema en oscuro. */
 :root[data-theme="dark"] {
-  --bg: #14265a; --ink: #ffffff; --ink-2: #c3d4f5; --rule: #3d63b5; --rule-soft: #1f3c7a; --grid: transparent;
+  --bg: #14265a; --ink: #ffffff; --ink-2: #c3d4f5; --rule: #3d63b5; --rule-soft: #1f3c7a; --grid: rgba(238, 244, 255, .07);
   --accent: #ffd23f; --on-accent: #3a2300; --gold: #ffd23f; --gold-2: #f0a31e; --gold-ink: #3a2300; --link: #8fb8ff;
   --tb-A: #ffffff; --tb-B: #b9cbf0; --tb-C: #7f94bd;
   --up: #5fe08a; --down: #ff8a8a;
@@ -69,7 +69,7 @@
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #14265a; --ink: #ffffff; --ink-2: #c3d4f5; --rule: #3d63b5; --rule-soft: #1f3c7a; --grid: transparent;
+    --bg: #14265a; --ink: #ffffff; --ink-2: #c3d4f5; --rule: #3d63b5; --rule-soft: #1f3c7a; --grid: rgba(238, 244, 255, .07);
     --accent: #ffd23f; --on-accent: #3a2300; --gold: #ffd23f; --gold-2: #f0a31e; --gold-ink: #3a2300; --link: #8fb8ff;
     --tb-A: #ffffff; --tb-B: #b9cbf0; --tb-C: #7f94bd;
     --arena-bg: #0a1430; --arena-wall: #2c519f; --arena-water: #2c5a96; --arena-enemy: #ff7b3d;
@@ -88,6 +88,8 @@
 html { -webkit-text-size-adjust: 100%; }
 body {
   margin: 0; background-color: var(--bg); color: var(--ink); font: 1.0625rem/1.6 var(--sans);
+  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 40px 40px;
   font-variant-numeric: tabular-nums lining-nums;
   min-height: 100vh; display: flex; flex-direction: column;
 }
