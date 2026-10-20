@@ -395,7 +395,7 @@ def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, detail: list,
 <section class="fig fig-build" id="build" aria-labelledby="bd-h">
 <div class="bd-card" style="--p1:{tc};--p2:{tc2}">
 <header class="bd-head"><div><h2 id="bd-h">{esc(L.t("t_build"))}</h2><span class="bd-who">{esc(name)}</span></div></header>
-<div class="bd-block bd-start"><h3 class="bd-cap">{esc(L.t("build_start"))}</h3><ul class="bd-rows">{start_row}</ul></div>
+<div class="bd-block bd-start"><h3 class="bd-cap">{esc(L.t("build_start"))}</h3><ul class="bd-rows">{start_row}</ul><p class="bd-note">{esc(L.t("build_start_note"))}</p></div>
 <p class="bd-cap">{esc(L.t("bd_pair_cap"))}</p>
 <div class="bd-pair">{options}</div>
 <div class="bd-cover">{_meter(L.t("build_super"), int(super_pct), "bd-super")}{_meter(L.t("build_neutral"), int(neutral_pct), "bd-neutral")}</div>
