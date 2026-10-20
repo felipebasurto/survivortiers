@@ -345,8 +345,8 @@ def render_index(c: Ctx, pokemon: list[dict], meta: dict) -> str:
 FICHA_KEYS = (
     "crumb_home", "legendary", "stars_alt", "sprite_alt", "ficha_title", "ficha_desc", "flag_status", "flag_melee",
     "pager_aria", "dex_no", "tier", "f_missing", "t_band", "t_pillars", "t_methods", "t_sim",
-    "band_rank", "band_range", "band_alt", "t_learn", "learn_start", "learn_boosts", "t_build", "build_start", "build_best", "build_boost", "build_alt", "build_items", "build_cards", "build_card_hint", "build_card_n", "build_card_once", "build_card_more", "build_super", "build_neutral",
-    "build_share", "build_copied", "build_slot", "build_brand", "build_group", "build_best_item", "build_more",
+    "band_rank", "band_range", "band_alt", "t_learn", "learn_boosts", "t_build", "build_items", "build_cards", "build_card_once", "build_card_more",
+    "build_share", "build_copied", "build_brand", "build_best_item",
     "t_rank", "rank_how", "ficha_rank", "pill_stats", "pill_moves", "pill_typedef", "pill_size", "pillars_alt_item",
     "median", "m_sheet", "m_simStart", "m_simBest", "m_lateMax", "m_lateFresh", "methods_final", "methods_alt",
     "methods_alt_item", "sim_start", "sim_best", "sim_median", "sim_alt", "sim_gain", "sim_noshop",
@@ -354,6 +354,8 @@ FICHA_KEYS = (
     "bs_total", "bs_alt_item", "bs_s_hp", "bs_s_atk", "bs_s_def", "bs_s_spa", "bs_s_spd", "bs_s_spe",
     "sheet_title", "sheet_desc", "fh_game", "fresh", "t_combat", "cb_pa", "cb_sa", "cb_df", "cb_sd", "cb_kind_phys",
     "cb_kind_spec", "cb_kind_mix", "cb_note", "cb_src",
+    "bd_pair_cap", "bd_melee", "bd_ranged", "bd_time", "bd_dealt", "bd_kills", "bd_score", "bd_best", "bd_tie",
+    "bd_gap_small", "bd_gap", "bd_other_melee", "bd_other_ranged", "bd_none_melee", "bd_none_ranged", "bd_melee_note",
     "dmg_physical", "dmg_special", "dmg_status", "dmg_tip_physical", "dmg_tip_special", "dmg_tip_status",
     "mv_new") + tuple(k for k in STR if k.startswith("mv_kind_"))
 
@@ -404,11 +406,11 @@ def render_ficha(c: Ctx, index: list[dict], meta: dict) -> str:
                 L.t("tpl_desc", game=legal.GAME_NAME, n=meta["total"]), content, meta, canonical=home)
 
 
-def render_species(c: Ctx, entry: dict, detail: list, moves: dict, prev: dict | None, nxt: dict | None,
+def render_species(c: Ctx, entry: dict, pair: dict, moves: dict, prev: dict | None, nxt: dict | None,
                    odds: tuple[float, int], cards: dict, before: str, after: str, meta: dict, summary: str) -> str:
     L = c.L
-    title, desc = static_ficha.head_texts(L, entry, detail, moves, charts.TOTAL)
-    html, ld = static_ficha.build(L, c.home, SPRITES, EXT, entry, detail, moves, prev, nxt, odds, cards,
+    title, desc = static_ficha.head_texts(L, entry, pair, moves, charts.TOTAL)
+    html, ld = static_ficha.build(L, c.home, SPRITES, EXT, entry, pair, moves, cards, prev, nxt, odds,
                                   summary=summary, fresh=legal.freshness_text(L, meta),
                                   guides=landing.guides_nav(L, c.home, types=entry["types"]),
                                   updated=meta["generatedAt"][:10], url=page_url(c), title=title)
@@ -716,6 +718,10 @@ def render_metodo(c: Ctx, index: list[dict], meta: dict) -> str:
 {charts.ribbon(L, index)}
 {charts.stability(L, meta["stability"])}
 {charts.tier_strip(L, meta["tierCuts"])}
+<h2>{esc(L.t("met_builds_h"))}</h2>
+<p>{esc(L.t("met_builds_1"))}</p>
+<p>{esc(L.t("met_builds_2"))}</p>
+<p>{esc(L.t("met_builds_3"))}</p>
 <h2>{esc(L.t("met_limits_h"))}</h2>
 <ul class="plain limits">{limits}</ul>
 """
@@ -828,10 +834,10 @@ def main() -> int:
         for i, entry in enumerate(ordered):
             prev = ordered[i - 1] if i else None
             nxt = ordered[i + 1] if i + 1 < len(ordered) else None
-            detail = species["d"][str(entry["dex"])]
+            pair = species["builds"][str(entry["dex"])]
             rel = f"pokemon/{species_path(entry['dex'], entry['nameEn'])}/index.html"
             summary = static_ficha.summary_plain(summaries[L.code][str(entry["dex"])])
-            put(rel, lambda c, e=entry, d=detail, pv=prev, nx=nxt, b=before, a=after, s=summary:
+            put(rel, lambda c, e=entry, d=pair, pv=prev, nx=nxt, b=before, a=after, s=summary:
                 render_species(c, e, d, moves_by, pv, nx, odds[e["dex"]], species["cards"], b, a, meta, s))
     write("data/game-stats.json", json.dumps(gamestats.site_json(), ensure_ascii=False, separators=(",", ":")) + "\n")
     write("404.html", render_404(meta))

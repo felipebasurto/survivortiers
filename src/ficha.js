@@ -263,13 +263,12 @@
     return bits ? '<span class="bd-tags">' + bits + '</span>' : '';
   };
   const learnPool = (p, moves) => moves.filter(m => m.type === 'normal' || p.types.includes(m.type));
-  function learn(p, d, moves) {
+  function learn(p, pair, moves) {
     const pool = learnPool(p, moves);
-    const group = new Set(d[9][2]);
-    const chips = ms => ms.map(m => '<li class="lt-move' + (m.id === d[2] ? ' start' : '') + (group.has(m.id) ? ' in-build' : '') +
+    const inBuild = new Set(BUILD_KINDS.flatMap(k => pair[k] ? pair[k].moves : []));
+    const chips = ms => ms.map(m => '<li class="lt-move' + (inBuild.has(m.id) ? ' in-build' : '') +
       '" style="--tc:' + (TYPE_COLOR[m.type] || ITEM_COLOR) + '"><img class="lt-ico" src="' + iconUrl(m) +
-      '" alt="" width="32" height="32">' + esc(EN ? m.en.name : m.name) + moveTags(m, m.id === d[2] || group.has(m.id)) +
-      (m.id === d[2] ? ' <em>' + esc(t('learn_start')) + '</em>' : '') + '</li>').join('');
+      '" alt="" width="32" height="32">' + esc(EN ? m.en.name : m.name) + moveTags(m, inBuild.has(m.id)) + '</li>').join('');
     const rows = LEARN_TIERS.map(tier => {
       const ms = pool.filter(m => m.tier === tier).sort((a, b) => b.score - a.score);
       if (!ms.length) return '';
@@ -282,10 +281,6 @@
     return rows.join('');
   }
 
-  // Build recomendada (build/combos.py): inicio, grupo fijo (el que más aguanta en la búsqueda, o el mejor ataque
-  // simulado si no hay búsqueda) y sus potenciadores,
-  // opcionales para los huecos que se abren más tarde y los objetos de la tier list. Una tarjeta oscura que se lee sola
-  // en una captura: lleva el sprite, el nombre y la marca del sitio.
   const ITEM_COLOR = '#f2ecd8';
   function tile(m, cls, badge, i, withShape) {
     const color = TYPE_COLOR[m.type] || ITEM_COLOR;
@@ -296,12 +291,6 @@
   }
   const badgeOf = (kind, label) => '<b class="bd-badge" title="' + esc(label) + '" aria-label="' + esc(label) + '">' +
     (kind === 'crown' || kind === 'sparkle' ? '<i class="ico ico-' + kind + '" aria-hidden="true"></i>' : kind) + '</b>';
-  const meter = (label, v, cls) => '<div class="bd-meter ' + cls + '"><span>' + esc(label) + '</span>' +
-    '<i class="bd-track" role="img" aria-label="' + v + ' %"><b style="width:' + v + '%"></b></i><strong>' + v + '&nbsp;%</strong></div>';
-
-  // Dos eslabones de cadena en píxeles: el grupo de cuatro se lanza junto, vinculado.
-  const LINK_SVG = '<svg class="bd-link" viewBox="0 0 14 8" width="21" height="12" aria-hidden="true" focusable="false" shape-rendering="crispEdges">' +
-    '<path fill="currentColor" d="M1 1h5v1H1zM0 2h1v4H0zM1 6h5v1H1zM8 1h5v1H8zM13 2h1v4h-1zM8 6h5v1H8zM4 3h6v2H4z"/></svg>';
   const SHARE_SVG = '<svg viewBox="0 0 12 12" width="20" height="20" aria-hidden="true" focusable="false" shape-rendering="crispEdges">' +
     '<path d="M4 6l4-4M4 6l4 4" stroke="currentColor" stroke-width="1.4" fill="none"/>' +
     '<path fill="currentColor" d="M8 0h4v4H8zM0 4h4v4H0zM8 8h4v4H8z"/></svg>';
@@ -309,54 +298,77 @@
   const capOf = (key, extra) => '<span class="bd-cap">' + (extra || '') + esc(t(key)) + '</span>';
   const group = (key, list, cls, icon) => list ? '<div class="bd-group ' + cls + '-g">' + capOf(key, icon) + '<ul class="bd-small ' + cls + '">' + list + '</ul></div>' : '';
 
-  // Lo que un jugador mira primero: con qué empieza, el grupo vinculado de cuatro, el objeto y qué cartas coger.
-  // Los opcionales y la cobertura de tipos quedan plegados en «Más».
-  function build(p, d, moves, items, name, scale, cards) {
-    const [superPct, neutralPct, ids, , altIds, nBoost = 1] = d[9];
-    const find = id => moves.find(m => m.id === id);
-    const slots = ids.map(find).filter(Boolean);
-    const attacks = slots.slice(0, slots.length - nBoost), boosts = slots.slice(slots.length - nBoost);
-    const start = find(d[2]);
-    const alts = altIds.map(find).filter(Boolean);
-    // La corona es el mejor ataque de la simulación (d[4]). Si la búsqueda pone otro ataque delante, ese hueco va numerado.
-    const attackTiles = attacks.map((m, i) => {
-      const crowned = m.id === d[4];
-      return tile(m, '', badgeOf(crowned ? 'crown' : String(i + 1), crowned ? t('build_best') : t('build_slot', { n: i + 1 })), i, true);
+  // Dos builds de la simulación, la mejor de cuerpo a cuerpo y la mejor a distancia (species.builds, build/builds.py).
+  // Una build sin ataques que le valgan no sale. La de mayor puntuación lleva la marca; la otra dice cuánto le falta.
+  const BUILD_KINDS = ['melee', 'ranged'];
+  const BUILD_NAME = { melee: 'bd_melee', ranged: 'bd_ranged' };
+  const BUILD_NONE = { melee: 'bd_none_melee', ranged: 'bd_none_ranged' };
+  const BUILD_OTHER = { melee: 'bd_other_ranged', ranged: 'bd_other_melee' };
+  const GAP_SMALL_PCT = 5;
+  const numText = n => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, EN ? ',' : '.');
+  const decText = (x, d) => { const s = x.toFixed(d); return EN ? s : s.replace('.', ','); };
+  const pctText = v => Math.round(v) + (EN ? '%' : '\u00a0%');
+  const gapPct = (high, low) => high > 0 ? Math.round((high - low) / high * 100) : 0;
+  const winnerOf = pair => {
+    const have = BUILD_KINDS.filter(k => pair[k]);
+    if (have.length < 2) return have[0] || null;
+    if (pair.melee.score === pair.ranged.score) return null;
+    return pair.melee.score > pair.ranged.score ? 'melee' : 'ranged';
+  };
+
+  function verdict(kind, b, other, win) {
+    if (!other) return '';
+    if (win === kind) return '<p class="bd-verdict is-best">' + esc(t('bd_best')) + '</p>';
+    const gap = win === null ? 0 : gapPct(other.score, b.score);
+    if (gap === 0) return '<p class="bd-verdict">' + esc(t('bd_tie')) + '</p>';
+    const key = gap < GAP_SMALL_PCT ? 'bd_gap_small' : 'bd_gap';
+    return '<p class="bd-verdict">' + esc(t(key, { pct: pctText(gap), other: t(BUILD_OTHER[kind]) })) + '</p>';
+  }
+
+  function buildOption(kind, b, other, moves, cards, win) {
+    const head = '<h3 class="bd-kind">' + esc(t(BUILD_NAME[kind])) + '</h3>';
+    if (!b) return '<article class="bd-opt is-none" data-build="' + kind + '">' + head +
+      '<p class="bd-none">' + esc(t(BUILD_NONE[kind])) + '</p></article>';
+    const ids = b.moves, nb = b.nBoost;
+    const boostSet = new Set(nb ? ids.slice(ids.length - nb) : []);
+    const chips = ids.map(id => {
+      const m = moves.find(x => x.id === id);
+      const name = m ? (EN ? m.en.name : m.name) : id;
+      return '<li' + (boostSet.has(id) ? ' class="is-buff"' : '') + '>' + esc(name) + ' ' + (m ? moveTags(m, true) : '') + '</li>';
     }).join('');
-    const boostTile = boosts.map((b, i) => tile(b, ' bd-boost', badgeOf('sparkle', t('build_boost')), attacks.length + i, true)).join('');
-    const sprite = '<span class="bd-sprite" style="--tc:' + (TYPE_COLOR[p.types[0]] || '#888') +
-      '"><img class="px" src="' + sprites + p.dex + spriteExt + '" width="' + p.w * scale + '" height="' + p.h * scale + '" alt=""></span>';
-    const altTiles = alts.map((m, i) => tile(m, ' sm', '', i)).join('');
-    const itemTiles = items.map((m, i) => tile(m, ' sm item' + (i === 0 ? ' best' : ''), i === 0 ? badgeOf('crown', t('build_best_item')) : '', i)).join('');
-    // Cartas por prioridad (build/passives.py): las ocho del banco de monedas de esta especie, de mejor a peor. La que
-    // evoluciona el ataque principal (d[10][1]) hace falta una vez, esté donde esté en la lista.
-    const [cardIds, gateId] = d[10] || [[], null];
-    const cardTile = (id, i) => {
+    const stats = '<dl class="bd-stats">' +
+      '<div><dt>' + esc(t('bd_time')) + '</dt><dd>' + decText(b.time, 1) + ' s</dd></div>' +
+      '<div><dt>' + esc(t('bd_dealt')) + '</dt><dd>' + numText(b.dealt) + '</dd></div>' +
+      '<div><dt>' + esc(t('bd_kills')) + '</dt><dd>' + decText(b.kills, 1) + '</dd></div>' +
+      '<div><dt>' + esc(t('bd_score')) + '</dt><dd>' + decText(b.score, 1) + '</dd></div></dl>';
+    const [cardIds, gateId] = b.cards;
+    const cardItems = cardIds.map((id, i) => {
       const m = cards[id];
       if (!m) return '';
-      const gateMark = id === gateId ? '<b class="bd-once" title="' + esc(t('build_card_once')) + '">1×</b>' : '';
-      return tile(m, ' sm card' + (id === gateId ? ' evo' : ''), badgeOf(String(i + 1), t('build_card_n', { n: i + 1 })) + gateMark, i);
-    };
-    const cardTop = cardIds.slice(0, 4).map((id, i) => cardTile(id, i)).join('');
-    const cardMore = cardIds.slice(4).map((id, i) => cardTile(id, i + 4)).join('');
-    const cardRow = cardIds.length ? '<div class="bd-group bd-cards-g">' + capOf('build_cards') +
-      '<p class="bd-hint">' + esc(t('build_card_hint')) + '</p>' +
-      '<ul class="bd-small bd-cards">' + cardTop + '</ul>' +
-      (cardMore ? '<details class="bd-more"><summary>' + esc(t('build_card_more')) + '</summary><ul class="bd-small bd-cards">' + cardMore + '</ul></details>' : '') +
-      (gateId ? '<p class="bd-legend">' + esc(t('build_card_once')) + '</p>' : '') + '</div>' : '';
-    const extra = '<details class="bd-extra"><summary>' + esc(t('build_more')) + '</summary><div class="bd-extra-body">' +
-      group('build_alt', altTiles, 'bd-alts') +
-      '<div class="bd-meters">' + meter(t('build_super'), superPct, 'bd-super') + meter(t('build_neutral'), neutralPct, 'bd-neutral') + '</div>' +
-      '</div></details>';
+      const once = id === gateId ? ' <small class="bd-gate" title="' + esc(t('build_card_once')) + '">1×</small>' : '';
+      return '<li><b class="bd-n">' + (i + 1) + '</b>' + esc(EN ? m.en.name : m.name) + once + '</li>';
+    });
+    const cardsHtml = '<p class="bd-cap">' + esc(t('build_cards')) + '</p><ol class="bond bd-prio">' + cardItems.slice(0, 4).join('') + '</ol>' +
+      (cardItems.length > 4 ? '<details class="bd-more"><summary>' + esc(t('build_card_more')) + '</summary><ol class="bond bd-prio" start="5">' + cardItems.slice(4).join('') + '</ol></details>' : '') +
+      (gateId ? '<p class="bd-legend">' + esc(t('build_card_once')) + '</p>' : '');
+    const note = kind === 'melee' ? '<p class="bd-note">' + esc(t('bd_melee_note')) + '</p>' : '';
+    return '<article class="bd-opt' + (win === kind && other ? ' is-best' : '') + '" data-build="' + kind + '">' + head +
+      '<ul class="bond">' + chips + '</ul>' + stats + verdict(kind, b, other, win) + cardsHtml + note + '</article>';
+  }
+
+  function build(p, moves, items, name, scale, cards, pair) {
+    const win = winnerOf(pair);
+    const sprite = '<span class="bd-sprite" style="--tc:' + (TYPE_COLOR[p.types[0]] || '#888') +
+      '"><img class="px" src="' + sprites + p.dex + spriteExt + '" width="' + p.w * scale + '" height="' + p.h * scale + '" alt=""></span>';
+    const options = BUILD_KINDS.map(kind => buildOption(kind, pair[kind], pair[BUILD_KINDS.find(k => k !== kind)], moves, cards, win)).join('');
+    const itemTiles = items.map((m, i) => tile(m, ' sm item' + (i === 0 ? ' best' : ''), i === 0 ? badgeOf('crown', t('build_best_item')) : '', i)).join('');
     return '<section class="fig anim fig-build" id="build" aria-labelledby="bd-h"><div class="bd-card" style="' + typeVars(p) + '">' +
       '<header class="bd-head">' + sprite + '<div><h2 id="bd-h">' + esc(t('t_build')) + '</h2><span class="bd-who">' + esc(name) + '</span></div>' +
       '<button class="bd-share" type="button" aria-label="' + esc(t('build_share')) + '" title="' + esc(t('build_share')) + '">' + SHARE_SVG + '</button>' +
       '<span class="bd-toast" role="status" aria-live="polite"></span></header>' +
-      '<div class="bd-flow"><div class="bd-start">' + capOf('build_start') + '<ul>' +
-      (start ? tile(start, ' bd-startmove', '', 0, true) : '') + '</ul></div><i class="ico ico-arrow bd-arrow" aria-hidden="true"></i>' +
-      '<div class="bd-bond">' + capOf('build_group', LINK_SVG) + '<ol class="bd-slots">' + attackTiles + boostTile + '</ol></div></div>' +
-      '<div class="bd-gear">' + group('build_items', itemTiles, 'bd-items') + cardRow + '</div>' +
-      extra + '<p class="bd-brand">' + esc(t('build_brand')) + '</p></div></section>';
+      '<p class="bd-cap">' + esc(t('bd_pair_cap')) + '</p><div class="bd-pair">' + options + '</div>' +
+      '<div class="bd-gear">' + group('build_items', itemTiles, 'bd-items') + '</div>' +
+      '<p class="bd-brand">' + esc(t('build_brand')) + '</p></div></section>';
   }
 
   // Bloques plegables bajo la build: un icono, un título y un adelanto a la derecha; el detalle, al abrirlo.
@@ -499,17 +511,17 @@
     return '<nav class="pager" aria-label="' + esc(t('pager_aria')) + '">' + (prev ? link(prev, 'prev') : '<span></span>') + (next ? link(next, 'next') : '<span></span>') + '</nav>';
   }
 
-  function render(p, d, range, moveName, prev, next, moves, medians, items, cards, text) {
+  function render(p, d, range, moveName, prev, next, moves, medians, items, cards, pair, text) {
     const name = EN ? p.nameEn : p.name;
     const [rank, tier, lo, hi] = p.r;
     const back = '<a class="back" href="' + home + 'index.html"><b aria-hidden="true">‹</b>' + esc(t('crumb_home')) + '</a>';
     const stats = panel('stats', 'heart', t('t_base'), statSpark(d[8]), baseStats(d, medians, name));
-    const learnable = panel('moves', 'sword', t('t_learn'), '<b class="fx-n">' + learnPool(p, moves).length + '</b>', learn(p, d, moves));
+    const learnable = panel('moves', 'sword', t('t_learn'), '<b class="fx-n">' + learnPool(p, moves).length + '</b>', learn(p, pair, moves));
     const ranking = panel('ranking', 'trophy', t('t_rank'), flagIcons(d[7]),
       flagsHtml(d[7]) + rankBand(p, name) + pillars(d, name) + sim(d, range, moveName) + methods(p, d, name) +
       '<p class="fx-more"><a href="' + home + 'metodo.html">' + esc(t('rank_how')) + ' →</a></p>');
     root.innerHTML = back + hero(p, name, rank, tier, text ? summary(text, moves, items, cards, d[4]) : '') +
-      build(p, d, moves, items, name, Math.max(1, Math.min(4, Math.floor(56 / Math.max(p.w, p.h)))), cards) +
+      build(p, moves, items, name, Math.max(1, Math.min(4, Math.floor(56 / Math.max(p.w, p.h)))), cards, pair) +
       combat(p) +
       '<div class="fx-list">' + stats + learnable + ranking + '</div>' + pager(prev, next);
     if (!baked) {
@@ -567,6 +579,7 @@
     moves = moves.concat(unranked);
     const byId = new Map(moves.map(m => [m.id, m]));
     const moveName = mid => { const m = byId.get(mid); return m ? (EN ? m.en.name : m.name) : mid; };
-    render(index[i], d, species.sim, moveName, index[i - 1], index[i + 1], moves, species.statMedian, species.items, species.cards || {}, texts[id]);
+    const pairOf = (species.builds || {})[id] || {};
+    render(index[i], d, species.sim, moveName, index[i - 1], index[i + 1], moves, species.statMedian, species.items, species.cards || {}, { melee: pairOf.melee || null, ranged: pairOf.ranged || null }, texts[id]);
   }).catch(err => { root.textContent = err.message; });
 })();

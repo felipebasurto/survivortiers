@@ -87,11 +87,13 @@ struct Cfg {
     list: bool,
     /// Only these candidates (`dex|move` for sweep, `dex|group` for synergy), one per line in the file.
     only: Option<std::collections::HashSet<String>>,
+    /// synergy: run the `dex|group` lines of `--only` as given, not the generated groups.
+    explicit: bool,
     rest: Vec<String>,
 }
 
 fn parse(args: &[String]) -> Cfg {
-    let mut c = Cfg { seeds: 200, seconds: 900.0, bot: Bot::Repulse, cards: true, terrain: false, status: false, out: None, group: 0, dd: false, np: false, agi: false, xkinds: false, legacy: false, item: "none".into(), fill: vec![], buffs: None, atk_buff: None, comps: None, swap: false, crit: 0.0, full_cards: false, stop: 0, heal_below: 0.0, dodge: 0.0, locks: vec![], synergy: false, no_synergy: false, bot_set: false, seed0: 0, count: false, list: false, only: None, rest: vec![] };
+    let mut c = Cfg { seeds: 200, seconds: 900.0, bot: Bot::Repulse, cards: true, terrain: false, status: false, out: None, group: 0, dd: false, np: false, agi: false, xkinds: false, legacy: false, item: "none".into(), fill: vec![], buffs: None, atk_buff: None, comps: None, swap: false, crit: 0.0, full_cards: false, stop: 0, heal_below: 0.0, dodge: 0.0, locks: vec![], synergy: false, no_synergy: false, bot_set: false, seed0: 0, count: false, list: false, only: None, explicit: false, rest: vec![] };
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
@@ -104,6 +106,7 @@ fn parse(args: &[String]) -> Cfg {
                 c.seed0 = args[i].parse().expect("--seed0");
             }
             "--count" => c.count = true,
+            "--explicit" => c.explicit = true,
             "--list" => c.list = true,
             "--only" => {
                 i += 1;
@@ -1114,7 +1117,7 @@ fn with_mods(mon: &Mon, mods: &str) -> Mon {
 }
 
 fn cfg_clone(c: &Cfg) -> Box<Cfg> {
-    Box::new(Cfg { seeds: c.seeds, seconds: c.seconds, bot: c.bot, cards: c.cards, terrain: c.terrain, status: c.status, out: None, group: c.group, dd: c.dd, np: c.np, agi: c.agi, xkinds: c.xkinds, legacy: c.legacy, item: c.item.clone(), fill: c.fill.clone(), buffs: c.buffs, atk_buff: c.atk_buff, comps: c.comps.clone(), swap: c.swap, crit: c.crit, full_cards: c.full_cards, stop: c.stop, heal_below: c.heal_below, dodge: c.dodge, locks: c.locks.clone(), synergy: c.synergy, no_synergy: c.no_synergy, bot_set: c.bot_set, seed0: c.seed0, count: c.count, list: c.list, only: c.only.clone(), rest: vec![] })
+    Box::new(Cfg { seeds: c.seeds, seconds: c.seconds, bot: c.bot, cards: c.cards, terrain: c.terrain, status: c.status, out: None, group: c.group, dd: c.dd, np: c.np, agi: c.agi, xkinds: c.xkinds, legacy: c.legacy, item: c.item.clone(), fill: c.fill.clone(), buffs: c.buffs, atk_buff: c.atk_buff, comps: c.comps.clone(), swap: c.swap, crit: c.crit, full_cards: c.full_cards, stop: c.stop, heal_below: c.heal_below, dodge: c.dodge, locks: c.locks.clone(), synergy: c.synergy, no_synergy: c.no_synergy, bot_set: c.bot_set, seed0: c.seed0, count: c.count, list: c.list, only: c.only.clone(), explicit: c.explicit, rest: vec![] })
 }
 
 fn cmp_run(a: &Summary, b: &Summary) -> std::cmp::Ordering {
@@ -1139,9 +1142,69 @@ fn score_tail(s: &Summary) -> String {
     )
 }
 
+/// A group name as `group_name` writes it: attacks (start first), then the attack buff, then Harden or Agility.
+fn parse_group(data: &Data, group: &str) -> Option<(usize, Vec<usize>, Kit)> {
+    let mut atoms = Vec::new();
+    let mut atk = None;
+    let mut buffs = 0u8;
+    let mut agi = false;
+    for part in group.split('+') {
+        match part {
+            "swords-dance" => {
+                atk = Some(AtkBuff::Sd);
+                buffs |= 1;
+            }
+            "nasty-plot" => {
+                atk = Some(AtkBuff::Np);
+                buffs |= 1;
+            }
+            "dragon-dance" => {
+                atk = Some(AtkBuff::Dd);
+                buffs |= 1;
+            }
+            "harden" | "agility" => {
+                if buffs & 2 != 0 {
+                    return None;
+                }
+                buffs |= 2;
+                agi = part == "agility";
+            }
+            id => {
+                let ix = *data.move_ix.get(id)?;
+                if data.moves[ix].kind_name == "buff" {
+                    return None;
+                }
+                atoms.push(ix);
+            }
+        }
+    }
+    let start = *atoms.first()?;
+    let kit = Kit { buffs, atk: atk.unwrap_or(AtkBuff::Sd), agi };
+    Some((start, atoms[1..].to_vec(), kit))
+}
+
+fn explicit_jobs<'a>(data: &'a Data, cfg: &Cfg) -> Vec<Job<'a>> {
+    let only = cfg.only.as_ref().expect("--explicit needs --only");
+    let mut lines: Vec<&String> = only.iter().collect();
+    lines.sort();
+    lines
+        .into_iter()
+        .map(|line| {
+            let (dex, group) = line.split_once('|').unwrap_or_else(|| panic!("--explicit line {line}"));
+            let dex: u32 = dex.parse().expect("dex");
+            let mon = data.dex.iter().find(|m| m.dex == dex).unwrap_or_else(|| panic!("no dex {dex}"));
+            let (start, comps, kit) = parse_group(data, group).unwrap_or_else(|| panic!("bad group {line}"));
+            Job { mon, start, comps: Some(comps), kit: Some(kit) }
+        })
+        .collect()
+}
+
 fn synergy_cmd(data: &Data, cfg: &Cfg) {
     let mut jobs = Vec::new();
     let mut covered = 0usize;
+    if cfg.explicit {
+        jobs = explicit_jobs(data, cfg);
+    } else {
     for mon in &data.dex {
         let specs = synergy_specs(data, mon);
         if !specs.is_empty() {
@@ -1160,6 +1223,7 @@ fn synergy_cmd(data: &Data, cfg: &Cfg) {
             }
             jobs.push(Job { mon, start: spec.start, comps: Some(spec.comps), kit: Some(spec.kit) });
         }
+    }
     }
     if cfg.list {
         return;
