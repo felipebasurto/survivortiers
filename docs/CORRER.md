@@ -6,8 +6,9 @@ y deja un `MANIFEST.json` con el commit, el hash del binario, la máquina, los t
 ## 1. Máquina
 
 - **64 vCPU** (32 da unas 3,5 h; 96 da unas 1 h). Ubuntu 22.04 o 24.04. 150 GB de disco. RAM de sobra (menos de 4 GB).
-- Medido en 4 vCPU: 26 ms de CPU por partida con el bot Play. Estimación para el pipeline completo:
-  **unas 12,5 millones de partidas, unas 90 horas de CPU**.
+- Medido en 4 vCPU con el horizonte antiguo (900 s): 26 ms de CPU por partida con el bot Play, y unas
+  **12,5 millones de partidas, unas 90 horas de CPU**. El horizonte ahora es 1800 s (minuto 30), así que cada partida
+  dura más y esa cifra ya no vale. La prueba de humo de abajo mide el coste nuevo; apúntalo aquí antes de alquilar.
 - El resultado no depende del número de hilos (comprobado: 1 hilo y 4 hilos dan los mismos bytes).
 
 ```sh
@@ -28,13 +29,14 @@ cargo build --release --manifest-path simulator/sim-rs/Cargo.toml
 
 ## 3. Prueba de humo (unos 10 minutos en 4 vCPU)
 
-No publica nada. Escribe en una carpeta aparte, con 1 semilla por partida y 3 especies:
+No publica nada. Escribe en una carpeta aparte, con 1 semilla por partida y 3 especies (Bulbasaur, Gengar y Pikachu):
 
 ```sh
 SURVIVOR_FIXED=/tmp/smoke/fixed python3 build/regen.py --sim --quick 16 --scope 1,94,25
 ```
 
 Tiene que acabar con `simulation stages done`. Si no, el fallo está en el log, no en la máquina.
+Cuenta también la etapa `items`: sin ella, la corrida no prueba los objetos.
 
 ## 4. La corrida real
 
@@ -48,7 +50,12 @@ y las builds se reanudan por trozos de 25.000 grupos.
 
 Etapas, en orden (`python3 build/regen.py --sim` las lista al fallar):
 `solo_screen`, `solo_refine`, `solo_contend`, `group_gate`, `group_screen`, `group_refine`,
-`start_sweep`, `start_rank`, `build_screen`, `build_refine`, `rank`, `counterfactuals`, `passive_coins`.
+`start_sweep`, `start_rank`, `build_screen`, `build_refine`, `rank`, `counterfactuals`, `items`.
+
+`items` prueba cada objeto que el motor modela (`choiceband`, `lifeorb`, `quickclaw`, `choicescarf`, `assaultvest`,
+`leftovers`, `luckyegg`, `shellbell`, `rockyhelmet`, `focussash`) en cada build que muestra el ranking, contra la misma
+build sin objeto. Salida: `items/delta.csv` y un CSV por objeto. `amuletcoin` existe en el juego pero el motor no lo
+modela (su efecto son monedas, que la puntuación no cuenta): no se prueba, y así se dice en el informe.
 
 `group_gate` es la compuerta: 300 grupos por la ruta del generador y por la explícita, con los mismos bytes.
 Si no coinciden, la corrida se para antes de simular nada más.
@@ -56,7 +63,7 @@ Si no coinciden, la corrida se para antes de simular nada más.
 ## 5. Publicar
 
 ```sh
-python3 build/regen.py                   # reescribe data/ranking_definitive.csv, data/builds.csv, data/passive_sim.json
+python3 build/regen.py                   # reescribe data/ranking_definitive.csv y data/builds.csv
 python3 build/regen.py --check           # tiene que pasar
 ```
 
@@ -73,7 +80,8 @@ Cada carril tiene su log en `.cache/checks/`. Los cuatro primeros carriles son i
 ## 7. Resúmenes de las fichas (obligatorio antes de construir el sitio)
 
 `catalog.py` se niega a construir si `data/summaries.json` no cuadra con los datos. Después de publicar, muchas
-fichas no cuadran:
+fichas no cuadran. `facts_export.py` necesita `counterfactuals_g2p2.csv`, así que esto solo corre con la corrida
+completa (no con la de humo):
 
 ```sh
 python3 build/regen.py --facts           # facts.parquet y refresh_summaries.py (plantilla determinista)
@@ -86,7 +94,8 @@ python3 build/checks.py --site           # y ahora el sitio
 
 ## 8. Qué guardar
 
-- `simulator/results/fixed_group/*.csv` que lee la web (10 tablas), `data/*`, y `MANIFEST.json`: van a git.
+- `simulator/results/fixed_group/*.csv` que leen la publicación y los datos (las tablas de la etapa `rank`, las de
+  `counterfactuals` y `items/delta.csv`), `data/*`, y `MANIFEST.json`: van a git.
 - Lo demás (`*_out/`, trozos, `gate/`, ficheros `_only.txt`) lo ignora `.gitignore`. Se regenera.
 - El manifiesto dice qué código y qué binario produjo cada dato. Guárdalo con los datos.
 - El directorio completo pesa unos cientos de MB. Si no quieres meterlo en git, copia `simulator/results/`
@@ -94,6 +103,6 @@ python3 build/checks.py --site           # y ahora el sitio
 
 ## Qué no regenera este pipeline
 
-- La tabla de 150 especies de pasivas (`simulator/pasivas_rank.py`): lee `items_g2p2.csv`, que no está en el
-  repo. Hay que decidir qué especies son. Hasta entonces, `pasivas_rank_g2p2.csv` es el de `5a23d49`.
 - Los resúmenes de texto: ver el paso 7.
+- Las pasivas. Se quitaron del simulador, de los datos y de la web: cada jugador decide cómo juega.
+- `amuletcoin`: el motor no lo modela (ver la etapa `items`).
