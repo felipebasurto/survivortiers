@@ -54,7 +54,7 @@ class Candidates(unittest.TestCase):
             cls = builds.attacker_class(dex)
             for group in builds.candidates(dex):
                 _, buff, _ = builds.picks.split_group(group)
-                self.assertEqual(buff, builds.CLASS_BUFF[cls], (dex, group))
+                self.assertEqual(buff, builds.class_buff(cls), (dex, group))
 
     def test_attacker_class_ties_go_to_special(self) -> None:
         p = builds._pokedex()

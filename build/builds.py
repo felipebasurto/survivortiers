@@ -38,8 +38,10 @@ OUT_CSV = DATA / "builds.csv"
 
 BUILDS = ("melee", "ranged")
 FILLER = frozenset({"tackle", "quick-attack", "body-slam"})
-CLASS_BUFF = {"physical": "swords-dance", "special": "nasty-plot"}
-FOURTH = ("harden", "agility")
+# The attack stat each class boosts. The buffs themselves come from game_stats.json (`buff.stat`).
+ATTACK_STAT = {"physical": "patk", "special": "satk"}
+# A fourth move boosts defense or speed (Fortaleza, Agilidad). These two stat names are the only hand input.
+FOURTH_STATS = frozenset({"def", "spd"})
 SCREEN_SEEDS = 16
 REFINE_SEEDS = 96
 REFINE_SEED0 = 1000
@@ -91,6 +93,23 @@ def decent_attacks(dex: int) -> list[str]:
     return out
 
 
+@lru_cache(maxsize=1)
+def _buffs() -> dict[str, dict]:
+    """Buff moves of the game, keyed by id, with their `buff` block (stat, amount, cd, dur, stacks)."""
+    return {mid: m["buff"] for mid, m in _game_moves().items() if m["kind"] == "buff" and m.get("buff")}
+
+
+def class_buff(cls: str) -> str:
+    """The strongest buff of the class's attack stat. Danza Espada (0.13) beats Danza Dragón (0.11)."""
+    stat = ATTACK_STAT[cls]
+    return max((mid for mid, b in _buffs().items() if b["stat"] == stat), key=lambda mid: _buffs()[mid]["amount"])
+
+
+def fourth_buffs() -> tuple[str, ...]:
+    """Buffs that boost a stat other than the attack stat, in id order."""
+    return tuple(sorted(mid for mid, b in _buffs().items() if b["stat"] in FOURTH_STATS))
+
+
 def _is_melee(mid: str) -> bool:
     return _game_moves()[mid]["kind"] == "melee"
 
@@ -102,13 +121,13 @@ def _group(attacks: list[str], buff: str, fourth: str | None) -> str:
 def candidates(dex: int) -> dict[str, str]:
     """group name -> build (melee | ranged) for every group of this species that meets the rules."""
     cls = attacker_class(dex)
-    buff = CLASS_BUFF[cls]
+    buff = class_buff(cls)
     atk = decent_attacks(dex)
     out: dict[str, str] = {}
     if len(atk) < 2:
         return out
     for a, b in itertools.permutations(atk, 2):
-        for fourth in FOURTH:
+        for fourth in fourth_buffs():
             out[_group([a, b], buff, fourth)] = _kind([a, b])
     for trio in itertools.combinations(atk, 3):
         for lead in trio:
@@ -240,8 +259,8 @@ def violations(dex: int, build: str, group: str) -> list[str]:
     errs = []
     attacks, buff, fourth = picks.split_group(group)
     cls = attacker_class(dex)
-    if buff != CLASS_BUFF[cls]:
-        errs.append(f"{dex} {group}: el potenciador de clase es {buff}, no {CLASS_BUFF[cls]}")
+    if buff != class_buff(cls):
+        errs.append(f"{dex} {group}: el potenciador de clase es {buff}, no {class_buff(cls)}")
     if any(a in FILLER for a in attacks):
         errs.append(f"{dex} {group}: lleva relleno normal")
     if any(_game_moves()[a]["cat"] != cls for a in attacks):
