@@ -202,6 +202,8 @@ COMBAT_REF_DEF = 75
 COMBAT_LO, COMBAT_HI = 0.78, 1.25
 ATK_BAR_MAX, DEF_BAR_MAX = 1.8, 255  # escala de las barras: ×1,00 es el neutro de ataque; 255 como las estadísticas base
 KIND_KEY = {"phys": "cb_kind_phys", "spec": "cb_kind_spec", "mix": "cb_kind_mix"}
+# Mismo sistema de etiquetas que los ataques (cat-tag): físico, especial y mixto tienen icono y color propios.
+KIND_CLASS = {"phys": "physical", "spec": "special", "mix": "mix"}
 
 
 def _bar(cls: str, label: str, shown: str, fill: float, mark: float) -> str:
@@ -222,7 +224,7 @@ def combat(L: Lang, entry: dict) -> str:
     note = L.t("cb_note", less=round((1 - COMBAT_LO) * 100), more=round((COMBAT_HI - 1) * 100))
     return (f'<section class="combat" id="combate" aria-labelledby="cb-h" data-kind="{kind}">'
             f'<header class="cb-head"><h3 id="cb-h">{esc(L.t("t_combat"))}</h3>'
-            f'<span class="cb-kind cb-k-{kind}">{esc(L.t(KIND_KEY[kind]))}</span></header>'
+            f'<span class="cat-tag is-{KIND_CLASS[kind]}">{esc(L.t(KIND_KEY[kind]))}</span></header>'
             f'<div class="cb-list">{atk}</div><div class="cb-list">{dfn}</div>'
             f'<p class="cb-note">{esc(note)}</p></section>')
 
@@ -239,6 +241,15 @@ def _winner(pair: dict[str, dict | None]) -> str | None:
     if have["melee"]["score"] == have["ranged"]["score"]:
         return None
     return max(have, key=lambda k: have[k]["score"])
+
+
+def best_range_html(L: Lang, pair: dict[str, dict | None]) -> str:
+    """Etiqueta del rango de la build ganadora (cuerpo a cuerpo o a distancia). Sin empate, sin etiqueta."""
+    win = _winner(pair)
+    if not win:
+        return ""
+    return (f'<span class="rng-tag is-{win}" title="{esc(L.t("rng_tip_" + win))}">'
+            f'{esc(L.t(BUILD_NAME[win]))}</span>')
 
 
 def _lead(pair: dict[str, dict | None]) -> str:
@@ -403,7 +414,7 @@ def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, detail: list,
 </header>
 <section class="fig fig-build" id="build" aria-labelledby="bd-h">
 <div class="bd-card" style="--p1:{tc};--p2:{tc2}">
-<header class="bd-head"><div><h2 id="bd-h">{esc(L.t("t_build"))}</h2><span class="bd-who">{esc(name)}</span></div></header>
+<header class="bd-head"><div><h2 id="bd-h">{esc(L.t("t_build"))}</h2><span class="bd-who">{esc(name)}</span></div>{best_range_html(L, pair)}</header>
 <div class="bd-block bd-start"><h3 class="bd-cap">{esc(L.t("build_start"))}</h3><ul class="bd-rows">{start_row}</ul></div>
 <p class="bd-cap">{esc(L.t("bd_pair_cap"))}</p>
 <div class="bd-pair">{options}</div>

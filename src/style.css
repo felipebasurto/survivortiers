@@ -534,11 +534,6 @@ textarea {
 .combat { max-width: 40rem; margin: 40px 0; }
 .cb-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-bottom: 14px; }
 .cb-head h3 { margin: 0; font: 600 1.2rem/1.3 var(--ui); }
-.cb-kind { display: inline-flex; align-items: center; padding: 4px 10px; background: var(--bg); box-shadow: var(--notch-soft); font: 600 .8125rem/1.3 var(--ui); color: var(--ink); }
-.cb-kind::before { content: ""; width: 10px; height: 10px; margin-right: 8px; background: var(--cb-c); }
-.cb-k-phys { --cb-c: var(--stat-1); }
-.cb-k-spec { --cb-c: var(--stat-4); }
-.cb-k-mix { --cb-c: var(--ink-2); }
 .cb-list + .cb-list { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--rule-soft); }
 .cb-row { display: grid; grid-template-columns: var(--label) 1fr auto; align-items: center; gap: 0 14px; margin: 6px 0; }
 .cb-name { font: .875rem/1.25 var(--sans); }
@@ -674,10 +669,10 @@ summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
 /* Dos ejes por ataque, cada uno con color e icono propios (build/game_moves.py):
    daño (físico, especial, estado) = etiqueta rellena; rango (cuerpo a cuerpo, a distancia) = borde y texto
    del color del rango, sin relleno. La forma (Cono, Proyectil…) queda en gris. Los iconos son máscaras de img/ui. */
-:root { --cat-phys: #c2410c; --cat-spec: #2563eb; --cat-stat: #6b6480; --cat-melee: #15803d; --cat-ranged: #c026d3; --cat-ink: #ffffff; }
-:root[data-theme="dark"] { --cat-phys: #ff9a6b; --cat-spec: #8fb4ff; --cat-stat: #b3aac9; --cat-melee: #6fd98a; --cat-ranged: #f0abfc; --cat-ink: #0b1020; }
+:root { --cat-phys: #c2410c; --cat-spec: #2563eb; --cat-stat: #6b6480; --cat-mix: #475569; --cat-melee: #15803d; --cat-ranged: #c026d3; --cat-ink: #ffffff; }
+:root[data-theme="dark"] { --cat-phys: #ff9a6b; --cat-spec: #8fb4ff; --cat-stat: #b3aac9; --cat-mix: #cbd5e1; --cat-melee: #6fd98a; --cat-ranged: #f0abfc; --cat-ink: #0b1020; }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) { --cat-phys: #ff9a6b; --cat-spec: #8fb4ff; --cat-stat: #b3aac9; --cat-melee: #6fd98a; --cat-ranged: #f0abfc; --cat-ink: #0b1020; }
+  :root:not([data-theme="light"]) { --cat-phys: #ff9a6b; --cat-spec: #8fb4ff; --cat-stat: #b3aac9; --cat-mix: #cbd5e1; --cat-melee: #6fd98a; --cat-ranged: #f0abfc; --cat-ink: #0b1020; }
 }
 .cat-tag, .rng-tag { display: inline-flex; align-items: center; gap: 4px; padding: 1px 6px 2px 5px; white-space: nowrap; vertical-align: middle;
   font: 700 .6875rem/1.5 var(--ui); letter-spacing: .02em; border: 1px solid var(--cat, var(--rng)); }
@@ -690,6 +685,7 @@ summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
 .cat-tag.is-physical { --cat: var(--cat-phys); --ico: url(img/ui/sword.png); }
 .cat-tag.is-special { --cat: var(--cat-spec); --ico: url(img/ui/sparkle.png); }
 .cat-tag.is-status { --cat: var(--cat-stat); --ico: url(img/ui/potion.png); }
+.cat-tag.is-mix { --cat: var(--cat-mix); --ico: url(img/ui/ball.png); }
 .rng-tag.is-melee, .bd-kind.is-melee { --rng: var(--cat-melee); --ico: url(img/ui/fist.png); }
 .rng-tag.is-ranged, .bd-kind.is-ranged { --rng: var(--cat-ranged); --ico: url(img/ui/bow.png); }
 .bd-kind.is-melee::before, .bd-kind.is-ranged::before { width: 18px; height: 18px; background: var(--rng); }
@@ -892,6 +888,9 @@ code, kbd { background: var(--rule-soft); box-shadow: 0 0 0 1px var(--rule); }
 .ico { display: inline-block; width: 16px; height: 16px; flex: none; background: currentColor; image-rendering: pixelated;
   -webkit-mask: var(--ico) center / contain no-repeat; mask: var(--ico) center / contain no-repeat; margin-right: 2px; vertical-align: -2px; }
 .ico-sword { --ico: url(img/ui/sword.png); }
+.seg[data-side="phys"] .ico { background: var(--cat-phys); }
+.seg[data-side="spec"] .ico { background: var(--cat-spec); }
+.seg[data-side="mix"] .ico { background: var(--cat-mix); }
 .ico-bow { --ico: url(img/ui/bow.png); }
 .ico-sparkle { --ico: url(img/ui/sparkle.png); }
 .ico-ball { --ico: url(img/ui/ball.png); }
