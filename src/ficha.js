@@ -246,6 +246,19 @@
   // Físico, especial o estado (build/game_moves.py). Solo los movimientos lo llevan: objetos y cartas no.
   const dmgTag = m => m.damage ? '<span class="cat-tag is-' + m.damage + '" title="' + esc(t('dmg_tip_' + m.damage)) + '">' +
     esc(t('dmg_' + m.damage)) + '</span>' : '';
+  // Cuerpo a cuerpo o a distancia (build/static_ficha.py range_html): color e icono propios.
+  const rangeChip = c => '<span class="rng-tag is-' + c + '" title="' + esc(t('rng_tip_' + c)) + '">' + esc(t('bd_' + c)) + '</span>';
+  // Tipo de daño de una build: físico o especial si todos sus ataques de daño lo son, mixto si mezcla. Potenciadores fuera.
+  const DMG_KEY = { physical: 'dmg_physical', special: 'dmg_special', mix: 'dmg_mix' };
+  const buildDamage = (moves, ids) => {
+    const kinds = new Set(ids.map(id => moves.find(x => x.id === id))
+      .filter(m => m && (m.damage === 'physical' || m.damage === 'special')).map(m => m.damage));
+    if (!kinds.size) return null;
+    return kinds.size === 2 ? 'mix' : [...kinds][0];
+  };
+  // Tipo de daño y rango de una build, con las mismas etiquetas que los ataques (build/static_ficha.py combo_html).
+  const comboHtml = (dmg, rng) => (dmg ? '<span class="cat-tag is-' + dmg + '">' + esc(t(DMG_KEY[dmg])) + '</span>' : '') + rangeChip(rng);
+  const rangeTag = m => (!m || !m.kind) ? '' : rangeChip(m.kind === 'melee' ? 'melee' : 'ranged');  // objetos: sin rango
   // Misma clave que game_moves.shape_key y que la etiqueta de ataques.html (mv_kind_*).
   const shapeKey = m => {
     const mech = m.mech || {};
@@ -255,11 +268,12 @@
   };
   const shapeTag = m => {
     if (!m || !m.kind) return '';
+    const label = m.kind === 'melee' ? '' : '<span class="mv-shape">' + esc(t('mv_kind_' + shapeKey(m))) + '</span>';
     const mark = m.nuevo ? '<span class="mv-new">' + esc(t('mv_new')) + '</span>' : '';
-    return '<span class="mv-shape">' + esc(t('mv_kind_' + shapeKey(m))) + '</span>' + mark;
+    return label + mark;
   };
   const moveTags = (m, withShape) => {
-    const bits = dmgTag(m) + (withShape ? shapeTag(m) : '');
+    const bits = rangeTag(m) + dmgTag(m) + (withShape ? shapeTag(m) : '');
     return bits ? '<span class="bd-tags">' + bits + '</span>' : '';
   };
   const learnPool = (p, moves) => moves.filter(m => m.type === 'normal' || p.types.includes(m.type));
@@ -329,7 +343,7 @@
 
   function buildOption(kind, b, other, moves, cards, win) {
     if (!b) return '';
-    const head = '<h3 class="bd-kind">' + esc(t(BUILD_NAME[kind])) + '</h3>';
+    const head = '<h3 class="bd-kind">' + comboHtml(buildDamage(moves, b.moves), kind) + '</h3>';
     const ids = b.moves, nb = b.nBoost;
     const rows = ids.map((id, i) => {
       const m = moves.find(x => x.id === id);
@@ -367,6 +381,8 @@
     const itemRows = items.map((m, i) => moveRow(m, '', i === 0 ? { text: t('build_best_item'), gold: true } : null)).join('');
     return '<section class="fig anim fig-build" id="build" aria-labelledby="bd-h"><div class="bd-card" style="' + typeVars(p) + '">' +
       '<header class="bd-head">' + sprite + '<div><h2 id="bd-h">' + esc(t('t_build')) + '</h2><span class="bd-who">' + esc(name) + '</span></div>' +
+      (win ? '<p class="bd-best"><span class="bd-best-lbl">' + esc(t('bd_best_label')) + '</span>' +
+        comboHtml(buildDamage(moves, pair[win].moves), win) + '</p>' : '') +
       '<button class="bd-share" type="button" aria-label="' + esc(t('build_share')) + '" title="' + esc(t('build_share')) + '">' + SHARE_SVG + '</button>' +
       '<span class="bd-toast" role="status" aria-live="polite"></span></header>' +
       '<div class="bd-block bd-start">' + capOf('build_start') + '<ul class="bd-rows">' + startRow + '</ul></div>' +
@@ -485,6 +501,7 @@
   // van hasta ×1,8 con la línea en ×1,00; las de defensa, hasta 255 con la línea en 75 (daño normal).
   const COMBAT_LO = 0.78, COMBAT_HI = 1.25, COMBAT_REF_DEF = 75, ATK_BAR_MAX = 1.8, DEF_BAR_MAX = 255;
   const KIND_KEY = { phys: 'cb_kind_phys', spec: 'cb_kind_spec', mix: 'cb_kind_mix' };
+  const KIND_CLASS = { phys: 'physical', spec: 'special', mix: 'mix' };
   const dec2 = x => x.toFixed(2).replace('.', EN ? '.' : ',');
   const combatBar = (cls, label, shown, fill, mark) =>
     '<div class="cb-row ' + cls + '"><span class="cb-name">' + esc(label) + '</span>' +
@@ -500,7 +517,7 @@
     const note = t('cb_note', { less: Math.round((1 - COMBAT_LO) * 100), more: Math.round((COMBAT_HI - 1) * 100) });
     return '<section class="combat" id="combate" aria-labelledby="cb-h" data-kind="' + v.ak + '">' +
       '<header class="cb-head"><h3 id="cb-h">' + esc(t('t_combat')) + '</h3>' +
-      '<span class="cb-kind cb-k-' + v.ak + '">' + esc(t(KIND_KEY[v.ak])) + '</span></header>' +
+      '<span class="cat-tag is-' + KIND_CLASS[v.ak] + '">' + esc(t(KIND_KEY[v.ak])) + '</span></header>' +
       '<div class="cb-list">' + atk + '</div><div class="cb-list">' + dfn + '</div>' +
       '<p class="cb-note">' + esc(note) + '</p></section>';
   }

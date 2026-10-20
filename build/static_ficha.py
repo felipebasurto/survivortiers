@@ -33,15 +33,24 @@ def damage_badge(L: Lang, cls: str) -> str:
     return f'<span class="cat-tag is-{cls}" title="{esc(L.t("dmg_tip_" + cls))}">{esc(L.t("dmg_" + cls))}</span>'
 
 
+def range_html(L: Lang, move: dict) -> str:
+    """Cuerpo a cuerpo o a distancia, el eje que separa las dos builds. Cada uno tiene su color e icono."""
+    cls = "melee" if move["kind"] == "melee" else "ranged"
+    return (f'<span class="rng-tag is-{cls}" title="{esc(L.t("rng_tip_" + cls))}">'
+            f'{esc(L.t("bd_" + cls))}</span>')
+
+
 def shape_html(L: Lang, move: dict) -> str:
-    """La forma del ataque (la misma etiqueta que ataques.html) y, si el dato trae `nuevo`, una marca pequeña."""
-    label = L.t("mv_kind_" + game_moves.shape_key(move))
+    """La forma del ataque (la misma etiqueta que ataques.html) y, si el dato trae `nuevo`, una marca pequeña.
+    El cuerpo a cuerpo no repite su forma: ya lo dice la etiqueta de rango."""
+    label = "" if move["kind"] == "melee" else \
+        f'<span class="mv-shape">{esc(L.t("mv_kind_" + game_moves.shape_key(move)))}</span>'
     mark = f'<span class="mv-new">{esc(L.t("mv_new"))}</span>' if move.get("nuevo") else ""
-    return f'<span class="mv-shape">{esc(label)}</span>{mark}'
+    return label + mark
 
 
 def move_tags(L: Lang, move: dict) -> str:
-    return f'<span class="bd-tags">{damage_badge(L, move["damage"])}{shape_html(L, move)}</span>'
+    return f'<span class="bd-tags">{range_html(L, move)}{damage_badge(L, move["damage"])}{shape_html(L, move)}</span>'
 
 
 def js_round(x: float) -> int:
@@ -193,6 +202,8 @@ COMBAT_REF_DEF = 75
 COMBAT_LO, COMBAT_HI = 0.78, 1.25
 ATK_BAR_MAX, DEF_BAR_MAX = 1.8, 255  # escala de las barras: ×1,00 es el neutro de ataque; 255 como las estadísticas base
 KIND_KEY = {"phys": "cb_kind_phys", "spec": "cb_kind_spec", "mix": "cb_kind_mix"}
+# Mismo sistema de etiquetas que los ataques (cat-tag): físico, especial y mixto tienen icono y color propios.
+KIND_CLASS = {"phys": "physical", "spec": "special", "mix": "mix"}
 
 
 def _bar(cls: str, label: str, shown: str, fill: float, mark: float) -> str:
@@ -213,7 +224,7 @@ def combat(L: Lang, entry: dict) -> str:
     note = L.t("cb_note", less=round((1 - COMBAT_LO) * 100), more=round((COMBAT_HI - 1) * 100))
     return (f'<section class="combat" id="combate" aria-labelledby="cb-h" data-kind="{kind}">'
             f'<header class="cb-head"><h3 id="cb-h">{esc(L.t("t_combat"))}</h3>'
-            f'<span class="cb-kind cb-k-{kind}">{esc(L.t(KIND_KEY[kind]))}</span></header>'
+            f'<span class="cat-tag is-{KIND_CLASS[kind]}">{esc(L.t(KIND_KEY[kind]))}</span></header>'
             f'<div class="cb-list">{atk}</div><div class="cb-list">{dfn}</div>'
             f'<p class="cb-note">{esc(note)}</p></section>')
 
@@ -230,6 +241,36 @@ def _winner(pair: dict[str, dict | None]) -> str | None:
     if have["melee"]["score"] == have["ranged"]["score"]:
         return None
     return max(have, key=lambda k: have[k]["score"])
+
+
+DMG_KEY = {"physical": "dmg_physical", "special": "dmg_special", "mix": "dmg_mix"}
+
+
+def build_damage(moves: dict[str, dict], ids: list[str]) -> str | None:
+    """Tipo de daño de una build: físico o especial si todos sus ataques de daño lo son, mixto si mezcla los dos.
+    Los potenciadores no cuentan. None si la build no tiene ataques de daño."""
+    kinds = {moves[m]["damage"] for m in ids if m in moves and moves[m]["damage"] in ("physical", "special")}
+    if not kinds:
+        return None
+    if len(kinds) == 2:
+        return "mix"
+    return kinds.pop()
+
+
+def combo_html(L: Lang, dmg: str | None, rng: str) -> str:
+    """Tipo de daño y rango de una build, con las mismas etiquetas que los ataques: por ejemplo Físico · Cuerpo a cuerpo."""
+    dmg_chip = f'<span class="cat-tag is-{dmg}">{esc(L.t(DMG_KEY[dmg]))}</span>' if dmg else ""
+    return (dmg_chip + f'<span class="rng-tag is-{rng}" title="{esc(L.t("rng_tip_" + rng))}">'
+            f'{esc(L.t(BUILD_NAME[rng]))}</span>')
+
+
+def best_range_html(L: Lang, pair: dict[str, dict | None], moves: dict[str, dict]) -> str:
+    """La build que puntúa más: su combinación de daño y rango. Con empate, nada."""
+    win = _winner(pair)
+    if not win:
+        return ""
+    dmg = build_damage(moves, pair[win]["moves"])
+    return f'<p class="bd-best"><span class="bd-best-lbl">{esc(L.t("bd_best_label"))}</span>{combo_html(L, dmg, win)}</p>'
 
 
 def _lead(pair: dict[str, dict | None]) -> str:
@@ -291,7 +332,8 @@ def _build_option(L: Lang, moves: dict[str, dict], cards: dict, kind: str, b: di
     """Una de las dos builds: veredicto, ataques en filas, estadísticas y las cartas en orden, todo a la vista."""
     if not b:
         return ""
-    head = f'<h3 class="bd-kind">{esc(L.t(BUILD_NAME[kind]))}</h3>'
+    dmg = build_damage(moves, b["moves"])
+    head = f'<h3 class="bd-kind">{combo_html(L, dmg, kind)}</h3>'
     ids, nb = b["moves"], int(b["nBoost"])
     rows = "".join(_move_row(L, moves, mid, str(i + 1), i >= len(ids) - nb) for i, mid in enumerate(ids))
     stats = (f'<dl class="bd-stats">'
@@ -396,7 +438,7 @@ def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, detail: list,
 </header>
 <section class="fig fig-build" id="build" aria-labelledby="bd-h">
 <div class="bd-card" style="--p1:{tc};--p2:{tc2}">
-<header class="bd-head"><div><h2 id="bd-h">{esc(L.t("t_build"))}</h2><span class="bd-who">{esc(name)}</span></div></header>
+<header class="bd-head"><div><h2 id="bd-h">{esc(L.t("t_build"))}</h2><span class="bd-who">{esc(name)}</span></div>{best_range_html(L, pair, moves)}</header>
 <div class="bd-block bd-start"><h3 class="bd-cap">{esc(L.t("build_start"))}</h3><ul class="bd-rows">{start_row}</ul></div>
 {pair_cap}
 <div class="{pair_cls}">{"".join(options)}</div>
