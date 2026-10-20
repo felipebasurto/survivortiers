@@ -362,7 +362,7 @@ textarea {
 .lt-row.boosts { grid-template-columns: 1fr; gap: 6px; }
 .lt-label { font: 700 .75rem var(--ui); color: var(--ink-2); text-transform: uppercase; letter-spacing: .04em; }
 .lt-moves { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
-.lt-move { display: inline-flex; align-items: center; gap: 8px; padding: 3px 10px 3px 4px; background: var(--rule-soft);
+.lt-move { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 8px; max-width: 100%; padding: 3px 10px 3px 4px; background: var(--rule-soft);
   box-shadow: var(--notch-soft); font: .875rem/1.2 var(--sans); }
 .lt-move.in-build { background: color-mix(in srgb, var(--tc) 22%, var(--bg)); box-shadow: 0 0 0 2px var(--tc); }
 .lt-move.start { box-shadow: 0 0 0 2px var(--accent); }
@@ -414,7 +414,7 @@ textarea {
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) .bd-tile { --bd-tile-edge: var(--tc); --bd-sm-edge: color-mix(in srgb, var(--tc) 65%, transparent); --bd-tile-drop: 0 0 0 0 transparent; }
 }
-.bd-slots .bd-tile { width: auto; }
+.bd-slots .bd-tile { width: auto; min-width: 0; }
 .bd-ico { display: grid; place-items: center; width: 56px; height: 56px;
   background: radial-gradient(closest-side, color-mix(in srgb, var(--tc) 55%, transparent), transparent); }
 .bd-ico img { width: 48px; height: 48px; image-rendering: pixelated; filter: drop-shadow(0 2px 0 rgba(0, 0, 0, .4)); }
@@ -480,10 +480,11 @@ textarea {
   .bd-flow { flex-direction: column; align-items: stretch; gap: 4px; }
   .bd-start { display: flex; align-items: center; gap: 12px; }
   .bd-start .bd-cap { margin: 0; }
-  .bd-start .bd-tile { flex-direction: row; width: auto; gap: 8px; padding: 4px 12px 4px 4px; }
+  .bd-start .bd-tile { flex-direction: row; flex-wrap: wrap; width: auto; gap: 8px; padding: 4px 12px 4px 4px; }
   .bd-start .bd-ico { width: 40px; height: 40px; }
   .bd-start .bd-ico img { width: 32px; height: 32px; }
-  .bd-start .bd-nm { min-height: 0; text-align: left; font-size: .85rem; }
+  .bd-start .bd-nm { flex: 1 1 auto; min-width: 0; min-height: 0; text-align: left; font-size: .85rem; }
+  .bd-start .bd-tags { width: auto; flex: 1 1 auto; flex-direction: row; justify-content: flex-start; }
   .bd-arrow { align-self: flex-start; width: 22px; height: 22px; margin: 2px 0 2px 14px; transform: rotate(90deg); }
   .bd-slots { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; width: auto; }
   .bd-gear { gap: 18px; margin-top: 20px; padding-top: 16px; }
@@ -798,7 +799,20 @@ summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
 .cat-tag.is-physical { --cat: var(--cat-phys); }
 .cat-tag.is-special { --cat: var(--cat-spec); }
 .cat-tag.is-status { --cat: var(--cat-stat); }
-.bond li .cat-tag, .lt-move .cat-tag { margin-left: 6px; }
+.lt-move > .cat-tag { margin-left: 6px; }
+.bond li > .bd-tags { margin-left: 6px; }
+.bd-tags { display: inline-flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 3px; max-width: 100%; min-width: 0; }
+.bd-tags .cat-tag { margin-left: 0; }
+.bd-tile .bd-tags { display: flex; width: 100%; }
+.bd-slots .bd-tags { flex-direction: column; }
+.mv-shape { display: inline-flex; align-items: center; justify-content: center; max-width: 100%; padding: 1px 6px 2px;
+  border: 1px solid color-mix(in srgb, currentColor 40%, transparent); color: var(--ink-2); background: transparent;
+  font: 600 .75rem/1.35 "Zen Kaku Gothic New", var(--ui); text-align: center; overflow-wrap: anywhere; }
+.bd-card .mv-shape { color: var(--bd-ink-2); }
+.bd-tile .mv-shape { font-size: .625rem; line-height: 1.15; padding: 1px 3px 2px; }
+.mv-new { display: inline-flex; align-items: center; gap: 3px; font: 600 .5625rem/1 "Zen Kaku Gothic New", var(--ui);
+  letter-spacing: .05em; text-transform: uppercase; color: var(--bd-gold-ink, var(--accent)); }
+.mv-new::before { content: ""; width: 4px; height: 4px; background: currentColor; }
 .cat-legend { display: flex; flex-wrap: wrap; gap: 8px 20px; margin: 14px 0 0; padding: 0; list-style: none; font: .8125rem/1.4 var(--ui); color: var(--ink-2); }
 .cat-legend li { display: inline-flex; align-items: center; gap: 8px; }
 .mv-desc { margin: 0; font: .875rem/1.45 var(--ui); color: var(--ink); }

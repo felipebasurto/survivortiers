@@ -22,6 +22,8 @@ import sitefixture  # noqa: E402
 import catalog  # noqa: E402
 import game_moves  # noqa: E402
 import gamestats  # noqa: E402
+import static_ficha  # noqa: E402
+from i18n import EN, ES, STR  # noqa: E402
 
 DATA = ROOT / "data"
 OUT = ROOT / "build" / "out"
@@ -69,6 +71,37 @@ class DamageClassTests(unittest.TestCase):
         text = (Path(os.environ["POKESURVIVOR_DIR"]) / "js" / "data" / "moves.js").read_text(encoding="utf8")
         block = re.search(r"PHYSICAL = new Set\(\[(.*?)\]\)", text, re.S).group(1)
         self.assertEqual(set(re.findall(r"'([^']+)'", block)), set(game_moves.physical_ids()))
+
+
+class ShapeLabelTests(unittest.TestCase):
+    def test_every_move_has_an_attack_page_label(self):
+        mechanics = json.loads((DATA / "move_mechanics.json").read_text(encoding="utf8"))
+        for mid, mech in mechanics.items():
+            key = game_moves.shape_key({"kind": mech["kind"], "mech": mech})
+            self.assertIn("mv_kind_" + key, STR, mid)
+            if mech["kind"] == "projectile" and mech["homing"] > 0:
+                self.assertEqual(key, "homing", mid)
+            elif mech["kind"] == "projectile" and mech["pierce"] > 0:
+                self.assertEqual(key, "pierce", mid)
+            else:
+                self.assertEqual(key, mech["kind"], mid)
+
+    def test_homing_wins_over_pierce_on_a_projectile(self):
+        move = {"kind": "projectile", "mech": {"homing": 1, "pierce": 2}}
+        self.assertEqual(game_moves.shape_key(move), "homing")
+
+    def test_ficha_chip_uses_the_same_labels_and_skips_an_absent_new_flag(self):
+        shadow = {"kind": "projectile", "damage": "special", "mech": {"homing": 0, "pierce": 2}}
+        beam = {"kind": "charge", "damage": "special", "mech": {"homing": 0, "pierce": 0}}
+        self.assertIn(">Perforante<", static_ficha.shape_html(ES, shadow))
+        self.assertIn(">Piercing<", static_ficha.shape_html(EN, shadow))
+        self.assertIn(">Rayo cargado<", static_ficha.shape_html(ES, beam))
+        self.assertIn(">Charged beam<", static_ficha.shape_html(EN, beam))
+        self.assertNotIn("mv-new", static_ficha.shape_html(ES, shadow))
+        marked = {**beam, "nuevo": True}
+        self.assertIn("mv-new", static_ficha.shape_html(ES, marked))
+        self.assertIn(">Nuevo<", static_ficha.shape_html(ES, marked))
+        self.assertIn(">New<", static_ficha.shape_html(EN, marked))
 
 
 class BoostTests(unittest.TestCase):

@@ -246,13 +246,29 @@
   // Físico, especial o estado (build/game_moves.py). Solo los movimientos lo llevan: objetos y cartas no.
   const dmgTag = m => m.damage ? '<span class="cat-tag is-' + m.damage + '" title="' + esc(t('dmg_tip_' + m.damage)) + '">' +
     esc(t('dmg_' + m.damage)) + '</span>' : '';
+  // Misma clave que game_moves.shape_key y que la etiqueta de ataques.html (mv_kind_*).
+  const shapeKey = m => {
+    const mech = m.mech || {};
+    if (m.kind === 'projectile' && mech.homing > 0) return 'homing';
+    if (m.kind === 'projectile' && mech.pierce > 0) return 'pierce';
+    return m.kind;
+  };
+  const shapeTag = m => {
+    if (!m || !m.kind) return '';
+    const mark = m.nuevo ? '<span class="mv-new">' + esc(t('mv_new')) + '</span>' : '';
+    return '<span class="mv-shape">' + esc(t('mv_kind_' + shapeKey(m))) + '</span>' + mark;
+  };
+  const moveTags = (m, withShape) => {
+    const bits = dmgTag(m) + (withShape ? shapeTag(m) : '');
+    return bits ? '<span class="bd-tags">' + bits + '</span>' : '';
+  };
   const learnPool = (p, moves) => moves.filter(m => m.type === 'normal' || p.types.includes(m.type));
   function learn(p, d, moves) {
     const pool = learnPool(p, moves);
     const group = new Set(d[9][2]);
     const chips = ms => ms.map(m => '<li class="lt-move' + (m.id === d[2] ? ' start' : '') + (group.has(m.id) ? ' in-build' : '') +
       '" style="--tc:' + (TYPE_COLOR[m.type] || ITEM_COLOR) + '"><img class="lt-ico" src="' + iconUrl(m) +
-      '" alt="" width="32" height="32">' + esc(EN ? m.en.name : m.name) + dmgTag(m) +
+      '" alt="" width="32" height="32">' + esc(EN ? m.en.name : m.name) + moveTags(m, m.id === d[2] || group.has(m.id)) +
       (m.id === d[2] ? ' <em>' + esc(t('learn_start')) + '</em>' : '') + '</li>').join('');
     const rows = LEARN_TIERS.map(tier => {
       const ms = pool.filter(m => m.tier === tier).sort((a, b) => b.score - a.score);
@@ -271,12 +287,12 @@
   // opcionales para los huecos que se abren más tarde y los objetos de la tier list. Una tarjeta oscura que se lee sola
   // en una captura: lleva el sprite, el nombre y la marca del sitio.
   const ITEM_COLOR = '#f2ecd8';
-  function tile(m, cls, badge, i) {
+  function tile(m, cls, badge, i, withShape) {
     const color = TYPE_COLOR[m.type] || ITEM_COLOR;
     const nm = EN ? m.en.name : m.name;
     return '<li class="bd-tile' + cls + '" style="--tc:' + color + ';--i:' + i + '">' + (badge || '') +
       '<span class="bd-ico"><img src="' + iconUrl(m) + '" alt="" width="48" height="48"></span><span class="bd-nm">' + esc(nm) + '</span>' +
-      dmgTag(m) + '</li>';
+      moveTags(m, withShape) + '</li>';
   }
   const badgeOf = (kind, label) => '<b class="bd-badge" title="' + esc(label) + '" aria-label="' + esc(label) + '">' +
     (kind === 'crown' || kind === 'sparkle' ? '<i class="ico ico-' + kind + '" aria-hidden="true"></i>' : kind) + '</b>';
@@ -305,9 +321,9 @@
     // La corona es el mejor ataque de la simulación (d[4]). Si la búsqueda pone otro ataque delante, ese hueco va numerado.
     const attackTiles = attacks.map((m, i) => {
       const crowned = m.id === d[4];
-      return tile(m, '', badgeOf(crowned ? 'crown' : String(i + 1), crowned ? t('build_best') : t('build_slot', { n: i + 1 })), i);
+      return tile(m, '', badgeOf(crowned ? 'crown' : String(i + 1), crowned ? t('build_best') : t('build_slot', { n: i + 1 })), i, true);
     }).join('');
-    const boostTile = boosts.map((b, i) => tile(b, ' bd-boost', badgeOf('sparkle', t('build_boost')), attacks.length + i)).join('');
+    const boostTile = boosts.map((b, i) => tile(b, ' bd-boost', badgeOf('sparkle', t('build_boost')), attacks.length + i, true)).join('');
     const sprite = '<span class="bd-sprite" style="--tc:' + (TYPE_COLOR[p.types[0]] || '#888') +
       '"><img class="px" src="' + sprites + p.dex + spriteExt + '" width="' + p.w * scale + '" height="' + p.h * scale + '" alt=""></span>';
     const altTiles = alts.map((m, i) => tile(m, ' sm', '', i)).join('');
@@ -337,7 +353,7 @@
       '<button class="bd-share" type="button" aria-label="' + esc(t('build_share')) + '" title="' + esc(t('build_share')) + '">' + SHARE_SVG + '</button>' +
       '<span class="bd-toast" role="status" aria-live="polite"></span></header>' +
       '<div class="bd-flow"><div class="bd-start">' + capOf('build_start') + '<ul>' +
-      (start ? tile(start, ' bd-startmove', '', 0) : '') + '</ul></div><i class="ico ico-arrow bd-arrow" aria-hidden="true"></i>' +
+      (start ? tile(start, ' bd-startmove', '', 0, true) : '') + '</ul></div><i class="ico ico-arrow bd-arrow" aria-hidden="true"></i>' +
       '<div class="bd-bond">' + capOf('build_group', LINK_SVG) + '<ol class="bd-slots">' + attackTiles + boostTile + '</ol></div></div>' +
       '<div class="bd-gear">' + group('build_items', itemTiles, 'bd-items') + cardRow + '</div>' +
       extra + '<p class="bd-brand">' + esc(t('build_brand')) + '</p></div></section>';
