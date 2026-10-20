@@ -14,6 +14,7 @@ from html import escape
 
 import catalog
 import charts
+import game_moves
 import legal
 import regions
 import typedata
@@ -30,6 +31,17 @@ def esc(x) -> str:
 
 def damage_badge(L: Lang, cls: str) -> str:
     return f'<span class="cat-tag is-{cls}" title="{esc(L.t("dmg_tip_" + cls))}">{esc(L.t("dmg_" + cls))}</span>'
+
+
+def shape_html(L: Lang, move: dict) -> str:
+    """La forma del ataque (la misma etiqueta que ataques.html) y, si el dato trae `nuevo`, una marca pequeña."""
+    label = L.t("mv_kind_" + game_moves.shape_key(move))
+    mark = f'<span class="mv-new">{esc(L.t("mv_new"))}</span>' if move.get("nuevo") else ""
+    return f'<span class="mv-shape">{esc(label)}</span>{mark}'
+
+
+def move_tags(L: Lang, move: dict) -> str:
+    return f'<span class="bd-tags">{damage_badge(L, move["damage"])}{shape_html(L, move)}</span>'
 
 
 def js_round(x: float) -> int:
@@ -148,10 +160,13 @@ def summary_plain(text: str) -> str:
     return SUMMARY_MARK.sub(lambda m: m.group(2), text)
 
 
-def jsonld(faqs: list[tuple[str, str]], updated: str) -> str:
+def jsonld(faqs: list[tuple[str, str]], updated: str, url: str, name: str, lang: str) -> str:
     doc = {
         "@context": "https://schema.org",
         "@type": "FAQPage",
+        "url": url,
+        "name": name,
+        "inLanguage": lang,
         "dateModified": updated,
         "mainEntity": [{"@type": "Question", "name": q, "acceptedAnswer": {"@type": "Answer", "text": a}}
                        for q, a in faqs],
@@ -204,8 +219,6 @@ def combat(L: Lang, entry: dict) -> str:
             f'<p class="cb-src">{esc(L.t("cb_src", combat=legal.COMBAT_COMMIT))}</p></section>')
 
 
-
-
 def _gap_pct(high: float, low: float) -> int:
     return round((high - low) / high * 100) if high > 0 else 0
 
@@ -220,6 +233,18 @@ def _winner(pair: dict[str, dict | None]) -> str | None:
     return max(have, key=lambda k: have[k]["score"])
 
 
+def _lead(pair: dict[str, dict | None]) -> str:
+    """La build que encabeza la descripción: la ganadora o, con empate o una sola, la cuerpo a cuerpo si existe."""
+    return _winner(pair) or ("melee" if pair.get("melee") else "ranged")
+
+
+def build_names(L: Lang, moves: dict[str, dict], b: dict) -> tuple[str, str]:
+    """Los ataques de una build y sus potenciadores, ya unidos en una frase."""
+    ids, nb = b["moves"], int(b["nBoost"])
+    return (_join(L, [_move_name(L, moves, m) for m in ids[:len(ids) - nb]]),
+            _join(L, [_move_name(L, moves, m) for m in ids[len(ids) - nb:]]))
+
+
 def _build_answer(L: Lang, moves: dict[str, dict], pair: dict[str, dict | None]) -> str:
     parts = []
     for kind in BUILD_NAME:
@@ -227,9 +252,7 @@ def _build_answer(L: Lang, moves: dict[str, dict], pair: dict[str, dict | None])
         if not b:
             parts.append(L.t(BUILD_NONE[kind]))
             continue
-        ids, nb = b["moves"], int(b["nBoost"])
-        attacks = _join(L, [_move_name(L, moves, m) for m in ids[:len(ids) - nb]])
-        boosts = _join(L, [_move_name(L, moves, m) for m in ids[len(ids) - nb:]])
+        attacks, boosts = build_names(L, moves, b)
         parts.append(L.t("faq_a_build", kind=L.t(BUILD_NAME[kind]), attacks=attacks, buffs=boosts))
     win = _winner(pair)
     if win and len(pair) == 2 and all(pair.values()):
@@ -260,8 +283,8 @@ def _build_option(L: Lang, moves: dict[str, dict], cards: dict, kind: str, b: di
     ids, nb = b["moves"], int(b["nBoost"])
     boost_set = set(ids[len(ids) - nb:]) if nb else set()
     chips = "".join(
-        f'<li class="is-buff">{esc(_move_name(L, moves, mid))} {damage_badge(L, moves[mid]["damage"])}</li>' if mid in boost_set
-        else f'<li>{esc(_move_name(L, moves, mid))} {damage_badge(L, moves[mid]["damage"])}</li>'
+        f'<li class="is-buff">{esc(_move_name(L, moves, mid))} {move_tags(L, moves[mid])}</li>' if mid in boost_set
+        else f'<li>{esc(_move_name(L, moves, mid))} {move_tags(L, moves[mid])}</li>'
         for mid in ids)
     stats = (f'<dl class="bd-stats">'
              f'<div><dt>{esc(L.t("bd_time"))}</dt><dd>{esc(L.dec(b["time"], 1))} s</dd></div>'
@@ -284,9 +307,19 @@ def _build_option(L: Lang, moves: dict[str, dict], cards: dict, kind: str, b: di
             f'<ul class="bond">{chips}</ul>{stats}{_verdict(L, kind, b, other, win)}{cards_html}{note}</article>')
 
 
-def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, moves: dict[str, dict], cards: dict,
-          pair: dict[str, dict | None], prev: dict | None, nxt: dict | None, odds: tuple[float, int], *,
-          summary: str, fresh: str, guides: str, updated: str) -> tuple[str, str]:
+def head_texts(L: Lang, entry: dict, pair: dict[str, dict | None], moves: dict[str, dict], total: int) -> tuple[str, str]:
+    """<title> y meta description de la ficha, con el tier, el puesto y la build que encabeza."""
+    name, (rank, tier) = L.mon(entry), (entry["r"]["rank"], entry["r"]["tier"])
+    attacks, buffs = build_names(L, moves, pair[_lead(pair)])
+    title = L.t("fh_title", name=name, tier=tier)
+    desc = L.t("fh_desc_buffs" if buffs else "fh_desc", name=name, tier=tier, rank=rank, total=total,
+               attacks=attacks, buffs=buffs, banner=L.banner(entry["banner"]))
+    return title, desc
+
+
+def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, pair: dict[str, dict | None],
+          moves: dict[str, dict], cards: dict, prev: dict | None, nxt: dict | None, odds: tuple[float, int], *,
+          summary: str, fresh: str, guides: str, updated: str, url: str, title: str) -> tuple[str, str]:
     """Devuelve el HTML visible (sin <head>) y el JSON-LD de las preguntas. pair son las dos builds de la simulación
     ({melee, ranged}; falta la clave si no hay build). summary es el resumen ya en texto plano; fresh, la línea de
     datos del juego; guides, el bloque de enlaces a las listas."""
@@ -302,12 +335,9 @@ def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, moves: dict[s
     pct = L.dec(p_pull * 100, _digits(p_pull * 100))
     banner = L.banner(entry["banner"])
     win = _winner(pair)
-    win_card = pair[win] if win else None
-    card_text = ""
-    if win_card:
-        card_ids, gate = win_card["cards"]
-        gate_name = _card_name(L, cards[gate]) if gate else None
-        card_text = card_answer(L, [_card_name(L, cards[c]) for c in card_ids], gate_name)
+    lead = pair[_lead(pair)]
+    card_ids, gate = lead["cards"]
+    card_text = card_answer(L, [_card_name(L, cards[c]) for c in card_ids], _card_name(L, cards[gate]) if gate else None)
     faqs = _faqs(L, tier, rank, _build_answer(L, moves, pair), card_text, banner,
                  bool(entry["legendary"]), pct, pulls)
     w, h = entry["sprite"]["w"], entry["sprite"]["h"]
@@ -357,6 +387,7 @@ def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, moves: dict[s
 <header class="bd-head"><div><h2 id="bd-h">{esc(L.t("t_build"))}</h2><span class="bd-who">{esc(name)}</span></div></header>
 <p class="bd-cap">{esc(L.t("bd_pair_cap"))}</p>
 <div class="bd-pair">{options}</div>
+<p class="bd-brand">{esc(L.t("build_brand", site=legal.SITE_NAME))}</p>
 </div>
 </section>
 {combat(L, entry)}
@@ -376,4 +407,4 @@ def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, moves: dict[s
 </section>
 {guides}
 """
-    return html, jsonld(faqs, updated)
+    return html, jsonld(faqs, updated, url, title, "en" if L.en else "es")

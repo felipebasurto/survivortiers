@@ -53,11 +53,10 @@ NEAR_ORDER = [0, -1, 1, -2, 2, -3, 3, -4, 4]
 BANNERS = {1: "Kanto", 2: "Johto", 3: "Hoenn", 4: "Sinnoh", 5: "Teselia", 6: "Kalos", 7: "Alola", 8: "Galar", 9: "Paldea"}
 EXPECTED_POOL = {1: 151, 2: 100, 3: 135, 4: 107, 5: 141, 6: 70, 7: 83, 8: 87, 9: 92}
 
-# Estructura numérica del método. Los textos de cada pieza viven en build/i18n.py (claves w_*, pill_*, m_*).
+# Estructura numérica del método (simulador de Rust: stats.rs run_score; make_definitive.py: REPEATS, CUTS y qualifies).
+# Los textos de cada paso viven en build/i18n.py (claves met_*, pipe_*).
 METHOD = {
-    "pieces": [{"key": "sheet", "weight": 45}, {"key": "sim", "weight": 30}, {"key": "late", "weight": 25}],
-    "pillars": [{"key": "stats", "weight": 45}, {"key": "moves", "weight": 25},
-                {"key": "typedef", "weight": 15}, {"key": "size", "weight": 15}],
+    "score": {"dpsRef": 80, "kpmRef": 40, "capSeconds": 900},  # DPS_REF y KPM_REF de stats.rs; tope de la simulación
     "repeats": 2000,
 }
 METHOD_KEYS = ("sheet", "simStart", "simBest", "lateMax", "lateFresh")
@@ -271,18 +270,6 @@ def build_stability(entries: list[dict]) -> list[dict]:
     return out
 
 
-def _pearson(xs: list[float], ys: list[float]) -> float:
-    mx, my = statistics.fmean(xs), statistics.fmean(ys)
-    cov = sum((x - mx) * (y - my) for x, y in zip(xs, ys))
-    return cov / (sum((x - mx) ** 2 for x in xs) * sum((y - my) ** 2 for y in ys)) ** 0.5
-
-
-def build_agreement(entries: list[dict]) -> list[dict]:
-    """Correlación de rangos (Spearman) entre el puesto de cada método y el puesto final."""
-    final = [e["r"]["rank"] for e in entries]
-    return [{"key": k, "corr": round(_pearson([e["r"]["methods"][k] for e in entries], final), 2)}
-            for k in METHOD_KEYS]
-
 
 def _pull_chance(pool_by_rarity: dict, all_mons: list, good: set) -> float:
     """P(una tirada sale S o A) según gacha.js: rareza por tirada y Pokémon al azar del pool más cercano.
@@ -339,7 +326,7 @@ def build_meta(entries: list[dict], credits: dict, counts: dict) -> dict:
         "simSeeds": sim_seeds(),
         "top": [{"dex": e["dex"], "name": e["name"], "nameEn": e["nameEn"]} for e in top],
         "simMedianSeconds": round(statistics.median(e["r"]["sim"]["start"]["seconds"] for e in entries)),
-        "stability": build_stability(entries), "method": METHOD, "agreement": build_agreement(entries),
+        "stability": build_stability(entries), "method": METHOD,
         "simRange": [min(sec for e in entries for sec in (e["r"]["sim"]["start"]["seconds"], e["r"]["sim"]["best"]["seconds"])),
                      max(sec for e in entries for sec in (e["r"]["sim"]["start"]["seconds"], e["r"]["sim"]["best"]["seconds"]))],
         "presets": [e["dex"] for name in PRESETS for e in entries if e["name"] == name],
@@ -349,15 +336,51 @@ def build_meta(entries: list[dict], credits: dict, counts: dict) -> dict:
     }
 
 
-def slim(entries: list[dict]) -> list[dict]:
+def slim(entries: list[dict], sides: dict[int, str]) -> list[dict]:
     """Lo mínimo para la tier list, el buscador y la colección: r = [puesto, tier, p10, p90, % en su tier].
+    side es phys, spec o mix según los ataques del mejor grupo simulado (no según pa/sa: eso sigue en v.ak).
     bst = suma de stats base: es el campo bst de js/data/pokedex.js del juego para los 966 Pokémon."""
     return [{"dex": e["dex"], "name": e["name"], "nameEn": e["nameEn"], "types": e["types"],
              "rarity": e["rarity"], "legendary": e["legendary"], "bannerId": e["bannerId"], "sh": e["sh"],
              "bst": sum(e["stats"]), "w": e["sprite"]["w"], "h": e["sprite"]["h"],
              "r": [e["r"]["rank"], e["r"]["tier"], e["r"]["p10"], e["r"]["p90"], round(100 * e["r"]["pTier"])],
-             "v": sort_values(e)}
+             "side": sides[e["dex"]], "v": sort_values(e)}
             for e in entries]
+
+
+def group_side(attacks: list[str]) -> str:
+    """'phys', 'spec' o 'mix' según los ataques del mejor grupo simulado, el que enseña la ficha.
+
+    Cada ataque es físico o especial por su categoría en los datos de movimientos del juego
+    (build/game_moves.py). Mixto si el grupo tiene de los dos. Un potenciador no es un ataque."""
+    if not attacks:
+        raise CatalogError("el grupo no tiene ataques")
+    classes: set[str] = set()
+    for mid in attacks:
+        cat = game_moves.attack_class(mid)
+        if cat == "physical":
+            classes.add("phys")
+        elif cat == "special":
+            classes.add("spec")
+        else:
+            raise CatalogError(f"{mid}: categoría {cat} en un ataque del grupo")
+    if classes == {"phys", "spec"}:
+        return "mix"
+    if classes == {"phys"}:
+        return "phys"
+    if classes == {"spec"}:
+        return "spec"
+    raise CatalogError(f"categoría del grupo inesperada: {sorted(classes)}")
+
+
+def group_sides(combo: dict[int, dict]) -> dict[int, str]:
+    """dex -> lado de los ataques del grupo publicado (build/combos.py), que sale de group_search.csv."""
+    out = {}
+    for dex, row in combo.items():
+        n = row["nBoost"]
+        attacks = row["moves"][:len(row["moves"]) - n] if n else list(row["moves"])
+        out[dex] = group_side(attacks)
+    return out
 
 
 def attack_kind(pa: float, sa: float) -> str:
@@ -462,14 +485,15 @@ def main() -> int:
         print(f"ERROR de catálogo: {len(errs)} errores en data/summaries.json; ver build/summary_pipeline.py",
               file=sys.stderr)
         return 1
+    dex_types = {p["dex"]: p["types"] for p in json.loads((DATA / "pokedex_export.json").read_text(encoding="utf8"))}
+    combo = combos.compute_all(dex_types, {e["dex"]: e["r"]["sim"]["best"]["id"] for e in entries})
+    sides = group_sides(combo)
     shutil.rmtree(OUT, ignore_errors=True)
     write_json("pokemon.json", entries)
     write_json("moves.json", moves)
     write_json("moves_unranked.json", unranked)
-    write_json("pokemon-index.json", slim(entries), public=True)
-    dex_types = {p["dex"]: p["types"] for p in json.loads((DATA / "pokedex_export.json").read_text(encoding="utf8"))}
-    write_json("species.json", species_details(entries, meta["simRange"], meta["simMedianSeconds"],
-                                               combos.compute_all(dex_types, {e["dex"]: e["r"]["sim"]["best"]["id"] for e in entries}),
+    write_json("pokemon-index.json", slim(entries, sides), public=True)
+    write_json("species.json", species_details(entries, meta["simRange"], meta["simMedianSeconds"], combo,
                                                builds.public(builds.read_rows())), public=True)
     write_json("moves.json", moves, public=True)
     write_json("tiers.json", json.loads((DATA / "tiers.json").read_text(encoding="utf8")), public=True)

@@ -50,8 +50,8 @@ class RankNumbers(unittest.TestCase):
     def test_cards_are_ranked_by_coins(self):
         coins = [c["coin"] for c in pasivas.CARDS]
         self.assertEqual(coins, sorted(coins, reverse=True))
-        self.assertEqual(pasivas.CARDS[0]["id"], "rgn")
-        self.assertEqual(pasivas.CARDS[1]["id"], "hp")
+        # New groups spend levels on move upgrades. The median coin lift of every card is 0.
+        self.assertTrue(all(c == 0 for c in coins))
 
     def test_dodge_scenario_keeps_the_order(self):
         coins = {c["id"]: pct(RANK_DODGE, c["fill"], "median_coins") for c in pasivas.CARDS}

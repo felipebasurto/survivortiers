@@ -16,6 +16,7 @@ from pathlib import Path
 
 import landing
 import legal
+import seo
 import toolpages
 from i18n import EN, ES, TYPE_NAMES, Lang
 
@@ -67,10 +68,6 @@ def dataset_jsonld(L: Lang, meta: dict) -> str:
     return f'<script type="application/ld+json">\n{text}\n</script>'
 
 
-def _weight(meta: dict, key: str) -> int:
-    return next(p["weight"] for p in meta["method"]["pieces"] if p["key"] == key)
-
-
 def _page_url(en: bool, key: str) -> str:
     return landing.url(EN if en else ES, landing.page_for(key))
 
@@ -80,17 +77,18 @@ def _type_links(en: bool) -> str:
     return ", ".join(f"[{names[t]}]({_page_url(en, f'type:{t}')})" for t in landing.TYPE_KEYS)
 
 
-def llms_txt(meta: dict) -> str:
+def llms_txt(meta: dict, index: list[dict]) -> str:
     u = legal.SITE_URL
     counts = legal.method_counts(EN, meta)
     es_counts = legal.method_counts(ES, meta)
-    pieces = (f"sheet percentiles of stats, moves, type defence and size ({_weight(meta, 'sheet')} %), "
-              f"the simulation ({_weight(meta, 'sim')} %) and a late-game formula ({_weight(meta, 'late')} %)")
+    fresh = f"{legal.freshness_text(EN)}; site rebuilt on {EN.date(meta['generatedAt'][:10])}"
+    fresh_es = f"{legal.freshness_text(ES)}; sitio reconstruido el {ES.date(meta['generatedAt'][:10])}"
+    top_en, top_es = seo.top_names(EN, index), seo.top_names(ES, index)
     return f"""# {legal.SITE_NAME}
 
-> Unofficial fan tier list for {legal.GAME_NAME}, a survivor-style Pokémon game by {legal.GAME_AUTHOR}. It ranks all {meta['total']} Pokémon in five tiers (S, A, B, C, D). The rank is built by simulating runs: a bot plays {counts['sims']} simulated games per Pokémon, combined with {pieces}. The whole calculation is repeated {counts['reps']} times and the median rank is published. The code, the simulator and the data are open source on GitHub. It is not official and not affiliated with Nintendo, Creatures, GAME FREAK, The Pokémon Company or the game's author.
+> Unofficial fan tier list for {legal.GAME_NAME}, a survivor-style Pokémon game by {legal.GAME_AUTHOR}. It ranks all {meta['total']} Pokémon in five tiers (S, A, B, C, D). {fresh}. Best five right now: {top_en}. The rank comes only from simulated games: a bot plays {counts['sims']} full games per Pokémon, each game is scored on time alive, damage dealt and kills, and the order is repeated {counts['reps']} times; the median rank is published. The code, the simulator and the data are open source on GitHub. It is not official and not affiliated with Nintendo, Creatures, GAME FREAK, The Pokémon Company or the game's author.
 
-Resumen en español: tier list no oficial de {legal.GAME_NAME}. Los {meta['total']} Pokémon en tiers S a D, con un ranking hecho simulando {es_counts['sims']} partidas por Pokémon y repitiendo el cálculo {es_counts['reps']} veces. Código y datos abiertos en GitHub.
+Resumen en español: tier list no oficial de {legal.GAME_NAME}. Los {meta['total']} Pokémon en tiers S a D. {fresh_es}. Los cinco mejores ahora: {top_es}. El ranking sale solo de partidas simuladas ({es_counts['sims']} por Pokémon, puntuadas por tiempo, daño y bajas) y el orden se repite {es_counts['reps']} veces. Código y datos abiertos en GitHub.
 
 The site is static. Pages are in Spanish at `/` and in English at `/en/`. There is no API key, login or rate limit. Each Pokémon has its own HTML page, for example [Mewtwo]({u}/en/pokemon/150-mewtwo/). Field definitions, units and the method are in [llms-full.txt]({u}/llms-full.txt). The data files below are the best source for tables.
 
@@ -103,7 +101,7 @@ Base URL: {u}
 - [Species details (JSON)]({u}/data/species.json): per-Pokémon sheet data (starting and best move, simulated survival, move pair, coverage trio, official base stats) and the two builds per Pokémon: the best melee and the best ranged bonded group (`builds`).
 - [Moves (JSON)]({u}/data/moves.json): every attack, with tier, type, kind and game parameters. The six boosts are in [moves_unranked.json]({u}/data/moves_unranked.json).
 - [Gacha banners (JSON)]({u}/data/gachas.json): the nine banners, pool sizes, S and A rates and the chance of an S or A pull.
-- [Method and metadata (JSON)]({u}/data/meta.json): tier cut-offs, weights, stability and method agreement numbers.
+- [Method and metadata (JSON)]({u}/data/meta.json): tier cut-offs, tier counts, stability per tier and the method constants.
 
 ## Docs
 
@@ -133,7 +131,7 @@ Base URL: {u}
 
 - [Tier list (ES)]({u}/): the same site in Spanish, with [Mejores Pokémon]({_page_url(False, 'best')}), [Mejores iniciales]({_page_url(False, 'starters')}), [Mejores legendarios]({_page_url(False, 'legendary')}) and [Mejores pasivas]({_page_url(False, 'passives')}), and per-type pages: {_type_links(False)}.
 - [Source repository](https://github.com/felipebasurto/survivortiers): the generator that builds these files.
-- [Game repository](https://github.com/JPTER78/pokesurvivor): PokéSurvivor. The ranking was built from commit {meta['gameCommit']}; mechanics, attacks and boosts are checked against commit {legal.COMBAT_COMMIT}.
+- [Game repository](https://github.com/JPTER78/pokesurvivor): PokéSurvivor. The site is updated to commit {legal.UPDATED_COMMIT}, the {EN.date(legal.UPDATED_DATE)} patch.
 """
 
 
@@ -151,15 +149,14 @@ def _tier_table(meta: dict) -> list[str]:
 def llms_full_txt(meta: dict) -> str:
     u = legal.SITE_URL
     m = meta["method"]
-    pieces = ", ".join(f"{p['key']} {p['weight']} %" for p in m["pieces"])
-    pillars = ", ".join(f"{p['key']} {p['weight']} %" for p in m["pillars"])
+    score = m["score"]
     sim_lo, sim_hi = meta["simRange"]
-    agree = ", ".join(f"{a['key']} {a['corr']}" for a in meta["agreement"])
+    counts = legal.method_counts(EN, meta)
     lines = [
         f"# {legal.SITE_NAME}: full data dictionary and method",
         "",
         f"Base URL: {u}",
-        f"Generated: {meta['generatedAt']}. Ranking version: {meta['version']}. Game commit the ranking was built from: {meta['gameCommit']}. Mechanics and attack data: commit {legal.COMBAT_COMMIT}.",
+        f"Generated: {meta['generatedAt']}. Ranking version: {meta['version']}. {legal.freshness_text(EN)}. Combat fields (pa, sa, df, sd) come from game commit {legal.COMBAT_COMMIT}.",
         "Language of values: `name` is Spanish (the game's names), `nameEn` and `*En` fields are English.",
         "",
         "## What the ranking is",
@@ -174,14 +171,13 @@ def llms_full_txt(meta: dict) -> str:
         "",
         "## How the rank is built",
         "",
-        f"1. Three pieces, each a rank: {pieces}.",
-        f"   - sheet: a species score from percentiles of four pillars ({pillars}). Stats are the base stats, moves are the attacks it can learn, type defence is how it takes type-based damage, size is its hitbox.",
-        f"   - sim: a bot plays one fixed group (starting attack, one more attack, Swords Dance or Nasty Plot to match the first attack, and Harden). Bonds arrive when a rift legendary is beaten, not at t=0; bosses, heal orbs and every attack kind are modelled. Up to {SIM_CAP_S} s. It is an estimate: the bot does not dodge. The opening measure is the expected survival with Repertoire (a random second non-buff attack) and Veto (ban the 3 pool moves that pull that expectation down), playing the better of the two. The best-move measure is the best attack it can learn, played alone. Median seconds give the rank. The starter with no shop is start_noshop_s and is not weighted. Seconds scale used on the site: {sim_lo:.0f} s to {sim_hi:.0f} s, median {meta['simMedianSeconds']} s. All of these seconds are simulated.",
-        "   - late: a late-game formula (v4) in two variants: all shop stat upgrades maxed, and no shop upgrades. This is not the Repertoire opening.",
-        f"2. Repeats: {m['repeats']} runs of the whole method. Each one shifts the data within its error margin, changes the weight between the sim and late-game pieces, and uses one of 80 assumptions of the late-game model. Final rank = median of the {m['repeats']} resulting ranks.",
-        "3. Tiers are filled in order of final rank, with fixed sizes and no entry requirements.",
-        f"4. Agreement: rank correlation of each piece with the final rank: {agree}.",
-        f"5. Flags (bit values in `species.json` `d[7]`): 1 = an attack applies a status this sim pass does not reproduce; burn, poison, slow, Hex and the extra attack kinds are simulated; confusion is not a game status and is ignored; 2 = still melee on every Repertoire draw (reported, not used for the tier).",
+        f"1. Simulate. A bot plays full games of {legal.GAME_NAME} with each Pokémon in a simulator that follows the game's code (Rust engine, with a JavaScript twin that matches it in its basic mode). The bot circles the horde inside pickup range so shots, melee hits and orbs connect, dodges telegraphed attacks and collects orbs. Each Pokémon plays {counts['sims']} games with different seeds, capped at {score['capSeconds']} s. Bonds arrive when a rift legendary is beaten, not at t=0; bosses, heal orbs and every attack kind are modelled. The opening measure is the Repertoire opening (a random second non-buff attack, with Veto bans). Simulated seconds on the site run from {sim_lo:.0f} s to {sim_hi:.0f} s, median {meta['simMedianSeconds']} s; all of them are simulated.",
+        f"2. Score. A game is worth time alive × sqrt(saturated damage rate × saturated kill rate). The damage rate is dps / (dps + {score['dpsRef']}) and the kill rate is kpm / (kpm + {score['kpmRef']}), so about {score['dpsRef']} damage per second or {score['kpmRef']} kills per minute is halfway to saturated. A game that deals no damage scores 0. The score of a Pokémon is the median over its games, with a bootstrap interval.",
+        "3. Best move. Every move the Pokémon can learn is tried as the starting attack. The best move is the best attacking move (buffs and moves that deal nothing do not count). If intervals overlap, ties go to longer survival, then kills, then move id. The move group follows the owner's build rules: Swords Dance for a physical lead and Nasty Plot for a special lead (a mixed group follows the lead attack's side), a fourth slot of Harden or a third attack (whichever scores higher), and Gengar never keeps a melee move.",
+        f"4. Repeat. {m['repeats']} repeats (seed 20261014) draw each Pokémon's score uniformly inside its interval and sort all {meta['total']}. Overlapping intervals are ties. Final rank = median of the {m['repeats']} resulting ranks; rank_p10 and rank_p90 are the 10th and 90th percentile of those ranks.",
+        f"5. Tiers are filled in order of final rank, with fixed sizes and no entry requirements. melee_locked is reported only. No stats, move, type or size sheet moves the rank: only the simulator counts.",
+        "6. Checks. The engine is compared against the game's own JavaScript (damage formulas, single-type bonus, combat scenes, vendored game source), and the Rust and JavaScript engines are compared with each other. Code, data and tests are in the repository.",
+        "7. Flags (bit values in `species.json` `d[7]`): 1 = an attack applies a status this sim pass does not reproduce (burn, poison, slow, Hex and the extra attack kinds are simulated; confusion is not a game status and is ignored); 2 = still melee on every Repertoire draw (melee_locked); 4 and 8 (stats cap, fewer than three attack types) are legacy values from the old sheet gates and no longer change a tier.",
         "",
         "## Files",
         "",
@@ -193,8 +189,8 @@ def llms_full_txt(meta: dict) -> str:
         "- rank_p10, rank_p90: 10th and 90th percentile of the rank over the repeats. p_tier: share of repeats in the tier. p_S: share of repeats in S.",
         "- start_move, start_kind, start_median_s: starting attack id, its kind (melee, projectile, beam, nova, ...), and the simulated Repertoire + Veto opening in seconds (expected value, not the starter alone).",
         "- best_move, best_median_s: best attack the bot can learn and its median simulated survival; equal to the starting attack when no better one exists.",
-        "- rank_sim_start, rank_sim_best, rank_v4_max, rank_v4_fresh, rank_sheet: the rank of each single piece. rank_sim_start ranks the Repertoire opening. rank_early combines that rank with rank_sim_best; rank_late combines the two late-game ranks. phase_gap = rank_late − rank_early (positive means better late than early).",
-        "- pct_stats, pct_moves, pct_typedef, pct_size: pillar percentiles (0–1).",
+        "- rank_sim_start, rank_sim_best: rank of the Repertoire opening and of the best move by simulated score. The other rank columns (rank_v4_max, rank_v4_fresh, rank_sheet, rank_early, rank_late, phase_gap, pct_*) are kept for old readers and do not move the published rank.",
+        "- pct_stats, pct_moves, pct_typedef, pct_size: sheet percentiles (0–1), informational only.",
         "- move_pair: the two attacks used for the coverage trio in the sheet.",
         "- shot_dmg_taken, radius, map_reach: model inputs (damage taken from an enemy shot, body radius, reach on the map).",
         "- status_unmodelled, melee_start: flags as 0/1. melee_start is 1 when the game starter is melee. attack_types: distinct types among the attacks the species can learn.",
@@ -211,9 +207,10 @@ def llms_full_txt(meta: dict) -> str:
         "- sh: boolean, true if the species can be shiny in the game (it has a shiny sprite in the game's sprite data).",
         "- w, h: sprite size in pixels.",
         "- r: `[rank, tier, p10, p90, firm]`. firm is the percentage of repeats in the tier (0–100, not a fraction).",
+        "- side: `phys`, `spec`, or `mix`, from the attacks in the best simulated group (the group the sheet shows, taken from `group_search.csv`). Mixed when that group has both a physical and a special attack. Each attack's damage class comes from the ported game move data. The ranking filter uses this field.",
         "- v: sort values. atk (in-game attack multiplier), hp, spd (speed), ehp (effective HP), rad (body radius) come from the game's Pokédex export. td (type defence), mv (moves), st (stats) are 0–100 percentile scores where 100 is best.",
         "- v.pa, v.sa: physical and special attack multipliers (damage of its physical / special moves; atk is the larger of the two). v.df, v.sd: base Defence and Special Defence. Taken from js/data/pokedex.js of the game at commit 5a23d49.",
-        "- v.ak: the stronger side, `phys`, `spec`, or `mix` (mix when pa and sa differ by 0.05 or less).",
+        "- v.ak: the stronger side from base stats, `phys`, `spec`, or `mix` (mix when pa and sa differ by 0.05 or less). Kept for compatibility. It is not the group's attack mix: use `side` for that.",
         "",
         "### data/species.json",
         "",
@@ -256,7 +253,7 @@ def llms_full_txt(meta: dict) -> str:
         "",
         "### data/meta.json",
         "",
-        "Version, generation time, game commit, tier cut-offs, tier counts, stability per tier, the method weights (`method`), method agreement, the seconds scale, sprite credits and sprite licence.",
+        "Version, generation time, game commit, tier cut-offs, tier counts, stability per tier, the method constants (`method`: score references, repeats, tiers), the seconds scale, the number of species capped by stats, sprite credits and sprite licence.",
         "",
         "## Query pages",
         "",
@@ -278,16 +275,21 @@ def llms_full_txt(meta: dict) -> str:
         "",
         "## Caveats",
         "",
-        "- Tiers are a model with stated assumptions. The sim is a bot that does not dodge; rift bonds, bosses and heal orbs are estimates, and confusion is not modelled. Read the flags before trusting a single Pokémon.",
-        "- The game changes. Check `gameCommit` in `data/meta.json` against the game you care about.",
+        "- Tiers are a model with stated assumptions. The sim is a bot, not a person (it plays melee worse); rift walks, bonds, bosses and heal orbs are estimates, and confusion is not modelled. Read the flags before trusting a single Pokémon.",
+        "- The game changes. The site states the patch it is updated to (see `llms.txt`); compare it with the game you care about.",
         "- Fan site, not official. Pokémon and its names are trademarks of their owners.",
         "",
     ]
     return "\n".join(lines)
 
 
+# Rastreadores de buscadores y de asistentes de IA a los que se permite todo de forma explícita.
+ALLOWED_BOTS = ("GPTBot", "OAI-SearchBot", "ChatGPT-User", "PerplexityBot", "ClaudeBot", "Google-Extended", "Bingbot")
+
+
 def robots_txt() -> str:
-    return f"User-agent: *\nAllow: /\n\nSitemap: {legal.SITE_URL}/sitemap.xml\n"
+    groups = "".join(f"User-agent: {bot}\nAllow: /\n\n" for bot in ALLOWED_BOTS)
+    return f"User-agent: *\nAllow: /\n\n{groups}Sitemap: {legal.SITE_URL}/sitemap.xml\n"
 
 
 def sitemap_xml(meta: dict, sheets: list[str] | None = None, landing_pairs: list[tuple[str, str]] | None = None) -> str:
@@ -312,12 +314,12 @@ def landing_pairs() -> list[tuple[str, str]]:
     return [(p.es, p.en) for p in landing.pages()]
 
 
-def write_all(site: Path, meta: dict, gachas: list[dict], sheets: list[str] | None = None) -> int:
+def write_all(site: Path, meta: dict, gachas: list[dict], index: list[dict], sheets: list[str] | None = None) -> int:
     """Escribe los archivos para agentes en site/ y devuelve cuántos son."""
     data = site / "data"
     data.mkdir(parents=True, exist_ok=True)
     files = {
-        site / "llms.txt": llms_txt(meta),
+        site / "llms.txt": llms_txt(meta, index),
         site / "llms-full.txt": llms_full_txt(meta),
         site / "robots.txt": robots_txt(),
         site / "sitemap.xml": sitemap_xml(meta, sheets, landing_pairs()),

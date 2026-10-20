@@ -192,10 +192,15 @@ def build(L: Lang, page: Page, index: list[dict], by_dex: dict[int, dict], detai
         cards = pasivas.CARDS
         best, nxt = cards[0], cards[1]
         title, h1 = L.t("lp_pas_title"), L.t("lp_pas_h1")
-        lede = L.t("lp_pas_lede", best=f"{pasivas._t(best['name'], L)} ({pasivas._pct(best['coin'], L, 0)})",
-                   next=f"{pasivas._t(nxt['name'], L)} ({pasivas._pct(nxt['coin'], L, 0)})")
+        tied = best["coin"] == nxt["coin"] == 0
+        if tied:
+            lede = L.t("lp_pas_lede_tie")
+            desc = L.t("lp_pas_desc_tie")
+        else:
+            lede = L.t("lp_pas_lede", best=f"{pasivas._t(best['name'], L)} ({pasivas._pct(best['coin'], L, 0)})",
+                       next=f"{pasivas._t(nxt['name'], L)} ({pasivas._pct(nxt['coin'], L, 0)})")
+            desc = L.t("lp_pas_desc", top=static_ficha._join(L, [pasivas._t(c["name"], L) for c in cards[:2]]))
         note = L.t("lp_pas_note")
-        desc = L.t("lp_pas_desc", top=static_ficha._join(L, [pasivas._t(c["name"], L) for c in cards[:2]]))
         body = (f'<section class="ql-list"><h2>{escape(top_h)}</h2>{_passives_html(L)}'
                 f'<p><a href="{home}pasivas.html">{escape(L.t("lp_pas_link"))} →</a></p></section>')
     else:
