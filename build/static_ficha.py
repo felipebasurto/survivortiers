@@ -281,24 +281,27 @@ def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, detail: list,
     region = regions.badge(L, sprites, entry["bannerId"], banner, {}, small=True)
     buff_set = set(buff_ids)
 
-    def _move_li(mid: str) -> str:
-        cls = ' class="is-buff"' if mid in buff_set else ""
-        return f"<li{cls}>{esc(_move_name(L, moves, mid))} {move_tags(L, moves[mid])}</li>"
+    best_id = detail[4]
+
+    def _move_li(mid: str, n: str = "") -> str:
+        """Una fila de la build: número, nombre y etiquetas de daño y forma; la de mejor ataque lleva marca."""
+        boost = mid in buff_set
+        cls = "bd-row is-buff" if boost else "bd-row"
+        pill = f'<span class="bd-pill is-gold">{esc(L.t("build_best"))}</span>' if mid == best_id else ""
+        return (f'<li class="{cls}"><span class="bd-n">{n}</span><span class="bd-info"><span class="bd-nm">'
+                f'{esc(_move_name(L, moves, mid))}</span>{move_tags(L, moves[mid])}</span>{pill}</li>')
 
     start_id = detail[2]
-    chips = "".join(_move_li(mid) for mid in ids)
+    chips = "".join(_move_li(mid, str(i)) for i, mid in enumerate(ids, 1))
     start_chip = _move_li(start_id)
     card_items = []
     for i, (cid, card_name) in enumerate(zip(card_ids, card_names), 1):
-        once = f' <small class="bd-gate" title="{esc(L.t("build_card_once"))}">1×</small>' if cid == gate else ""
-        card_items.append(f'<li><b class="bd-n">{i}</b>{esc(card_name)}{once}</li>')
-    card_top = "".join(card_items[:4])
-    card_more = "".join(card_items[4:])
+        gate_mark = f'<b class="bd-gate" title="{esc(L.t("build_card_once"))}">1×</b>' if cid == gate else ""
+        card_items.append(f'<li class="{"is-gate" if cid == gate else ""}"><span class="bd-n">{i}</span>'
+                          f'<span class="bd-nm">{esc(card_name)}</span>{gate_mark}</li>')
     card_block = (
+        f'<ol class="bd-cardlist">{"".join(card_items)}</ol>'
         f'<p class="bd-hint">{esc(L.t("build_card_hint"))}</p>'
-        f'<ol class="bond bd-prio">{card_top}</ol>'
-        + (f'<details class="bd-more"><summary>{esc(L.t("build_card_more"))}</summary>'
-           f'<ol class="bond bd-prio" start="5">{card_more}</ol></details>' if card_more else "")
         + (f'<p class="bd-legend">{esc(L.t("build_card_once"))}</p>' if gate else ""))
     stat_rows = "".join(
         f'<tr><th scope="row">{esc(L.t(key))}</th><td class="num">{n}</td></tr>'
@@ -328,12 +331,9 @@ def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, detail: list,
 <section class="fig fig-build" id="build" aria-labelledby="bd-h">
 <div class="bd-card" style="--p1:{tc};--p2:{tc2}">
 <header class="bd-head"><div><h2 id="bd-h">{esc(L.t("t_build"))}</h2><span class="bd-who">{esc(name)}</span></div></header>
-<p class="bd-cap">{esc(L.t("build_start"))}</p>
-<ul class="bond">{start_chip}</ul>
-<p class="bd-cap">{esc(L.t("build_group"))}</p>
-<ul class="bond">{chips}</ul>
-<p class="bd-cap">{esc(L.t("build_cards"))}</p>
-{card_block}
+<div class="bd-block"><h3 class="bd-cap">{esc(L.t("build_start"))}</h3><ul class="bd-rows">{start_chip}</ul></div>
+<div class="bd-block bd-bond"><h3 class="bd-cap">{esc(L.t("build_group"))}</h3><ol class="bd-rows">{chips}</ol></div>
+<div class="bd-block"><h3 class="bd-cap">{esc(L.t("build_cards"))}</h3>{card_block}</div>
 <p>{esc(L.t("sheet_a_build", attacks=attacks, buffs=buffs) if buffs else L.t("sheet_a_build_plain", attacks=attacks))}</p>
 <p class="muted">{esc(L.t("sheet_a_cover", super=L.pcts(int(super_pct)), neutral=L.pcts(int(neutral_pct))))}</p>
 </div>

@@ -394,14 +394,15 @@ def browser_check(base: str, index: list[dict], args, err, notes: list[str]) -> 
                     h1: document.querySelector('h1').firstChild.textContent.trim(),
                     img: document.querySelector('.ficha-sprite img').naturalWidth,
                     src: document.querySelector('.ficha-sprite img').src,
-                    build: { start: document.querySelectorAll('#build .bd-start .bd-tile').length,
-                             slots: document.querySelectorAll('#build .bd-slots .bd-tile').length,
-                             alts: document.querySelectorAll('#build .bd-alts .bd-tile').length,
-                             items: document.querySelectorAll('#build .bd-items .bd-tile').length,
-                             cards: document.querySelectorAll('#build .bd-cards .bd-tile').length,
-                             cardNumbers: [...document.querySelectorAll('#build .bd-cards .bd-tile .bd-badge')].map(b => b.textContent.trim()),
-                             once: document.querySelectorAll('#build .bd-cards .bd-once').length,
+                    build: { start: document.querySelectorAll('#build .bd-card > .bd-block:not(.bd-bond) .bd-row').length,
+                             slots: document.querySelectorAll('#build .bd-bond .bd-row').length,
+                             alts: document.querySelector('#build .bd-alts') ? document.querySelector('#build .bd-alts').textContent.split('·').length : 0,
+                             items: document.querySelectorAll('#build .bd-split > .bd-block:first-child .bd-row').length,
+                             cards: document.querySelectorAll('#build .bd-cardlist li').length,
+                             cardNumbers: [...document.querySelectorAll('#build .bd-cardlist .bd-n')].map(b => b.textContent.trim()),
+                             once: document.querySelectorAll('#build .bd-gate').length,
                              icons: [...document.querySelectorAll('#build .bd-ico img')].every(i => i.complete && i.naturalWidth > 0),
+                             expands: document.querySelectorAll('#build details').length,
                              title: (document.querySelector('#build h2') || {}).textContent,
                              overflow: [...document.querySelectorAll('#build, #build *')].some(e => e.getBoundingClientRect().right > innerWidth + 1) },
                     base: new URL(document.documentElement.dataset.sprites, location.href).href,
@@ -416,6 +417,8 @@ def browser_check(base: str, index: list[dict], args, err, notes: list[str]) -> 
                     err(f"{lang}pokemon/?id={d}: la sección Build está incompleta ({b})")
                 if b["cards"] != 8 or b["cardNumbers"] != [str(i) for i in range(1, 9)] or b["once"] != 1:
                     err(f"{lang}pokemon/?id={d}: las cartas por prioridad no salen 1 a 8 con una marca 1× ({b['cards']}, {b['cardNumbers']}, {b['once']})")
+                if b["expands"]:
+                    err(f"{lang}pokemon/?id={d}: la sección Build sigue con desplegables ({b['expands']})")
                 if b["overflow"]:
                     err(f"{lang}pokemon/?id={d}: la sección Build se desborda en 390 px de ancho")
                 if info["src"] != f"{info['base']}{d}{info['ext']}" or info["img"] == 0:

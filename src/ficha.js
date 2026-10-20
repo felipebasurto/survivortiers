@@ -287,30 +287,26 @@
   // opcionales para los huecos que se abren más tarde y los objetos de la tier list. Una tarjeta oscura que se lee sola
   // en una captura: lleva el sprite, el nombre y la marca del sitio.
   const ITEM_COLOR = '#f2ecd8';
-  function tile(m, cls, badge, i, withShape) {
-    const color = TYPE_COLOR[m.type] || ITEM_COLOR;
-    const nm = EN ? m.en.name : m.name;
-    return '<li class="bd-tile' + cls + '" style="--tc:' + color + ';--i:' + i + '">' + (badge || '') +
-      '<span class="bd-ico"><img src="' + iconUrl(m) + '" alt="" width="48" height="48"></span><span class="bd-nm">' + esc(nm) + '</span>' +
-      moveTags(m, withShape) + '</li>';
-  }
-  const badgeOf = (kind, label) => '<b class="bd-badge" title="' + esc(label) + '" aria-label="' + esc(label) + '">' +
-    (kind === 'crown' || kind === 'sparkle' ? '<i class="ico ico-' + kind + '" aria-hidden="true"></i>' : kind) + '</b>';
-  const meter = (label, v, cls) => '<div class="bd-meter ' + cls + '"><span>' + esc(label) + '</span>' +
-    '<i class="bd-track" role="img" aria-label="' + v + ' %"><b style="width:' + v + '%"></b></i><strong>' + v + '&nbsp;%</strong></div>';
-
-  // Dos eslabones de cadena en píxeles: el grupo de cuatro se lanza junto, vinculado.
-  const LINK_SVG = '<svg class="bd-link" viewBox="0 0 14 8" width="21" height="12" aria-hidden="true" focusable="false" shape-rendering="crispEdges">' +
-    '<path fill="currentColor" d="M1 1h5v1H1zM0 2h1v4H0zM1 6h5v1H1zM8 1h5v1H8zM13 2h1v4h-1zM8 6h5v1H8zM4 3h6v2H4z"/></svg>';
   const SHARE_SVG = '<svg viewBox="0 0 12 12" width="20" height="20" aria-hidden="true" focusable="false" shape-rendering="crispEdges">' +
     '<path d="M4 6l4-4M4 6l4 4" stroke="currentColor" stroke-width="1.4" fill="none"/>' +
     '<path fill="currentColor" d="M8 0h4v4H8zM0 4h4v4H0zM8 8h4v4H8z"/></svg>';
   const typeVars = p => '--p1:' + (TYPE_COLOR[p.types[0]] || '#888') + ';--p2:' + (TYPE_COLOR[p.types[1] || p.types[0]] || '#888');
-  const capOf = (key, extra) => '<span class="bd-cap">' + (extra || '') + esc(t(key)) + '</span>';
-  const group = (key, list, cls, icon) => list ? '<div class="bd-group ' + cls + '-g">' + capOf(key, icon) + '<ul class="bd-small ' + cls + '">' + list + '</ul></div>' : '';
+  const capOf = key => '<h3 class="bd-cap">' + esc(t(key)) + '</h3>';
+  const meter = (label, v, cls) => '<div class="bd-meter ' + cls + '"><span>' + esc(label) + '</span>' +
+    '<i class="bd-track" role="img" aria-label="' + v + ' %"><b style="width:' + v + '%"></b></i><strong>' + v + '&nbsp;%</strong></div>';
 
-  // Lo que un jugador mira primero: con qué empieza, el grupo vinculado de cuatro, el objeto y qué cartas coger.
-  // Los opcionales y la cobertura de tipos quedan plegados en «Más».
+  // Una fila: número (vacío en el inicio), icono del juego, nombre, etiquetas de daño y forma, y una marca opcional.
+  function moveRow(m, n, pill) {
+    const nm = EN ? m.en.name : m.name;
+    return '<li class="bd-row" style="--tc:' + (TYPE_COLOR[m.type] || ITEM_COLOR) + '">' +
+      '<span class="bd-n">' + n + '</span>' +
+      '<span class="bd-ico"><img src="' + iconUrl(m) + '" alt="" width="32" height="32"></span>' +
+      '<span class="bd-info"><span class="bd-nm">' + esc(nm) + '</span>' + moveTags(m, true) + '</span>' +
+      (pill ? '<span class="bd-pill' + (pill.gold ? ' is-gold' : '') + '">' + esc(pill.text) + '</span>' : '') + '</li>';
+  }
+
+  // Lo que un jugador mira primero, sin plegar nada: con qué empieza, el grupo vinculado, los objetos, las cartas en
+  // orden y la cobertura. Es la tarjeta que se comparte, así que cada bloque se lee solo.
   function build(p, d, moves, items, name, scale, cards) {
     const [superPct, neutralPct, ids, , altIds, nBoost = 1] = d[9];
     const find = id => moves.find(m => m.id === id);
@@ -318,45 +314,39 @@
     const attacks = slots.slice(0, slots.length - nBoost), boosts = slots.slice(slots.length - nBoost);
     const start = find(d[2]);
     const alts = altIds.map(find).filter(Boolean);
-    // La corona es el mejor ataque de la simulación (d[4]). Si la búsqueda pone otro ataque delante, ese hueco va numerado.
-    const attackTiles = attacks.map((m, i) => {
-      const crowned = m.id === d[4];
-      return tile(m, '', badgeOf(crowned ? 'crown' : String(i + 1), crowned ? t('build_best') : t('build_slot', { n: i + 1 })), i, true);
-    }).join('');
-    const boostTile = boosts.map((b, i) => tile(b, ' bd-boost', badgeOf('sparkle', t('build_boost')), attacks.length + i, true)).join('');
+    const attackRows = attacks.map((m, i) => moveRow(m, i + 1, m.id === d[4] ? { text: t('build_best'), gold: true } : null)).join('');
+    const boostRows = boosts.map((b, i) => moveRow(b, attacks.length + i + 1, null)).join('');
     const sprite = '<span class="bd-sprite" style="--tc:' + (TYPE_COLOR[p.types[0]] || '#888') +
       '"><img class="px" src="' + sprites + p.dex + spriteExt + '" width="' + p.w * scale + '" height="' + p.h * scale + '" alt=""></span>';
-    const altTiles = alts.map((m, i) => tile(m, ' sm', '', i)).join('');
-    const itemTiles = items.map((m, i) => tile(m, ' sm item' + (i === 0 ? ' best' : ''), i === 0 ? badgeOf('crown', t('build_best_item')) : '', i)).join('');
+    const itemRows = items.map((m, i) => moveRow(m, '', i === 0 ? { text: t('build_best_item'), gold: true } : null)).join('');
     // Cartas por prioridad (build/passives.py): las ocho del banco de monedas de esta especie, de mejor a peor. La que
     // evoluciona el ataque principal (d[10][1]) hace falta una vez, esté donde esté en la lista.
     const [cardIds, gateId] = d[10] || [[], null];
-    const cardTile = (id, i) => {
+    const cardItems = cardIds.map((id, i) => {
       const m = cards[id];
       if (!m) return '';
-      const gateMark = id === gateId ? '<b class="bd-once" title="' + esc(t('build_card_once')) + '">1×</b>' : '';
-      return tile(m, ' sm card' + (id === gateId ? ' evo' : ''), badgeOf(String(i + 1), t('build_card_n', { n: i + 1 })) + gateMark, i);
-    };
-    const cardTop = cardIds.slice(0, 4).map((id, i) => cardTile(id, i)).join('');
-    const cardMore = cardIds.slice(4).map((id, i) => cardTile(id, i + 4)).join('');
-    const cardRow = cardIds.length ? '<div class="bd-group bd-cards-g">' + capOf('build_cards') +
-      '<p class="bd-hint">' + esc(t('build_card_hint')) + '</p>' +
-      '<ul class="bd-small bd-cards">' + cardTop + '</ul>' +
-      (cardMore ? '<details class="bd-more"><summary>' + esc(t('build_card_more')) + '</summary><ul class="bd-small bd-cards">' + cardMore + '</ul></details>' : '') +
-      (gateId ? '<p class="bd-legend">' + esc(t('build_card_once')) + '</p>' : '') + '</div>' : '';
-    const extra = '<details class="bd-extra"><summary>' + esc(t('build_more')) + '</summary><div class="bd-extra-body">' +
-      group('build_alt', altTiles, 'bd-alts') +
-      '<div class="bd-meters">' + meter(t('build_super'), superPct, 'bd-super') + meter(t('build_neutral'), neutralPct, 'bd-neutral') + '</div>' +
-      '</div></details>';
+      const gate = id === gateId;
+      return '<li class="' + (gate ? 'is-gate' : '') + '"><span class="bd-n">' + (i + 1) + '</span>' +
+        '<span class="bd-nm">' + esc(EN ? m.en.name : m.name) + '</span>' +
+        (gate ? '<b class="bd-gate" title="' + esc(t('build_card_once')) + '">1×</b>' : '') + '</li>';
+    }).join('');
+    const altLine = alts.length
+      ? '<p class="bd-alts"><span>' + esc(t('build_alt')) + ':</span> ' + alts.map(m => esc(EN ? m.en.name : m.name)).join(' · ') + '</p>'
+      : '';
     return '<section class="fig anim fig-build" id="build" aria-labelledby="bd-h"><div class="bd-card" style="' + typeVars(p) + '">' +
       '<header class="bd-head">' + sprite + '<div><h2 id="bd-h">' + esc(t('t_build')) + '</h2><span class="bd-who">' + esc(name) + '</span></div>' +
       '<button class="bd-share" type="button" aria-label="' + esc(t('build_share')) + '" title="' + esc(t('build_share')) + '">' + SHARE_SVG + '</button>' +
       '<span class="bd-toast" role="status" aria-live="polite"></span></header>' +
-      '<div class="bd-flow"><div class="bd-start">' + capOf('build_start') + '<ul>' +
-      (start ? tile(start, ' bd-startmove', '', 0, true) : '') + '</ul></div><i class="ico ico-arrow bd-arrow" aria-hidden="true"></i>' +
-      '<div class="bd-bond">' + capOf('build_group', LINK_SVG) + '<ol class="bd-slots">' + attackTiles + boostTile + '</ol></div></div>' +
-      '<div class="bd-gear">' + group('build_items', itemTiles, 'bd-items') + cardRow + '</div>' +
-      extra + '<p class="bd-brand">' + esc(t('build_brand')) + '</p></div></section>';
+      '<div class="bd-block">' + capOf('build_start') + '<ul class="bd-rows">' + (start ? moveRow(start, '', null) : '') + '</ul></div>' +
+      '<div class="bd-block bd-bond">' + capOf('build_group') + '<ol class="bd-rows">' + attackRows + boostRows + '</ol>' + altLine + '</div>' +
+      '<div class="bd-split">' +
+        '<div class="bd-block">' + capOf('build_items') + '<ul class="bd-rows">' + itemRows + '</ul></div>' +
+        '<div class="bd-block">' + capOf('build_cards') + '<ol class="bd-cardlist">' + cardItems + '</ol>' +
+          '<p class="bd-hint">' + esc(t('build_card_hint')) + '</p>' +
+          (gateId ? '<p class="bd-legend">' + esc(t('build_card_once')) + '</p>' : '') + '</div>' +
+      '</div>' +
+      '<div class="bd-cover">' + meter(t('build_super'), superPct, 'bd-super') + meter(t('build_neutral'), neutralPct, 'bd-neutral') + '</div>' +
+      '<p class="bd-brand">' + esc(t('build_brand')) + '</p></div></section>';
   }
 
   // Bloques plegables bajo la build: un icono, un título y un adelanto a la derecha; el detalle, al abrirlo.
