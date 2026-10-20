@@ -22,6 +22,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 RANKING = ROOT / "data" / "ranking_definitive.csv"
 PASSIVE = ROOT / "data" / "passive_sim.json"
+# Evolution card of each move: Moves.EVO in the vendored game
+# (simulator/vendor/pokesurvivor-5a23d49/js/data/moves.js, commit 5a23d49),
+# extracted into v3/v3_data.json by simulator/v3/extract_v3.js.
+GAME = ROOT / "simulator" / "v3" / "v3_data.json"
 STATS = ["atk", "spd", "hp", "def", "cd", "rgn", "mag", "xp"]
 
 
@@ -79,25 +83,43 @@ def orders_from(path: Path) -> dict[str, list[str]]:
     return out
 
 
+def evolution_needs() -> dict[str, str]:
+    """Move id -> stat card that evolves it. Source: Moves.EVO in the vendored game at 5a23d49,
+    via the extract in v3/v3_data.json (simulator/v3/extract_v3.js reads js/data/moves.js)."""
+    raw = json.loads(GAME.read_text(encoding="utf8"))
+    needs = {}
+    for mid, move in raw["moves"].items():
+        card = move.get("needs")
+        if not card:
+            continue
+        if card not in STATS:
+            raise SystemExit(f"{mid}: evolution card {card!r} is not a stat card")
+        needs[mid] = card
+    if len(needs) != 97:
+        raise SystemExit(f"v3_data.json has {len(needs)} evolving moves, expected the 97 attacks")
+    return dict(sorted(needs.items()))
+
+
 def write_order(csv_path: Path, json_path: Path) -> dict[str, int]:
     fresh = orders_from(csv_path)
     if len(fresh) != 966:
         raise SystemExit(f"{csv_path} has {len(fresh)} species, expected 966")
-    prev = json.loads(json_path.read_text(encoding="utf8"))
+    needs = evolution_needs()
     counts: dict[str, int] = defaultdict(int)
     for order in fresh.values():
         counts[order[0]] += 1
     picks = ", ".join(f"{name} {counts[name]}" for name in STATS if counts[name])
     note = (
-        "fixed-group sim (--group 2+2 --terrain --status --full-cards --heal-below 0.70; "
+        "fixed-group sim (--group 2+2 --terrain --status --full-cards --bot repulse --heal-below 0.70; "
         "100 seeds; partners solo_sweep.csv): card ids by median coins when that stat is taken first, "
         "then median survival, then mean. Coins = round(floor(time/5)+floor(kills*0.25)+bosses*80+picked). "
         "Zidra is taken at <=70% HP in every run. "
-        f"First picks: {picks}. needs: evolution card per move. "
+        f"First picks: {picks}. needs: evolution card per move, from Moves.EVO in "
+        "js/data/moves.js at 5a23d49 (vendored; extracted in simulator/v3/v3_data.json). "
         "The page lists all eight in this order and marks the card the lead attack needs to evolve "
         "(build/passives.py priority). Estimates."
     )
-    doc = {"note": note, "needs": prev["needs"], "order": {d: fresh[d] for d in sorted(fresh, key=int)}}
+    doc = {"note": note, "needs": needs, "order": {d: fresh[d] for d in sorted(fresh, key=int)}}
     json_path.write_text(json.dumps(doc, ensure_ascii=False, separators=(",", ":")) + "\n", encoding="utf8")
     return counts
 
