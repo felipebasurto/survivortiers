@@ -218,6 +218,12 @@ def build_sentence(f: dict, lang: str, item_mark: str) -> str:
     return f"Empieza con {start} y vincula {', '.join(group[:-1])}{conj}{group[-1]}; lleva {item_mark}."
 
 
+TRIM = {
+    "es": re.compile(r", y \[nodown\|[^\]]*\] de verdad"),
+    "en": re.compile(r", and \[nodown\|[^\]]*\] much"),
+}
+
+
 def rebuild(args) -> int:
     """Rewrite the build sentence of every summary from today's facts (the build the ficha shows first), keep the
     rest of the text, and refresh the stored hashes. For when the build data changes, not the other claims."""
@@ -232,6 +238,9 @@ def rebuild(args) -> int:
                 print(f"  {d} {lang}: no hay frase de build", file=sys.stderr)
                 return 1
             entry[lang] = entry[lang][:m.start()] + build_sentence(f, lang, m.group(1)) + entry[lang][m.end():]
+        if any(len(summaries.plain(entry[lang])) > summaries.MAX_LEN for lang in ("es", "en")):
+            for lang in ("es", "en"):
+                entry[lang] = TRIM[lang].sub("", entry[lang])
         for lang, old, new in (("es", "Lo que más lo sube es [up:best_move", "En el ranking, lo que más lo sube es [up:best_move"),
                                ("en", "What lifts it most is [up:best_move", "In the ranking, what lifts it most is [up:best_move")):
             longer = entry[lang].replace(old, new)

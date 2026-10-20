@@ -67,12 +67,12 @@ class Validator(unittest.TestCase):
 
     def test_move_name_must_match_the_build(self):
         other = next(n for n in sorted(NAMES["es"]) if n not in S.names_in(self.f, "es"))
-        e = self.edit(es=self.entry["es"].replace("|Garra Dragón]", f"|{other}]", 1))
+        e = self.edit(es=self.entry["es"].replace("|Furia Dragón]", f"|{other}]", 1))
         self.assertTrue(any("build" in x for x in errors(self.f, e)))
 
     def test_move_id_must_match_the_build(self):
-        e = self.edit(es=self.entry["es"].replace("m.start:dragon-claw|", "m.start:tackle|", 1),
-                      en=self.entry["en"].replace("m.start:dragon-claw|", "m.start:tackle|", 1))
+        e = self.edit(es=self.entry["es"].replace("m.start:dragon-rage|", "m.start:tackle|", 1),
+                      en=self.entry["en"].replace("m.start:dragon-rage|", "m.start:tackle|", 1))
         self.assertTrue(any("m.start:tackle" in x for x in errors(self.f, e)))
 
     def test_tier_letter_must_be_backed(self):

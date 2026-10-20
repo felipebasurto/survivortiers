@@ -76,8 +76,13 @@ def r2(x: float) -> float:
     return round(float(x), 3)
 
 
-def lead_build(pair: dict[str, dict]) -> dict:
-    """The build the ficha puts first: the higher score, or the melee one on a tie (build/static_ficha.py _lead)."""
+def lead_build(pair: dict[str, dict], defensive: dict | None) -> dict:
+    """The build the ficha puts first (build/static_ficha.py lead_build): the offensive one with the higher score, the
+    melee one on a tie, and the Fortaleza one for the species with no simulated offensive build."""
+    if not pair:
+        if defensive is None:
+            raise SystemExit("una especie sin ninguna build")
+        return defensive
     if len(pair) == 1:
         return next(iter(pair.values()))
     melee, ranged = pair["melee"], pair["ranged"]
@@ -95,7 +100,9 @@ def base_records() -> dict[str, dict]:
         moves.setdefault(m["id"], m)
     cards_es = {k: v["title"] for k, v in json.loads((DATA / "card_icons.json").read_text(encoding="utf8")).items()}
     combo = combos.compute_all({d: px[d]["types"] for d in dex_list}, {int(r["dex"]): r["best_move"] for r in rows})
-    lead = {int(d): lead_build(pair) for d, pair in builds.public(builds.read_rows()).items()}
+    build_rows = builds.read_rows()
+    offensive, defensive, starts = builds.public(build_rows), builds.public_defensive(build_rows), builds.starts()
+    lead = {d: lead_build(offensive.get(str(d), {}), defensive.get(str(d))) for d in dex_list}
     psim = passives.load()
     items = objetos.recommended()
 
@@ -120,6 +127,7 @@ def base_records() -> dict[str, dict]:
         p = px[d]
         c = combo[d]
         ids = lead[d]["moves"]
+        start = starts[d]
         card_ids, n_evo = passives.compute(d, ids, psim)
         out[str(d)] = {
             "dex": d, "name": p["name"], "nameEn": r["name"], "types": p["types"],
@@ -131,8 +139,8 @@ def base_records() -> dict[str, dict]:
                         "superPct": c["super"], "neutralPct": c["neutral"], "superPctile": r2(pct_super[i]),
                         "attackTypes": int(r["attack_types"])},
             "build": {
-                "start": name(ids[0]), "best": name(r["best_move"]),
-                "group": [name(m) for m in ids[1:]], "attacks": len(ids) - lead[d]["nBoost"],
+                "start": name(start), "best": name(r["best_move"]),
+                "group": [name(m) for m in ids if m != start], "attacks": len(ids) - lead[d]["nBoost"],
                 "alts": [],
                 "item": {"id": items[0]["id"], "es": items[0]["name"][0], "en": items[0]["name"][1]},
                 "cards": [{"id": k, "es": cards_es[k], "en": CARD_EN[k]} for k in card_ids], "evoCards": n_evo,
