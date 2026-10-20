@@ -277,9 +277,9 @@
     return bits ? '<span class="bd-tags">' + bits + '</span>' : '';
   };
   const learnPool = (p, moves) => moves.filter(m => m.type === 'normal' || p.types.includes(m.type));
-  function learn(p, pair, moves) {
+  function learn(p, pair, defensive, start, moves) {
     const pool = learnPool(p, moves);
-    const inBuild = new Set(BUILD_KINDS.flatMap(k => pair[k] ? pair[k].moves : []));
+    const inBuild = new Set(BUILD_KINDS.flatMap(k => pair[k] ? pair[k].moves : []).concat(defensive ? defensive.moves : [], [start]));
     const chips = ms => ms.map(m => '<li class="lt-move' + (inBuild.has(m.id) ? ' in-build' : '') +
       '" style="--tc:' + (TYPE_COLOR[m.type] || ITEM_COLOR) + '"><img class="lt-ico" src="' + iconUrl(m) +
       '" alt="" width="32" height="32">' + esc(EN ? m.en.name : m.name) + moveTags(m, inBuild.has(m.id)) + '</li>').join('');
@@ -304,8 +304,9 @@
   const meter = (label, v, cls) => '<div class="bd-meter ' + cls + '"><span>' + esc(label) + '</span>' +
     '<i class="bd-track" role="img" aria-label="' + v + ' %"><b style="width:' + v + '%"></b></i><strong>' + v + '&nbsp;%</strong></div>';
 
-  // Dos builds de la simulación, la mejor de cuerpo a cuerpo y la mejor a distancia (species.builds, build/builds.py).
+  // Dos builds ofensivas de la simulación, la mejor de cuerpo a cuerpo y la mejor a distancia (species.builds, build/builds.py).
   // Una build sin ataques que le valgan no sale. La de mayor puntuación lleva la marca; la otra dice cuánto le falta.
+  // Debajo, la variante defensiva con Fortaleza (species.defensive) si la especie tiene una, y arriba el ataque con el que empezar.
   const BUILD_KINDS = ['melee', 'ranged'];
   const BUILD_NAME = { melee: 'bd_melee', ranged: 'bd_ranged' };
   const BUILD_OTHER = { melee: 'bd_other_ranged', ranged: 'bd_other_melee' };
@@ -348,7 +349,7 @@
     const ids = b.moves, nb = b.nBoost;
     const rows = ids.map((id, i) => {
       const m = moves.find(x => x.id === id);
-      return m ? moveRow(m, i + 1, null, i >= ids.length - nb, i === 0) : '';
+      return m ? moveRow(m, i + 1, null, i >= ids.length - nb) : '';
     }).join('');
     const stats = '<dl class="bd-stats">' +
       '<div><dt>' + esc(t('bd_time')) + '</dt><dd>' + decText(b.time, 1) + ' s</dd></div>' +
@@ -371,13 +372,50 @@
       verdict(kind, b, other, win) + '<ol class="bd-rows">' + rows + '</ol>' + stats + cardsHtml + note + '</article>';
   }
 
-  function build(p, d, moves, items, name, scale, cards, pair) {
+  const leadOf = (pair, win) => pair[win || BUILD_KINDS.find(k => pair[k])] || null;
+
+  // Lo que cambia con Fortaleza frente a la build ofensiva, con las medianas del simulador (static_ficha.defense_verdict).
+  function defenseVerdict(df, off) {
+    if (!off) return '';
+    const secs = rnd((df.time - off.time) * 10) / 10;
+    const pct = off.dealt > 0 ? rnd((df.dealt - off.dealt) / off.dealt * 100) : 0;
+    const when = secs > 0 ? t('bd_def_time_more', { s: decText(secs, 1) })
+      : secs < 0 ? t('bd_def_time_less', { s: decText(-secs, 1) }) : t('bd_def_time_same');
+    const dmg = pct > 0 ? t('bd_def_dmg_more', { pct: pctText(pct) })
+      : pct < 0 ? t('bd_def_dmg_less', { pct: pctText(-pct) }) : t('bd_def_dmg_same');
+    return t('bd_def_verdict', { time: when, dmg });
+  }
+
+  function defensiveHtml(df, off, moves) {
+    if (!df) return '';
+    const ids = df.moves, nb = df.nBoost;
+    const rows = ids.map((id, i) => {
+      const m = moves.find(x => x.id === id);
+      return m ? moveRow(m, i + 1, null, i >= ids.length - nb) : '';
+    }).join('');
+    const cells = [['bd_time', 'time', v => decText(v, 1) + ' s'], ['bd_dealt', 'dealt', numText], ['bd_kills', 'kills', v => decText(v, 1)]];
+    const head = '<th scope="col"></th>' + (off ? '<th scope="col">' + esc(t('bd_def_col_off')) + '</th>' : '') +
+      '<th scope="col">' + esc(t('bd_def_col_def')) + '</th>';
+    const body = cells.map(([label, key, fmt]) => '<tr><th scope="row">' + esc(t(label)) + '</th>' +
+      (off ? '<td class="num">' + esc(fmt(off[key])) + '</td>' : '') + '<td class="num">' + esc(fmt(df[key])) + '</td></tr>').join('');
+    const verdict = defenseVerdict(df, off);
+    return '<section class="bd-def" data-build="defensive" aria-labelledby="bd-def-h"><h3 class="bd-cap" id="bd-def-h">' + esc(t('bd_def_h')) + '</h3>' +
+      '<p class="bd-def-lede">' + esc(t('bd_def_lede')) + '</p><ol class="bd-rows">' + rows + '</ol>' +
+      '<table class="bd-vs"><thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody></table>' +
+      (verdict ? '<p class="bd-verdict">' + esc(verdict) + '</p>' : '') + '</section>';
+  }
+
+  function build(p, d, moves, items, name, scale, cards, pair, defensive, startId) {
     const [superPct, neutralPct] = d[9];
     const win = winnerOf(pair);
     const sprite = '<span class="bd-sprite" style="--tc:' + (TYPE_COLOR[p.types[0]] || '#888') +
       '"><img class="px" src="' + sprites + p.dex + spriteExt + '" width="' + p.w * scale + '" height="' + p.h * scale + '" alt=""></span>';
-    const start = moves.find(m => m.id === d[2]);
-    const defaultStart = start ? '<p class="bd-default">' + esc(t('build_default_start', { move: EN ? start.en.name : start.name })) + '</p>' : '';
+    const start = moves.find(m => m.id === startId);
+    const dflt = moves.find(m => m.id === d[2]);
+    const defaultNote = dflt ? '<p class="bd-default">' + esc(dflt.id === startId ? t('build_default_same')
+      : t('build_default_start', { move: EN ? dflt.en.name : dflt.name })) + '</p>' : '';
+    const startBlock = start ? '<div class="bd-block bd-start"><ul class="bd-rows">' + moveRow(start, '', null, false, true) + '</ul>' + defaultNote + '</div>' : '';
+    const defense = defensiveHtml(defensive, leadOf(pair, win), moves);
     const options = BUILD_KINDS.map(kind => buildOption(kind, pair[kind], pair[BUILD_KINDS.find(k => k !== kind)], moves, cards, win)).filter(Boolean);
     const itemRows = items.map((m, i) => moveRow(m, '', i === 0 ? { text: t('build_best_item'), gold: true } : null)).join('');
     return '<section class="fig anim fig-build" id="build" aria-labelledby="bd-h"><div class="bd-card" style="' + typeVars(p) + '">' +
@@ -386,8 +424,9 @@
         comboHtml(buildDamage(moves, pair[win].moves), win) + '</p>' : '') +
       '<button class="bd-share" type="button" aria-label="' + esc(t('build_share')) + '" title="' + esc(t('build_share')) + '">' + SHARE_SVG + '</button>' +
       '<span class="bd-toast" role="status" aria-live="polite"></span></header>' +
+      startBlock +
       (options.length > 1 ? '<p class="bd-cap">' + esc(t('bd_pair_cap')) + '</p>' : '') +
-      '<div class="bd-pair' + (options.length > 1 ? '' : ' is-single') + '">' + options.join('') + '</div>' + defaultStart +
+      (options.length ? '<div class="bd-pair' + (options.length > 1 ? '' : ' is-single') + '">' + options.join('') + '</div>' : '') + defense +
       '<div class="bd-gear">' + capOf('build_items') + '<ul class="bd-rows">' + itemRows + '</ul></div>' +
       '<div class="bd-cover">' + meter(t('build_super'), superPct, 'bd-super') + meter(t('build_neutral'), neutralPct, 'bd-neutral') + '</div>' +
       '<p class="bd-brand">' + esc(t('build_brand')) + '</p></div></section>';
@@ -533,17 +572,17 @@
     return '<nav class="pager" aria-label="' + esc(t('pager_aria')) + '">' + (prev ? link(prev, 'prev') : '<span></span>') + (next ? link(next, 'next') : '<span></span>') + '</nav>';
   }
 
-  function render(p, d, range, moveName, prev, next, moves, medians, items, cards, pair, text) {
+  function render(p, d, range, moveName, prev, next, moves, medians, items, cards, pair, defensive, startId, text) {
     const name = EN ? p.nameEn : p.name;
     const [rank, tier, lo, hi] = p.r;
     const back = '<a class="back" href="' + home + 'index.html"><b aria-hidden="true">‹</b>' + esc(t('crumb_home')) + '</a>';
     const stats = panel('stats', 'heart', t('t_base'), statSpark(d[8]), baseStats(d, medians, name));
-    const learnable = panel('moves', 'sword', t('t_learn'), '<b class="fx-n">' + learnPool(p, moves).length + '</b>', learn(p, pair, moves));
+    const learnable = panel('moves', 'sword', t('t_learn'), '<b class="fx-n">' + learnPool(p, moves).length + '</b>', learn(p, pair, defensive, startId, moves));
     const ranking = panel('ranking', 'trophy', t('t_rank'), flagIcons(d[7]),
       flagsHtml(d[7]) + rankBand(p, name) + pillars(d, name) + sim(d, range, moveName) + methods(p, d, name) +
       '<p class="fx-more"><a href="' + home + 'metodo.html">' + esc(t('rank_how')) + '</a></p>');
     root.innerHTML = back + hero(p, name, rank, tier, text ? summary(text, moves, items, cards, d[4]) : '') +
-      build(p, d, moves, items, name, Math.max(1, Math.min(4, Math.floor(56 / Math.max(p.w, p.h)))), cards, pair) +
+      build(p, d, moves, items, name, Math.max(1, Math.min(4, Math.floor(56 / Math.max(p.w, p.h)))), cards, pair, defensive, startId) +
       combat(p) +
       '<div class="fx-list">' + stats + learnable + ranking + '</div>' + pager(prev, next);
     if (!baked) {
@@ -602,6 +641,6 @@
     const byId = new Map(moves.map(m => [m.id, m]));
     const moveName = mid => { const m = byId.get(mid); return m ? (EN ? m.en.name : m.name) : mid; };
     const pairOf = (species.builds || {})[id] || {};
-    render(index[i], d, species.sim, moveName, index[i - 1], index[i + 1], moves, species.statMedian, species.items, species.cards || {}, { melee: pairOf.melee || null, ranged: pairOf.ranged || null }, texts[id]);
+    render(index[i], d, species.sim, moveName, index[i - 1], index[i + 1], moves, species.statMedian, species.items, species.cards || {}, { melee: pairOf.melee || null, ranged: pairOf.ranged || null }, (species.defensive || {})[id] || null, (species.starts || {})[id], texts[id]);
   }).catch(err => { root.textContent = err.message; });
 })();

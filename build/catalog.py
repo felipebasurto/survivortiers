@@ -424,7 +424,7 @@ def build_cards() -> dict:
 
 
 def species_details(entries: list[dict], sim_range: list[float], median: float, combo: dict,
-                    pairs: dict[str, dict]) -> dict:
+                    pairs: dict[str, dict], defensive: dict[str, dict], starts: dict[str, str]) -> dict:
     psim = passives.load()
     """Lo que la ficha necesita además de pokemon-index.json, en listas para que pese poco. Orden de cada entrada:
     [pilares (stats, moves, typedef, size), puestos por medida (METHOD_KEYS), ataque inicial, segundos de la
@@ -434,8 +434,9 @@ def species_details(entries: list[dict], sim_range: list[float], median: float, 
     ataques y el potenciador, tipos de ataque distintos (1-3), ids de los ataques opcionales] (build/combos.py),
     cartas por prioridad, segundos del ataque inicial a solas (sin Repertorio ni Veto)].
     Lo lee src/ficha.js.
-    «builds» son las dos builds de la simulación por Pokémon (build/builds.py): melee y ranged, cada una con sus ataques,
-    tiempo, daño, bajas, puntuación y cartas.
+    «builds» son las dos builds ofensivas de la simulación por Pokémon (build/builds.py): melee y ranged, cada una con sus
+    ataques, tiempo, daño, bajas, puntuación y cartas. «defensive» es, solo para las especies que tienen una, el mejor
+    grupo simulado con Fortaleza. «starts» es el ataque con el que mejor empieza cada especie.
     «items» son los objetos de la build, iguales para todos. «statMedian» es la mediana de cada estadística base entre los 966, para la línea de referencia de la ficha."""
     out = {}
     for e in entries:
@@ -452,7 +453,7 @@ def species_details(entries: list[dict], sim_range: list[float], median: float, 
             r["sim"]["noshop"]["seconds"]]
     medians = [statistics.median(e["stats"][i] for e in entries) for i in range(6)]
     return {"sim": [*sim_range, median], "statMedian": medians, "items": build_items(), "cards": build_cards(), "d": out,
-            "builds": pairs}
+            "builds": pairs, "defensive": defensive, "starts": starts}
 
 
 def write_json(name: str, obj, pretty: bool = False, public: bool = False) -> None:
@@ -489,13 +490,15 @@ def main() -> int:
     dex_types = {p["dex"]: p["types"] for p in json.loads((DATA / "pokedex_export.json").read_text(encoding="utf8"))}
     combo = combos.compute_all(dex_types, {e["dex"]: e["r"]["sim"]["best"]["id"] for e in entries})
     sides = group_sides(combo)
+    rows = builds.read_rows()
     shutil.rmtree(OUT, ignore_errors=True)
     write_json("pokemon.json", entries)
     write_json("moves.json", moves)
     write_json("moves_unranked.json", unranked)
     write_json("pokemon-index.json", slim(entries, sides), public=True)
     write_json("species.json", species_details(entries, meta["simRange"], meta["simMedianSeconds"], combo,
-                                               builds.public(builds.read_rows())), public=True)
+                                               builds.public(rows), builds.public_defensive(rows),
+                                               builds.public_starts()), public=True)
     write_json("moves.json", moves, public=True)
     write_json("tiers.json", json.loads((DATA / "tiers.json").read_text(encoding="utf8")), public=True)
     write_json("moves_unranked.json", unranked, public=True)

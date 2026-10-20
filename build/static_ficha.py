@@ -277,6 +277,16 @@ def _lead(pair: dict[str, dict | None]) -> str:
     return _winner(pair) or ("melee" if pair.get("melee") else "ranged")
 
 
+def lead_build(pair: dict[str, dict | None], defensive: dict | None) -> dict:
+    """La build que encabeza título, descripción y preguntas: la ofensiva que gana o, si la especie no tiene ninguna
+    ofensiva simulada, la defensiva."""
+    if pair:
+        return pair[_lead(pair)]
+    if defensive is None:
+        raise ValueError("la especie no tiene ninguna build")
+    return defensive
+
+
 def build_names(L: Lang, moves: dict[str, dict], b: dict) -> tuple[str, str]:
     """Los ataques de una build y sus potenciadores, ya unidos en una frase."""
     ids, nb = b["moves"], int(b["nBoost"])
@@ -284,19 +294,48 @@ def build_names(L: Lang, moves: dict[str, dict], b: dict) -> tuple[str, str]:
             _join(L, [_move_name(L, moves, m) for m in ids[len(ids) - nb:]]))
 
 
-def _build_answer(L: Lang, moves: dict[str, dict], pair: dict[str, dict | None]) -> str:
-    parts = []
+def _build_answer(L: Lang, moves: dict[str, dict], pair: dict[str, dict | None], defensive: dict | None,
+                  start: str) -> str:
+    parts = [L.t("faq_a_start", start=_move_name(L, moves, start))]
     for kind in BUILD_NAME:
         b = pair.get(kind)
         if not b:
             continue
         attacks, boosts = build_names(L, moves, b)
-        parts.append(L.t("faq_a_build", kind=L.t(BUILD_NAME[kind]), attacks=attacks, buffs=boosts,
-                         start=_move_name(L, moves, b["moves"][0])))
+        parts.append(L.t("faq_a_build", kind=L.t(BUILD_NAME[kind]), attacks=attacks, buffs=boosts))
     win = _winner(pair)
     if win and len(pair) == 2 and all(pair.values()):
         parts.append(L.t("faq_a_build_best", kind=L.t(BUILD_LOWER[win])))
+    if defensive:
+        attacks, boosts = build_names(L, moves, defensive)
+        verdict = defense_verdict(L, defensive, pair[_lead(pair)] if pair else None)
+        parts.append(L.t("faq_a_def", attacks=attacks, buffs=boosts) + (f" {verdict}" if verdict else ""))
     return " ".join(parts)
+
+
+def _delta_pct(new: float, old: float) -> int:
+    return round((new - old) / old * 100) if old > 0 else 0
+
+
+def defense_verdict(L: Lang, d: dict, off: dict | None) -> str:
+    """Lo que cambia con Fortaleza frente a la build ofensiva, en una frase con las medianas del simulador."""
+    if off is None:
+        return ""
+    secs = round(d["time"] - off["time"], 1)
+    pct = _delta_pct(d["dealt"], off["dealt"])
+    if secs > 0:
+        when = L.t("bd_def_time_more", s=L.dec(secs, 1))
+    elif secs < 0:
+        when = L.t("bd_def_time_less", s=L.dec(-secs, 1))
+    else:
+        when = L.t("bd_def_time_same")
+    if pct > 0:
+        dmg = L.t("bd_def_dmg_more", pct=L.pcts(pct))
+    elif pct < 0:
+        dmg = L.t("bd_def_dmg_less", pct=L.pcts(-pct))
+    else:
+        dmg = L.t("bd_def_dmg_same")
+    return L.t("bd_def_verdict", time=when, dmg=dmg)
 
 
 def _verdict(L: Lang, kind: str, b: dict, other: dict | None, win: str | None) -> str:
@@ -336,7 +375,7 @@ def _build_option(L: Lang, moves: dict[str, dict], cards: dict, kind: str, b: di
     dmg = build_damage(moves, b["moves"])
     head = f'<h3 class="bd-kind">{combo_html(L, dmg, kind)}</h3>'
     ids, nb = b["moves"], int(b["nBoost"])
-    rows = "".join(_move_row(L, moves, mid, str(i + 1), i >= len(ids) - nb, i == 0) for i, mid in enumerate(ids))
+    rows = "".join(_move_row(L, moves, mid, str(i + 1), i >= len(ids) - nb) for i, mid in enumerate(ids))
     stats = (f'<dl class="bd-stats">'
              f'<div><dt>{esc(L.t("bd_time"))}</dt><dd>{esc(L.dec(b["time"], 1))} s</dd></div>'
              f'<div><dt>{esc(L.t("bd_dealt"))}</dt><dd>{esc(L.num(b["dealt"]))}</dd></div>'
@@ -358,10 +397,47 @@ def _build_option(L: Lang, moves: dict[str, dict], cards: dict, kind: str, b: di
 
 
 
-def head_texts(L: Lang, entry: dict, pair: dict[str, dict | None], moves: dict[str, dict], total: int) -> tuple[str, str]:
+def _vs_table(L: Lang, d: dict, off: dict | None) -> str:
+    """Tiempo, daño y bajas de la defensiva junto a los de la ofensiva, para ver qué se cambia."""
+    cells = (("bd_time", "time", lambda v: f"{L.dec(v, 1)} s"), ("bd_dealt", "dealt", L.num),
+             ("bd_kills", "kills", lambda v: L.dec(v, 1)))
+    head = ('<th scope="col"></th>'
+            + (f'<th scope="col">{esc(L.t("bd_def_col_off"))}</th>' if off else "")
+            + f'<th scope="col">{esc(L.t("bd_def_col_def"))}</th>')
+    body = "".join(
+        f'<tr><th scope="row">{esc(L.t(label))}</th>'
+        + (f'<td class="num">{esc(fmt(off[key]))}</td>' if off else "")
+        + f'<td class="num">{esc(fmt(d[key]))}</td></tr>' for label, key, fmt in cells)
+    return f'<table class="bd-vs"><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table>'
+
+
+def _defensive(L: Lang, moves: dict[str, dict], d: dict | None, off: dict | None) -> str:
+    """La variante con Fortaleza: sus ataques y, si hay build ofensiva, la comparación con ella."""
+    if not d:
+        return ""
+    ids, nb = d["moves"], int(d["nBoost"])
+    rows = "".join(_move_row(L, moves, mid, str(i + 1), i >= len(ids) - nb) for i, mid in enumerate(ids))
+    verdict = defense_verdict(L, d, off)
+    verdict_html = f'<p class="bd-verdict">{esc(verdict)}</p>' if verdict else ""
+    return (f'<section class="bd-def" data-build="defensive" aria-labelledby="bd-def-h">'
+            f'<h3 class="bd-cap" id="bd-def-h">{esc(L.t("bd_def_h"))}</h3>'
+            f'<p class="bd-def-lede">{esc(L.t("bd_def_lede"))}</p>'
+            f'<ol class="bd-rows">{rows}</ol>{_vs_table(L, d, off)}{verdict_html}</section>')
+
+
+def _start_block(L: Lang, moves: dict[str, dict], start: str, default: str) -> str:
+    """El ataque con el que empezar, en dorado, y debajo, pequeño y en gris, el que trae el juego de serie."""
+    note = (L.t("build_default_same") if default == start
+            else L.t("build_default_start", move=_move_name(L, moves, default)))
+    return (f'<div class="bd-block bd-start"><ul class="bd-rows">{_move_row(L, moves, start, start=True)}</ul>'
+            f'<p class="bd-default">{esc(note)}</p></div>')
+
+
+def head_texts(L: Lang, entry: dict, pair: dict[str, dict | None], defensive: dict | None, moves: dict[str, dict],
+               total: int) -> tuple[str, str]:
     """<title> y meta description de la ficha, con el tier, el puesto y la build que encabeza."""
     name, (rank, tier) = L.mon(entry), (entry["r"]["rank"], entry["r"]["tier"])
-    attacks, buffs = build_names(L, moves, pair[_lead(pair)])
+    attacks, buffs = build_names(L, moves, lead_build(pair, defensive))
     title = L.t("fh_title", name=name, tier=tier)
     desc = L.t("fh_desc_buffs" if buffs else "fh_desc", name=name, tier=tier, rank=rank, total=total,
                attacks=attacks, buffs=buffs, banner=L.banner(entry["banner"]))
@@ -370,9 +446,11 @@ def head_texts(L: Lang, entry: dict, pair: dict[str, dict | None], moves: dict[s
 
 def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, detail: list, pair: dict[str, dict | None],
           moves: dict[str, dict], cards: dict, prev: dict | None, nxt: dict | None, odds: tuple[float, int], *,
-          summary: str, guides: str, updated: str, url: str, title: str) -> tuple[str, str]:
+          start: str, defensive: dict | None, summary: str, guides: str, updated: str, url: str,
+          title: str) -> tuple[str, str]:
     """Devuelve el HTML visible (sin <head>) y el JSON-LD de las preguntas. detail es la fila de la simulación (inicio,
-    mejor ataque y cobertura); pair son las dos builds ({melee, ranged}; falta la clave si no hay build). summary es el
+    mejor ataque y cobertura); pair son las dos builds ofensivas ({melee, ranged}; falta la clave si no hay build);
+    start es el ataque con el que empezar y defensive, la variante con Fortaleza si la especie tiene una. summary es el
     resumen ya en texto plano; guides, el bloque de enlaces a las listas."""
     name = L.mon(entry)
     rank, tier = entry["r"]["rank"], entry["r"]["tier"]
@@ -386,10 +464,10 @@ def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, detail: list,
     pct = L.dec(p_pull * 100, _digits(p_pull * 100))
     banner = L.banner(entry["banner"])
     win = _winner(pair)
-    lead = pair[_lead(pair)]
+    lead = lead_build(pair, defensive)
     card_ids, gate = lead["cards"]
     card_text = card_answer(L, [_card_name(L, cards[c]) for c in card_ids], _card_name(L, cards[gate]) if gate else None)
-    faqs = _faqs(L, tier, rank, _build_answer(L, moves, pair), card_text, banner,
+    faqs = _faqs(L, tier, rank, _build_answer(L, moves, pair, defensive, start), card_text, banner,
                  bool(entry["legendary"]), pct, pulls)
     w, h = entry["sprite"]["w"], entry["sprite"]["h"]
     scale = max(1, min(5, 170 // max(w, h)))
@@ -404,7 +482,8 @@ def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, detail: list,
     rarity_name = esc(L.t(f"rar_{rarity}"))
     legendary = f'<span class="chip">{esc(L.t("legendary"))}</span>' if entry["legendary"] else ""
     region = regions.badge(L, sprites, entry["bannerId"], banner, {}, small=True)
-    default_start = f'<p class="bd-default">{esc(L.t("build_default_start", move=_move_name(L, moves, detail[2])))}</p>'
+    start_block = _start_block(L, moves, start, detail[2])
+    defense_html = _defensive(L, moves, defensive, pair[_lead(pair)] if pair else None)
     super_pct, neutral_pct = detail[9][0], detail[9][1]
     options = [
         _build_option(L, moves, cards, kind, pair.get(kind), pair.get(BUILD_OTHER_KIND[kind]), win)
@@ -412,6 +491,7 @@ def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, detail: list,
     options = [o for o in options if o]
     pair_cap = f'<p class="bd-cap">{esc(L.t("bd_pair_cap"))}</p>' if len(options) > 1 else ""
     pair_cls = "bd-pair" if len(options) > 1 else "bd-pair is-single"
+    pair_html = f'<div class="{pair_cls}">{"".join(options)}</div>' if options else ""
     stat_rows = "".join(
         f'<tr><th scope="row">{esc(L.t(key))}</th><td class="num">{n}</td></tr>'
         for key, n in zip(STAT_KEYS, stats))
@@ -440,9 +520,10 @@ def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, detail: list,
 <section class="fig fig-build" id="build" aria-labelledby="bd-h">
 <div class="bd-card" style="--p1:{tc};--p2:{tc2}">
 <header class="bd-head"><div><h2 id="bd-h">{esc(L.t("t_build"))}</h2><span class="bd-who">{esc(name)}</span></div>{best_range_html(L, pair, moves)}</header>
+{start_block}
 {pair_cap}
-<div class="{pair_cls}">{"".join(options)}</div>
-{default_start}
+{pair_html}
+{defense_html}
 <div class="bd-cover">{_meter(L.t("build_super"), int(super_pct), "bd-super")}{_meter(L.t("build_neutral"), int(neutral_pct), "bd-neutral")}</div>
 <p class="bd-brand">{esc(L.t("build_brand", site=legal.SITE_NAME))}</p>
 </div>

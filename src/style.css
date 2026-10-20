@@ -411,6 +411,8 @@ textarea {
 .bd-cap { display: block; margin: 0 0 10px; font: 700 .72rem/1.2 var(--ui); letter-spacing: .08em; text-transform: uppercase; color: var(--bd-ink-2); }
 .bd-block { margin: 0 0 22px; }
 .bd-default { margin: 0 0 22px; font: .75rem/1.45 var(--ui); color: var(--bd-ink-2); opacity: .85; }
+.bd-start .bd-default { margin: 2px 0 0; }
+.bd-start .bd-rows { margin-bottom: 6px; }
 .bd-rows, .bd-cardlist { list-style: none; margin: 0; padding: 0; }
 .bd-row { position: relative; display: flex; align-items: center; gap: 14px; margin: 0 0 8px; padding: 11px 14px 11px 12px;
   background: var(--bd-tile); box-shadow: inset 4px 0 0 var(--tc), var(--notch-soft); }
@@ -455,6 +457,15 @@ textarea {
 .bd-verdict.is-best { color: var(--bd-gold-ink); }
 .bd-opt .bd-cap { margin-top: 20px; }
 .bd-opt .bd-prio { margin: 0 0 8px; }
+.bd-def { margin: 0 0 22px; padding: 18px 18px 14px; background: var(--bg); box-shadow: var(--notch-soft); }
+.bd-def .bd-cap { margin: 0 0 4px; }
+.bd-def-lede { margin: 0 0 12px; font: .8125rem/1.45 var(--ui); color: var(--bd-ink-2); }
+.bd-vs { width: 100%; margin: 12px 0 10px; border-collapse: collapse; font: .875rem var(--ui); }
+.bd-vs th, .bd-vs td { padding: 7px 4px; border-bottom: 1px dashed var(--bd-line); text-align: right; color: var(--bd-ink); }
+.bd-vs thead th { font: 700 .72rem/1.2 var(--ui); letter-spacing: .06em; text-transform: uppercase; color: var(--bd-ink-2); }
+.bd-vs tbody th { text-align: left; font: .75rem var(--ui); letter-spacing: .05em; text-transform: uppercase; color: var(--bd-ink-2); font-weight: 400; }
+.bd-vs td { font-weight: 700; font-variant-numeric: tabular-nums; }
+.bd-def .bd-verdict { margin: 0; }
 .bd-note { margin: 14px 0 0; font: .8125rem/1.5 var(--ui); color: var(--bd-ink-2); }
 @media (max-width: 560px) {
   .bd-card { padding: 16px 14px 12px; }
@@ -463,6 +474,7 @@ textarea {
   .bd-head h2 { font-size: 1.3rem; }
   .bd-pair { grid-template-columns: 1fr; gap: 12px; }
   .bd-opt { padding: 14px 14px 16px; }
+  .bd-def { padding: 14px 14px 12px; }
   .bd-row { padding: 9px 12px 9px 10px; gap: 12px; }
   .bd-ico { width: 36px; height: 36px; }
   .bd-ico img { width: 28px; height: 28px; }

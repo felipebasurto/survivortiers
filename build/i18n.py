@@ -209,6 +209,7 @@ STR: dict[str, tuple[str, str]] = {
     "bd_start_with": ("Empieza con", "Start with"),
     "build_default_start": ("De serie: {move}; cámbialo con Movimiento inicial (400 monedas)",
                             "Default: {move}; change it with Starting Move (400 coins)"),
+    "build_default_same": ("Es también el ataque que trae de serie.", "It is also the attack it has by default."),
     "build_super": ("Super efectivo", "Super effective"),
     "build_neutral": ("Sin resistencia", "Never resisted"),
     "build_cards": ("Cartas por prioridad", "Cards by priority"),
@@ -222,26 +223,58 @@ STR: dict[str, tuple[str, str]] = {
     "build_brand": ("{site}", "{site}"),
     "build_best_item": ("Mejor objeto", "Best item"),
     "met_builds_h": ("Builds por Pokémon", "Builds per Pokémon"),
-    "met_builds_1": ("La ficha enseña el mejor grupo vinculado cuerpo a cuerpo (con al menos un ataque cuerpo a cuerpo) y el mejor "
-                     "a distancia (sin ninguno). Cada uno se elige por la mediana de puntuación de la simulación, en la búsqueda "
-                     "de grupo fijo. El primer ataque de la build es con el que empieza la partida simulada, y es el que te "
-                     "conviene elegir con la mejora Movimiento inicial.",
-                     "Each sheet shows the best melee bonded group (at least one melee move) and the best ranged one (none). "
-                     "Each is picked by the simulation's median score, from the fixed-group search. The build's first attack "
-                     "is the one the simulated run starts with, and the one to pick with the Starting Move upgrade."),
-    "met_builds_2": ("Un atacante físico (ataque físico mayor que el especial) lleva Danza Espada; uno especial, Maquinación. "
-                     "Empatan en especial. Los ataques son de su categoría, y Ataque Rápido, Placaje y Golpe Cuerpo no entran. "
-                     "Como todos los ataques cuerpo a cuerpo son físicos, un atacante especial solo tiene build a distancia, "
-                     "y la ficha enseña solo esa.",
-                     "A physical attacker (physical attack above special) carries Swords Dance; a special one carries Nasty Plot. "
-                     "Ties count as special. Moves match its category, and Quick Attack, Tackle and Body Slam are left out. "
-                     "Since every melee attack is physical, a special attacker only has a ranged build, and the sheet shows only that one."),
+    "met_builds_1": ("De cada Pokémon la ficha enseña dos builds ofensivas: la mejor cuerpo a cuerpo (con al menos un ataque "
+                     "cuerpo a cuerpo) y la mejor a distancia (sin ninguno). Cada build es un grupo de tres ataques y un "
+                     "potenciador de ataque que el simulador ya jugó. Gana la de más puntuación mediana; si el azar de las "
+                     "semillas no separa a dos grupos, se queda el que abre con el ataque con el que empieza ese Pokémon.",
+                     "Each sheet shows two offensive builds per Pokémon: the best melee one (at least one melee move) and the "
+                     "best ranged one (none). A build is a group of three attacks and an attack boost that the simulator "
+                     "already played. The one with the higher median score wins; when seed noise cannot tell two groups "
+                     "apart, the one that opens with that Pokémon's starting attack stays."),
+    "met_builds_2": ("El potenciador sigue a los ataques: Danza Espada con tres ataques físicos y Maquinación con tres especiales, "
+                     "sin Fortaleza ni Agilidad. No entran Sustituto ni los ataques de tipo normal que la tabla de ataques no "
+                     "pone en S ni en A (Ataque Rápido, Placaje, Golpe Cuerpo, Vozarrón, Giro Rápido), salvo en un Pokémon de "
+                     "tipo normal. Todos los ataques cuerpo a cuerpo son físicos, así que una build cuerpo a cuerpo siempre "
+                     "lleva Danza Espada, y un Pokémon sin ninguna simulada no enseña esa caja.",
+                     "The boost follows the attacks: Swords Dance with three physical attacks and Nasty Plot with three special "
+                     "ones, never Harden or Agility. Substitute and the normal-type attacks that the move tier list keeps out of "
+                     "S and A (Quick Attack, Tackle, Body Slam, Hyper Voice, Rapid Spin) are left out, unless the Pokémon is "
+                     "normal type. Every melee attack is physical, so a melee build always carries Swords Dance, and a Pokémon "
+                     "with none simulated does not show that box."),
     "met_builds_3": ("Las puntuaciones salen del mismo simulador. Mientras un ataque cuerpo a cuerpo está activo, el juego reduce "
                      "un 25\u00a0% el daño que recibes, y eso ya cuenta en la puntuación de la build cuerpo a cuerpo.",
                      "Scores come from the same simulator. While a melee move is active, the game cuts the damage you take "
                      "by 25%, and that is already counted in the melee build's score."),
-    "bd_pair_cap": ("Se simulan dos builds: la mejor cuerpo a cuerpo y la mejor a distancia.",
-                    "Two builds are simulated: the best melee and the best ranged."),
+    "met_builds_4": ("«Empieza con» es el ataque de daño que mejor resultado da a ese Pokémon en el barrido de iniciales, sea "
+                     "físico o especial, cuerpo a cuerpo o a distancia; nunca un potenciador ni Sustituto. El ataque de serie "
+                     "del juego va aparte, en gris. La variante defensiva es el mejor grupo ya simulado que lleva Fortaleza, "
+                     "con su tiempo junto al de la build ofensiva para ver qué se cambia. Solo sale si ese Pokémon tiene un "
+                     "grupo así; no se inventa ninguno.",
+                     "\u201cStart with\u201d is the damaging attack that does best for that Pokémon in the starter sweep, "
+                     "physical or special, melee or ranged; never a boost or Substitute. The game's default attack is shown "
+                     "apart, in grey. The defensive variant is the best already simulated group that carries Harden, with its "
+                     "time next to the offensive build's so you can see what you trade. It only shows when that Pokémon has "
+                     "such a group; none is made up."),
+    "met_builds_5": ("Una build sale de 96 partidas por grupo. Si un Pokémon no tiene ningún grupo válido de 96 partidas para "
+                     "una de las dos builds, sale el mejor de los de 16 partidas, con más margen de error: son {n16} de las "
+                     "{n} builds ofensivas.",
+                     "A build comes from 96 games per group. If a Pokémon has no valid 96-game group for one of the two builds, "
+                     "the best 16-game group is shown, with a wider margin of error: {n16} of the {n} offensive builds."),
+    "bd_pair_cap": ("Dos builds ofensivas: la mejor cuerpo a cuerpo y la mejor a distancia.",
+                    "Two offensive builds: the best melee and the best ranged."),
+    "bd_def_h": ("Variante defensiva, con Fortaleza", "Defensive variant, with Harden"),
+    "bd_def_lede": ("El mejor grupo simulado que lleva Fortaleza, de la misma simulación que las builds de arriba.",
+                    "The best simulated group that carries Harden, from the same simulation as the builds above."),
+    "bd_def_col_off": ("Ofensiva", "Offensive"),
+    "bd_def_col_def": ("Defensiva", "Defensive"),
+    "bd_def_time_more": ("aguantas {s} s más", "you last {s} s longer"),
+    "bd_def_time_less": ("aguantas {s} s menos", "you last {s} s less"),
+    "bd_def_time_same": ("aguantas lo mismo", "you last the same"),
+    "bd_def_dmg_more": ("haces un {pct} más de daño", "you deal {pct} more damage"),
+    "bd_def_dmg_less": ("haces un {pct} menos de daño", "you deal {pct} less damage"),
+    "bd_def_dmg_same": ("haces el mismo daño", "you deal the same damage"),
+    "bd_def_verdict": ("Con Fortaleza, frente a la ofensiva: {time} y {dmg}.",
+                       "With Harden, against the offensive build: {time} and {dmg}."),
     "bd_melee": ("Cuerpo a cuerpo", "Melee"),
     "bd_ranged": ("A distancia", "Ranged"),
     "bd_time": ("Tiempo", "Time"),
@@ -256,7 +289,9 @@ STR: dict[str, tuple[str, str]] = {
     "bd_other_ranged": ("a distancia", "ranged"),
     "bd_melee_note": ("Mientras un ataque cuerpo a cuerpo está activo, recibes un 25\u00a0% menos de daño.",
                       "While a melee move is active, you take 25% less damage."),
-    "faq_a_build": ("{kind}: {attacks}, con {buffs}. Empieza con {start}.", "{kind}: {attacks}, with {buffs}. Start with {start}."),
+    "faq_a_start": ("Empieza con {start}.", "Start with {start}."),
+    "faq_a_build": ("{kind}: {attacks}, con {buffs}.", "{kind}: {attacks}, with {buffs}."),
+    "faq_a_def": ("Variante defensiva: {attacks}, con {buffs}.", "Defensive variant: {attacks}, with {buffs}."),
     "faq_a_build_best": ("Puntúa más la build {kind}.", "The {kind} build scores higher."),
     "t_rank": ("Ranking", "Ranking"),
     "rank_how": ("Cómo se calcula", "How it is calculated"),

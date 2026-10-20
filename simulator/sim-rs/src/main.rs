@@ -664,8 +664,8 @@ fn cat_of(data: &Data, ix: usize) -> u8 {
 }
 
 /// Every buff fill of these attacks inside the four bond slots (start included).
-/// Two attacks: an attack buff plus Harden or Agility. Three attacks: an attack buff, or
-/// Harden or Agility. An attack buff that raises no attack of the group is left out
+/// Two attacks: an attack buff alone, or an attack buff plus Harden or Agility (the fourth slot is
+/// an optional variant, never forced). Three attacks: an attack buff, or Harden or Agility. An attack buff that raises no attack of the group is left out
 /// (Danza Espada and Danza Dragón only raise physical moves, Maquinación only special
 /// ones), and Danza Dragón needs a species that learns it.
 fn kits(data: &Data, mon: &Mon, attacks: &[usize]) -> Vec<Kit> {
@@ -684,6 +684,7 @@ fn kits(data: &Data, mon: &Mon, attacks: &[usize]) -> Vec<Kit> {
     match attacks.len() {
         2 => {
             for &a in &atk {
+                out.push(Kit { buffs: 1, atk: a, agi: false });
                 for agi in [false, true] {
                     out.push(Kit { buffs: 3, atk: a, agi });
                 }
