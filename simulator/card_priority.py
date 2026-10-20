@@ -110,7 +110,7 @@ def write_order(csv_path: Path, json_path: Path) -> dict[str, int]:
         counts[order[0]] += 1
     picks = ", ".join(f"{name} {counts[name]}" for name in STATS if counts[name])
     note = (
-        "fixed-group sim (--group 2+2 --terrain --status --full-cards --bot repulse --heal-below 0.70; "
+        "fixed-group sim (--group 2+2 --terrain --status --full-cards --heal-below 0.70, bot Play as in every ranking run; "
         "100 seeds; partners solo_sweep.csv): card ids by median coins when that stat is taken first, "
         "then median survival, then mean. Coins = round(floor(time/5)+floor(kills*0.25)+bosses*80+picked). "
         "Zidra is taken at <=70% HP in every run. "

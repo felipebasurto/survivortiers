@@ -74,7 +74,6 @@ struct Cfg {
     /// fraction of combat damage ignored. 0 = the bot eats every hit.
     dodge: f64,
     /// `--bot` was passed. Otherwise a faithful run uses Play.
-    bot_set: bool,
     /// stat index:count pairs. Start with that many and do not take more. 7 = Aprendizaje.
     locks: Vec<(u8, u32)>,
     /// Score status+Hex groups, not only the solo-sorted partner.
@@ -89,11 +88,13 @@ struct Cfg {
     only: Option<std::collections::HashSet<String>>,
     /// synergy: run the `dex|group` lines of `--only` as given, not the generated groups.
     explicit: bool,
+    /// `--parity`: the JS-parity run (no status, terrain or extra kinds; Repulse). Nothing published uses it.
+    parity: bool,
     rest: Vec<String>,
 }
 
 fn parse(args: &[String]) -> Cfg {
-    let mut c = Cfg { seeds: 200, seconds: 900.0, bot: Bot::Repulse, cards: true, terrain: false, status: false, out: None, group: 0, dd: false, np: false, agi: false, xkinds: false, legacy: false, item: "none".into(), fill: vec![], buffs: None, atk_buff: None, comps: None, swap: false, crit: 0.0, full_cards: false, stop: 0, heal_below: 0.0, dodge: 0.0, locks: vec![], synergy: false, no_synergy: false, bot_set: false, seed0: 0, count: false, list: false, only: None, explicit: false, rest: vec![] };
+    let mut c = Cfg { seeds: 200, seconds: 900.0, bot: Bot::Repulse, cards: true, terrain: true, status: true, out: None, group: 0, dd: false, np: false, agi: false, xkinds: true, legacy: false, item: "none".into(), fill: vec![], buffs: None, atk_buff: None, comps: None, swap: false, crit: 0.0, full_cards: false, stop: 0, heal_below: 0.0, dodge: 0.0, locks: vec![], synergy: false, no_synergy: false, seed0: 0, count: false, list: false, only: None, explicit: false, parity: false, rest: vec![] };
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
@@ -117,17 +118,8 @@ fn parse(args: &[String]) -> Cfg {
                 i += 1;
                 c.seconds = args[i].parse().expect("--seconds");
             }
-            "--bot" => {
-                i += 1;
-                c.bot_set = true;
-                c.bot = match args[i].as_str() {
-                    "repulse" => Bot::Repulse,
-                    "line" => Bot::Line,
-                    "kite" => Bot::Kite,
-                    "play" => Bot::Play,
-                    b => panic!("unknown bot {b}"),
-                };
-            }
+            "--bot" => panic!("--bot was removed: ranking runs always use the Play bot, the parity run uses Repulse"),
+            "--parity" => c.parity = true,
             "--lvl1" => c.cards = false,
             "--terrain" => c.terrain = true,
             "--status" => c.status = true,
@@ -352,8 +344,6 @@ fn group_label(cfg: &Cfg) -> &'static str {
 fn bot_name(b: Bot) -> &'static str {
     match b {
         Bot::Repulse => "repulse",
-        Bot::Line => "line",
-        Bot::Kite => "kite",
         Bot::Play => "play",
     }
 }
@@ -1117,7 +1107,7 @@ fn with_mods(mon: &Mon, mods: &str) -> Mon {
 }
 
 fn cfg_clone(c: &Cfg) -> Box<Cfg> {
-    Box::new(Cfg { seeds: c.seeds, seconds: c.seconds, bot: c.bot, cards: c.cards, terrain: c.terrain, status: c.status, out: None, group: c.group, dd: c.dd, np: c.np, agi: c.agi, xkinds: c.xkinds, legacy: c.legacy, item: c.item.clone(), fill: c.fill.clone(), buffs: c.buffs, atk_buff: c.atk_buff, comps: c.comps.clone(), swap: c.swap, crit: c.crit, full_cards: c.full_cards, stop: c.stop, heal_below: c.heal_below, dodge: c.dodge, locks: c.locks.clone(), synergy: c.synergy, no_synergy: c.no_synergy, bot_set: c.bot_set, seed0: c.seed0, count: c.count, list: c.list, only: c.only.clone(), explicit: c.explicit, rest: vec![] })
+    Box::new(Cfg { seeds: c.seeds, seconds: c.seconds, bot: c.bot, cards: c.cards, terrain: c.terrain, status: c.status, out: None, group: c.group, dd: c.dd, np: c.np, agi: c.agi, xkinds: c.xkinds, legacy: c.legacy, item: c.item.clone(), fill: c.fill.clone(), buffs: c.buffs, atk_buff: c.atk_buff, comps: c.comps.clone(), swap: c.swap, crit: c.crit, full_cards: c.full_cards, stop: c.stop, heal_below: c.heal_below, dodge: c.dodge, locks: c.locks.clone(), synergy: c.synergy, no_synergy: c.no_synergy, seed0: c.seed0, count: c.count, list: c.list, only: c.only.clone(), explicit: c.explicit, parity: c.parity, rest: vec![] })
 }
 
 fn cmp_run(a: &Summary, b: &Summary) -> std::cmp::Ordering {
@@ -1446,9 +1436,14 @@ fn main() {
         cfg.status = true;
         cfg.terrain = true;
     }
-    // Faithful runs (status, extra kinds, or a fixed group) play with the kite bot.
-    // `--bot repulse` keeps the old policy for a before/after check. Parity never sets these.
-    if !cfg.bot_set && (cfg.status || cfg.xkinds || cfg.group > 0) {
+    // One simulator: every run is the ranking game (status, terrain, extra kinds) played by Play.
+    // `--parity` is the only way out: it switches those flags off and plays with Repulse.
+    if cfg.parity {
+        cfg.status = false;
+        cfg.terrain = false;
+        cfg.xkinds = false;
+        cfg.bot = Bot::Repulse;
+    } else {
         cfg.bot = Bot::Play;
     }
     let data = Data::load("v3/v3_data.json");

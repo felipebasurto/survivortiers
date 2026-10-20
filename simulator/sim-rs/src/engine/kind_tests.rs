@@ -36,7 +36,7 @@ fn scene(dex: u32, move_id: &str) -> Match<'static, Libm> {
         seed: 1,
         seconds: 60.0,
         cards: false,
-        bot: Bot::Kite,
+        bot: Bot::Play,
         terrain: false,
         trace: false,
         status: true,

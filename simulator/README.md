@@ -1,13 +1,23 @@
 # Simulator
 
-The headless PokéSurvivor simulator behind the SurvivorTiers ranks. A bot plays full games and the median survival time feeds the "Simulated games" score.
+The headless PokéSurvivor simulator behind the SurvivorTiers ranks. One bot plays full games; the median survival
+time feeds the score (`time × √(dps × kills per minute)`, both rates saturating; see `run_score` in `sim-rs/src/stats.rs`).
 
-- `sim-rs/`: the engine, in Rust (games run in parallel with rayon). It is the only simulator.
-- `v3/v3_data.json`: Pokédex, moves, enemy tiers and type chart, extracted from the game's code by `v3/extract_v3.js`.
-- `validate/`: the vendored game's own functions run on the same formulas and scenes as the Rust tests.
+## One simulator
 
-The "parity path" below is a run without `--status`, `--xkinds` or `--terrain`. It is the behaviour of the
-retired JavaScript engine and is not used for published ranks.
+- **Game**: the ranking game. Status (burn, poison, slow), terrain (real map) and extra kinds are always on.
+  Every command runs it unless it is given `--parity`.
+- **Bot**: Play, the only movement policy in the repo (`decide_play` in `sim-rs/src/engine.rs`). It orbits the
+  nearest enemy at its attack's keep distance, steps off the aim and dash lines of enemies, leaves the shots and
+  hazard zones it can see coming, and picks up orbs when it is safe and hurt. It does not choose its targets;
+  the group does.
+- **Parity run** (`--parity`): the old game with no status, terrain or extra kinds, played by Repulse. It exists
+  so the checks in `validate/` and `build/test_game_js.py` can compare the formulas with the game's JavaScript.
+  No published number comes from it.
+- There is no `--bot` option. Line and Kite were removed; they were never used for a published number.
+
+Every published number is a ranking run. Regeneration always passes `--seconds 900`, and the rest of the
+configuration is the default.
 
 ## Run
 
@@ -29,7 +39,7 @@ cargo build --release --manifest-path sim-rs/Cargo.toml
 ./sim-rs/target/release/pokesim repertorio results/fixed_group/g2p2/starter_sweep.csv
 ```
 
-Options: `--seeds N` (200), `--seconds S` (900), `--bot repulse|line|kite`, `--lvl1`, `--terrain` (real map), `--status` (slow, burn and poison).
+Options: `--seeds N` (200), `--seconds S` (900), `--parity` (the JS-parity run, see above), `--lvl1`. `--terrain` and `--status` are on by default; they are accepted for old command lines.
 `--full-cards` also offers Aprendizaje and Baya Zidra (levelup.js). `--stop N` limits a `--fill` priority to N copies. `--heal-below F` takes Baya Zidra when HP is at or below that fraction, ahead of the stat cards (0 = only if the fill list prefers it). `--dodge F` ignores that fraction of contact and shot damage (lava and weather still hit). `--lock 2:4` starts with 4 Vigor and takes no more (index 7 is Aprendizaje).
 `tasks` also writes `median_kills`, `median_bosses`, `median_kpm` and `median_coins`. Coins are game.js:295-301 with coinMul 1 (upgrades.js:41, no Fortuna): `floor(time/5) + floor(kills*0.25) + bosses*80 + picked`, rounded. Picked coins are the boss shower (enemy.js:174, 10×5) and the rift-legend shower (enemy.js:191, 10×8). A rift legend counts as a boss (rift.js spawnLegend, enemy.js:910).
 
@@ -150,7 +160,7 @@ Physical and special split, from PokéSurvivor `5a23d49a99a795f9262d2fb24a9842f0
 
 The ranking score of a run is `time * sqrt(dps / (dps + 80) * kpm / (kpm + 40))` (`sim-rs/src/stats.rs` `run_score`; 80 and 40 are scale constants of the score, not game numbers). Damage dealt is the post-type, post-guard, post-crit amount before the shield, and it does not include burn or poison damage over time (the game does not add those to `dmgDealt`). A run that survives without dealing damage scores 0, so surviving alone never ranks. Displayed medians stay in seconds. Order, bootstrap jitter and the sim piece of the ensemble use the score.
 
-Known bias (estimates): the bot does not dodge, so sustain (Synthesis `rgn`, Vigor `hp`, Leftovers) still looks strong. Incoming damage is ×0.75 whenever a melee move is in the active group (player.js:254). A melee group is published only when its bootstrap floor is strictly above the best ranged group's median and its mean is not worse. The step is `1/20` s (`game.js:610` steps at about `1/60`, clamped at `1/30`). An audit measurement at `DT = 1/60` moved mean median survival from 77.1–77.4 s to 80.3 s (+3 s, +4%) and shuffled ranks by 38, inside the 42.6-rank seed noise of a 40-seed block. A published 200-seed resim at `1/60` is about three times the runtime and was not run. A check that ignores half of each combat hit (`--dodge 0.5`) lengthens runs and does not move Power or Reflexes ahead of Synthesis. The pasivas page ranks cards by the game's coin reward (game.js:295-301, coinMul 1) and takes Baya Zidra only at or below 70% HP.
+Known bias (estimates, written when the bot was Repulse, which does not dodge; Play dodges telegraphs and shots, and its dodge bias is not measured): sustain (Synthesis `rgn`, Vigor `hp`, Leftovers) may still look strong. Incoming damage is ×0.75 whenever a melee move is in the active group (player.js:254). A melee group is published only when its bootstrap floor is strictly above the best ranged group's median and its mean is not worse. The step is `1/20` s (`game.js:610` steps at about `1/60`, clamped at `1/30`). An audit measurement at `DT = 1/60` moved mean median survival from 77.1–77.4 s to 80.3 s (+3 s, +4%) and shuffled ranks by 38, inside the 42.6-rank seed noise of a 40-seed block. A published 200-seed resim at `1/60` is about three times the runtime and was not run. A check that ignores half of each combat hit (`--dodge 0.5`) lengthens runs and does not move Power or Reflexes ahead of Synthesis. The pasivas page ranks cards by the game's coin reward (game.js:295-301, coinMul 1) and takes Baya Zidra only at or below 70% HP.
 build/passives.py `priority` lists the eight stat cards in this coin order on the Build card and marks the lead attack's evolution card; `compute` (the policy's pick sequence) only feeds the summaries. The rift walk is time-at-current-speed, not pathing.
 Boss personalities other
 than ranged/charger/chase are collapsed. The arena is fought in open space at the map position (no Distortion World

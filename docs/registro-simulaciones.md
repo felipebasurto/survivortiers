@@ -82,6 +82,21 @@ Nota de conteo: el mensaje de `dd11ca8` dice 7.498 corridas. Los dos CSV de cont
 8. **El orden de los compañeros se descarta.** `candidates()` solo genera el orden alfabético de los compañeros. En `group_screen.csv`, de 87 pares con el mismo inicial y los mismos compañeros en otro orden, 74 dan la misma mediana y 13 difieren (hasta 3 puntos). Las filas del otro orden no entran en la elección.
 9. **Veneno y dos tipos.** En el juego (`5a23d49`, `player.js` `monoType`) y en el simulador (`engine.rs` `mono_factor`) el +20 % por tipo solo es para monotipo. Gengar (fantasma/veneno) no lo recibe con ningún tipo. La tabla de tipos da veneno contra normal 1× y contra lucha 1×; el fantasma contra normal es 0,3×. El veneno destaca contra planta (1,6×).
 
+10. **Corrección: los rankings publicados usan Play, no Repulse.** Lo que escribí el 2026-10-20 estaba mal. `main.rs` elegía el bot según las banderas: con `--status`, `--xkinds` o un grupo fijo, Play. Casi todos los comandos de `regen.py` las pasan. Repulse solo corría sin banderas, es decir, la corrida de paridad. La nota de pasivas en `simulator/card_priority.py` decía `--bot repulse`, y era falsa; está corregida, y `data/passive_sim.json` se regeneró desde `passives_coins_g2p2.csv` (solo cambia la nota; órdenes y cartas idénticas).
+11. **Un solo simulador (2026-10-20).** Juega siempre Play, y las banderas de ranking (`--status`, `--terrain`, `--xkinds`) son el defecto. `--parity` es la única salida: quita esas banderas y juega con Repulse. Se quitaron `--bot` y los bots Line y Kite. Verificado contra el binario anterior: el lote de 330 grupos de dex 1 es idéntico byte a byte; `repertorio`, `formulas`, `run --parity` y `rank` dan la misma salida; `cargo test` (27) y `unittest` (176) pasan.
+12. **Gengar con semillas nuevas (2026-10-20, exploratorio, no está en `results/`).** Las 280 builds a distancia de Gengar con 96 semillas (`seed0` 5000, nunca usadas para elegir). Después, las 12 mejores y las dos de la discusión, con 1.024 semillas (`seed0` 9000). Tiempos: 178 s y 115 s en 4 núcleos.
+
+| Build | 96 semillas nuevas | 1.024 semillas nuevas | Publicado (96 semillas) |
+| --- | --- | --- | --- |
+| `ominous-wind+shadow-ball+nasty-plot+agility` | 97,7 (puesto 6) | **94,5** [91,9–97,5] | — |
+| `ominous-wind+shadow-ball+nasty-plot+harden` | 96,7 (puesto 8) | **94,5** [90,6–97,7] | — |
+| `ominous-wind+hex+shadow-ball+nasty-plot` | 96,5 (puesto 9) | 91,8 [88,2–94,0] | — |
+| `ominous-wind+shadow-ball+toxic+nasty-plot` | 103,7 (puesto 1) | 91,1 [87,5–94,2] | — |
+| `ominous-wind+acid-spray+shadow-ball+nasty-plot` (Pulso Ácido) | 91,0 (puesto 29) | 89,7 [86,7–92,5] | — |
+| `ominous-wind+hex+nasty-plot+agility` (Agilidad) | 91,8 (puesto 25) | 86,3 [83,7–89,9] | **98,6** |
+
+Lectura: la mejor build publicada cae de 98,6 a 86,3 con semillas nuevas. Era el ganador maldito del refinado, igual que la criba. Los dos primeros empatan, y no cambia nada entre Agilidad y Fortaleza como cuarta. Pulso Ácido queda 5.º, unos 5 puntos por debajo de la cima. El veneno aparece en el top de 96 semillas, pero con 1.024 semillas no domina. Medianas de supervivencia de estos grupos: 136–155 s, con 122–141 bajas. Falta una referencia de partidas reales para saber si el bot es bueno, no solo estable.
+
 ## Procedimiento para una corrida nueva
 
 1. Revisar las tablas de este archivo: ¿existe la salida con esas semillas y flags?

@@ -27,14 +27,11 @@ const OUTER: f64 = 480.58143401645964;
 const INV: f64 = 0.45;
 const TOUCH: f64 = 0.55;
 
+/// The movement policy. Every ranking run (status, extra kinds or a fixed group) plays with Play, the bot
+/// that dodges telegraphs and shots and collects orbs. The parity run (no ranking flags) keeps Repulse.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Bot {
     Repulse,
-    Line,
-    /// Orbit the nearest enemy at the move's keep distance. Not the parity bot.
-    Kite,
-    /// Kite, dodge telegraphs and collect orbs. Used for published ranks.
-    /// The parity path stays on Repulse.
     Play,
 }
 
@@ -4900,16 +4897,9 @@ impl<'a, M: MathFns> Match<'a, M> {
                 near_d = dist;
                 near = Some(i);
             }
-            if self.opts.bot == Bot::Repulse && !closing {
+            if !closing {
                 let gap = dist - e.r - pl.r;
                 if gap < 160.0 {
-                    let w = 1.0 / jmax(8.0, gap);
-                    fx -= (dx / dist) * w;
-                    fy -= (dy / dist) * w;
-                }
-            } else if self.opts.bot == Bot::Kite {
-                let gap = dist - e.r - pl.r;
-                if gap < 240.0 {
                     let w = 1.0 / jmax(8.0, gap);
                     fx -= (dx / dist) * w;
                     fy -= (dy / dist) * w;
@@ -4926,29 +4916,7 @@ impl<'a, M: MathFns> Match<'a, M> {
         let dy = e.y - pl.y;
         let dist = or(len(dx, dy), 1e-6);
         let gap = dist - e.r - pl.r;
-        if self.opts.bot == Bot::Line {
-            if gap < keep {
-                fx = -dx / dist;
-                fy = -dy / dist;
-            } else if gap > keep {
-                fx = dx / dist;
-                fy = dy / dist;
-            } else {
-                fx = 0.0;
-                fy = 0.0;
-            }
-        } else if self.opts.bot == Bot::Kite {
-            // Hold the attack's range and strafe. Contact is no longer the way the bot plays.
-            if gap < keep {
-                fx -= dx / dist;
-                fy -= dy / dist;
-            } else if gap > keep + 28.0 {
-                fx += dx / dist * 0.35;
-                fy += dy / dist * 0.35;
-            }
-            fx += -dy / dist;
-            fy += dx / dist;
-        } else if gap > keep {
+        if gap > keep {
             fx += dx / dist;
             fy += dy / dist;
         }
