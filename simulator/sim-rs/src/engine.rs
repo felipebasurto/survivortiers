@@ -1900,8 +1900,10 @@ struct Match<'a, M: MathFns> {
     near_buf: Vec<(f64, usize)>,
     terrain: Option<Box<Terr>>,
     lava_t: f64,
-    /// 0 fixed group, 1 the swap slot (player.js setActive). Stays 0 unless `Ext::alt` is set.
+    /// Active hole (player.js setActive): 0 the fixed group, 1 the swap move when `Ext::alt` is set, then one per extra.
     slot: u8,
+    /// The active hole's last cast found no target. maybe_swap moves on at once.
+    waiting: bool,
     alt_cd: f64,
     comp_evo: Vec<bool>,
     regen_n: f64,
@@ -2295,24 +2297,48 @@ impl<'a, M: MathFns> Match<'a, M> {
 
     /// Swap when the active timer is still above 35% of base cd (player.js:148). cdMul at or below
     /// 0.35 already waits less than the clamp, so swapping does not help. Choice Band never reaches this.
+    fn first_extra(&self) -> u8 {
+        if self.opts.ext.alt.is_some() { 2 } else { 1 }
+    }
+
+    fn holes(&self) -> u8 {
+        self.first_extra() + self.extras.len() as u8
+    }
+
+    fn alt_active(&self) -> bool {
+        self.opts.ext.alt.is_some() && self.slot == 1
+    }
+
+    /// Timer and base cooldown of the active hole.
+    fn active_timer(&self) -> (f64, f64) {
+        if self.slot == 0 {
+            (self.atk_cd, self.current_move().cd)
+        } else if self.alt_active() {
+            (self.alt_cd, self.data.moves[self.opts.ext.alt.unwrap()].levels[0].cd)
+        } else {
+            let (ix, t) = self.extras[(self.slot - self.first_extra()) as usize];
+            (t, self.data.moves[ix].levels[0].cd)
+        }
+    }
+
+    /// Swap when the active timer is still above 35% of base cd (player.js:148), or when the active hole
+    /// found no target. The next hole in turn takes over. Choice Band never reaches this.
     fn maybe_swap(&mut self) {
-        if self.opts.ext.alt.is_none() || self.opts.ext.item.lock || self.st.cd_mul <= 0.35 {
+        if self.holes() < 2 || self.opts.ext.item.lock || self.st.cd_mul <= 0.35 {
             return;
         }
-        let (timer, base) = if self.slot == 0 {
-            (self.atk_cd, self.current_move().cd)
-        } else {
-            let id = self.opts.ext.alt.unwrap();
-            (self.alt_cd, self.data.moves[id].levels[0].cd)
-        };
-        if timer > base * 0.35 {
-            self.enter_slot(1 - self.slot);
+        let (timer, base) = self.active_timer();
+        if timer > base * 0.35 || self.waiting {
+            let next = (self.slot + 1) % self.holes();
+            self.enter_slot(next);
         }
     }
 
     fn enter_slot(&mut self, slot: u8) {
         self.slot = slot;
         self.orbs.clear();
+        self.side_orbit = None;
+        self.waiting = false;
         self.stat_dirty = true;
         if slot == 0 {
             let base = self.current_move().cd;
@@ -2321,9 +2347,13 @@ impl<'a, M: MathFns> Match<'a, M> {
                 let cd = self.comp_lvl(i).cd;
                 self.comps[i].2 = jmin(self.comps[i].2, cd * 0.35);
             }
-        } else if let Some(id) = self.opts.ext.alt {
-            let cd = self.data.moves[id].levels[0].cd;
+        } else if self.alt_active() {
+            let cd = self.data.moves[self.opts.ext.alt.unwrap()].levels[0].cd;
             self.alt_cd = jmin(self.alt_cd, cd * 0.35);
+        } else {
+            let i = (slot - self.first_extra()) as usize;
+            let cd = self.data.moves[self.extras[i].0].levels[0].cd;
+            self.extras[i].1 = jmin(self.extras[i].1, cd * 0.35);
         }
     }
 
@@ -3322,6 +3352,10 @@ impl<'a, M: MathFns> Match<'a, M> {
     fn cast_extras(&mut self) {
         let n = self.extras.len();
         for i in 0..n {
+            // Only the active hole fires and ticks (combat.js:21-23). The others keep their timers.
+            if self.first_extra() + i as u8 != self.slot {
+                continue;
+            }
             if self.extras[i].1 > 0.0 {
                 self.extras[i].1 -= self.dt;
                 continue;
@@ -3334,6 +3368,7 @@ impl<'a, M: MathFns> Match<'a, M> {
                 self.side_orbit = Some((ix, 0));
             } else if !self.target_in_reach(mv) || !self.cast_mv(mv) {
                 self.extras[i].1 = 0.05;
+                self.waiting = true;
             }
         }
     }
@@ -4637,7 +4672,7 @@ impl<'a, M: MathFns> Match<'a, M> {
 
     fn step_orbs(&mut self) {
         // setActive clears orbs; a swapped-away orbit must not keep hitting.
-        if self.slot == 1 {
+        if self.slot != 0 {
             self.orbs.clear();
             self.step_side_orbs();
             return;
@@ -6571,6 +6606,7 @@ fn init_match<'a, M: MathFns>(
         }),
         lava_t: 0.0,
         slot: 0,
+        waiting: false,
         alt_cd: 0.0,
         comp_evo: vec![false; opts.ext.companions.len()],
         regen_n: 0.0,
@@ -6776,19 +6812,23 @@ pub fn run_match<M: MathFns>(
             if m.slot == 0 {
                 m.atk_cd -= step;
                 if m.atk_cd <= 0.0 {
-                    m.atk_cd = if m.cast() { m.cooled(m.st.mv.cd) } else { 0.05 };
+                    let hit = m.cast();
+                    m.waiting = !hit;
+                    m.atk_cd = if hit { m.cooled(m.st.mv.cd) } else { 0.05 };
                 }
                 if !m.comps.is_empty() {
                     m.cast_comps();
                 }
-                if !m.extras.is_empty() {
-                    m.cast_extras();
-                }
-            } else {
+            } else if m.alt_active() {
                 m.alt_cd -= step;
                 if m.alt_cd <= 0.0 {
-                    m.alt_cd = if m.cast() { m.cooled(m.st.mv.cd) } else { 0.05 };
+                    let hit = m.cast();
+                    m.waiting = !hit;
+                    m.alt_cd = if hit { m.cooled(m.st.mv.cd) } else { 0.05 };
                 }
+            }
+            if !m.extras.is_empty() {
+                m.cast_extras();
             }
             if !m.fields.is_empty() {
                 m.step_fields();

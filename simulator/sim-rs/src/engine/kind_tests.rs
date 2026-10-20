@@ -713,3 +713,16 @@ fn the_bomb_counts_only_the_hp_it_removes() {
     assert_eq!(m.dealt_bomb, 1.0 + full);
     assert_eq!(m.dealt, 1.0 + full);
 }
+
+#[test]
+fn an_extra_ticks_only_while_its_hole_is_active() {
+    let mut m = scene(1, "vine-whip");
+    let ix = dat().moves.iter().position(|mv| mv.id == "vine-whip").unwrap();
+    m.extras = vec![(ix, 5.0)];
+    m.slot = 0;
+    m.cast_extras();
+    assert_eq!(m.extras[0].1, 5.0, "the fixed group is active, so the extra keeps its timer");
+    m.slot = 1;
+    m.cast_extras();
+    assert!((m.extras[0].1 - (5.0 - m.dt)).abs() < 1e-12, "the active hole ticks");
+}
