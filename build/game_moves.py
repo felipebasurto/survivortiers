@@ -22,6 +22,12 @@ def damage_class(move_id: str, kind: str) -> str:
     return "physical" if _GAME_STATS["moves"][move_id]["cat"] == "physical" else "special"
 
 
+def attack_class(move_id: str) -> str:
+    """Categoría de daño de un movimiento del juego: physical, special o status."""
+    info = _GAME_STATS["moves"][move_id]
+    return damage_class(move_id, info["kind"])
+
+
 def shape_key(move: dict) -> str:
     """Clave de `mv_kind_*` que usa ataques.html. Un proyectil que persigue o perfora se nombra por eso,
     no como proyectil. El resto usa su kind (homing, bounce, charge, spin, quake, vortex, shove, stun, …)."""

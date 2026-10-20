@@ -348,15 +348,51 @@ def build_meta(entries: list[dict], credits: dict, counts: dict) -> dict:
     }
 
 
-def slim(entries: list[dict]) -> list[dict]:
+def slim(entries: list[dict], sides: dict[int, str]) -> list[dict]:
     """Lo mínimo para la tier list, el buscador y la colección: r = [puesto, tier, p10, p90, % en su tier].
+    side es phys, spec o mix según los ataques del mejor grupo simulado (no según pa/sa: eso sigue en v.ak).
     bst = suma de stats base: es el campo bst de js/data/pokedex.js del juego para los 966 Pokémon."""
     return [{"dex": e["dex"], "name": e["name"], "nameEn": e["nameEn"], "types": e["types"],
              "rarity": e["rarity"], "legendary": e["legendary"], "bannerId": e["bannerId"], "sh": e["sh"],
              "bst": sum(e["stats"]), "w": e["sprite"]["w"], "h": e["sprite"]["h"],
              "r": [e["r"]["rank"], e["r"]["tier"], e["r"]["p10"], e["r"]["p90"], round(100 * e["r"]["pTier"])],
-             "v": sort_values(e)}
+             "side": sides[e["dex"]], "v": sort_values(e)}
             for e in entries]
+
+
+def group_side(attacks: list[str]) -> str:
+    """'phys', 'spec' o 'mix' según los ataques del mejor grupo simulado, el que enseña la ficha.
+
+    Cada ataque es físico o especial por su categoría en los datos de movimientos del juego
+    (build/game_moves.py). Mixto si el grupo tiene de los dos. Un potenciador no es un ataque."""
+    if not attacks:
+        raise CatalogError("el grupo no tiene ataques")
+    classes: set[str] = set()
+    for mid in attacks:
+        cat = game_moves.attack_class(mid)
+        if cat == "physical":
+            classes.add("phys")
+        elif cat == "special":
+            classes.add("spec")
+        else:
+            raise CatalogError(f"{mid}: categoría {cat} en un ataque del grupo")
+    if classes == {"phys", "spec"}:
+        return "mix"
+    if classes == {"phys"}:
+        return "phys"
+    if classes == {"spec"}:
+        return "spec"
+    raise CatalogError(f"categoría del grupo inesperada: {sorted(classes)}")
+
+
+def group_sides(combo: dict[int, dict]) -> dict[int, str]:
+    """dex -> lado de los ataques del grupo publicado (build/combos.py), que sale de group_search.csv."""
+    out = {}
+    for dex, row in combo.items():
+        n = row["nBoost"]
+        attacks = row["moves"][:len(row["moves"]) - n] if n else list(row["moves"])
+        out[dex] = group_side(attacks)
+    return out
 
 
 def attack_kind(pa: float, sa: float) -> str:
@@ -457,14 +493,15 @@ def main() -> int:
         print(f"ERROR de catálogo: {len(errs)} errores en data/summaries.json; ver build/summary_pipeline.py",
               file=sys.stderr)
         return 1
+    dex_types = {p["dex"]: p["types"] for p in json.loads((DATA / "pokedex_export.json").read_text(encoding="utf8"))}
+    combo = combos.compute_all(dex_types, {e["dex"]: e["r"]["sim"]["best"]["id"] for e in entries})
+    sides = group_sides(combo)
     shutil.rmtree(OUT, ignore_errors=True)
     write_json("pokemon.json", entries)
     write_json("moves.json", moves)
     write_json("moves_unranked.json", unranked)
-    write_json("pokemon-index.json", slim(entries), public=True)
-    dex_types = {p["dex"]: p["types"] for p in json.loads((DATA / "pokedex_export.json").read_text(encoding="utf8"))}
-    write_json("species.json", species_details(entries, meta["simRange"], meta["simMedianSeconds"],
-                                               combos.compute_all(dex_types, {e["dex"]: e["r"]["sim"]["best"]["id"] for e in entries})), public=True)
+    write_json("pokemon-index.json", slim(entries, sides), public=True)
+    write_json("species.json", species_details(entries, meta["simRange"], meta["simMedianSeconds"], combo), public=True)
     write_json("moves.json", moves, public=True)
     write_json("tiers.json", json.loads((DATA / "tiers.json").read_text(encoding="utf8")), public=True)
     write_json("moves_unranked.json", unranked, public=True)

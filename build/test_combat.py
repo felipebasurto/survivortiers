@@ -29,6 +29,17 @@ class AttackKindTest(unittest.TestCase):
         self.assertEqual(catalog.attack_kind(1.05, 1.10), "mix")
         self.assertEqual(catalog.attack_kind(1.11, 1.05), "phys")
 
+    def test_group_side_uses_move_damage_class(self) -> None:
+        self.assertEqual(catalog.group_side(["tackle", "quick-attack"]), "phys")
+        self.assertEqual(catalog.group_side(["ember", "flamethrower"]), "spec")
+        self.assertEqual(catalog.group_side(["tackle", "ember"]), "mix")
+
+    def test_group_side_refuses_a_boost(self) -> None:
+        with self.assertRaises(catalog.CatalogError):
+            catalog.group_side(["swords-dance"])
+        with self.assertRaises(catalog.CatalogError):
+            catalog.group_side([])
+
 
 class ImportTest(unittest.TestCase):
     def test_merge_inserts_combat_after_atk_and_keeps_rest(self) -> None:

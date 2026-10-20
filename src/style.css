@@ -148,7 +148,7 @@ textarea {
 /* Buscador, orden y agrupación de la tier list */
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .finder { display: grid; grid-template-columns: minmax(0, 32rem) auto; justify-content: start; align-items: center; gap: 14px 12px; margin: 22px 0 0; }
-.finder > .group-by, .finder > #count, .finder > .nomatch { grid-column: 1 / -1; }
+.finder > .side-filter, .finder > .group-by, .finder > #count, .finder > .nomatch { grid-column: 1 / -1; }
 .search-field { position: relative; display: flex; align-items: center; max-width: 36rem; }
 .search-icon { position: absolute; left: 14px; width: 18px; height: 18px; color: var(--ink-2); pointer-events: none; }
 .search-field input[type="search"] { width: 100%; padding: 14px 44px 14px 42px; font: 1.1rem var(--ui); }
@@ -165,7 +165,7 @@ textarea {
 .icon-btn .ico { width: 22px; height: 22px; margin: 0; }
 #dir .ico { transform: rotate(-90deg); transition: transform .15s; }
 #dir.desc .ico { transform: rotate(90deg); }
-.group-by { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.side-filter, .group-by { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .seg { font: 600 .8125rem var(--ui); text-transform: uppercase; letter-spacing: .03em; color: var(--ink); background: var(--bg); border: 0; box-shadow: var(--notch-soft); padding: 8px 12px; cursor: pointer; }
 .seg:hover { filter: brightness(1.15); }
 .seg[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); box-shadow: var(--notch); }
@@ -1498,8 +1498,8 @@ html { overflow-x: hidden; }
   /* tier list: buscador arriba, orden en una fila y agrupación deslizable; 5 por fila a 360-414 px */
   .finder { grid-template-columns: 1fr; gap: 10px; }
   .sortline select { flex: 1; min-width: 0; }
-  .group-by { flex-wrap: nowrap; overflow-x: auto; margin: 0 -14px; padding: 4px 14px 6px; scrollbar-width: none; }
-  .group-by::-webkit-scrollbar { display: none; }
+  .side-filter, .group-by { flex-wrap: nowrap; overflow-x: auto; margin: 0 -14px; padding: 4px 14px 6px; scrollbar-width: none; }
+  .side-filter::-webkit-scrollbar, .group-by::-webkit-scrollbar { display: none; }
   .seg { flex: none; min-height: 40px; }
   .tier { margin-top: 30px; }
   .tier-head b { font-size: 2.6rem; }

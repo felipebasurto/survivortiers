@@ -67,6 +67,11 @@ STR: dict[str, tuple[str, str]] = {
     "search_ph": ("Pikachu, fuego, #25…", "Pikachu, fire, #25…"),
     "search_clear": ("Borrar búsqueda", "Clear search"),
     "random_btn": ("Al azar", "Random"),
+    "side_filter": ("Filtrar por ataque", "Filter by attack"),
+    "side_all": ("Todos", "All"),
+    "side_phys": ("Físico", "Physical"),
+    "side_spec": ("Especial", "Special"),
+    "side_mix": ("Mixto", "Mixed"),
     "group_by": ("Agrupar por", "Group by"),
     "group_tier": ("Tier", "Tier"),
     "group_type": ("Tipo", "Type"),
@@ -76,7 +81,8 @@ STR: dict[str, tuple[str, str]] = {
     "group_none": ("Sin agrupar", "No groups"),
     "no_match": ("Ningún Pokémon coincide. Prueba con otro nombre o tipo.",
                  "No Pokémon match. Try another name or type."),
-    "noscript": ("El buscador necesita JavaScript.", "Search needs JavaScript."),
+    "noscript": ("El buscador y el filtro de ataque necesitan JavaScript.",
+                 "Search and the attack filter need JavaScript."),
     "value_html": (
         'Tier list de {game} hecha simulando {sims} partidas por Pokémon, no solo con fórmulas de stats. Código, simulador '
         'y datos abiertos en <a href="{repo}" rel="noopener">GitHub</a>, para que cualquiera lo compruebe.',
