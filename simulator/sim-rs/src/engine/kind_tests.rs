@@ -398,3 +398,30 @@ fn damage_is_credited_to_the_move_that_dealt_it() {
     assert!((total - m.dealt).abs() < 1e-6, "{total} vs {}", m.dealt);
     assert!((m.dealt_by[mv("vine-whip")] - m.dealt).abs() < 1e-6);
 }
+
+#[test]
+fn an_orb_sits_on_an_ellipse_0_7_high_at_the_top_of_its_orbit() {
+    // projectile.js:52: p.y = o.y + sin(oa) * orad * 0.7. The top point is 0.7 of the radius above the player.
+    let top = std::f64::consts::FRAC_PI_2 * 3.0;
+    let (x, y) = kinds::orb_point(&LIBM, 10.0, 20.0, top, 100.0);
+    assert!((x - 10.0).abs() < 1e-9, "x {x}");
+    assert!((y - (20.0 - 70.0)).abs() < 1e-9, "y {y}");
+    let (rx, ry) = kinds::orb_point(&LIBM, 0.0, 0.0, 0.0, 100.0);
+    assert!((rx - 100.0).abs() < 1e-9 && ry.abs() < 1e-9);
+}
+
+#[test]
+fn boomerang_fan_widens_by_spread_per_blade_up_to_three_gaps() {
+    // combat.js:230 spread = m.spread || 0.5, combat.js:233 the fan is spread * min(n, 3) wide.
+    let mut out = Vec::new();
+    kinds::boom_angles(0.0, 3.0, 0.0, &mut out);
+    assert_eq!(out.len(), 3);
+    assert!((out[2] - out[0] - 1.5).abs() < 1e-9, "3 blades with the default spread: {out:?}");
+    kinds::boom_angles(0.0, 5.0, 0.0, &mut out);
+    assert_eq!(out.len(), 5);
+    assert!((out[4] - out[0] - 1.5).abs() < 1e-9, "5 blades are capped at 3 gaps: {out:?}");
+    kinds::boom_angles(0.0, 2.0, 0.3, &mut out);
+    assert!((out[1] - out[0] - 0.6).abs() < 1e-9, "2 blades use 2 gaps: {out:?}");
+    kinds::boom_angles(0.7, 1.0, 0.5, &mut out);
+    assert_eq!(out, vec![0.7]);
+}

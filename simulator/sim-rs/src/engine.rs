@@ -825,6 +825,24 @@ fn nearest(enemies: &[Enemy], x: f64, y: f64) -> Option<usize> {
     best
 }
 
+/// projectile.js nearest(maxDist): the closest live enemy by centre, strictly inside `max`.
+fn nearest_within(enemies: &[Enemy], x: f64, y: f64, max: f64) -> Option<usize> {
+    let mut best = None;
+    let mut best_d = max * max;
+    for (i, e) in enemies.iter().enumerate() {
+        if e.hp <= 0.0 {
+            continue;
+        }
+        let (dx, dy) = (e.x - x, e.y - y);
+        let d = dx * dx + dy * dy;
+        if d < best_d {
+            best_d = d;
+            best = Some(i);
+        }
+    }
+    best
+}
+
 /// combat.js chain: `m.hex && (cur.burn > 0 || cur.poison > 0 || cur.slow > 0) ? m.hex : 1`.
 /// `slow` is the speed factor (enemy.js applySlow), not the timer.
 pub fn hex_multiplier(hex: f64, burn: f64, poison: f64, slow: f64) -> f64 {
@@ -2625,8 +2643,34 @@ impl<'a, M: MathFns> Match<'a, M> {
         }
     }
 
+    /// Aim target of the lead move (player.js:384-411). A ranged lead (projectile, beam) takes the boss
+    /// within 330 first, then what is touching you (radius + 24), then the nearest within 520. Any other
+    /// lead takes what touches you first, then the boss. Rocks and chests (200) are not vendored.
+    fn aim_target(&self) -> Option<usize> {
+        let (x, y, pr) = (self.pl.x, self.pl.y, self.pl.r);
+        let boss = self.enemies.iter().position(|e| e.boss && e.hp > 0.0 && len(e.x - x, e.y - y) < 330.0);
+        let touch = nearest_within(&self.enemies, x, y, pr + 24.0);
+        let first = if matches!(self.st.mv.kind, Kind::Projectile | Kind::Beam) { boss.or(touch) } else { touch.or(boss) };
+        first.or_else(|| nearest_within(&self.enemies, x, y, 520.0))
+    }
+
+    /// combat.js tickMove: a move that needs a target only fires while the aim target is inside its reach.
+    /// A miss waits 0.05 s without starting the cooldown, and never calls pl.cast (so no life orb).
+    fn target_in_reach(&self, mv: &MoveLvl) -> bool {
+        let Some(reach) = kinds::reach(mv) else {
+            return true;
+        };
+        match self.aim_target() {
+            Some(i) => len(self.enemies[i].x - self.pl.x, self.enemies[i].y - self.pl.y) <= reach,
+            None => false,
+        }
+    }
+
     fn cast(&mut self) -> bool {
         let mv = self.st.mv;
+        if !self.target_in_reach(mv) {
+            return false;
+        }
         // player.js cast(): life orb skips orbit and trail, and only runs when combat.js actually calls pl.cast.
         // A needsTarget miss never calls cast. Default (parity) kinds keep the previous order: life orb before the cast.
         let extra = self.opts.ext.xkinds && mv.kind == Kind::Inert && mv.xk != 0;
@@ -2955,7 +2999,7 @@ impl<'a, M: MathFns> Match<'a, M> {
             self.extras[i].1 = self.cooled(cd);
             if kind == Kind::Orbit {
                 self.side_orbit = Some((ix, 0));
-            } else if !self.cast_mv(mv) {
+            } else if !self.target_in_reach(mv) || !self.cast_mv(mv) {
                 self.extras[i].1 = 0.05;
             }
         }
@@ -2981,6 +3025,10 @@ impl<'a, M: MathFns> Match<'a, M> {
             self.comps[i].2 -= self.dt;
             if self.comps[i].2 <= 0.0 {
                 let mv = self.comp_lvl(i);
+                if !self.target_in_reach(mv) {
+                    self.comps[i].2 = 0.05;
+                    continue;
+                }
                 let (cd, kind, xk) = (mv.cd, mv.kind, mv.xk);
                 // combat.js:37. The floor is max(0.05, cd*cdMul). Parity keeps the raw product.
                 self.comps[i].2 = self.cooled(cd);
@@ -3009,7 +3057,7 @@ impl<'a, M: MathFns> Match<'a, M> {
         }
         let st = self.status_of(mv);
         let math = self.math;
-        let aim = match nearest(&self.enemies, self.pl.x, self.pl.y) {
+        let aim = match self.aim_target() {
             Some(i) => math.atan2(self.enemies[i].y - self.pl.y, self.enemies[i].x - self.pl.x),
             None => self.pl.aim,
         };
@@ -3079,7 +3127,7 @@ impl<'a, M: MathFns> Match<'a, M> {
             }
             Kind::Boomerang => {
                 let mut angles = std::mem::take(&mut self.angles);
-                fan_angles(aim, or(mv.count, 1.0), or(mv.spread, 0.0), &mut angles);
+                kinds::boom_angles(aim, or(mv.count, 1.0), mv.spread, &mut angles);
                 for &a in &angles {
                     let dx = math.cos(a);
                     let dy = math.sin(a);
@@ -3239,17 +3287,18 @@ impl<'a, M: MathFns> Match<'a, M> {
             }
             // chain(): jumps to the nearest unhit enemy within radius, 15 % less each jump; hex x mv.hex on a status
             3 => {
-                // chain() first hop: projectile.js nearest within reach 280 (centre). Later hops: centre < radius
-                // (the radius^2 filter), not queryCircle's radius + e.r.
-                let mut cur = match nearest(&self.enemies, px, py) {
-                    Some(i) if len(self.enemies[i].x - px, self.enemies[i].y - py) < 280.0 => Some(i),
-                    _ => return false,
+                // chain() first hop is the aim target (combat.js:245 `pl.target`); the reach gate already
+                // checked it is within 280. Later hops: centre < radius (the radius^2 filter), not queryCircle's radius + e.r.
+                let Some(first) = self.aim_target() else {
+                    return false;
                 };
+                let mut cur = Some(first);
                 let mut done: Vec<usize> = Vec::new();
                 let mut k = 1.0;
                 let faithful = self.faith();
                 let chance = if faithful { self.opts.ext.crit } else { 0.0 };
-                let knock = if faithful { or(mv.knock, 0.0) } else { 0.0 };
+                // combat.js:258 chain hits pass knock 0.
+                let knock = 0.0;
                 let mut dealt = 0.0;
                 for _ in 0..count as usize {
                     let Some(i) = cur else { break };
@@ -3289,7 +3338,8 @@ impl<'a, M: MathFns> Match<'a, M> {
                 let mut healed = 0.0;
                 let faithful = self.faith();
                 let chance = if faithful { self.opts.ext.crit } else { 0.0 };
-                let knock = if faithful { or(mv.knock, 0.0) } else { 0.0 };
+                // combat.js:207 aura hits pass knock 0.
+                let knock = 0.0;
                 let mut dealt = 0.0;
                 {
                     let mut rng = self.crit_rng.borrow_mut();
@@ -3386,7 +3436,8 @@ impl<'a, M: MathFns> Match<'a, M> {
                         let tt = if ll > 0.0 { (((e.x - px) * vx + (e.y - py) * vy) / ll).clamp(0.0, 1.0) } else { 0.0 };
                         let (qx, qy) = (px + vx * tt - e.x, py + vy * tt - e.y);
                         if qx * qx + qy * qy <= (w / 2.0 + e.r) * (w / 2.0 + e.r) {
-                            let (dx, dy) = (e.x - px, e.y - py);
+                            // combat.js:332 the dash pushes along its own direction, not away from the player.
+                            let (dx, dy) = (ca, sa);
                             dealt += hit_one(faithful, e, mv.dmg, atk, mv.ty, tm, weather, st, knock, dx, dy, chance, &mut rng, mv.cat);
                         }
                     }
@@ -4222,7 +4273,8 @@ impl<'a, M: MathFns> Match<'a, M> {
                 if len(e.x - x, e.y - y) < b.r + e.r {
                     b.hit.push(e.id);
                     let (bd, ba, bt, bst, bk, bcat) = (b.dmg, b.atk, b.ty, b.st, if faithful { b.knock } else { 0.0 }, b.cat);
-                    let (dx, dy) = (e.x - x, e.y - y);
+                    // combat.js:848 pushes along the blade's velocity: out along its fan, back toward you on the return.
+                    let (dx, dy) = if b.dir > 0.0 { (b.dx, b.dy) } else { (-b.dx, -b.dy) };
                     {
                         let mut rng = crit_rng.borrow_mut();
                         let got = hit_one(faithful, e, bd, ba, bt, tm, weather, bst, bk, dx, dy, chance, &mut rng, bcat);
@@ -4276,8 +4328,7 @@ impl<'a, M: MathFns> Match<'a, M> {
             let tm = &self.data.tmult;
             for orb in self.orbs.iter_mut() {
                 orb.angle += or(mv.speed, 1.0) * dt;
-                let x = plx + math.cos(orb.angle) * mv.radius;
-                let y = ply + math.sin(orb.angle) * mv.radius;
+                let (x, y) = kinds::orb_point(math, plx, ply, orb.angle, mv.radius);
                 for e in self.enemies.iter_mut() {
                     if e.hp <= 0.0 {
                         continue;
@@ -4300,7 +4351,8 @@ impl<'a, M: MathFns> Match<'a, M> {
                             } else {
                                 orb.log.push((e.id, now));
                             }
-                            let (dx, dy) = (e.x - x, e.y - y);
+                            // combat.js:848 orbs have no velocity, so the push runs player -> enemy.
+                            let (dx, dy) = (e.x - plx, e.y - ply);
                             dealt += hit_one(true, e, mv.dmg, atk, mv.ty, tm, weather, st, knock, dx, dy, chance, &mut rng, mv.cat);
                         }
                     }
@@ -4345,8 +4397,7 @@ impl<'a, M: MathFns> Match<'a, M> {
             let tm = &self.data.tmult;
             for orb in self.side_orbs.iter_mut() {
                 orb.angle += speed * dt;
-                let x = plx + math.cos(orb.angle) * radius;
-                let y = ply + math.sin(orb.angle) * radius;
+                let (x, y) = kinds::orb_point(math, plx, ply, orb.angle, radius);
                 for e in self.enemies.iter_mut() {
                     if e.hp <= 0.0 {
                         continue;
@@ -4363,7 +4414,8 @@ impl<'a, M: MathFns> Match<'a, M> {
                     } else {
                         orb.log.push((e.id, now));
                     }
-                    let (dx, dy) = (e.x - x, e.y - y);
+                    // combat.js:848 orbs have no velocity, so the push runs player -> enemy.
+                    let (dx, dy) = (e.x - plx, e.y - ply);
                     dealt += hit_one(true, e, dmg, atk, ty, tm, weather, st, knock, dx, dy, chance, &mut rng, cat);
                 }
             }

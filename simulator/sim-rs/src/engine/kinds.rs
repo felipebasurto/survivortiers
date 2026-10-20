@@ -34,6 +34,51 @@ pub fn damp(a: f64, b: f64, rate: f64, dt: f64) -> f64 {
     b + (a - b) * libm::exp(-rate * dt)
 }
 
+/// projectile.js:52: an orb's height is 0.7 of its orbit radius (an ellipse, not a circle).
+pub(super) const ORBIT_Y: f64 = 0.7;
+
+/// Where an orb sits at `angle` around the player (projectile.js orbit update).
+pub(super) fn orb_point<M: MathFns>(math: &M, px: f64, py: f64, angle: f64, radius: f64) -> (f64, f64) {
+    (px + math.cos(angle) * radius, py + math.sin(angle) * radius * ORBIT_Y)
+}
+
+/// combat.js boomerang: `spread = m.spread || 0.5`, and the fan is `spread * min(n, 3)` wide, so
+/// blades past the third do not widen it (combat.js:233). Writes the blade angles into `out`.
+pub(super) fn boom_angles(aim: f64, count: f64, spread: f64, out: &mut Vec<f64>) {
+    out.clear();
+    let n = or(count, 1.0).trunc().max(1.0) as usize;
+    if n == 1 {
+        out.push(aim);
+        return;
+    }
+    let width = or(spread, 0.5) * n.min(3) as f64;
+    for i in 0..n {
+        out.push(aim + (i as f64 / (n - 1) as f64 - 0.5) * width);
+    }
+}
+
+/// combat.js reach(m) for a kind that needs a target (TARGETED). `None` for kinds that fire without one.
+pub(super) fn reach(mv: &MoveLvl) -> Option<f64> {
+    Some(match mv.kind {
+        Kind::Melee => mv.radius + 30.0,
+        Kind::Beam => mv.radius + 20.0,
+        Kind::Boomerang => mv.radius + 40.0,
+        Kind::Projectile => 520.0,
+        Kind::Nova | Kind::Orbit => return None,
+        Kind::Inert => match mv.xk {
+            1 => mv.speed * mv.life + 30.0,                      // cone
+            2 => 340.0,                                          // meteor
+            3 => 280.0,                                          // chain
+            5 => mv.radius + 60.0,                               // dash
+            9 | 10 => 520.0,                                     // homing, bounce: projectiles
+            11 | 12 | 15 => mv.radius + 20.0,                    // charge, spin, shove
+            13 => or(mv.count, 0.0).trunc() * QSTEP + mv.radius, // quake
+            14 | 16 => 300.0,                                    // vortex, stun
+            _ => return None,                                    // aura, mine, trail, turret
+        },
+    })
+}
+
 impl<'a, M: MathFns> Match<'a, M> {
     /// Cast of xk 9..=16. `false` when combat.js needsTarget would wait for a target (the caller retries in
     /// 0.05 s). The reach is `reach(m)`: spin, shove and charge radius + 20, quake count * 34 + radius,
@@ -216,7 +261,8 @@ impl<'a, M: MathFns> Match<'a, M> {
     fn charge_beam(&mut self, mv: &'a MoveLvl) {
         let math = self.math;
         let (px, py) = (self.pl.x, self.pl.y);
-        let aim = match nearest(&self.enemies, px, py) {
+        // The beam takes the aim of this frame (player.js sets pl.aim from the lead move each frame).
+        let aim = match self.aim_target() {
             Some(i) => math.atan2(self.enemies[i].y - py, self.enemies[i].x - px),
             None => self.pl.aim,
         };
