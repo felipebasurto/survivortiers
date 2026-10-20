@@ -667,6 +667,8 @@ struct Enemy {
     rd: f64,
     /// Seconds of stun left (enemy.js applyStun / stunT). Frozen enemies skip movement, attacks and contact.
     stun_t: f64,
+    /// Boss attack state (enemy.js bossInit `ai`). Some only for bosses built by spawn_boss.
+    bai: Option<BossAi>,
 }
 
 /// What one hit applies to an enemy: the move's slow, burn and poison values (applySlow,
@@ -1417,6 +1419,306 @@ fn base_spd(mon: &Mon) -> f64 {
     (mon.spd - 78.0) / 0.42
 }
 
+/// Index of "flying" in the type list of data.rs (the boss nova pick checks it, enemy.js bossInit).
+const T_FLYING: u8 = 9;
+
+/// The eight boss attacks of enemy.js bossStart. Melee: Slam, then Dash or Leap. Ranged: two of Rain, Beam, Volley, Nova.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum BAtk {
+    Slam,
+    Dash,
+    Leap,
+    Rain,
+    Beam,
+    Volley,
+    Nova,
+}
+
+/// `ai.cast` in enemy.js: an attack that is winding up or firing. Leap never sets it (it becomes a jump).
+#[derive(Clone, Copy)]
+struct BCast {
+    id: BAtk,
+    t: f64,
+    wind: f64,
+    after: f64,
+    ang: f64,
+    len: f64,
+    dur: f64,
+    fired: bool,
+}
+
+/// enemy.js bossInit `ai`: the attack lists, far/close mode, cooldowns and fury (below half HP).
+struct BossAi {
+    melee: [BAtk; 2],
+    ranged: [BAtk; 2],
+    /// enemy.js farLike: 0.65 for a ranged boss, 0.35 for a charger or chaser.
+    far_like: f64,
+    /// true is 'far' (keeps its distance), false is 'close'.
+    far: bool,
+    mode_t: f64,
+    cd: f64,
+    cast: Option<BCast>,
+    fury: bool,
+    side: f64,
+}
+
+impl BossAi {
+    /// enemy.js bossInit. The attack picks come from the species (util.js hash), not from the run's rng.
+    fn new(dex: u32, types: &[u8], ranged: bool, rng: &mut Rng) -> BossAi {
+        let h = |a: i32, b: i32| crate::terrain::js_hash(dex as i32, a, b);
+        let has = |xs: &[u8]| types.iter().any(|t| xs.contains(t));
+        let melee = [BAtk::Slam, if h(3, 7) < 0.5 { BAtk::Dash } else { BAtk::Leap }];
+        let pref = if has(&[T_FIRE, T_GROUND, T_POISON, T_ROCK, T_GRASS]) {
+            BAtk::Rain
+        } else if has(&[T_ELECTRIC, T_PSYCHIC, T_DRAGON, T_ICE, T_STEEL]) {
+            BAtk::Beam
+        } else if has(&[T_FAIRY, T_GHOST, T_WATER, T_FLYING]) {
+            BAtk::Nova
+        } else {
+            BAtk::Volley
+        };
+        let others: Vec<BAtk> = [BAtk::Rain, BAtk::Beam, BAtk::Nova, BAtk::Volley].into_iter().filter(|&a| a != pref).collect();
+        let second = others[((h(5, 9) * 3.0).floor() as usize) % 3];
+        BossAi {
+            melee,
+            ranged: [pref, second],
+            far_like: if ranged { 0.65 } else { 0.35 },
+            far: ranged,
+            mode_t: 6.0 + rng.next() * 2.0,
+            cd: 1.6,
+            cast: None,
+            fury: false,
+            side: if rng.next() < 0.5 { -1.0 } else { 1.0 },
+        }
+    }
+}
+
+/// What a boss step reads from the enemy and the player this frame.
+struct BossEnv {
+    x: f64,
+    y: f64,
+    r: f64,
+    /// enemy.js this.dmg (zones) and this.shotDmg() (beams, rain, shots).
+    dmg: f64,
+    shot: f64,
+    ty: u8,
+    cat: u8,
+    px: f64,
+    py: f64,
+    dist: f64,
+    /// Unit vector from the boss to the player (enemy.js ddx, ddy).
+    nd: (f64, f64),
+    /// Movement direction after side-steps and path steering (enemy.js dx, dy).
+    dir: (f64, f64),
+    spd: f64,
+    dt: f64,
+    hp: f64,
+    max: f64,
+}
+
+/// What one boss frame asks of the enemy: velocity, whether it enraged, and a leap's start time.
+struct BossStep {
+    vx: f64,
+    vy: f64,
+    enraged: bool,
+    leap: Option<f64>,
+}
+
+fn pick_atk(rng: &mut Rng, xs: &[BAtk]) -> BAtk {
+    let i = ((rng.next() * xs.len() as f64).floor() as usize).min(xs.len() - 1);
+    xs[i]
+}
+
+fn zone_hz(env: &BossEnv, x: f64, y: f64, r: f64, delay: f64, dmg: f64) -> Hazard {
+    Hazard { kind: HKind::Zone, x, y, r, angle: 0.0, len: 0.0, w: 0.0, delay, t: 0.0, dmg, ty: env.ty, cat: env.cat, pure: false, pct: f64::NAN }
+}
+
+fn beam_hz(env: &BossEnv, angle: f64, len: f64, w: f64, delay: f64, dmg: f64) -> Hazard {
+    Hazard { kind: HKind::Beam, x: env.x, y: env.y, r: 0.0, angle, len, w, delay, t: 0.0, dmg, ty: env.ty, cat: env.cat, pure: false, pct: f64::NAN }
+}
+
+/// enemy.js bossMove. Returns the velocity, whether the boss enraged this frame, and a leap if one started.
+/// Hazards and shots go into `hz` and `shots`; the caller applies the speed-up (enemy.js enrage).
+fn boss_frame<M: MathFns>(m: &M, b: &mut BossAi, rng: &mut Rng, env: &BossEnv, hz: &mut Vec<Hazard>, shots: &mut Vec<EShot>) -> BossStep {
+    // enemy.js:460 — once, below half HP, before the cast check.
+    let enraged = !b.fury && env.hp < env.max * 0.5;
+    if enraged {
+        b.fury = true;
+    }
+    // enemy.js:461 — cadence and close-range speed ×1.25 while enraged.
+    let k = if b.fury { 1.25 } else { 1.0 };
+    if let Some(mut c) = b.cast.take() {
+        let (vx, vy, done) = boss_cast(m, b, rng, &mut c, env, shots);
+        if !done {
+            b.cast = Some(c);
+        }
+        return BossStep { vx, vy, enraged, leap: None };
+    }
+    b.mode_t -= env.dt;
+    b.cd -= env.dt * k;
+    // enemy.js:465-468 — the distance it likes is held longer (7-9 s) than the other (4-5 s).
+    if b.mode_t <= 0.0 {
+        b.far = !b.far;
+        b.mode_t = if b.far == (b.far_like > 0.5) { 7.0 + rng.next() * 2.0 } else { 4.0 + rng.next() };
+        b.side = -b.side;
+    }
+    let s = env.spd;
+    let (nx, ny) = env.nd;
+    let (mut vx, mut vy) = (env.dir.0 * s * k * 1.1, env.dir.1 * s * k * 1.1);
+    if b.far {
+        // enemy.js:472-475 — back off when close, circle when mid-range.
+        if env.dist < 170.0 {
+            vx = -nx * s;
+            vy = -ny * s;
+        } else if env.dist < 300.0 {
+            vx = -ny * s * 0.55 * b.side;
+            vy = nx * s * 0.55 * b.side;
+        }
+    }
+    let mut leap = None;
+    if b.cd <= 0.0 {
+        let id = if !b.far {
+            // enemy.js:478-481 — melee in range, and sometimes a shot even up close.
+            let ok: Vec<BAtk> = b
+                .melee
+                .iter()
+                .copied()
+                .filter(|&a| if a == BAtk::Slam { env.dist < 125.0 } else { env.dist < 320.0 })
+                .collect();
+            if !ok.is_empty() && rng.next() < 0.8 {
+                Some(pick_atk(rng, &ok))
+            } else if env.dist < 480.0 {
+                Some(pick_atk(rng, &b.ranged))
+            } else {
+                None
+            }
+        } else if env.dist < 115.0 {
+            Some(BAtk::Slam)
+        } else if env.dist < 430.0 {
+            Some(pick_atk(rng, &b.ranged))
+        } else {
+            None
+        };
+        if let Some(id) = id {
+            leap = boss_start(m, b, rng, id, env, hz);
+        }
+    }
+    BossStep { vx, vy, enraged, leap }
+}
+
+/// enemy.js bossStart: the warning zones and beams for one attack, with the game's delays and sizes.
+/// Returns the leap's start time for a leap (the jump itself is set by the caller).
+fn boss_start<M: MathFns>(m: &M, b: &mut BossAi, rng: &mut Rng, id: BAtk, env: &BossEnv, hz: &mut Vec<Hazard>) -> Option<f64> {
+    let f = if b.fury { 0.8 } else { 1.0 };
+    let ang = m.atan2(env.nd.1, env.nd.0);
+    let mut c = BCast { id, t: 0.0, wind: 0.6 * f, after: 0.35, ang, len: 0.0, dur: 0.0, fired: false };
+    match id {
+        BAtk::Slam => {
+            // enemy.js:505-507 — a ring around the boss.
+            c.wind = 0.85 * f;
+            hz.push(zone_hz(env, env.x, env.y, 96.0 + env.r, c.wind, env.dmg * 1.3));
+        }
+        BAtk::Dash => {
+            // enemy.js:510-513 — a straight charge along a 330 px beam.
+            c.wind = 0.75 * f;
+            c.len = 330.0;
+            c.dur = 0.32;
+            hz.push(beam_hz(env, ang, c.len + env.r, env.r * 2.0 + 16.0, c.wind + c.dur, env.dmg * 1.2));
+        }
+        BAtk::Leap => {
+            // enemy.js:516-520 — jump at the player's spot; the landing zone is r 82 at the player.
+            hz.push(zone_hz(env, env.px, env.py, 82.0, 0.5 * f + 0.65, env.dmg * 1.25));
+            b.cd = 1.4 + rng.next() * 0.6 + 0.6;
+            return Some(-0.5 * f);
+        }
+        BAtk::Rain => {
+            // enemy.js:522-531 — four zones around the player, six when enraged.
+            let n = if b.fury { 6 } else { 4 };
+            for i in 0..n {
+                let (a, d) = if i > 0 { (rng.next() * 6.2832, 40.0 + rng.next() * 80.0) } else { (0.0, 0.0) };
+                let (zx, zy) = (env.px + m.cos(a) * d, env.py + m.sin(a) * d * 0.8);
+                hz.push(zone_hz(env, zx, zy, 50.0, 1.05 + i as f64 * 0.12, env.shot * 1.15));
+            }
+            c.wind = 0.5;
+        }
+        BAtk::Beam => {
+            // enemy.js:532-540 — a fan of three beams, five when enraged.
+            let (n, sp) = if b.fury { (5, 0.42) } else { (3, 0.5) };
+            for i in 0..n {
+                let a = ang + (i as f64 - (n as f64 - 1.0) / 2.0) * sp;
+                hz.push(beam_hz(env, a, 400.0, 26.0, 1.0, env.shot * 1.2));
+            }
+            c.wind = 1.0;
+            c.after = 0.25;
+        }
+        // enemy.js:541-544 — the shots leave when the wind-up ends (see boss_cast).
+        BAtk::Volley => c.wind = 0.5 * f,
+        BAtk::Nova => c.wind = 0.7 * f,
+    }
+    b.cast = Some(c);
+    None
+}
+
+/// enemy.js bossCast. Returns the velocity and whether the attack is over (bossEnd ran).
+fn boss_cast<M: MathFns>(m: &M, b: &mut BossAi, rng: &mut Rng, c: &mut BCast, env: &BossEnv, shots: &mut Vec<EShot>) -> (f64, f64, bool) {
+    c.t += env.dt;
+    if c.id == BAtk::Dash && c.t >= c.wind {
+        if c.t >= c.wind + c.dur {
+            boss_end(b, rng);
+            return (0.0, 0.0, true);
+        }
+        let sp = c.len / c.dur;
+        return (m.cos(c.ang) * sp, m.sin(c.ang) * sp, false);
+    }
+    if c.t >= c.wind && !c.fired {
+        c.fired = true;
+        let (ax, ay) = env.nd;
+        match c.id {
+            // enemy.js:562 — fan of 7 (9 enraged), spread 1.1, damage ×0.8.
+            BAtk::Volley => boss_shoot(m, env, shots, ax, ay, 1.1, if b.fury { 9 } else { 7 }, 0.8),
+            // enemy.js:563 — ring of 14 (18 enraged), damage ×0.7.
+            BAtk::Nova => {
+                let n = if b.fury { 18 } else { 14 };
+                boss_shoot(m, env, shots, ax, ay, 6.2832 * (n as f64 - 1.0) / n as f64, n, 0.7);
+            }
+            _ => {}
+        }
+    }
+    if c.t >= c.wind + c.after {
+        boss_end(b, rng);
+        return (0.0, 0.0, true);
+    }
+    (0.0, 0.0, false)
+}
+
+/// enemy.js bossEnd: the cooldown after an attack, shorter with some chance when enraged.
+fn boss_end(b: &mut BossAi, rng: &mut Rng) {
+    b.cast = None;
+    b.cd = 1.3 + rng.next() * 0.7;
+    if b.fury && rng.next() < 0.35 {
+        b.cd = 0.3;
+    }
+}
+
+/// enemy.js shoot for a boss: `n` shots in a fan of `spread` around the aim, at the enemy's shot damage times `k`.
+fn boss_shoot<M: MathFns>(m: &M, env: &BossEnv, shots: &mut Vec<EShot>, ax: f64, ay: f64, spread: f64, n: usize, k: f64) {
+    let base = m.atan2(ay, ax);
+    for j in 0..n {
+        let a = base + if n == 1 { 0.0 } else { (j as f64 / (n as f64 - 1.0) - 0.5) * spread };
+        shots.push(EShot {
+            x: env.x,
+            y: env.y,
+            vx: m.cos(a) * 190.0,
+            vy: m.sin(a) * 190.0,
+            r: 7.0,
+            life: 2.4,
+            dmg: env.shot * k,
+            ty: env.ty,
+            cat: env.cat,
+        });
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 fn special_enemy(
     id: u32, dex: u16, x: f64, y: f64, r: f64, combo: u16, ty0: u8, xp: f64, beh: Beh, spd: f64, dmg: f64, hp: f64, shot_cd: f64, shot: f64, ai: Rng, def: Def, fly: bool, water: bool, fire: bool, boss: bool, legend: bool,
@@ -1482,6 +1784,7 @@ fn special_enemy(
         cat: 1,
         rd: 0.0,
         stun_t: 0.0,
+        bai: None,
     }
 }
 
@@ -1722,6 +2025,7 @@ fn blank_enemy(hp: f64, shield: f64, combo: u16, cat: u8, taken: f64) -> Enemy {
         cat,
         rd: 0.0,
         stun_t: 0.0,
+        bai: None,
     }
 }
 
@@ -4013,8 +4317,9 @@ impl<'a, M: MathFns> Match<'a, M> {
         let dmg = pick.dmg * sc;
         let shot = pick.shot * sc;
         let shot_cd = 0.3 + self.fx.next() * (1.1 - 0.3);
-        let ai = Rng::new((self.fx.next() * 4294967296.0) as u32);
+        let mut ai = Rng::new((self.fx.next() * 4294967296.0) as u32);
         let mon = &self.data.dex[pick.ix];
+        let bai = BossAi::new(mon.dex, &mon.types, pick.beh == Beh::Ranged, &mut ai);
         let def = Def {
             beh: pick.beh,
             hp: pick.hp,
@@ -4041,6 +4346,7 @@ impl<'a, M: MathFns> Match<'a, M> {
         e.cat = if mon.sa > mon.pa { 2 } else { 1 };
         e.g_phys = guard(self.math, mon.df);
         e.g_spec = guard(self.math, mon.sd);
+        e.bai = Some(bai);
         self.seq += 1;
         self.enemies.push(e);
         if self.first_boss_t.is_nan() {
@@ -5315,6 +5621,7 @@ impl<'a, M: MathFns> Match<'a, M> {
             cat,
             rd: 0.0,
             stun_t: 0.0,
+            bai: None,
         };
         self.seq += 1;
         e.shot = or(e.def.shot_dmg, 10.0) * (e.dmg / or(e.def.dmg, 1.0));
@@ -5603,7 +5910,42 @@ impl<'a, M: MathFns> Match<'a, M> {
             let mut vx = mdx * spd * 1.0;
             let mut vy = mdy * spd * 1.0;
             let beh = e.beh;
-            if beh == Beh::Chase || beh == Beh::Tank {
+            // enemy.js:457 bossMove replaces the generic movement of a boss, with its own attacks and modes.
+            // Its contact damage and knockback still come from the common tail below.
+            let boss = e.bai.is_some();
+            let mut leap = None;
+            if let Some(bai) = e.bai.as_mut() {
+                let env = BossEnv {
+                    x: e.x,
+                    y: e.y,
+                    r: e.r,
+                    dmg: e.dmg,
+                    shot: e.shot,
+                    ty: e.ty0,
+                    cat: e.cat,
+                    px: plx,
+                    py: ply,
+                    dist,
+                    nd: (dx, dy),
+                    dir: (mdx, mdy),
+                    spd,
+                    dt,
+                    hp: e.hp,
+                    max: e.max,
+                };
+                let st = boss_frame(math, bai, &mut e.ai, &env, &mut self.hazards, &mut self.e_shots);
+                vx = st.vx;
+                vy = st.vy;
+                leap = st.leap;
+                // enemy.js:492 — enrage speed, applied after this frame's speed was read.
+                if st.enraged {
+                    e.spd *= 1.15;
+                }
+            }
+            if let Some(t0) = leap {
+                e.jump = Some(Jump { tx: plx, ty: ply, t: t0, dur: 0.65 });
+            }
+            if (beh == Beh::Chase || beh == Beh::Tank) && !boss {
                 e.x += e.kx * dt;
                 e.y += e.ky * dt;
                 e.kx *= knock_fade;
@@ -5687,7 +6029,7 @@ impl<'a, M: MathFns> Match<'a, M> {
                     e.skill = 0.5;
                 }
             }
-            if beh == Beh::Charger {
+            if beh == Beh::Charger && !boss {
                 e.pt -= dt;
                 match e.phase {
                     Phase::Walk => {
@@ -5716,7 +6058,7 @@ impl<'a, M: MathFns> Match<'a, M> {
                     }
                 }
             }
-            if beh.keeps() {
+            if beh.keeps() && !boss {
                 let range = or(e.def.range, 200.0);
                 let hold = range * 0.82;
                 if dist < hold * 0.75 {

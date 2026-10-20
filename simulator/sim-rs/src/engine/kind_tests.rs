@@ -398,3 +398,66 @@ fn damage_is_credited_to_the_move_that_dealt_it() {
     assert!((total - m.dealt).abs() < 1e-6, "{total} vs {}", m.dealt);
     assert!((m.dealt_by[mv("vine-whip")] - m.dealt).abs() < 1e-6);
 }
+
+/// A boss built like spawn_boss: ranged personality, a 1000 HP bar, `hp` left, 60 speed, 300 px away.
+fn boss_at(m: &mut Match<'static, Libm>, hp: f64) -> usize {
+    let mon = mon(1);
+    let mut e = blank_enemy(hp, 0.0, neutral_combo(mon.types[0]), 1, 1.0);
+    e.max = 1000.0;
+    e.x = 300.0;
+    e.y = 0.0;
+    e.spd = 60.0;
+    e.dmg = 10.0;
+    e.beh = crate::data::Beh::Ranged;
+    e.boss = true;
+    e.fuse = -1.0;
+    e.id = m.enemies.len() as _;
+    e.bai = Some(BossAi::new(mon.dex, &mon.types, true, &mut Rng::new(7)));
+    m.enemies.push(e);
+    m.enemies.len() - 1
+}
+
+/// enemy.js:460 and :492: a boss under half HP enrages once, at ×1.15 speed, and the speed does not compound.
+#[test]
+fn boss_enrages_once_below_half_hp_at_15_percent_speed() {
+    let mut m = scene(1, "seed-bomb");
+    let hurt = boss_at(&mut m, 400.0);
+    let healthy = boss_at(&mut m, 600.0);
+    m.step_enemies();
+    assert!(m.enemies[hurt].bai.as_ref().unwrap().fury);
+    assert!((m.enemies[hurt].spd - 69.0).abs() < 1e-9, "spd {}", m.enemies[hurt].spd);
+    assert!(!m.enemies[healthy].bai.as_ref().unwrap().fury);
+    assert_eq!(m.enemies[healthy].spd, 60.0);
+    m.step_enemies();
+    assert!((m.enemies[hurt].spd - 69.0).abs() < 1e-9, "spd after a second frame {}", m.enemies[hurt].spd);
+}
+
+/// enemy.js:505-507: the slam warns a ring of 96 + boss radius that lands after 0.85 s, at the boss's damage ×1.3.
+#[test]
+fn boss_slam_warns_a_ring_for_0_85_s_at_1_3_times_dmg() {
+    let env = BossEnv {
+        x: 0.0,
+        y: 0.0,
+        r: 20.0,
+        dmg: 10.0,
+        shot: 5.0,
+        ty: 0,
+        cat: 1,
+        px: 50.0,
+        py: 0.0,
+        dist: 50.0,
+        nd: (1.0, 0.0),
+        dir: (1.0, 0.0),
+        spd: 60.0,
+        dt: DT,
+        hp: 1000.0,
+        max: 1000.0,
+    };
+    let mut b = BossAi::new(1, &[0], false, &mut Rng::new(3));
+    let mut hz = Vec::new();
+    boss_start(&LIBM, &mut b, &mut Rng::new(3), BAtk::Slam, &env, &mut hz);
+    assert_eq!(hz.len(), 1);
+    assert_eq!(hz[0].r, 116.0);
+    assert!((hz[0].delay - 0.85).abs() < 1e-12);
+    assert!((hz[0].dmg - 13.0).abs() < 1e-9);
+}
