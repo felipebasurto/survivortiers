@@ -98,7 +98,7 @@ Base URL: {u}
 
 - [Ranking (CSV)]({u}/data/ranking.csv): one row per Pokémon with rank, tier, rank range, method ranks and model columns. Best starting point for tables and analysis.
 - [Pokémon index (JSON)]({u}/data/pokemon-index.json): all {meta['total']} Pokémon with rank, tier, rank range and sort values.
-- [Species details (JSON)]({u}/data/species.json): per-Pokémon sheet data (starting and best move, simulated survival, move pair, coverage trio, official base stats) and the two builds per Pokémon: the best melee and the best ranged bonded group (`builds`).
+- [Species details (JSON)]({u}/data/species.json): per-Pokémon sheet data (default starting move and best move, simulated survival, move pair, coverage trio, official base stats) and its builds: the best melee and the best ranged bonded group, where the first attack is the one to start with (`builds`). Special attackers have only the ranged one.
 - [Moves (JSON)]({u}/data/moves.json): every attack, with tier, type, kind and game parameters. The six boosts are in [moves_unranked.json]({u}/data/moves_unranked.json).
 - [Gacha banners (JSON)]({u}/data/gachas.json): the nine banners, pool sizes, S and A rates and the chance of an S or A pull.
 - [Method and metadata (JSON)]({u}/data/meta.json): tier cut-offs, tier counts, stability per tier and the method constants.
@@ -187,7 +187,7 @@ def llms_full_txt(meta: dict) -> str:
         "",
         "- rank, dex, name (English), tier: final rank 1–966, national Pokédex number, English name, tier.",
         "- rank_p10, rank_p90: 10th and 90th percentile of the rank over the repeats. p_tier: share of repeats in the tier. p_S: share of repeats in S.",
-        "- start_move, start_kind, start_median_s: starting attack id, its kind (melee, projectile, beam, nova, ...), and the simulated Repertoire + Veto opening in seconds (expected value, not the starter alone).",
+        "- start_move, start_kind, start_median_s: the game's default starting attack id, its kind (melee, projectile, beam, nova, ...), and the simulated Repertoire + Veto opening in seconds (expected value, not the starter alone).",
         "- best_move, best_median_s: best attack the bot can learn and its median simulated survival; equal to the starting attack when no better one exists.",
         "- rank_sim_start, rank_sim_best: rank of the Repertoire opening and of the best move by simulated score. The other rank columns (rank_v4_max, rank_v4_fresh, rank_sheet, rank_early, rank_late, phase_gap, pct_*) are kept for old readers and do not move the published rank.",
         "- pct_stats, pct_moves, pct_typedef, pct_size: sheet percentiles (0–1), informational only.",
@@ -221,7 +221,7 @@ def llms_full_txt(meta: dict) -> str:
         "- d: object keyed by dex (string). Each value is an array:",
         "  - d[0]: `[stats, moves, typedef, size]` percentiles 0–1.",
         "  - d[1]: `[sheet, simStart, simBest, lateMax, lateFresh]` ranks.",
-        "  - d[2], d[3]: starting attack id and the simulated Repertoire opening in seconds.",
+        "  - d[2], d[3]: the game's default starting attack id and the simulated Repertoire opening in seconds.",
         "  - d[4], d[5]: best attack id and its median simulated survival seconds.",
         "  - d[6]: `[move, move]`, the two attacks of the coverage pair.",
         "  - d[7]: flags bitmask (see flags above).",
@@ -229,7 +229,7 @@ def llms_full_txt(meta: dict) -> str:
         "  - d[9]: fixed group `[super %, neutral %, move ids, attack types 1–2, optional move ids, number of boosts]`. Move ids are the attacks (two or three, either category; the first leads the group) followed by the boosts the group search picked (Swords Dance, Dragon Dance or Nasty Plot, and/or Harden or Agility). super % = share of the 966 species that the attacks hit super effectively (multiplier above 1.05). neutral % = share they never resist (multiplier at least 0.95).",
         "  - d[10]: level-up cards by priority `[8 card ids, best first, gate card id or null]` (atk, spd, hp, cd, def, rgn, mag, xp). The order is the fixed-group sim's coin ranking for this Pokémon. The gate is the card the lead attack needs to evolve: take it once, wherever it sits in the order. Estimate.",
         "  - d[11]: simulated seconds with the starter alone, no Repertoire and no Veto.",
-        "- builds: object keyed by dex (string), with `melee` and/or `ranged`. A missing key means no build of that kind meets the rules. Each build: `moves` (attacks, then boosts), `nBoost` (how many of the last ids are boosts), `time` (median simulated seconds survived), `dealt` (median damage), `kills` (median kills), `score` (median score, the value the build is picked by), `cards` (`[8 card ids best first, gate card id or null]`, as d[10]). The class boost is Swords Dance for a physical attacker (physical attack above special) and Nasty Plot for a special one (ties count as special). Quick Attack, Tackle and Body Slam are never used. A melee build has at least one attack of kind melee; a ranged build has none.",
+        "- builds: object keyed by dex (string), with `melee` and/or `ranged`. A missing key means no build of that kind meets the rules (special attackers have no `melee` build, since every melee attack is physical). Each build: `moves` (attacks, then boosts; the first attack is the one the simulated run starts with and the one to pick with the Starting Move upgrade), `nBoost` (how many of the last ids are boosts), `time` (median simulated seconds survived), `dealt` (median damage), `kills` (median kills), `score` (median score, the value the build is picked by), `cards` (`[8 card ids best first, gate card id or null]`, as d[10]). The class boost is Swords Dance for a physical attacker (physical attack above special) and Nasty Plot for a special one (ties count as special). Quick Attack, Tackle and Body Slam are never used. A melee build has at least one attack of kind melee; a ranged build has none.",
         "",
         "### data/moves.json",
         "",

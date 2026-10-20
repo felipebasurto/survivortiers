@@ -400,7 +400,7 @@ def claims(f: dict) -> list[dict]:
         if holds(k, f) is None:
             out.append({"key": k, "means": TRAIT_MEANS[k], "es": es, "en": en})
     b = f["build"]
-    named = [("m.start", b["start"], "game start move")] + [("m.group", m, "bonded group move") for m in b["group"]]
+    named = [("m.start", b["start"], "start move of its best build")] + [("m.group", m, "bonded group move") for m in b["group"]]
     named += [("m.alt", m, "alternative move") for m in b["alts"]]
     named.append(("i.best", b["item"], "best item"))
     if b["cards"]:

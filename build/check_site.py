@@ -399,7 +399,9 @@ def browser_check(base: str, index: list[dict], args, err, notes: list[str]) -> 
                     h1: document.querySelector('h1').firstChild.textContent.trim(),
                     img: document.querySelector('.ficha-sprite img').naturalWidth,
                     src: document.querySelector('.ficha-sprite img').src,
-                    build: { start: document.querySelectorAll('#build .bd-start .bd-row').length,
+                    build: { starts: [...document.querySelectorAll('#build .bd-opt')].map(o => [...o.querySelectorAll('.bd-row')].map(r => r.classList.contains('is-start'))),
+                             pills: document.querySelectorAll('#build .bd-opt .bd-pill.is-gold').length,
+                             defaultNotes: document.querySelectorAll('#build p.bd-default').length,
                              options: document.querySelectorAll('#build .bd-opt').length,
                              pairCap: document.querySelectorAll('#build > .bd-card > p.bd-cap').length,
                              single: document.querySelectorAll('#build .bd-pair.is-single').length,
@@ -425,12 +427,14 @@ def browser_check(base: str, index: list[dict], args, err, notes: list[str]) -> 
                 b = info["build"]
                 want_cards = [str(i) for i in range(1, 9)]
                 kinds = build_kinds.get(d, set())
-                if b["start"] != 1 or b["title"] != "Build" or b["best"] > 1 or sorted(info["buildKinds"]) != sorted(kinds) \
+                if b["title"] != "Build" or b["best"] > 1 or sorted(info["buildKinds"]) != sorted(kinds) \
                         or b["options"] != len(kinds) or len(b["rows"]) != len(kinds):
-                    err(f"{lang}pokemon/?id={d}: la sección Build no tiene inicio y las builds de sus datos {sorted(kinds)} ({b})")
+                    err(f"{lang}pokemon/?id={d}: la sección Build no tiene las builds de sus datos {sorted(kinds)} ({b})")
                 if b["pairCap"] != (1 if len(kinds) > 1 else 0) or b["single"] != (1 if len(kinds) == 1 else 0) \
                         or b["empties"]:
                     err(f"{lang}pokemon/?id={d}: la rejilla de builds deja titulo, columna o hueco vacío ({b})")
+                if b["defaultNotes"] != 1 or b["pills"] != len(kinds) or any(r[:1] != [True] or any(r[1:]) for r in b["starts"]):
+                    err(f"{lang}pokemon/?id={d}: cada build debe llevar solo su primer ataque marcado como el de empezar, y una sola nota de serie ({b})")
                 if any(not 2 <= n <= 4 for n in b["rows"]) or b["stats"] != 4 * len(b["rows"]):
                     err(f"{lang}pokemon/?id={d}: una build sin 2 a 4 ataques o sin sus cuatro cifras ({b})")
                 if any(c != want_cards for c in b["cards"]) or len(b["cards"]) != len(b["rows"]):

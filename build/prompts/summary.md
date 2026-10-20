@@ -38,8 +38,8 @@ like a friend giving a tip. No marketing, no "este Pokémon", no exclamation mar
 
 1. What it is: its stat profile (fast, tanky, hits hard, small hitbox, good types...). Pick the 1-3
    clearest traits from the claims. Do not mention a big or huge hitbox.
-2. How to build it: start with its start move (`m.start`), bond the group moves (`m.group`; you may skip the
-   buff moves if the sentence gets long, and you may offer one `m.alt` in brackets), carry the item (`i.best`).
+2. How to build it: start with the start move of its best build (`m.start`), bond the group moves (`m.group`; you may skip
+   the buff moves if the sentence gets long), carry the item (`i.best`). There are no alternatives (`m.alt`).
 3. Why it sits at that rank: the main reason from the `up:` / `down:` claims (one up and/or one down). If a
    claim with a tier letter exists (for example `down:stats:S`), prefer it. If there is no `down:` claim you may
    say `nodown`; if there are none at all, `calm`.
@@ -93,11 +93,11 @@ the key to verify the claim. The visible text is yours, but keep it close to the
    ataques que aprende") take "lo suben / lo bajan / lo frenan"; singular ones ("su hitbox", "su mejor ataque",
    "tener un solo tipo de ataque", "cómo aguanta...") take "lo sube / lo baja / lo frena".
 
-## Example (Kommo-o, dex 784; its claims include atk+, td+, m.start:dragon-rage, m.group:substitute,
-## m.group:nasty-plot, m.group:harden, i.best:luckyegg, up:best_move)
+## Example (Kommo-o, dex 784; its claims include atk+, td+, m.start:dragon-claw, m.group:rapid-spin,
+## m.group:swords-dance, m.group:harden, i.best:luckyegg, up:best_move, nodown)
 
 ```json
-{"dex": 784, "es": "[atk+|Pega fuerte] y [td+|aguanta bien los tipos rivales]. Empieza con [m.start:dragon-rage|Furia Dragón] y vincula [m.group:substitute|Sustituto], [m.group:nasty-plot|Maquinación] y [m.group:harden|Fortaleza]; lleva [i.best:luckyegg|Huevo Suerte]. Lo que más lo sube es [up:best_move|Esfera Aural].", "en": "[atk+|Hits hard] and [td+|shrugs off enemy types]. Start with [m.start:dragon-rage|Dragon Rage] and bond [m.group:substitute|Substitute], [m.group:nasty-plot|Nasty Plot] and [m.group:harden|Harden]; carry [i.best:luckyegg|Lucky Egg]. What lifts it most is [up:best_move|Aura Sphere]."}
+{"dex": 784, "es": "[atk+|Pega fuerte] y [td+|aguanta bien los tipos rivales]. Empieza con [m.start:dragon-claw|Garra Dragón] y vincula [m.group:rapid-spin|Giro Rápido], [m.group:swords-dance|Danza Espada] y [m.group:harden|Fortaleza]; lleva [i.best:luckyegg|Huevo Suerte]. En el ranking, lo que más lo sube es [up:best_move|Furia Dragón], y [nodown|nada lo frena] de verdad.", "en": "[atk+|Hits hard] and [td+|shrugs off enemy types]. Start with [m.start:dragon-claw|Dragon Claw], bond [m.group:rapid-spin|Rapid Spin], [m.group:swords-dance|Swords Dance] and [m.group:harden|Harden]; carry [i.best:luckyegg|Lucky Egg]. In the ranking, what lifts it most is [up:best_move|Dragon Rage], and [nodown|nothing holds it back] much."}
 ```
 
 Vary the sentence shapes between species; do not copy this example's wording for every one.

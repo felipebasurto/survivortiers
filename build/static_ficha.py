@@ -147,7 +147,6 @@ def card_answer(L: Lang, names: list[str], once: str | None) -> str:
 
 BUILD_NAME = {"melee": "bd_melee", "ranged": "bd_ranged"}
 BUILD_OTHER = {"melee": "bd_other_ranged", "ranged": "bd_other_melee"}
-BUILD_NONE = {"melee": "bd_none_melee", "ranged": "bd_none_ranged"}
 BUILD_LOWER = {"melee": "bd_other_melee", "ranged": "bd_other_ranged"}
 BUILD_OTHER_KIND = {"melee": "ranged", "ranged": "melee"}
 GAP_SMALL_PCT = 5
@@ -290,10 +289,10 @@ def _build_answer(L: Lang, moves: dict[str, dict], pair: dict[str, dict | None])
     for kind in BUILD_NAME:
         b = pair.get(kind)
         if not b:
-            parts.append(L.t(BUILD_NONE[kind]))
             continue
         attacks, boosts = build_names(L, moves, b)
-        parts.append(L.t("faq_a_build", kind=L.t(BUILD_NAME[kind]), attacks=attacks, buffs=boosts))
+        parts.append(L.t("faq_a_build", kind=L.t(BUILD_NAME[kind]), attacks=attacks, buffs=boosts,
+                         start=_move_name(L, moves, b["moves"][0])))
     win = _winner(pair)
     if win and len(pair) == 2 and all(pair.values()):
         parts.append(L.t("faq_a_build_best", kind=L.t(BUILD_LOWER[win])))
@@ -314,11 +313,13 @@ def _verdict(L: Lang, kind: str, b: dict, other: dict | None, win: str | None) -
     return f'<p class="bd-verdict">{esc(L.t(key, pct=L.pcts(gap), other=L.t(BUILD_OTHER[kind])))}</p>'
 
 
-def _move_row(L: Lang, moves: dict[str, dict], mid: str, n: str = "", boost: bool = False) -> str:
-    """Una fila de la build: número, nombre y etiquetas de daño y forma. Los potenciadores van marcados."""
-    cls = "bd-row is-buff" if boost else "bd-row"
+def _move_row(L: Lang, moves: dict[str, dict], mid: str, n: str = "", boost: bool = False, start: bool = False) -> str:
+    """Una fila de la build: número, nombre y etiquetas de daño y forma. Los potenciadores van marcados, y el
+    ataque con el que conviene empezar lleva la marca dorada."""
+    cls = "bd-row" + (" is-buff" if boost else "") + (" is-start" if start else "")
+    pill = f'<span class="bd-pill is-gold">{esc(L.t("bd_start_with"))}</span>' if start else ""
     return (f'<li class="{cls}"><span class="bd-n">{n}</span><span class="bd-info"><span class="bd-nm">'
-            f'{esc(_move_name(L, moves, mid))}</span>{move_tags(L, moves[mid])}</span></li>')
+            f'{esc(_move_name(L, moves, mid))}</span>{move_tags(L, moves[mid])}</span>{pill}</li>')
 
 
 def _meter(label: str, v: int, cls: str) -> str:
@@ -335,7 +336,7 @@ def _build_option(L: Lang, moves: dict[str, dict], cards: dict, kind: str, b: di
     dmg = build_damage(moves, b["moves"])
     head = f'<h3 class="bd-kind">{combo_html(L, dmg, kind)}</h3>'
     ids, nb = b["moves"], int(b["nBoost"])
-    rows = "".join(_move_row(L, moves, mid, str(i + 1), i >= len(ids) - nb) for i, mid in enumerate(ids))
+    rows = "".join(_move_row(L, moves, mid, str(i + 1), i >= len(ids) - nb, i == 0) for i, mid in enumerate(ids))
     stats = (f'<dl class="bd-stats">'
              f'<div><dt>{esc(L.t("bd_time"))}</dt><dd>{esc(L.dec(b["time"], 1))} s</dd></div>'
              f'<div><dt>{esc(L.t("bd_dealt"))}</dt><dd>{esc(L.num(b["dealt"]))}</dd></div>'
@@ -403,7 +404,7 @@ def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, detail: list,
     rarity_name = esc(L.t(f"rar_{rarity}"))
     legendary = f'<span class="chip">{esc(L.t("legendary"))}</span>' if entry["legendary"] else ""
     region = regions.badge(L, sprites, entry["bannerId"], banner, {}, small=True)
-    start_row = _move_row(L, moves, detail[2])
+    default_start = f'<p class="bd-default">{esc(L.t("build_default_start", move=_move_name(L, moves, detail[2])))}</p>'
     super_pct, neutral_pct = detail[9][0], detail[9][1]
     options = [
         _build_option(L, moves, cards, kind, pair.get(kind), pair.get(BUILD_OTHER_KIND[kind]), win)
@@ -439,9 +440,9 @@ def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, detail: list,
 <section class="fig fig-build" id="build" aria-labelledby="bd-h">
 <div class="bd-card" style="--p1:{tc};--p2:{tc2}">
 <header class="bd-head"><div><h2 id="bd-h">{esc(L.t("t_build"))}</h2><span class="bd-who">{esc(name)}</span></div>{best_range_html(L, pair, moves)}</header>
-<div class="bd-block bd-start"><h3 class="bd-cap">{esc(L.t("build_start"))}</h3><ul class="bd-rows">{start_row}</ul><p class="bd-note">{esc(L.t("build_start_note"))}</p></div>
 {pair_cap}
 <div class="{pair_cls}">{"".join(options)}</div>
+{default_start}
 <div class="bd-cover">{_meter(L.t("build_super"), int(super_pct), "bd-super")}{_meter(L.t("build_neutral"), int(neutral_pct), "bd-neutral")}</div>
 <p class="bd-brand">{esc(L.t("build_brand", site=legal.SITE_NAME))}</p>
 </div>

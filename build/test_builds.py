@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import csv
 import html as html_lib
+import re
 import sys
 import unittest
 from pathlib import Path
@@ -153,6 +154,40 @@ class FichaBuildLayout(unittest.TestCase):
                 self.assertIn('class="bd-pair"', page)
                 self.assertNotIn("is-single", page)
                 self.assertIn('<p class="bd-cap">' + html_lib.escape(lang.t("bd_pair_cap")), page)
+
+    def test_each_build_starts_with_its_own_first_attack(self) -> None:
+        expect = {("", "94-gengar"): {"ranged": "Viento Aciago"},
+                  ("en", "94-gengar"): {"ranged": "Ominous Wind"},
+                  ("", "354-banette"): {"melee": "Lengüetazo", "ranged": "Giro Rápido"},
+                  ("en", "354-banette"): {"melee": "Lick", "ranged": "Rapid Spin"}}
+        for (prefix, slug), starts in expect.items():
+            page = self._page(prefix, slug)
+            for kind, name in starts.items():
+                with self.subTest(prefix=prefix, slug=slug, kind=kind):
+                    box = re.search(rf'<article class="bd-opt[^"]*" data-build="{kind}">.*?</article>', page, re.S).group(0)
+                    self.assertEqual(box.count("is-start"), 1)
+                    row = re.search(r'<li class="bd-row[^"]*is-start">.*?</li>', box, re.S).group(0)
+                    self.assertIn(f'<span class="bd-nm">{name}</span>', row)
+                    self.assertIn("bd-pill is-gold", row)
+                    self.assertIn(">" + ("Start with" if prefix else "Empieza con") + "<", row)
+
+    def test_default_start_is_a_small_note_without_a_row(self) -> None:
+        notes = {"": "De serie: Bola Sombra; cámbialo con Movimiento inicial (400 monedas)",
+                 "en": "Default: Shadow Ball; change it with Starting Move (400 coins)"}
+        for prefix, note in notes.items():
+            page = self._page(prefix, "94-gengar")
+            with self.subTest(prefix=prefix):
+                self.assertIn(f'<p class="bd-default">{note}</p>', page)
+                self.assertEqual(page.count("bd-default"), 1)
+                self.assertNotIn("bd-start", page)
+
+    def test_special_attacker_text_never_mentions_melee(self) -> None:
+        for prefix in ("", "en"):
+            page = self._page(prefix, "94-gengar")
+            text = re.sub(r"<script.*?</script>|<style.*?</style>", "", page, flags=re.S)
+            text = re.sub(r"<[^>]+>", " ", text) + " ".join(re.findall(r'content="([^"]*)"', page))
+            with self.subTest(prefix=prefix):
+                self.assertNotRegex(text, r"(?i)cuerpo a cuerpo|melee|dos builds|two builds")
 
     def test_shape_follows_the_build_data(self) -> None:
         for dex, kinds in list(_kinds_by_dex().items())[:40]:
