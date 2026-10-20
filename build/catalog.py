@@ -52,11 +52,10 @@ NEAR_ORDER = [0, -1, 1, -2, 2, -3, 3, -4, 4]
 BANNERS = {1: "Kanto", 2: "Johto", 3: "Hoenn", 4: "Sinnoh", 5: "Teselia", 6: "Kalos", 7: "Alola", 8: "Galar", 9: "Paldea"}
 EXPECTED_POOL = {1: 151, 2: 100, 3: 135, 4: 107, 5: 141, 6: 70, 7: 83, 8: 87, 9: 92}
 
-# Estructura numérica del método. Los textos de cada pieza viven en build/i18n.py (claves w_*, pill_*, m_*).
+# Estructura numérica del método (simulador de Rust: stats.rs run_score; make_definitive.py: REPEATS, CUTS y qualifies).
+# Los textos de cada paso viven en build/i18n.py (claves met_*, pipe_*).
 METHOD = {
-    "pieces": [{"key": "sheet", "weight": 45}, {"key": "sim", "weight": 30}, {"key": "late", "weight": 25}],
-    "pillars": [{"key": "stats", "weight": 45}, {"key": "moves", "weight": 25},
-                {"key": "typedef", "weight": 15}, {"key": "size", "weight": 15}],
+    "score": {"dpsRef": 80, "kpmRef": 40, "capSeconds": 900},  # DPS_REF y KPM_REF de stats.rs; tope de la simulación
     "repeats": 2000,
 }
 METHOD_KEYS = ("sheet", "simStart", "simBest", "lateMax", "lateFresh")
@@ -270,18 +269,6 @@ def build_stability(entries: list[dict]) -> list[dict]:
     return out
 
 
-def _pearson(xs: list[float], ys: list[float]) -> float:
-    mx, my = statistics.fmean(xs), statistics.fmean(ys)
-    cov = sum((x - mx) * (y - my) for x, y in zip(xs, ys))
-    return cov / (sum((x - mx) ** 2 for x in xs) * sum((y - my) ** 2 for y in ys)) ** 0.5
-
-
-def build_agreement(entries: list[dict]) -> list[dict]:
-    """Correlación de rangos (Spearman) entre el puesto de cada método y el puesto final."""
-    final = [e["r"]["rank"] for e in entries]
-    return [{"key": k, "corr": round(_pearson([e["r"]["methods"][k] for e in entries], final), 2)}
-            for k in METHOD_KEYS]
-
 
 def _pull_chance(pool_by_rarity: dict, all_mons: list, good: set) -> float:
     """P(una tirada sale S o A) según gacha.js: rareza por tirada y Pokémon al azar del pool más cercano.
@@ -338,7 +325,7 @@ def build_meta(entries: list[dict], credits: dict, counts: dict) -> dict:
         "simSeeds": sim_seeds(),
         "top": [{"dex": e["dex"], "name": e["name"], "nameEn": e["nameEn"]} for e in top],
         "simMedianSeconds": round(statistics.median(e["r"]["sim"]["start"]["seconds"] for e in entries)),
-        "stability": build_stability(entries), "method": METHOD, "agreement": build_agreement(entries),
+        "stability": build_stability(entries), "method": METHOD,
         "simRange": [min(sec for e in entries for sec in (e["r"]["sim"]["start"]["seconds"], e["r"]["sim"]["best"]["seconds"])),
                      max(sec for e in entries for sec in (e["r"]["sim"]["start"]["seconds"], e["r"]["sim"]["best"]["seconds"]))],
         "presets": [e["dex"] for name in PRESETS for e in entries if e["name"] == name],

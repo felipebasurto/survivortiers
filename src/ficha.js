@@ -512,9 +512,11 @@
       build(p, d, moves, items, name, Math.max(1, Math.min(4, Math.floor(56 / Math.max(p.w, p.h)))), cards) +
       combat(p) +
       '<div class="fx-list">' + stats + learnable + ranking + '</div>' + pager(prev, next);
-    document.title = t('sheet_title', { name, tier, rank });
-    const desc = document.querySelector('meta[name=description]');
-    if (desc) desc.setAttribute('content', t('sheet_desc', { name, tier, rank }));
+    if (!baked) {
+      document.title = t('sheet_title', { name, tier, rank });
+      const desc = document.querySelector('meta[name=description]');
+      if (desc) desc.setAttribute('content', t('sheet_desc', { name, tier, rank }));
+    }
     document.querySelectorAll('.lang a[hreflang]:not([aria-current])').forEach(a => {
       const base = a.getAttribute('href').split('?')[0].split('#')[0];
       a.href = base + location.hash;
@@ -544,6 +546,7 @@
   const baked = Number(root.dataset.dex);
   if (!baked) {
     const qid = Number(new URLSearchParams(location.search).get('id'));
+    if (!qid) return;
     const mapEl = document.getElementById('slugs');
     if (qid && mapEl) {
       let slug = '';

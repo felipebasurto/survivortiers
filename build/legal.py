@@ -11,9 +11,14 @@ def method_counts(L: Lang, meta: dict) -> dict[str, str]:
     return {"sims": L.num(meta["simSeeds"]), "reps": L.num(meta["method"]["repeats"])}
 
 
-def freshness_text(L: Lang, meta: dict) -> str:
-    """Línea «Datos del juego»: el commit con que se calculó el ranking, el de las mecánicas y la fecha del build."""
-    return L.t("fresh", sha=meta["gameCommit"][:7], combat=COMBAT_COMMIT[:7], date=meta["generatedAt"][:10])
+def freshness_text(L: Lang, meta: dict | None = None) -> str:
+    """«Actualizado al parche del 19 oct 2026 (5a23d49)»: el único sitio donde se compone, desde UPDATED_DATE y UPDATED_COMMIT."""
+    return L.t("fresh", date=L.date(UPDATED_DATE), sha=UPDATED_COMMIT)
+
+
+def rebuilt_text(L: Lang, meta: dict) -> str:
+    """Fecha de la última reconstrucción del sitio, formateada en el idioma de la página."""
+    return L.date(meta["generatedAt"][:10])
 
 
 X_HANDLE = "@fildotai"
@@ -25,9 +30,13 @@ GAME_REPO_URL = "https://github.com/JPTER78/pokesurvivor"
 # LICENSE del juego en main: MIT hasta b297089 (14 oct 2026); el código posterior es PolyForm Noncommercial 1.0.0.
 GAME_LICENSE_URL = GAME_REPO_URL + "/blob/main/LICENSE"
 REPO_URL = "https://github.com/felipebasurto/survivortiers"
+# El parche del juego al que está puesto al día el sitio: lo muestran el pie de cada página, la portada, llms.txt y
+# el JSON-LD. Se cambian aquí y en ningún otro sitio.
+UPDATED_COMMIT = "5a23d49"
+UPDATED_DATE = "2026-10-19"
+GAME_COMMIT = UPDATED_COMMIT
 # Full upstream commit: 5a23d49a99a795f9262d2fb24a9842f0858a0b50 (19 Oct 2026).
 # The ranking and the combat fields (pa/sa/df/sd) both come from that commit.
-GAME_COMMIT = "5a23d49"
 COMBAT_COMMIT = "5a23d49"
 GAME_AUTHOR = "JPTER78"
 
