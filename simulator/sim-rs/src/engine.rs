@@ -4840,9 +4840,9 @@ impl<'a, M: MathFns> Match<'a, M> {
                 }
             }
             let align = c * wantx + s * wanty;
-            // clear <= 100 (d = 10, 28, .. 100), so this bound is exact: a ray that cannot
-            // beat `best_s` even fully clear is skipped without marching it.
-            if align * 1.4 + 100.0 / 100.0 - pen * 2.8 <= best_s {
+            // clear <= 100 (d = 10, 28, .. 100), so clear / 100 <= 1 and this bound is exact: a ray
+            // that cannot beat `best_s` even fully clear is skipped without marching it.
+            if align * 1.4 + 1.0 - pen * 2.8 <= best_s {
                 continue;
             }
             let mut clear = 0.0;

@@ -15,6 +15,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "build"))
 
 import builds  # noqa: E402
+import sitefixture  # noqa: E402
 import static_ficha  # noqa: E402
 from i18n import EN, ES  # noqa: E402
 
@@ -124,6 +125,10 @@ class Text(unittest.TestCase):
 
 class FichaBuildLayout(unittest.TestCase):
     """Las fichas ya generadas (python3 build/render.py): una especie sin build cuerpo a cuerpo no pinta su caja."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        sitefixture.ensure_site()
 
     def _page(self, prefix: str, slug: str) -> str:
         path = ROOT / "site" / prefix / "pokemon" / slug / "index.html"

@@ -37,6 +37,8 @@ Filas y semillas según `build/regen.py` en `bdd490f`. El CSV de `group_screen`,
 
 Partidas por etapa en los archivos vigentes (filas × semillas, aproximado): group screen unas 4,9 millones, build screen unas 2,6 millones, group refine 0,56 millones, build refine 0,42 millones, solo screen y start sweep 0,22 millones cada uno, solo refine 0,37 millones, solo contend 0,12 millones, start rank 0,05 millones. Son las versiones vigentes; las versiones anteriores no están contadas.
 
+Retiradas en la limpieza del 2026-10-20: `empoleon.csv` y `empoleon_tasks.txt` (calibración, entrada 1), `items_solo.csv`, `solo_rank_best.csv` (entrada 9), `g2p2_swap/rank_200.csv` (entrada 2) y `g3p1/rank_200.csv` (sin entrada). Ningún script las leía. Siguen en el historial de git.
+
 ## Registro cronológico
 
 Cada entrada indica el commit que la registra; la fecha es la del commit salvo que se indique la de la corrida.
@@ -68,8 +70,11 @@ Nota de conteo: el mensaje de `dd11ca8` dice 7.498 corridas. Los dos CSV de cont
 ## Problemas abiertos
 
 1. **La ruta explícita no es equivalente a la del generador.** La comparación de `group_search` (96 semillas, seed0 1000) con la misma clave en modo `--explicit` no coincidió en las 9 filas visibles de la salida, con diferencias de hasta 6 puntos. Con 16 semillas coincidieron 4 de 400. El modo explícito es determinista: dos ejecuciones dan el mismo resultado. La diferencia está en cómo se construye el trabajo: `parse_group` (kit, ataques, arranque) frente al generador. Como `builds.finals()` elige entre `group_search` (generador) y `refine_new` (explícito), los builds publicados comparan dos rutas. **Hay que decidir**: (a) entender la diferencia y recalcular todos los candidatos de build con una sola ruta, o (b) validar la equivalencia antes de usar esos datos. Cualquiera de las dos exige simulación nueva, así que no se lanza sin decisión.
-2. **El binario actual no reproduce los CSV publicados en modo `--only`.** La ejecución completa de `3b6585e` reprodujo 11.498 filas idénticas de `8ce8d1d`; las 20 claves de prueba ejecutadas con `--only` no coinciden con `group_screen.csv`. Hipótesis sin comprobar: el filtro `--only` cambia algo del trabajo generado. No investigado. Mientras no se resuelva, no usar `--only` para comparar con datos publicados.
-3. **`REGEN_RESUME.md` está obsoleto.** Dice que `group_screen` no tiene salida y que faltan etapas. Ambas cosas son falsas hoy (ver el registro). Se ha añadido una nota al inicio que remite a este archivo.
+2. **El binario actual no reproduce los CSV publicados en modo `--only`.** La ejecución completa de `3b6585e` reprodujo 11.498 filas idénticas de `8ce8d1d`; las 20 claves de prueba ejecutadas con `--only` no coinciden con `group_screen.csv`. Comprobado el 2026-10-20 (sin cambiar datos ni código):
+   - `--only` no altera el resultado de un grupo: la misma línea sola o junto a las 330 de `dex 1` da la misma mediana (52,992).
+   - `HEAD` genera exactamente los 305.468 grupos de `group_screen.csv` (de forma determinista), pero solo 9 de las 330 filas de `dex 1` tienen la misma puntuación publicada. Ejemplo: `seed-bomb+rapid-spin+swords-dance+harden`, 52,992 frente a 53,426.
+   - El binario de `3b6585e` genera otro conjunto para `dex 1` (290 grupos frente a 330), así que el commit que se cita como origen no reproduce sus propios datos. Sin cerrar. Relanzar `group_screen` en `HEAD` tarda unas 6 horas en 4 núcleos (330 grupos tardan 22 s). Decidir antes de hacerlo.
+3. **`REGEN_RESUME.md` retirado.** Decía que `group_screen` no tenía salida y que faltaban etapas; ambas cosas eran falsas. Se eliminó en la limpieza del 2026-10-20 y sigue en el historial de git.
 4. **Valores de `solo_refine` anteriores a `3b6585e`** (commit `7a499a4`) no se deben usar: todas las filas cambiaron o no son comparables.
 
 ## Procedimiento para una corrida nueva

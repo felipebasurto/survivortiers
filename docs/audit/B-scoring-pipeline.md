@@ -32,7 +32,7 @@ it for some or hides noise; **Medium** will bite on the next patch; **Low** clea
 | What | How | Where |
 |---|---|---|
 | Score sensitivity | recompute winners from the committed `solo_sweep.csv` of main, #35, #40 | `scripts/score_sensitivity.py` |
-| Seed noise and group stability | `pokesim synergy --seeds 200 --seed0 {0,200,400,600}` for the six species, through the real publish rule `combos._search_picks` | `scripts/replicate_stability.py`, `scripts/sim-only-seed0-dump.patch` (scratch patch for #40: adds `--only`, `--seed0`, `--dump-runs`; not applied to the repo) |
+| Seed noise and group stability | `pokesim synergy --seeds 200 --seed0 {0,200,400,600}` for the six species, through the real publish rule `combos._search_picks` | `scripts/replicate_stability.py` |
 | Starter rerun on two disjoint seed blocks | `pokesim sweep ... --group 2+2 --terrain --status`, seeds 1-200 (A) and 201-400 (B), #40 engine | same patch |
 | Do-nothing baseline | `pokesim tasks` with Sustituto (inert in this mode, fires nothing) vs real starters | section 5 |
 | Rank noise | re-draw `start_median_s`/`best_median_s` with sigma 2 s and 4 s and re-rank with the make_definitive formula | `scripts/rank_noise_inject.py` |

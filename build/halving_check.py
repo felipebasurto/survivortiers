@@ -2,7 +2,7 @@
 
     python3 build/halving_check.py            # full-screen sample, then the rule grid
 
-The screen runs every group at 4 seeds (`group_screen_a.csv`, written by `regen.py`). Only the
+The screen runs every group at 4 seeds (`group_screen_a.csv`; no script in the repo writes it any more). Only the
 groups that pass the cut get the full 16 seeds. A survivor's row is the row the full screen
 would give, because the seeds are the same. The cut can still drop a group the full screen
 would have shortlisted, so this script checks that on a random sample of species:

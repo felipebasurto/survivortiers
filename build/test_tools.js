@@ -80,9 +80,16 @@ check('cada build recomendada: sin repetidos, máximo 2 potenciadores, ids en el
   }
 });
 
-check('la build recomendada es el grupo publicado, sin cambios', () => {
+// La publicada de mayor puntuación (cuerpo a cuerpo o a distancia); sin ninguna, null.
+const topBuild = dex => ['melee', 'ranged']
+  .map(k => ((species.builds || {})[String(dex)] || {})[k])
+  .filter(Boolean)
+  .reduce((best, b) => (!best || b.score > best.score ? b : best), null);
+
+check('la build recomendada es la publicada de mayor puntuación, o el grupo de combos si no hay ninguna', () => {
   for (const p of index) {
-    const ids = species.d[String(p.dex)][9][2].slice(0, tools.PLAN_SLOTS);
+    const top = topBuild(p.dex);
+    const ids = (top ? top.moves : species.d[String(p.dex)][9][2]).slice(0, tools.PLAN_SLOTS);
     assert.deepEqual(tools.recommended(p.dex, species).group.filter(Boolean), ids, String(p.dex));
   }
 });
@@ -141,7 +148,8 @@ check('la categoría de cada movimiento viene del juego (físico o especial)', (
 
 check('cartas del planificador: cuatro, en orden de prioridad, y con la que evoluciona el ataque dentro', () => {
   for (const p of index) {
-    const [order, gate] = species.d[String(p.dex)][10];
+    const top = topBuild(p.dex);
+    const [order, gate] = top ? top.cards : species.d[String(p.dex)][10];
     const picks = tools.plannerCards([order, gate]);
     assert.equal(picks.length, tools.PLAN_SLOTS, String(p.dex));
     assert.equal(new Set(picks).size, picks.length, 'repetida en ' + p.dex);
@@ -166,7 +174,6 @@ check('la danza de la build recomendada se elige por categoría, sin Danza Espad
 const report = {
   pokemon: index.length,
   coverageMismatch: coverageMismatch.length,
-  swapped: swaps.length,
 };
 if (failures.length) {
   console.error(failures.join('\n'));

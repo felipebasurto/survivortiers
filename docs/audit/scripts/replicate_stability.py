@@ -2,7 +2,7 @@
 
 Usage (from repo root): [BUILD_DIR=/path/to/other/checkout/build] python3 docs/audit/scripts/replicate_stability.py syn_0.csv ...
 BUILD_DIR selects whose combos.py (publish rule) is used; default is this checkout's build/.
-Each CSV is `pokesim synergy --seeds 200 --seed0 N --only <dex,...>` (see sim-only-seed0-dump.patch).
+Each CSV is `pokesim synergy --seeds 200 --seed0 N --only <file>`, where the file has one `dex|group` line per group (see `parse` in simulator/sim-rs/src/main.rs).
 Feeds every block through build/combos.py `_search_picks` (the real publish rule) and compares.
 """
 import csv
