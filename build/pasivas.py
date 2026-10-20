@@ -314,7 +314,7 @@ def _method(L: Lang, home: str) -> str:
     lines = "".join(f"<p>{escape(_t(line, L))}</p>" for line in METHOD)
     return (f'<details class="pv-method"><summary>{escape(L.t("pv_method_sum"))}</summary>'
             f'<div class="pv-method-body">{lines}'
-            f'<p><a href="{home}metodo.html">{escape(L.t("pv_method_link"))} →</a></p></div></details>')
+            f'<p><a href="{home}metodo.html">{escape(L.t("pv_method_link"))}</a></p></div></details>')
 
 
 # Los potenciadores y su tope vienen de data/game_stats.json (commit 5a23d49). Tope de dos potenciadores:
@@ -360,7 +360,7 @@ def _boosts(L: Lang, home: str) -> str:
             f'<p class="pv-cap">{escape(L.t("pv_buff_cap_note", commit=gamestats.COMMIT))}</p>'
             f'<ul class="pv-rules">{rules}</ul>'
             f'<p class="pv-link"><a href="{home}{toolpages.folder(L, "planner")}">'
-            f'{escape(L.t("pv_buff_link"))} →</a></p></section>')
+            f'{escape(L.t("pv_buff_link"))}</a></p></section>')
 
 
 def content(L: Lang, home: str) -> str:

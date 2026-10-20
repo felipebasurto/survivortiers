@@ -34,11 +34,6 @@ STR: dict[str, tuple[str, str]] = {
     "theme_btn": ("Tema claro u oscuro", "Light or dark theme"),
     "theme_to_dark": ("Cambiar a modo oscuro", "Switch to dark mode"),
     "theme_to_light": ("Cambiar a modo claro", "Switch to light mode"),
-    "sprites_line_html": (
-        'Sprites: <a href="{url}" rel="noopener">{source}</a>, <a href="{lic_url}" rel="noopener">{lic}</a>. '
-        '<a href="{about}#creditos">Artistas</a>.',
-        'Sprites: <a href="{url}" rel="noopener">{source}</a>, <a href="{lic_url}" rel="noopener">{lic}</a>. '
-        '<a href="{about}#creditos">Artists</a>.'),
     "disclaimer": (
         "Sitio de fans, no oficial y no afiliado a Nintendo, Creatures, GAME FREAK, The Pokémon Company ni {game}. "
         "Pokémon y sus nombres son marcas de sus dueños.",
@@ -83,14 +78,19 @@ STR: dict[str, tuple[str, str]] = {
     "noscript": ("El buscador y el filtro de ataque necesitan JavaScript.",
                  "Search and the attack filter need JavaScript."),
     "value_html": (
-        'Los cinco mejores Pokémon de {game} ahora mismo son {top}. Es una tier list de fans: cada uno de los {n} Pokémon '
-        'juega {sims} partidas simuladas y el ranking sale de cuánto aguanta, cuánto daño hace y a cuántos enemigos derrota. '
-        'Actualizada al parche del {date} (commit {sha}) y reconstruida el {built}. '
+        'Los cinco primeros de {game}: {top}. Tier list de fans con {n} Pokémon, cada uno simulado en {sims} partidas. '
+        'El ranking mide cuánto aguanta, cuánto daño hace y a cuántos enemigos derrota. '
         '<a href="{method}">Cómo se calcula</a> · <a href="{repo}" rel="noopener">código y datos en GitHub</a>.',
-        'The five best Pokémon in {game} right now are {top}. This is a fan-made tier list: each of the {n} Pokémon plays '
-        '{sims} simulated games and the ranking comes from how long it survives, how much damage it deals and how many '
-        'enemies it defeats. Updated to the {date} patch (commit {sha}) and rebuilt on {built}. '
+        'Top five in {game}: {top}. A fan-made tier list of {n} Pokémon, each simulated in {sims} games. '
+        'The ranking measures how long they survive, how much damage they deal and how many enemies they defeat. '
         '<a href="{method}">How it is calculated</a> · <a href="{repo}" rel="noopener">code and data on GitHub</a>.'),
+    "foot_html": (
+        'Sitio de fans, no oficial y no afiliado a Nintendo ni The Pokémon Company. Sprites: SpriteCollab (CC BY-NC 4.0). '
+        '<a href="{about}">Info y créditos</a>.',
+        'Fan site, unofficial and not affiliated with Nintendo or The Pokémon Company. Sprites: SpriteCollab (CC BY-NC 4.0). '
+        '<a href="{about}">Info and credits</a>.'),
+    "filters_btn": ("Filtros y orden", "Filters and sorting"),
+    "nav_more": ("Más", "More"),
     "about_value_html": (
         'Tier list de {game} hecha simulando {sims} partidas por Pokémon, no solo con fórmulas de stats. Código, simulador '
         'y datos abiertos en <a href="{repo}" rel="noopener">GitHub</a>, para que cualquiera lo compruebe.',
@@ -231,7 +231,6 @@ STR: dict[str, tuple[str, str]] = {
                 "hasta un {more}\u00a0% más. Los golpes físicos los frena la Defensa y los especiales la Def. Especial.",
                 "At 75 defense you take normal damage: high defense cuts up to {less}\u00a0% and low defense adds up to "
                 "{more}\u00a0%. Physical hits are blocked by Defense, special hits by Sp. Def."),
-    "cb_src": ("Valores del juego en el commit {combat}.", "Game values at commit {combat}."),
     "t_sim": ("Aguante simulado", "Simulated survival"),
     "band_rank": ("puesto {rank}", "rank {rank}"),
     "band_range": ("{lo} a {hi}", "{lo} to {hi}"),
@@ -309,8 +308,8 @@ STR: dict[str, tuple[str, str]] = {
                      "que mezcla todas las medidas.",
                      "Each dot is the rank that measure would give: 1 is the best of 966, on the left. "
                      "The scale zooms in to its worst rank, so 24 looks far from 1 but is still the top 3%. "
-                     "“Repertoire opening” is the run starting with two attacks and up to three bans. "
-                     "“Late game” estimates how long a Pokémon lasts at the end of a run, with no stat-shop upgrades "
+                     "'Repertoire opening' is the run starting with two attacks and up to three bans. "
+                     "'Late game' estimates how long a Pokémon lasts at the end of a run, with no stat-shop upgrades "
                      "bought or with all permanent upgrades maxed; that measure is not the opening. The orange line is the final rank, which mixes every measure."),
     "methods_final": ("puesto final {rank}", "final rank {rank}"),
     "methods_alt": ("{name}: puesto final {rank}. ", "{name}: final rank {rank}. "),
@@ -399,7 +398,7 @@ STR: dict[str, tuple[str, str]] = {
     "mv_worse": ("peor", "worse"),
     "mv_search": ("Buscar ataque o tipo…", "Search a move or type…"),
     "mv_none": ("Ningún ataque coincide con la búsqueda.", "No move matches the search."),
-    "mv_example": ("Ejemplo: {name} →", "Example: {name} →"),
+    "mv_example": ("Ejemplo: {name}", "Example: {name}"),
     "mv_evolves": ("Evoluciona a {move}", "Evolves into {move}"),
     "mv_evolves_card": ("Evoluciona a {move} con la carta {card}", "Evolves into {move} with the {card} card"),
     "mv_buff": ("Dura {dur} s, con recarga de {cd} s", "Lasts {dur} s, with a {cd} s cooldown"),
@@ -547,6 +546,7 @@ STR: dict[str, tuple[str, str]] = {
                  "a bot plays full games with each one and the rank orders their scores. Since one score can mislead, "
                  "the order is repeated {reps} times."),
     "met_steps_aria": ("Pasos del cálculo", "Calculation steps"),
+    "met_more": ("Pasos y gráficos detallados", "Detailed steps and charts"),
     "met_step_1_h": ("Simular", "Simulate"),
     "met_step_1": ("Un bot juega partidas completas con cada Pokémon en un simulador que sigue el código del juego. Da vueltas "
                    "alrededor de la horda para que los disparos, los golpes y los orbes den en el blanco, esquiva los ataques "
@@ -663,10 +663,7 @@ STR: dict[str, tuple[str, str]] = {
     "met_lim_4": ("No se ha contrastado con partidas reales de jugadores, solo con las reglas y el código del juego.",
                   "It has not been checked against real player games, only against the game's rules and code."),
     # ------------------------------------------------------------ navegación de las herramientas
-    "nav_buscador": ("Buscador", "Type finder"),
     "nav_planificador": ("Planificador", "Build planner"),
-    "nav_tools": ("Herramientas", "Tools"),
-    "nav_guide": ("Guía", "Guide"),
     "guide_finder": ("Buscador por tipos", "Type finder"),
     "guide_planner": ("Planificador de build", "Build planner"),
     "stat_atk": ("Ataque", "Attack"),

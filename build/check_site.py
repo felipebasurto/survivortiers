@@ -155,10 +155,11 @@ def agent_check(base: str, body_by_url: dict[str, str], err, notes: list[str], n
     if sitemap.count("<url>") != expected:
         err(f"sitemap.xml: {sitemap.count('<url>')} entradas, se esperaban {expected}")
 
-    # cada página lleva los enlaces para agentes en el pie, y la portada el JSON-LD Dataset
-    for url, html in body_by_url.items():
-        if url.startswith(base) and html and 'class="agents"' not in html:
-            err(f"{url}: falta el pie con los enlaces para agentes")
+    # los enlaces para agentes salen en Info (acerca), no en el pie de cada página
+    for lang in LANGS:
+        about = body_by_url.get(f"{base}{lang}acerca.html", "")
+        if about and 'class="agents"' not in about:
+            err(f"{lang}acerca.html: faltan los enlaces para agentes")
     # cada página (salvo la 404) lleva la canónica, Open Graph y la tarjeta de Twitter/X con la imagen compartida
     shared = (f'<meta property="og:image" content="{legal.SITE_URL}/og.png">', '<meta name="twitter:card" content="summary_large_image">',
               f'<meta name="twitter:site" content="{legal.X_HANDLE}">')
@@ -248,8 +249,10 @@ def seo_check(base: str, body_by_url: dict[str, str], index: list[dict], err, no
         text = visible_text(html)
         if len(text) < MIN_VISIBLE_CHARS or NO_JS_PHRASES.search(text):
             err(f"{url}: sin texto propio fuera de JavaScript ({len(text)} caracteres)")
+        # la línea de fecha y commit sale solo bajo el título de la portada y de Método
         lang = "en" if url.startswith(base + "en/") else "es"
-        if FRESH_LINE[lang] not in text or f"({legal.UPDATED_COMMIT})" not in text:
+        fresh_pages = {base, f"{base}en/", f"{base}metodo.html", f"{base}en/metodo.html"}
+        if url in fresh_pages and (FRESH_LINE[lang] not in text or f"({legal.UPDATED_COMMIT})" not in text):
             err(f"{url}: falta la línea «{FRESH_LINE[lang]} …»")
     top = sorted(index, key=lambda p: p["r"][0])[:30]
     for lang, key in (("", "name"), ("en/", "nameEn")):
@@ -259,8 +262,8 @@ def seo_check(base: str, body_by_url: dict[str, str], index: list[dict], err, no
         if not lede or html.index('<p class="tagline">') > html.index('id="tierlist"'):
             err(f"{base}{lang}: falta el párrafo de la portada antes de la tier list")
         missing = [p[key] for p in top[:5] if p[key] not in lede_text]
-        if missing or legal.UPDATED_COMMIT not in lede_text:
-            err(f"{base}{lang}: el párrafo de la portada no nombra a los cinco primeros o el parche ({missing})")
+        if missing:
+            err(f"{base}{lang}: el párrafo de la portada no nombra a los cinco primeros ({missing})")
         table = re.search(r'<section class="top30".*?</section>', html, re.S)
         links = re.findall(r'<th scope="row"><a href="[^"]*pokemon/(\d+)-', table.group(0)) if table else []
         if [int(d) for d in links] != [p["dex"] for p in top]:

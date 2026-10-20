@@ -121,7 +121,7 @@ class StaticMewtwo(unittest.TestCase):
                 self.assertIn(str(n), text)
             self.assertNotIn("Esta página necesita JavaScript", html)
             self.assertNotIn("This page needs JavaScript", html)
-            self.assertIn(legal.UPDATED_COMMIT, text)
+            self.assertNotIn(legal.UPDATED_COMMIT, text)
             self.assertIn("FAQPage", html)
             self.assertIn(f'rel="canonical" href="{legal.SITE_URL}/', html)
             self.assertIn('hreflang="es"', html)

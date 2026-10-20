@@ -460,7 +460,6 @@
       '<div class="facts">' + pills + rarity + legendary + tpl('tpl-regions', 'data-gen', p.bannerId) + '</div>' +
       '<p class="rankline" title="' + rankTitle + '" aria-label="' + rankTitle + '"><i class="ico ico-trophy" aria-hidden="true"></i><strong>' + rank + '</strong><span>/ ' + TOTAL + '</span>' +
       (lo != null && hi != null ? '<span class="rankband">' + esc(t('band_range', { lo, hi })) + '</span>' : '') + '</p>' +
-      '<p class="fresh">' + esc(t('fresh')) + '</p>' +
       '</div>' + (sum || '') + '</header>';
   }
 
@@ -485,7 +484,7 @@
       '<header class="cb-head"><h3 id="cb-h">' + esc(t('t_combat')) + '</h3>' +
       '<span class="cb-kind cb-k-' + v.ak + '">' + esc(t(KIND_KEY[v.ak])) + '</span></header>' +
       '<div class="cb-list">' + atk + '</div><div class="cb-list">' + dfn + '</div>' +
-      '<p class="cb-note">' + esc(note) + '</p><p class="cb-src">' + esc(t('cb_src')) + '</p></section>';
+      '<p class="cb-note">' + esc(note) + '</p></section>';
   }
 
   function pager(prev, next) {
@@ -507,7 +506,7 @@
     const learnable = panel('moves', 'sword', t('t_learn'), '<b class="fx-n">' + learnPool(p, moves).length + '</b>', learn(p, d, moves));
     const ranking = panel('ranking', 'trophy', t('t_rank'), flagIcons(d[7]),
       flagsHtml(d[7]) + rankBand(p, name) + pillars(d, name) + sim(d, range, moveName) + methods(p, d, name) +
-      '<p class="fx-more"><a href="' + home + 'metodo.html">' + esc(t('rank_how')) + ' →</a></p>');
+      '<p class="fx-more"><a href="' + home + 'metodo.html">' + esc(t('rank_how')) + '</a></p>');
     root.innerHTML = back + hero(p, name, rank, tier, text ? summary(text, moves, items, cards, d[4]) : '') +
       build(p, d, moves, items, name, Math.max(1, Math.min(4, Math.floor(56 / Math.max(p.w, p.h)))), cards) +
       combat(p) +

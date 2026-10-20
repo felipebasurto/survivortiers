@@ -83,7 +83,7 @@ class StaticBlockTest(unittest.TestCase):
         self.assertIn(">85<", html)
         self.assertIn("hasta un 22\u00a0% menos", html)
         self.assertIn("hasta un 25\u00a0% más", html)
-        self.assertIn("5a23d49", html)
+        self.assertNotIn("5a23d49", html)
 
     def test_block_in_english_and_mixed_label(self) -> None:
         html = static_ficha.combat(EN, self.entry(1.0, 1.02, 40, 120))

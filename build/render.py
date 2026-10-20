@@ -51,13 +51,12 @@ EXT = legal.SPRITE_EXT
 SCALE_LIST = 2
 TIERS = ["S", "A", "B", "C", "D"]
 CATEGORIES = [("melee", "cuerpo a cuerpo"), ("ranged", "distancia"), ("stat", "estadística")]  # (id, valor del CSV)
-NAV_TOP = [("index", "index.html", "nav_tiers"), ("novedades", "novedades.html", "nav_novedades")]
+NAV_TOP = [("index", "index.html", "nav_tiers"), ("ataques", "ataques.html", "nav_ataques"),
+           ("objetos", "objetos.html", "nav_objetos"), ("gachas", "gachas.html", "nav_gachas")]
 NAV_GROUPS = [
-    ("nav_tools", [("buscador", "@finder", "nav_buscador"), ("planificador", "@planner", "nav_planificador"),
-                   ("coleccion", "coleccion.html", "nav_coleccion")]),
-    ("nav_guide", [("ataques", "ataques.html", "nav_ataques"), ("objetos", "objetos.html", "nav_objetos"),
-                   ("pasivas", "pasivas.html", "nav_pasivas"), ("gachas", "gachas.html", "nav_gachas"),
-                   ("metodo", "metodo.html", "nav_metodo"), ("acerca", "acerca.html", "nav_acerca")]),
+    ("nav_more", [("novedades", "novedades.html", "nav_novedades"), ("planificador", "@planner", "nav_planificador"),
+                  ("pasivas", "pasivas.html", "nav_pasivas"), ("coleccion", "coleccion.html", "nav_coleccion"),
+                  ("metodo", "metodo.html", "nav_metodo"), ("acerca", "acerca.html", "nav_acerca")]),
 ]
 NAV = NAV_TOP + [item for _, items in NAV_GROUPS for item in items]
 SORT_KEYS = ("rank", "name", "dex", "atk", "pa", "sa", "hp", "spd", "df", "sd", "ehp", "rad", "td", "mv", "st",
@@ -222,21 +221,16 @@ def _nav_html(c: Ctx, page_id: str) -> str:
     return "\n".join(parts)
 
 
-def _footer_nav_html(c: Ctx) -> str:
-    top = " ".join(f'<a href="{c.home}{toolpages.target(c.L, href)}">{esc(c.L.t(key))}</a>' for _, href, key in NAV_TOP)
-    groups = []
-    for group, items in NAV_GROUPS:
-        links = " ".join(f'<a href="{c.home}{toolpages.target(c.L, href)}">{esc(c.L.t(key))}</a>' for _, href, key in items)
-        groups.append(f'      <div class="foot-group"><b>{esc(c.L.t(group))}</b> {links}</div>')
-    return f'      <div class="foot-group">{top}</div>\n' + "\n".join(groups)
+def agents_line(c: Ctx) -> str:
+    """Enlaces para agentes y datos. Sale en Info, no en el pie."""
+    return (f'<p class="agents">{esc(c.L.t("agents_label"))} <a href="{c.assets}llms.txt">llms.txt</a> · '
+            f'<a href="{c.assets}llms-full.txt">llms-full.txt</a> · '
+            f'<a href="{c.assets}data/ranking.csv">ranking.csv</a></p>')
 
 
 def page(c: Ctx, page_id: str, title: str, description: str, content: str, meta: dict, extra_head: str = "",
          head_links: str | None = None, og_type: str = "website", canonical: str | None = None) -> str:
     L = c.L
-    agents_html = (f'<p class="agents">{esc(L.t("agents_label"))} <a href="{c.assets}llms.txt">llms.txt</a> · '
-              f'<a href="{c.assets}llms-full.txt">llms-full.txt</a> · '
-              f'<a href="{c.assets}data/ranking.csv">ranking.csv</a></p>')
     follow = (f'<a class="follow" href="{legal.X_URL}" target="_blank" rel="noopener" '
               f'aria-label="{esc(L.t("follow_label", handle=legal.X_HANDLE))}">{esc(legal.X_HANDLE)}</a>')
     social = "" if page_id == "404" else social_head(c, title, description, og_type, canonical)
@@ -244,13 +238,9 @@ def page(c: Ctx, page_id: str, title: str, description: str, content: str, meta:
                  f"data-cf-beacon='{{\"token\": \"{legal.WEB_ANALYTICS_TOKEN}\"}}'></script>")
     current = ' aria-current="page"'
     nav = _nav_html(c, page_id)
-    footer_nav = _footer_nav_html(c)
-    lic = meta["spriteLicense"]
-    sprites_line = L.t("sprites_line_html", url=esc(lic["sourceUrl"]), source=esc(lic["source"]),
-                       lic_url=esc(lic["url"]), lic=esc(lic["name"]), about=f"{c.home}acerca.html")
     build_info = f'{legal.GAME_NAME} {meta["gameCommit"]}, ranking {meta["version"]}, generated {meta["generatedAt"][:10]}'
     switch, alternates = "", ""
-    freshness = "" if 'class="fresh"' in content else f'<p class="fresh">{esc(legal.freshness_text(L, meta))}</p>'
+    foot = L.t("foot_html", about=f"{c.home}acerca.html")
     if c.other:
         links = "".join(
             f'<a href="{c.other if code != L.code else "#"}" lang="{code}" hreflang="{code}"'
@@ -261,8 +251,7 @@ def page(c: Ctx, page_id: str, title: str, description: str, content: str, meta:
         lang=L.code, assets=c.assets, home=c.home, sprites=esc(SPRITES), sprites_alt=esc(legal.SPRITE_ALT), sprites_ext=EXT, asset_v=ASSET_V, page_id=page_id, title=esc(title),
         description=esc(description), alternates=alternates, skip=esc(L.t("skip")),
         nav_aria=esc(L.t("nav_main")), foot_aria=esc(L.t("nav_foot")), switch=switch, theme=theme_button(L), nav=nav,
-        content=content, footer_nav=footer_nav, disclaimer=esc(L.t("disclaimer", game=legal.GAME_NAME)),
-        sprites_line=sprites_line, freshness=freshness, build_info=esc(build_info.replace("--", "-")), agents=agents_html,
+        content=content, foot=foot, build_info=esc(build_info.replace("--", "-")),
         extra_head=extra_head, social=social, follow=follow, analytics=analytics, theme_init=theme.script_tag())
 
 
@@ -306,8 +295,9 @@ def render_index(c: Ctx, pokemon: list[dict], meta: dict) -> str:
         f'{esc(L.t(key))}</button>'
         for k, key in (("", "side_all"), ("phys", "side_phys"), ("spec", "side_spec"), ("mix", "side_mix")))
     content = f"""
-{novedades.patch_note(L, c.home)}
+
 <h1>{esc(L.t("index_h1", game=legal.GAME_NAME))}</h1>
+<p class="fresh">{esc(legal.freshness_text(L, meta))}</p>
 <p class="tagline">{seo.lede_html(L, pokemon, meta, c.home)}</p>
 <div class="finder">
   <div class="search">
@@ -318,13 +308,16 @@ def render_index(c: Ctx, pokemon: list[dict], meta: dict) -> str:
       <button id="clear" class="clear" type="button" hidden aria-label="{esc(L.t("search_clear"))}">×</button>
     </div>
   </div>
-  <div class="sortline">
-    <label class="sr" for="sort">{esc(L.t("sort_by"))}</label><select id="sort">{options}</select>
-    <button id="dir" class="icon-btn" type="button" data-asc="{esc(L.t("dir_asc"))}" data-desc="{esc(L.t("dir_desc"))}" aria-label="{esc(L.t("dir_asc"))}" title="{esc(L.t("dir_asc"))}"><i class="ico ico-arrow" aria-hidden="true"></i></button>
-    <button id="random" class="icon-btn" type="button" aria-label="{esc(L.t("random_btn"))}" title="{esc(L.t("random_btn"))}"><i class="ico ico-dice" aria-hidden="true"></i></button>
-  </div>
-  <div class="side-filter" role="group" aria-label="{esc(L.t("side_filter"))}">{sides}</div>
-  <div class="group-by" role="group" aria-label="{esc(L.t("group_by"))}">{groups}</div>
+  <details class="filters">
+    <summary>{esc(L.t("filters_btn"))}</summary>
+    <div class="sortline">
+      <label class="sr" for="sort">{esc(L.t("sort_by"))}</label><select id="sort">{options}</select>
+      <button id="dir" class="icon-btn" type="button" data-asc="{esc(L.t("dir_asc"))}" data-desc="{esc(L.t("dir_desc"))}" aria-label="{esc(L.t("dir_asc"))}" title="{esc(L.t("dir_asc"))}"><i class="ico ico-arrow" aria-hidden="true"></i></button>
+      <button id="random" class="icon-btn" type="button" aria-label="{esc(L.t("random_btn"))}" title="{esc(L.t("random_btn"))}"><i class="ico ico-dice" aria-hidden="true"></i></button>
+    </div>
+    <div class="side-filter" role="group" aria-label="{esc(L.t("side_filter"))}">{sides}</div>
+    <div class="group-by" role="group" aria-label="{esc(L.t("group_by"))}">{groups}</div>
+  </details>
   <p id="count" aria-live="polite"></p>
   <p id="nomatch" class="nomatch" hidden>{esc(L.t("no_match"))}</p>
 </div>
@@ -353,7 +346,7 @@ FICHA_KEYS = (
     "rar_1", "rar_2", "rar_3", "rar_4", "rar_5", "t_base", "bs_hp", "bs_atk", "bs_def", "bs_spa", "bs_spd", "bs_spe",
     "bs_total", "bs_alt_item", "bs_s_hp", "bs_s_atk", "bs_s_def", "bs_s_spa", "bs_s_spd", "bs_s_spe",
     "sheet_title", "sheet_desc", "fh_game", "fresh", "t_combat", "cb_pa", "cb_sa", "cb_df", "cb_sd", "cb_kind_phys",
-    "cb_kind_spec", "cb_kind_mix", "cb_note", "cb_src",
+    "cb_kind_spec", "cb_kind_mix", "cb_note",
     "dmg_physical", "dmg_special", "dmg_status", "dmg_tip_physical", "dmg_tip_special", "dmg_tip_status",
     "mv_new") + tuple(k for k in STR if k.startswith("mv_kind_"))
 
@@ -364,7 +357,6 @@ def ficha_chrome(L: Lang, meta: dict) -> tuple[str, str]:
                .replace("{total}", str(charts.TOTAL)).replace("{sha}", meta["gameCommit"][:7])
                .replace("{combat}", legal.COMBAT_COMMIT)
                .replace("{date}", meta["generatedAt"][:10]) for k in FICHA_KEYS}
-    strings["fresh"] = legal.freshness_text(L, meta)
     blob = json.dumps({"en": L.en, "s": strings}, ensure_ascii=False).replace("</", "<\\/")
     pills = "".join(f'<span data-t="{t}">{type_pill(L, t)}</span>' for t in typedata.TYPE_COLOR)
     badges = "".join(
@@ -409,7 +401,7 @@ def render_species(c: Ctx, entry: dict, detail: list, moves: dict, prev: dict | 
     L = c.L
     title, desc = static_ficha.head_texts(L, entry, detail, moves, charts.TOTAL)
     html, ld = static_ficha.build(L, c.home, SPRITES, EXT, entry, detail, moves, prev, nxt, odds, cards,
-                                  summary=summary, fresh=legal.freshness_text(L, meta),
+                                  summary=summary,
                                   guides=landing.guides_nav(L, c.home, types=entry["types"]),
                                   updated=meta["generatedAt"][:10], url=page_url(c), title=title)
     return page(c, "ficha", title, desc, html + before + after, meta, extra_head=ld,
@@ -704,18 +696,21 @@ def render_metodo(c: Ctx, index: list[dict], meta: dict) -> str:
 <h1>{esc(L.t("met_h1"))}</h1>
 <p class="lede">{esc(L.t("met_lede", reps=counts["reps"]))}</p>
 <p class="fresh">{esc(legal.freshness_text(L, meta))}</p>
+<details class="more">
+<summary>{esc(L.t("met_more"))}</summary>
 {charts.pipeline(L, m)}
 {charts.method_steps(L, m, meta["tierCuts"], counts)}
 {repertorio.note(L)}
-<h2>{esc(L.t("met_rules_h"))}</h2>
-<p class="met-text">{esc(L.t("met_rules"))}</p>
-<h2>{esc(L.t("met_check_h"))}</h2>
-<p class="met-text">{esc(L.t("met_check", sha=legal.UPDATED_COMMIT))}</p>
 {charts.arena(L, arena_src)}
 {charts.repeats_demo(L, reps)}
 {charts.ribbon(L, index)}
 {charts.stability(L, meta["stability"])}
 {charts.tier_strip(L, meta["tierCuts"])}
+</details>
+<h2>{esc(L.t("met_rules_h"))}</h2>
+<p class="met-text">{esc(L.t("met_rules"))}</p>
+<h2>{esc(L.t("met_check_h"))}</h2>
+<p class="met-text">{esc(L.t("met_check", sha=legal.UPDATED_COMMIT))}</p>
 <h2>{esc(L.t("met_limits_h"))}</h2>
 <ul class="plain limits">{limits}</ul>
 """
@@ -744,6 +739,7 @@ def render_acerca(c: Ctx, meta: dict) -> str:
     content = f"""
 <h1>{esc(L.t("about_h1"))}</h1>
 <p class="lede">{L.t("about_value_html", repo=esc(legal.REPO_URL), **legal.method_counts(L, meta))}</p>
+<p class="muted">{esc(L.t("disclaimer", game=legal.GAME_NAME))}</p>
 {legal_html}
 <h2 id="creditos">{esc(L.t("about_credits_h"))}</h2>
 <h3>{esc(L.t("about_sprites_h"))}</h3>
@@ -752,7 +748,8 @@ def render_acerca(c: Ctx, meta: dict) -> str:
 <ul class="credits-list">{"".join(creds)}</ul>
 <h3>{esc(L.t("about_icons_h"))}</h3>
 <p>{icons}</p>
-<p>{L.t("about_font_html", root=c.assets)}</p>
+    <p>{L.t("about_font_html", root=c.assets)}</p>
+{agents_line(c)}
 """
     return page(c, "acerca", L.t("about_title", site=legal.SITE_NAME), L.t("about_desc", site=legal.SITE_NAME),
                 content, meta)

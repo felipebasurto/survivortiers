@@ -202,7 +202,7 @@ def build(L: Lang, page: Page, index: list[dict], by_dex: dict[int, dict], detai
             desc = L.t("lp_pas_desc", top=static_ficha._join(L, [pasivas._t(c["name"], L) for c in cards[:2]]))
         note = L.t("lp_pas_note")
         body = (f'<section class="ql-list"><h2>{escape(top_h)}</h2>{_passives_html(L)}'
-                f'<p><a href="{home}pasivas.html">{escape(L.t("lp_pas_link"))} →</a></p></section>')
+                f'<p><a href="{home}pasivas.html">{escape(L.t("lp_pas_link"))}</a></p></section>')
     else:
         top = static_ficha._join(L, [L.mon(p) for p, _, _ in rows[:LEDE_NAMES]])
         if page.key == "best":

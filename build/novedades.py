@@ -39,7 +39,7 @@ PHYS_SPECIAL = {
 JUDGMENT_FACTS = [
     (("25 %", "25%"), ("Velocidad por encima de 130", "Speed above 130"),
      ("Lo que pasa de 130 cuenta solo un 25 %.", "Anything above 130 counts only 25%.")),
-    (("40 → 100 %", "40 → 100%"), ("Toque de Arceus", "Arceus touch"),
+    (("de 40 a 100 %", "from 40 to 100%"), ("Toque de Arceus", "Arceus touch"),
      ("Cada toque quita un porcentaje de tu vida máxima: un 40 % al principio de la Sentencia. Desde el minuto 37 "
       "sube hasta el 100 % hacia el minuto 40.",
       "Each touch takes a share of your max HP: 40% at the start of the Judgment. From minute 37 it climbs to 100% "

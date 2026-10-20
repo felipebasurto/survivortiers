@@ -214,8 +214,7 @@ def combat(L: Lang, entry: dict) -> str:
             f'<header class="cb-head"><h3 id="cb-h">{esc(L.t("t_combat"))}</h3>'
             f'<span class="cb-kind cb-k-{kind}">{esc(L.t(KIND_KEY[kind]))}</span></header>'
             f'<div class="cb-list">{atk}</div><div class="cb-list">{dfn}</div>'
-            f'<p class="cb-note">{esc(note)}</p>'
-            f'<p class="cb-src">{esc(L.t("cb_src", combat=legal.COMBAT_COMMIT))}</p></section>')
+            f'<p class="cb-note">{esc(note)}</p></section>')
 
 
 def group_names(L: Lang, detail: list, moves: dict[str, dict]) -> tuple[str, str]:
@@ -240,10 +239,10 @@ def head_texts(L: Lang, entry: dict, detail: list, moves: dict[str, dict], total
 
 
 def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, detail: list, moves: dict[str, dict],
-          prev: dict | None, nxt: dict | None, odds: tuple[float, int], cards: dict, *, summary: str, fresh: str,
+          prev: dict | None, nxt: dict | None, odds: tuple[float, int], cards: dict, *, summary: str,
           guides: str, updated: str, url: str, title: str) -> tuple[str, str]:
     """Devuelve el HTML visible (sin <head>) y el JSON-LD de las preguntas. summary es el resumen ya en texto plano;
-    fresh, la línea de datos del juego; guides, el bloque de enlaces a las listas."""
+    guides, el bloque de enlaces a las listas."""
     name = L.mon(entry)
     rank, tier = entry["r"]["rank"], entry["r"]["tier"]
     methods = entry["r"]["methods"]
@@ -324,7 +323,6 @@ def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, detail: list,
 <p class="simline">{esc(L.t("sheet_sim_line", rank=methods["simBest"]))}</p>
 <p class="simline">{esc(L.t("sheet_open_line", rank=methods["simStart"]))}</p>
 <p class="resumen">{esc(summary)}</p>
-<p class="fresh">{esc(fresh)}</p>
 </div>
 </header>
 <section class="fig fig-build" id="build" aria-labelledby="bd-h">

@@ -51,8 +51,6 @@ class Home(unittest.TestCase):
             self.assertLess(html.index('<p class="tagline">'), html.index('id="tierlist"'))
             for p in sorted(index, key=lambda p: p["r"][0])[:5]:
                 self.assertIn(f"{lang.mon(p)} ({p['r'][1]})", text)
-            self.assertIn(legal.UPDATED_COMMIT, text)
-            self.assertIn(lang.date(legal.UPDATED_DATE), text)
 
     def test_svg_defs_come_after_the_h1(self) -> None:
         for rel in ("index.html", "pokemon/150-mewtwo/index.html"):

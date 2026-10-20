@@ -56,7 +56,7 @@ def content(L: Lang) -> str:
 <section class="tool-sec" aria-labelledby="bp-how-h">
   <h2 id="bp-how-h">{escape(L.t("bp_boost_guide"))}</h2>
   <p>{escape(L.t("bp_how"))}</p>
-  <p><a href="../pasivas.html#potenciadores">{escape(L.t("pv_buff_link"))} →</a> · <a href="{escape(finder)}">{escape(L.t("guide_finder"))}</a></p>
+  <p><a href="../pasivas.html#potenciadores">{escape(L.t("pv_buff_link"))}</a> · <a href="{escape(finder)}">{escape(L.t("guide_finder"))}</a></p>
   <p class="muted small">{source}</p>
 </section>
 {toolpages.blob(L, TOOL_KEYS)}

@@ -141,10 +141,13 @@ class LinksAndFreshness(unittest.TestCase):
         es_line, en_line = legal.freshness_text(ES), legal.freshness_text(EN)
         self.assertEqual(es_line, f"Actualizado al parche del 19 oct 2026 ({legal.UPDATED_COMMIT})")
         self.assertEqual(en_line, f"Updated to the Oct 19, 2026 patch ({legal.UPDATED_COMMIT})")
-        for rel in ("index.html", "pokemon/150-mewtwo/index.html", "mejores-pokemon/index.html", "metodo.html", "acerca.html"):
+        for rel in ("index.html", "mejores-pokemon/index.html", "metodo.html"):
             self.assertIn(es_line, _read(rel), rel)
-        for rel in ("en/index.html", "en/pokemon/150-mewtwo/index.html", "en/best-pokemon/index.html", "en/metodo.html"):
+        for rel in ("en/index.html", "en/best-pokemon/index.html", "en/metodo.html"):
             self.assertIn(en_line, _read(rel), rel)
+        # la ficha y Acerca no repiten la fecha: va bajo el título de la portada, Método y las listas
+        self.assertNotIn(es_line, _read("pokemon/150-mewtwo/index.html"))
+        self.assertNotIn(es_line, _read("acerca.html"))
 
     def test_date_modified_in_structured_data(self) -> None:
         meta = _meta()
