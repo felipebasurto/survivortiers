@@ -376,6 +376,7 @@ STR: dict[str, tuple[str, str]] = {
     "mv_kind_vortex": ("Remolino", "Vortex"),
     "mv_kind_shove": ("Empuje", "Shove"),
     "mv_kind_stun": ("Aturdimiento", "Stun"),
+    "mv_new": ("Nuevo", "New"),
     "mv_unranked_h": ("Sin puesto", "Not ranked"),
     "mv_unranked": ("Sin puesto: no hace daño por sí solo y la tier list mide ataques. Sus cifras son las del juego.",
                     "Not ranked: it deals no damage on its own and the tier list measures attacks. Its numbers are the game's."),
