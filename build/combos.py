@@ -131,8 +131,8 @@ def _search_picks() -> dict[int, tuple[list[str], list[str]]]:
         return {}
     out = {}
     for dex, row in picks.best_groups(picks.load_rows(SEARCH_CSV)).items():
-        attacks, buff, fourth = picks.split_group(row["group"])
-        out[dex] = (attacks, [b for b in (buff, fourth) if b])
+        attacks, buffs = picks.split_group(row["group"])
+        out[dex] = (attacks, buffs)
     return out
 
 

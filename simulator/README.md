@@ -62,7 +62,8 @@ Extra options: `--dd` (Dragon Dance instead of Swords Dance), `--agi` (Agility i
 slot, clamped to 35% of base cooldown; Choice Band blocks it), `--crit N` (permanent crit levels, 3% each; published
 ranks use 0), `--item <id>` (choiceband, lifeorb, quickclaw, choicescarf, assaultvest, leftovers, luckyegg, shellbell,
 rockyhelmet, focussash; items.js), `--fill a,b` (stat cards first, indices of `data::STATS`). `pokesim tasks <file>`
-runs lines `dex,move[+companion...],item,fill[,buffs]` (buffs: `sd;hd;dd;agi`).
+runs lines `dex,move[+companion...],item,fill[,buffs]` (buffs: move ids separated by `;`, at most two; the short
+names `sd`, `dd`, `np`, `hd` and `agi` still work; `-` = none).
 
 Group mode also models, from the game source (`js/` in JPTER78/pokesurvivor):
 
@@ -115,14 +116,15 @@ Group mode also models, from the game source (`js/` in JPTER78/pokesurvivor):
     bonded group because `step_orbs` keeps a single orb list for the active move (combat.js does allow an orbit in
     any slot). Lengüetazo and every other `kind === 'melee'` move goes through the ×0.75 cut.
     No score is adjusted after the sim: melee, turrets (Sustituto) and every other attack are ranked on the score as
-    measured, and an attack is any non-buff move with damage (`data::Move::is_attack`). Picotazo Veneno is a projectile
-    (speed 420, life 1.0) and is not melee. Pairs and trios may mix categories. Each attack set is simulated with every
-    buff fill of the four bond slots (`kits` in `main.rs`): two attacks with Danza Espada, Danza Dragón (species that
-    learn it) or Maquinación plus Harden or Agility, and three attacks with one of those attack buffs or with Harden or
-    Agility. An attack buff that raises none of the group's attacks is not tried (`patk` buffs only raise physical
-    moves, `satk` only special). The best row by score (then mean score, then survival time) is published, and each
-    shape (`build/picks.py` `shape_of`) keeps its own shortlist into the refine. Not searched: four attacks with no buff
-    (the engine reads `buffs == 0` as "no fixed group") and Acua Aro.
+    measured, and an attack is any non-buff move with damage (`data::Move::is_attack`). Pairs and trios may mix
+    categories. The buffs are every buff in the species pool (`poolFor`, so the game can offer them), at most
+    two per group (levelup.js:47-49). Two attacks take zero, one or two buffs; three attacks take zero or one.
+    The space is built in `build/builds.py` (`candidates`) and simulated by name through `synergy --explicit`.
+    Each buff casts into the bucket of its own stat (`data.rs` `MoveLvl::buff`: atk, spd, def, regen, patk, satk),
+    so two buffs of one stat share stacks and the last cast sets the amount (`engine.rs` `tick_buffs`). The best
+    row by score (then mean score, then survival time) is published, and each shape (`build/picks.py` `shape_of`,
+    attacks and buffs) keeps its own shortlist into the refine. Not searched: four attacks, and any group with
+    more than two buffs.
   - Dash invulnerability is `max(invuln, 0.3)` (systems/combat.js:311). Lava sets invuln to 0 and then hurts
     (entities/player.js:352). Cooldown cuts shorten the dash's own cooldown.
   - `--swap` is a second slot at level 1. Switching clamps that slot's timers to 35% of base cd and ignores cdMul

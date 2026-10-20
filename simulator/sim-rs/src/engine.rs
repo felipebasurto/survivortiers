@@ -92,13 +92,21 @@ pub struct Opts {
     pub ext: Ext,
 }
 
+/// The buffs of a searched group: `buffs` bit 1 holds track 0 (`ix[0]`), bit 2 track 1 (`ix[1]`).
+/// `ix` are data move indices; the buff's stat decides what it raises (see `Match::stats`).
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct BuffKit {
+    pub buffs: u8,
+    pub ix: [usize; 2],
+}
+
 #[derive(Clone, Default)]
 pub struct Ext {
     /// extra bonded attacks cast alongside the primary (each with its own cooldown)
     pub companions: Vec<usize>,
-    /// bitmask of buffs held in the group from t=0: 1 = atk buff (Swords/Dragon Dance), 2 = Harden (or Agility);
-    /// 0 = old mode (SD/Harden only via cards)
-    pub buffs: u8,
+    /// The buffs the group holds from t=0 (a searched group). None = old mode: Swords Dance and Harden
+    /// (or the dd/np/agi flags) only through the level-up cards.
+    pub kit: Option<BuffKit>,
     /// use Dragon Dance instead of Swords Dance as the atk buff
     pub dd: bool,
     /// use Nasty Plot (Maquinación, satk) instead of Swords Dance. Set when the bonded attacks are special.
@@ -480,8 +488,8 @@ fn fan_angles(aim: f64, count: f64, spread: f64, out: &mut Vec<f64>) {
 enum Card {
     Up,
     Evo,
-    Sd,
-    Hd,
+    /// Level-up card for buff track 0 or 1 (`Match::buf_ix`).
+    Buf(u8),
     Up2(u8),
     Evo2(u8),
     Stat(Stat),
@@ -498,15 +506,15 @@ fn card_tag(c: Card) -> usize {
     match c {
         Card::Up | Card::Up2(_) => 0,
         Card::Evo | Card::Evo2(_) => 1,
-        Card::Sd | Card::Hd => 2,
+        Card::Buf(_) => 2,
         Card::Stat(_) => 3,
         Card::Xp | Card::Heal => 5,
     }
 }
 
 const FILL: [Card; 9] = [
-    Card::Sd,
-    Card::Hd,
+    Card::Buf(0),
+    Card::Buf(1),
     Card::Stat(Stat::Pow),
     Card::Stat(Stat::Run),
     Card::Stat(Stat::Hp),
@@ -521,15 +529,24 @@ struct State {
     cards: [u32; 7],
     move_lvl: usize,
     evolved: bool,
-    sd: usize,
-    hd: usize,
-    sd_stacks: f64,
-    sd_t: f64,
-    sd_cd: f64,
-    hd_stacks: f64,
-    hd_t: f64,
-    hd_cd: f64,
+    /// Level of each buff track (0 = not held).
+    buf: [usize; 2],
+    /// Recast cooldown of each buff track.
+    buf_cd: [f64; 2],
+    /// One bucket per buff stat code (data.rs `MoveLvl::buff`). Casts from either track stack into it.
+    bk: [Bucket; BUCKETS],
 }
+
+/// Stacks and time left of one buff stat. `src` is the track that cast last: its level sets the amount.
+#[derive(Clone, Copy, Default)]
+struct Bucket {
+    n: f64,
+    t: f64,
+    src: usize,
+}
+
+/// Buff stat codes run 1..=6 (atk, spd, def, regen, patk, satk); index 0 is unused.
+const BUCKETS: usize = 7;
 
 /// ATK_POW / SPD_POW / CD_POW from rules.js. V8 evaluates `1.1 ** i` with
 /// integer exponents by repeated squaring, which no libm pow reproduces, so
@@ -1823,10 +1840,10 @@ struct Match<'a, M: MathFns> {
     world: Rng,
     card_roll: Rng,
     state: State,
-    has_sd: bool,
-    has_hd: bool,
-    atk_buff: usize,
-    def_buff: usize,
+    /// Whether each buff track can gain levels from cards (the pool, or the kit's bonded tracks).
+    has_buf: [bool; 2],
+    /// Data move index of each buff track.
+    buf_ix: [usize; 2],
     comps: Vec<(usize, usize, f64)>,
     any_melee: bool,
     fields: Vec<Field<'a>>,
@@ -2132,27 +2149,29 @@ impl<'a, M: MathFns> Match<'a, M> {
         self.stat_snow = snow;
         let mv = self.active_move();
         let s = &self.state;
+        // One bucket per buff stat (tick_buffs). A bucket multiplies by 1 + stacks x amount of the track
+        // that cast into it last. Def is a reduction: stacks x amount.
         let mut atk_buff = 0.0;
         let mut def_buff = 0.0;
         let mut patk = 1.0;
         let mut satk = 1.0;
-        if s.sd > 0 && s.sd_t > 0.0 {
-            let lvl = self.buff_level(self.atk_buff, s.sd);
-            let bonus = s.sd_stacks * lvl.amount;
-            // moves.js: Swords Dance and Dragon Dance are patk; Nasty Plot is satk.
-            match lvl.buff {
-                5 => patk = 1.0 + bonus,
-                6 => satk = 1.0 + bonus,
-                _ => atk_buff = bonus,
-            }
-        }
-        if s.hd > 0 && s.hd_t > 0.0 {
-            def_buff = s.hd_stacks * self.buff_level(self.def_buff, s.hd).amount;
-        }
         let mut spd_buff = 1.0;
-        if self.opts.ext.agi {
-            spd_buff = 1.0 + def_buff;
-            def_buff = 0.0;
+        let mut regen_buff = 0.0;
+        for (stat, b) in s.bk.iter().enumerate() {
+            if b.n <= 0.0 {
+                continue;
+            }
+            let amount = self.buff_level(self.buf_ix[b.src], s.buf[b.src]).amount;
+            let bonus = b.n * amount;
+            match stat {
+                1 => atk_buff += bonus,
+                2 => spd_buff += bonus,
+                3 => def_buff += bonus,
+                4 => regen_buff += bonus,
+                5 => patk += bonus,
+                6 => satk += bonus,
+                _ => {}
+            }
         }
         let it = self.opts.ext.item;
         let faithful = self.faith();
@@ -2188,6 +2207,7 @@ impl<'a, M: MathFns> Match<'a, M> {
         if self.regen_n > 0.0 && self.regen_t > 0.0 {
             st.regen += self.regen_n * self.regen_amt;
         }
+        st.regen += regen_buff;
         st.melee = if melee_cut { 0.75 } else { 1.0 };
         st.mv = mv;
         // interact.js POWERS, 25 s. Imán only changes the magnet radius (magnet_r).
@@ -2494,11 +2514,10 @@ impl<'a, M: MathFns> Match<'a, M> {
             }
         }
         // With rift bonds the bot only levels group members it has already bonded (an unbonded buff never fires).
-        if self.has_sd && s.sd < 5 && (self.opts.ext.buffs == 0 || self.bonded(100)) {
-            out.push(Card::Sd);
-        }
-        if self.has_hd && s.hd < 5 && (self.opts.ext.buffs == 0 || self.bonded(101)) {
-            out.push(Card::Hd);
+        for k in 0..2 {
+            if self.has_buf[k] && s.buf[k] < 5 && (self.opts.ext.kit.is_none() || self.bonded(100 + k as u8)) {
+                out.push(Card::Buf(k as u8));
+            }
         }
         for st in STATS {
             if out.contains(&Card::Stat(st)) {
@@ -2558,7 +2577,7 @@ impl<'a, M: MathFns> Match<'a, M> {
             }
         }
         if !self.opts.ext.fill.is_empty() {
-            for c in [Card::Sd, Card::Hd] {
+            for c in [Card::Buf(0), Card::Buf(1)] {
                 if has(c) {
                     return c;
                 }
@@ -2591,8 +2610,7 @@ impl<'a, M: MathFns> Match<'a, M> {
         match c {
             Card::Up => self.state.move_lvl += 1,
             Card::Evo => self.state.evolved = true,
-            Card::Sd => self.state.sd = (self.state.sd + 1).min(5),
-            Card::Hd => self.state.hd = (self.state.hd + 1).min(5),
+            Card::Buf(k) => self.state.buf[k as usize] = (self.state.buf[k as usize] + 1).min(5),
             Card::Up2(i) => self.comps[i as usize].1 += 1,
             Card::Evo2(i) => {
                 self.comp_evo[i as usize] = true;
@@ -2658,11 +2676,8 @@ impl<'a, M: MathFns> Match<'a, M> {
         let before = self.st.max_hp;
         self.apply_card(id);
         self.cards[card_tag(id)] += 1;
-        if id == Card::Sd {
-            self.state.sd_cd = 0.0;
-        }
-        if id == Card::Hd {
-            self.state.hd_cd = 0.0;
+        if let Card::Buf(k) = id {
+            self.state.buf_cd[k as usize] = 0.0;
         }
         self.stat_dirty = true;
         self.stats();
@@ -3064,9 +3079,9 @@ impl<'a, M: MathFns> Match<'a, M> {
 
     fn bond_move(&self, slot: u8) -> usize {
         if slot == 100 {
-            self.atk_buff
+            self.buf_ix[0]
         } else if slot == 101 {
-            self.def_buff
+            self.buf_ix[1]
         } else {
             self.comps[slot as usize].0
         }
@@ -3104,11 +3119,10 @@ impl<'a, M: MathFns> Match<'a, M> {
             }
             note_move(&mut evos, &mut waiting, lvl, m.max_lvl, self.comp_evo[i], m.evo.is_some(), m.needs, &self.state.cards);
         }
-        if self.has_sd && self.state.sd < 5 && (self.opts.ext.buffs == 0 || self.bonded(100)) {
-            ups += 8.0;
-        }
-        if self.has_hd && self.state.hd < 5 && (self.opts.ext.buffs == 0 || self.bonded(101)) {
-            ups += 8.0;
+        for k in 0..2 {
+            if self.has_buf[k] && self.state.buf[k] < 5 && (self.opts.ext.kit.is_none() || self.bonded(100 + k as u8)) {
+                ups += 8.0;
+            }
         }
         let slots_open = !self.opts.ext.rift || self.holes_used() < 4;
         let per = if slots_open { 4.0 } else { 7.0 };
@@ -3143,7 +3157,7 @@ impl<'a, M: MathFns> Match<'a, M> {
         for c in legal {
             match c {
                 Card::Evo | Card::Evo2(_) => evo.push(c),
-                Card::Up | Card::Up2(_) | Card::Sd | Card::Hd => up.push(c),
+                Card::Up | Card::Up2(_) | Card::Buf(_) => up.push(c),
                 _ => stat.push(c),
             }
         }
@@ -5833,47 +5847,39 @@ impl<'a, M: MathFns> Match<'a, M> {
         }
     }
 
+    /// Buff clocks. Each stat's bucket runs its duration on its own, and a track casts on its cooldown
+    /// while its slot is active (combat.js:21-23). A cast stacks into the bucket of its stat (up to the
+    /// move's stacks), restarts the duration and sets the amount through `src`.
     fn tick_buffs(&mut self) {
-        for which in 0..2 {
-            if self.opts.ext.rift && self.opts.ext.buffs != 0 && !self.bonded(100 + which as u8) {
-                continue;
-            }
-            let (id, lvl) = if which == 0 {
-                (self.atk_buff, self.state.sd)
-            } else {
-                (self.def_buff, self.state.hd)
-            };
-            if lvl == 0 {
-                continue;
-            }
-            let inst = self.buff_level(id, lvl);
-            let cd_mul = self.st.cd_mul;
-            let dt = self.dt;
-            let frozen = self.slot != 0;
-            let s = &mut self.state;
-            let (time, stacks, cd) = if which == 0 {
-                (&mut s.sd_t, &mut s.sd_stacks, &mut s.sd_cd)
-            } else {
-                (&mut s.hd_t, &mut s.hd_stacks, &mut s.hd_cd)
-            };
-            if *time > 0.0 {
-                *time -= dt;
-                if *time <= 0.0 {
+        let dt = self.dt;
+        for b in self.state.bk.iter_mut() {
+            if b.t > 0.0 {
+                b.t -= dt;
+                if b.t <= 0.0 {
                     self.stat_dirty = true;
                 }
             }
-            if *time <= 0.0 {
-                *stacks = 0.0;
+            if b.t <= 0.0 {
+                b.n = 0.0;
             }
-            // Recast cooldown freezes on the inactive slot. The buff's own duration still ticks.
-            if frozen {
+        }
+        for k in 0..2 {
+            if self.opts.ext.rift && self.opts.ext.kit.is_some() && !self.bonded(100 + k as u8) {
                 continue;
             }
-            *cd -= dt;
-            if *cd <= 0.0 {
-                *stacks = jmin(inst.stacks, *stacks + 1.0);
-                *time = inst.dur;
-                *cd = inst.cd * cd_mul;
+            let lvl = self.state.buf[k];
+            // Recast cooldown freezes on the inactive slot. The buff's own duration still ticks.
+            if lvl == 0 || self.slot != 0 {
+                continue;
+            }
+            let inst = self.buff_level(self.buf_ix[k], lvl);
+            self.state.buf_cd[k] -= dt;
+            if self.state.buf_cd[k] <= 0.0 {
+                let b = &mut self.state.bk[inst.buff as usize];
+                b.n = jmin(inst.stacks, b.n + 1.0);
+                b.t = inst.dur;
+                b.src = k;
+                self.state.buf_cd[k] = inst.cd * self.st.cd_mul;
                 self.stat_dirty = true;
                 if self.opts.ext.item.lifeorb {
                     self.pl.hp = jmax(1.0, self.pl.hp - jmax(1.0, self.st.max_hp * 0.01));
@@ -6508,11 +6514,23 @@ fn init_match<'a, M: MathFns>(
         knock_fade,
         world,
         card_roll,
-        state: State { move_lvl: 1, sd: (opts.ext.buffs & 1) as usize, hd: ((opts.ext.buffs >> 1) & 1) as usize, ..State::default() },
-        has_sd: if opts.ext.buffs > 0 { opts.ext.buffs & 1 != 0 } else { mon.pool.contains(&data.swords_dance) },
-        has_hd: if opts.ext.buffs > 0 { opts.ext.buffs & 2 != 0 } else { mon.pool.contains(&data.harden) },
-        def_buff: if opts.ext.agi { data.agility } else { data.harden },
-        atk_buff: if opts.ext.np { data.nasty_plot } else if opts.ext.dd { data.dragon_dance } else { data.swords_dance },
+        state: State {
+            move_lvl: 1,
+            buf: opts.ext.kit.map_or([0, 0], |k| [(k.buffs & 1) as usize, ((k.buffs >> 1) & 1) as usize]),
+            ..State::default()
+        },
+        // Old mode keeps the level-up pool it always had: Swords Dance and Harden (parity).
+        has_buf: match opts.ext.kit {
+            Some(k) => [k.buffs & 1 != 0, k.buffs & 2 != 0],
+            None => [mon.pool.contains(&data.swords_dance), mon.pool.contains(&data.harden)],
+        },
+        buf_ix: match opts.ext.kit {
+            Some(k) => k.ix,
+            None => [
+                if opts.ext.np { data.nasty_plot } else if opts.ext.dd { data.dragon_dance } else { data.swords_dance },
+                if opts.ext.agi { data.agility } else { data.harden },
+            ],
+        },
         comps: opts.ext.companions.iter().map(|&c| (c, 1usize, 0.0)).collect(),
         // Seeded false. player.js applies the melee cut to activeGroup() only, and a companion
         // is not in that group until the rift bond lands. Evolving a bonded move into melee sets it.
@@ -6522,10 +6540,10 @@ fn init_match<'a, M: MathFns>(
         bonds: 0,
         bond_order: {
             let mut o: Vec<u8> = (0..opts.ext.companions.len() as u8).collect();
-            if opts.ext.buffs & 1 != 0 {
+            if opts.ext.kit.is_some_and(|k| k.buffs & 1 != 0) {
                 o.push(100);
             }
-            if opts.ext.buffs & 2 != 0 {
+            if opts.ext.kit.is_some_and(|k| k.buffs & 2 != 0) {
                 o.push(101);
             }
             o.truncate(3);
@@ -6662,9 +6680,9 @@ fn init_match<'a, M: MathFns>(
     // The starter is already known.
     m.learned = m.bond_order.iter().map(|&slot| {
         let ix = if slot == 100 {
-            m.atk_buff
+            m.buf_ix[0]
         } else if slot == 101 {
-            m.def_buff
+            m.buf_ix[1]
         } else {
             m.comps[slot as usize].0
         };

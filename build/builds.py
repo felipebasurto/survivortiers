@@ -1,15 +1,11 @@
 """Dos builds por Pokémon: la mejor cuerpo a cuerpo y la mejor a distancia.
 
-Reglas (Felipe):
-- Clase del atacante: físico si pa > sa, especial en otro caso (data/pokedex_export.json).
-- Cuerpo a cuerpo: el grupo tiene al menos un ataque de tipo `melee` (data/game_stats.json, los 11 son físicos).
-  A distancia: ningún ataque `melee`.
-- Físico lleva Danza Espada (swords-dance); especial lleva Maquinación (nasty-plot). Los dos.
-- Cada ataque es de la categoría de la clase (así el potenciador le sirve a todo el grupo). Un especial no tiene
-  cuerpo a cuerpo: todos los `melee` son físicos.
-- Sin relleno: Ataque Rápido, Placaje y Golpe Cuerpo no entran en ninguna build.
-- Un grupo tiene dos o tres ataques y los huecos del vínculo del simulador (`picks.BOND_SLOTS`). Con dos ataques
-  lleva el potenciador de ataque y Fortaleza o Agilidad; con tres, solo el de ataque.
+Espacio completo, sin reglas de Felipe escritas en el código (las reglas irán después, como filtros):
+- Ataques: todos los del pool del simulador (y el inicial) que hacen daño, sin buffs.
+- Buffs: todos los del pool de la especie (poolFor), como mucho dos (levelup.js:47-49).
+- Grupo: dos o tres ataques (cada uno puede ser el inicial) más de cero a dos buffs, con cuatro huecos de vínculo
+  (`picks.BOND_SLOTS`). Con dos ataques, el orden de los ataques importa (el primero es el inicial).
+- Build: cuerpo a cuerpo si algún ataque es `melee` (data/game_stats.json), a distancia si ninguno lo es.
 
 El espacio de búsqueda es el mismo que la búsqueda de grupo (`simulator/results/fixed_group/`): las filas
 que ya existen y cumplen las reglas se reutilizan, y solo se simula lo que falta, con las mismas semillas
@@ -37,11 +33,6 @@ REFINE_CSV = FIXED / "group_search.csv"
 OUT_CSV = DATA / "builds.csv"
 
 BUILDS = ("melee", "ranged")
-FILLER = frozenset({"tackle", "quick-attack", "body-slam"})
-# The attack stat each class boosts. The buffs themselves come from game_stats.json (`buff.stat`).
-ATTACK_STAT = {"physical": "patk", "special": "satk"}
-# A fourth move boosts defense or speed (Fortaleza, Agilidad). These two stat names are the only hand input.
-FOURTH_STATS = frozenset({"def", "spd"})
 SCREEN_SEEDS = 16
 REFINE_SEEDS = 96
 REFINE_SEED0 = 1000
@@ -67,17 +58,13 @@ def _sim_pools() -> dict[int, dict]:
     return {int(m["dex"]): m for m in v3["dex"]}
 
 
-def attacker_class(dex: int) -> str:
-    """physical si pa > sa; special en cualquier otro caso (también en empate, como pide la regla)."""
-    p = _pokedex()[dex]
-    return "physical" if float(p["pa"]) > float(p["sa"]) else "special"
+def _is_melee(mid: str) -> bool:
+    return _game_moves()[mid]["kind"] == "melee"
 
 
 def decent_attacks(dex: int) -> list[str]:
-    """Ataques del pool del simulador (y el inicial) que lanzan daño, de la categoría de la clase y sin relleno."""
-    cls = attacker_class(dex)
+    """Ataques del pool del simulador (y el inicial) que lanzan daño. Sin filtro de categoría ni de relleno."""
     moves = picks._v3_moves()
-    game = _game_moves()
     mon = _sim_pools()[dex]
     out = []
     for mid in sorted(set(mon["pool"]) | {mon["start"]}):
@@ -87,52 +74,46 @@ def decent_attacks(dex: int) -> list[str]:
         level = move["levels"][0]
         if (level.get("buff") or 0) != 0 or not float(level.get("dmg") or 0) > 0:
             continue
-        if game[mid]["cat"] != cls or mid in FILLER:
-            continue
         out.append(mid)
     return out
 
 
-@lru_cache(maxsize=1)
-def _buffs() -> dict[str, dict]:
-    """Buff moves of the game, keyed by id, with their `buff` block (stat, amount, cd, dur, stacks)."""
-    return {mid: m["buff"] for mid, m in _game_moves().items() if m["kind"] == "buff" and m.get("buff")}
+def pool_buffs(dex: int) -> list[str]:
+    """Buffs que la especie puede aprender (su pool del simulador), en orden de id."""
+    moves = picks._v3_moves()
+    return sorted(mid for mid in _sim_pools()[dex]["pool"] if moves.get(mid, {}).get("kind") == "buff")
 
 
-def class_buff(cls: str) -> str:
-    """The strongest buff of the class's attack stat. Danza Espada (0.13) beats Danza Dragón (0.11)."""
-    stat = ATTACK_STAT[cls]
-    return max((mid for mid, b in _buffs().items() if b["stat"] == stat), key=lambda mid: _buffs()[mid]["amount"])
+def buff_sets(dex: int) -> list[tuple[str, ...]]:
+    """Todos los conjuntos de buffs de cero a dos del pool, en orden de id (sin repetir)."""
+    buffs = pool_buffs(dex)
+    out: list[tuple[str, ...]] = [()]
+    out += [(b,) for b in buffs]
+    out += [pair for pair in itertools.combinations(buffs, 2)]
+    return out
 
 
-def fourth_buffs() -> tuple[str, ...]:
-    """Buffs that boost a stat other than the attack stat, in id order."""
-    return tuple(sorted(mid for mid, b in _buffs().items() if b["stat"] in FOURTH_STATS))
-
-
-def _is_melee(mid: str) -> bool:
-    return _game_moves()[mid]["kind"] == "melee"
-
-
-def _group(attacks: list[str], buff: str, fourth: str | None) -> str:
-    return "+".join([*attacks, buff, *([fourth] if fourth else [])])
+def _group(attacks: list[str], buffs: tuple[str, ...]) -> str:
+    return "+".join([*attacks, *buffs])
 
 
 def candidates(dex: int) -> dict[str, str]:
-    """group name -> build (melee | ranged) for every group of this species that meets the rules."""
-    cls = attacker_class(dex)
-    buff = class_buff(cls)
+    """group name -> build (melee | ranged) for every group of this species: dos ataques (el primero es el
+    inicial) con cero a dos buffs; tres ataques con cero o un buff."""
     atk = decent_attacks(dex)
     out: dict[str, str] = {}
     if len(atk) < 2:
         return out
+    sets = buff_sets(dex)
     for a, b in itertools.permutations(atk, 2):
-        for fourth in fourth_buffs():
-            out[_group([a, b], buff, fourth)] = _kind([a, b])
+        for buffs in sets:
+            out[_group([a, b], buffs)] = _kind([a, b])
     for trio in itertools.combinations(atk, 3):
         for lead in trio:
             comps = [x for x in trio if x != lead]
-            out[_group([lead, *comps], buff, None)] = _kind(list(trio))
+            for buffs in sets:
+                if len(buffs) <= 1:
+                    out[_group([lead, *comps], buffs)] = _kind(list(trio))
     return out
 
 
@@ -249,22 +230,18 @@ def write_csv(rows: list[dict], path: Path = OUT_CSV) -> None:
 
 def build_moves(group: str) -> tuple[list[str], int]:
     """Ids de la build en el orden del juego (ataques y luego potenciadores) y cuántos son potenciadores."""
-    attacks, buff, fourth = picks.split_group(group)
-    boosts = [b for b in (buff, fourth) if b]
+    attacks, boosts = picks.split_group(group)
     return attacks + boosts, len(boosts)
 
 
 def violations(dex: int, build: str, group: str) -> list[str]:
-    """Reglas de Felipe que una fila tiene que cumplir. Lista vacía si la fila es válida."""
+    """Comprobaciones de forma (no reglas de juego). Lista vacía si la fila es válida."""
     errs = []
-    attacks, buff, fourth = picks.split_group(group)
-    cls = attacker_class(dex)
-    if buff != class_buff(cls):
-        errs.append(f"{dex} {group}: el potenciador de clase es {buff}, no {class_buff(cls)}")
-    if any(a in FILLER for a in attacks):
-        errs.append(f"{dex} {group}: lleva relleno normal")
-    if any(_game_moves()[a]["cat"] != cls for a in attacks):
-        errs.append(f"{dex} {group}: ataque de otra categoría que la clase {cls}")
+    attacks, buffs = picks.split_group(group)
+    if not picks.group_ok(group):
+        errs.append(f"{dex} {group}: grupo fuera de forma")
+    if any(b not in pool_buffs(dex) for b in buffs):
+        errs.append(f"{dex} {group}: un buff que la especie no tiene en su pool")
     melee = any(_is_melee(a) for a in attacks)
     if build == "melee" and not melee:
         errs.append(f"{dex} {group}: build cuerpo a cuerpo sin ataque melee")

@@ -749,3 +749,57 @@ fn an_orbit_hole_never_reloads_so_it_does_not_rotate_away() {
     m.maybe_swap();
     assert_eq!(m.slot, 1, "the orbit stays active");
 }
+
+/// A match whose group holds `kit` from t=0 (engine.rs `Ext::kit`).
+fn scene_kit(dex: u32, move_id: &str, kit: BuffKit) -> Match<'static, Libm> {
+    let opts: &'static Opts = Box::leak(Box::new(Opts {
+        seed: 1,
+        seconds: 60.0,
+        cards: false,
+        bot: Bot::Play,
+        terrain: false,
+        trace: false,
+        status: true,
+        ext: Ext { xkinds: true, kit: Some(kit), ..Ext::default() },
+    }));
+    let mut m = init_match(&LIBM, dat(), tables(), mon(dex), mv(move_id), opts);
+    m.pl.x = 0.0;
+    m.pl.y = 0.0;
+    m.stat_dirty = true;
+    m.stats();
+    m
+}
+
+fn move_ix_of(id: &str) -> usize {
+    dat().moves.iter().position(|mv| mv.id == id).unwrap()
+}
+
+#[test]
+fn a_buff_casts_into_the_bucket_of_its_own_stat() {
+    let aqua = move_ix_of("aqua-ring");
+    let mut m = scene_kit(1, "vine-whip", BuffKit { buffs: 1, ix: [aqua, 0] });
+    let before = m.st.regen;
+    m.state.buf_cd[0] = 0.0;
+    m.tick_buffs();
+    m.stats();
+    assert_eq!(m.state.bk[4].n, 1.0, "one cast stacks once into regen (stat code 4)");
+    assert!((m.st.regen - before - 1.6).abs() < 1e-9, "aqua ring adds 1.6/s at level 1");
+}
+
+#[test]
+fn two_patk_buffs_share_one_bucket_and_the_last_cast_sets_the_amount() {
+    let (sd, dd) = (move_ix_of("swords-dance"), move_ix_of("dragon-dance"));
+    let mut m = scene_kit(1, "vine-whip", BuffKit { buffs: 3, ix: [sd, dd] });
+    m.state.buf_cd = [0.0, 0.0];
+    m.tick_buffs();
+    m.stats();
+    assert_eq!(m.state.bk[5].n, 2.0, "both casts stack into patk");
+    assert_eq!(m.state.bk[5].src, 1, "dragon dance cast last, so its amount applies");
+    assert!((m.st.patk - (1.0 + 2.0 * 0.11)).abs() < 1e-9, "patk = 1 + stacks x amount of the last cast");
+}
+
+#[test]
+fn a_zero_buff_kit_offers_no_buff_cards() {
+    let m = scene_kit(1, "vine-whip", BuffKit { buffs: 0, ix: [0, 0] });
+    assert_eq!(m.has_buf, [false, false], "a kit with no buffs must not fall back to the default buffs");
+}

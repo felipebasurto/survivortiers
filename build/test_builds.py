@@ -20,8 +20,9 @@ import static_ficha  # noqa: E402
 from i18n import EN, ES  # noqa: E402
 
 
-def _sample_dex(cls: str, n: int = 1) -> list[int]:
-    return [d for d, groups in builds.space().items() if builds.attacker_class(d) == cls and groups][:n]
+def _sample_dex(n: int = 1) -> list[int]:
+    """Especies con una build cuerpo a cuerpo y otra a distancia."""
+    return [d for d, groups in builds.space().items() if set(groups.values()) == {"melee", "ranged"}][:n]
 
 
 def _kinds_by_dex() -> dict[str, set[str]]:
@@ -39,46 +40,49 @@ class Candidates(unittest.TestCase):
                 with self.subTest(dex=dex, group=group):
                     self.assertEqual(builds.violations(dex, build, group), [])
 
-    def test_no_filler_in_any_build(self) -> None:
-        for dex, groups in builds.space().items():
-            for group in groups:
-                attacks, _, _ = builds.picks.split_group(group)
-                self.assertFalse(set(attacks) & builds.FILLER, (dex, group))
-
-    def test_special_attackers_have_no_melee_build(self) -> None:
-        for dex in _sample_dex("special", 80):
-            self.assertNotIn("melee", set(builds.space()[dex].values()), dex)
-
-    def test_class_buff_follows_attacker_class(self) -> None:
+    def test_every_group_uses_pool_moves_only(self) -> None:
         for dex in sorted(builds.space())[:200]:
-            cls = builds.attacker_class(dex)
+            pool = set(builds._sim_pools()[dex]["pool"]) | {builds._sim_pools()[dex]["start"]}
+            buffs = set(builds.pool_buffs(dex))
             for group in builds.candidates(dex):
-                _, buff, _ = builds.picks.split_group(group)
-                self.assertEqual(buff, builds.class_buff(cls), (dex, group))
+                attacks, boosts = builds.picks.split_group(group)
+                with self.subTest(dex=dex, group=group):
+                    self.assertTrue(set(attacks) <= pool)
+                    self.assertTrue(set(boosts) <= buffs)
 
-    def test_attacker_class_ties_go_to_special(self) -> None:
-        p = builds._pokedex()
-        tied = next((d for d, v in p.items() if float(v["pa"]) == float(v["sa"])), None)
-        if tied is not None:
-            self.assertEqual(builds.attacker_class(tied), "special")
+    def test_buff_sets_are_zero_one_or_two_pool_buffs(self) -> None:
+        for dex in sorted(builds.space())[:200]:
+            buffs = builds.pool_buffs(dex)
+            sets = builds.buff_sets(dex)
+            self.assertEqual(len(sets), 1 + len(buffs) + len(buffs) * (len(buffs) - 1) // 2, dex)
+            self.assertTrue(all(len(x) <= 2 for x in sets))
+
+    def test_three_attack_groups_take_at_most_one_buff(self) -> None:
+        for dex in sorted(builds.space())[:200]:
+            for group in builds.candidates(dex):
+                attacks, boosts = builds.picks.split_group(group)
+                if len(attacks) == 3:
+                    self.assertLessEqual(len(boosts), 1, (dex, group))
 
 
 class Violations(unittest.TestCase):
     def test_melee_build_without_melee_move_is_reported(self) -> None:
-        dex = _sample_dex("physical")[0]
+        dex = _sample_dex()[0]
         group = next(g for g, b in builds.candidates(dex).items() if b == "ranged")
         self.assertTrue(builds.violations(dex, "melee", group))
 
     def test_ranged_build_with_melee_move_is_reported(self) -> None:
-        dex = _sample_dex("physical")[0]
+        dex = _sample_dex()[0]
         group = next(g for g, b in builds.candidates(dex).items() if b == "melee")
         self.assertTrue(builds.violations(dex, "ranged", group))
 
-    def test_filler_is_reported(self) -> None:
-        dex = _sample_dex("physical")[0]
+    def test_buff_outside_the_pool_is_reported(self) -> None:
+        moves = builds.picks._v3_moves()
+        buffs = {m for m, v in moves.items() if v["kind"] == "buff"}
+        dex = next(d for d in sorted(builds.space()) if set(builds.pool_buffs(d)) != buffs)
+        missing = sorted(buffs - set(builds.pool_buffs(dex)))[0]
         group = next(iter(builds.candidates(dex)))
-        bad = group.replace(builds.picks.split_group(group)[0][0], "tackle", 1)
-        self.assertTrue(any("relleno" in e for e in builds.violations(dex, "ranged", bad)))
+        self.assertTrue(any("pool" in e for e in builds.violations(dex, "ranged", group + "+" + missing)))
 
 
 class Moves(unittest.TestCase):

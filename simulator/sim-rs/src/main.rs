@@ -28,7 +28,10 @@ mod stats;
 mod terrain;
 
 use data::{Data, Kind, Mon};
-use engine::{run_match, take_trace, Bot, Ext, Item, Opts, RunResult, Tables, DT};
+use engine::{run_match, take_trace, Bot, BuffKit, Ext, Item, Opts, RunResult, Tables, DT};
+
+/// The buffs of a searched group (engine.rs `BuffKit`).
+type Kit = BuffKit;
 use std::sync::{Mutex, OnceLock};
 
 /// dex -> simulated pool attacks sorted by solo (old-mode) median, best first
@@ -57,8 +60,11 @@ struct Cfg {
     legacy: bool,
     item: String,
     fill: Vec<u8>,
+    /// `--buffs N`: the bond bits of the default group (1 = track 0, 2 = track 1).
     buffs: Option<u8>,
-    /// The attack buff of a searched group. None picks it from the lead attack (`use_nasty`).
+    /// The buffs of a searched group (explicit names). None uses the default kit of `ext_for`.
+    kit: Option<Kit>,
+    /// The attack buff of the default group. None picks it from the lead attack (`use_nasty`).
     atk_buff: Option<AtkBuff>,
     comps: Option<Vec<String>>,
     /// second slot: swap when the active cooldown is above 35% of its base (player.js:148)
@@ -94,7 +100,7 @@ struct Cfg {
 }
 
 fn parse(args: &[String]) -> Cfg {
-    let mut c = Cfg { seeds: 200, seconds: 1800.0, bot: Bot::Play, cards: true, terrain: true, status: true, out: None, group: 0, dd: false, np: false, agi: false, xkinds: true, legacy: false, item: "none".into(), fill: vec![], buffs: None, atk_buff: None, comps: None, swap: false, crit: 0.0, full_cards: false, stop: 0, heal_below: 0.0, dodge: 0.0, locks: vec![], synergy: false, no_synergy: false, seed0: 0, count: false, list: false, only: None, explicit: false, parity: false, rest: vec![] };
+    let mut c = Cfg { seeds: 200, seconds: 1800.0, bot: Bot::Play, cards: true, terrain: true, status: true, out: None, group: 0, dd: false, np: false, agi: false, xkinds: true, legacy: false, item: "none".into(), fill: vec![], buffs: None, kit: None, atk_buff: None, comps: None, swap: false, crit: 0.0, full_cards: false, stop: 0, heal_below: 0.0, dodge: 0.0, locks: vec![], synergy: false, no_synergy: false, seed0: 0, count: false, list: false, only: None, explicit: false, parity: false, rest: vec![] };
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
@@ -316,9 +322,18 @@ fn ext_for(data: &Data, mon: &Mon, start: usize, cfg: &Cfg) -> Ext {
             AtkBuff::Sd
         }
     });
+    // Without a named kit, the default group holds Swords Dance (or the atk buff picked above) and
+    // Harden (or Agility) from t=0, the way the 2+2 and 3+1 defaults always did.
+    let bits = cfg.buffs.unwrap_or(match cfg.group { 2 => 3, 3 => 1, _ => 0 });
+    let kit = cfg.kit.or_else(|| {
+        (bits > 0).then(|| Kit {
+            buffs: bits,
+            ix: [data.move_ix[atk.id()], data.move_ix[if cfg.agi { "agility" } else { "harden" }]],
+        })
+    });
     Ext {
         companions,
-        buffs: cfg.buffs.unwrap_or(match cfg.group { 2 => 3, 3 => 1, _ => 0 }),
+        kit,
         dd: atk == AtkBuff::Dd,
         np: atk == AtkBuff::Np,
         agi: cfg.agi,
@@ -446,11 +461,7 @@ fn run_jobs<'a>(data: &'a Data, jobs: Vec<Job<'a>>, cfg: &Cfg) -> Vec<Row<'a>> {
                 if job.comps.is_some() {
                     sub.comps = Some(comps.iter().map(|&ix| data.moves[ix].id.clone()).collect());
                 }
-                if let Some(kit) = job.kit {
-                    sub.buffs = Some(kit.buffs);
-                    sub.atk_buff = Some(kit.atk);
-                    sub.agi = kit.agi;
-                }
+                sub.kit = job.kit;
                 run_species(data, &tables, job.mon, job.start, &sub)
             } else {
                 run_species(data, &tables, job.mon, job.start, cfg)
@@ -548,13 +559,6 @@ impl AtkBuff {
     }
 }
 
-/// The buffs of a group. `buffs` bit 1 bonds `atk`, bit 2 bonds Agility (`agi`) or Harden.
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
-struct Kit {
-    buffs: u8,
-    atk: AtkBuff,
-    agi: bool,
-}
 
 struct Spec {
     start: usize,
@@ -656,41 +660,27 @@ fn cat_of(data: &Data, ix: usize) -> u8 {
     data.moves[ix].levels[0].cat
 }
 
-/// Every buff fill of these attacks inside the four bond slots (start included).
-/// Two attacks: an attack buff plus Harden or Agility. Three attacks: an attack buff, or
-/// Harden or Agility. An attack buff that raises no attack of the group is left out
-/// (Danza Espada and Danza Dragón only raise physical moves, Maquinación only special
-/// ones), and Danza Dragón needs a species that learns it.
+/// Every buff set these attacks can hold: the buffs of the species pool (moves.js poolFor), with at most
+/// two buffs (levelup.js:47-49) and at most one next to three attacks (four bond slots, start included).
+/// Sets come in id order, so a group name is the same whatever order the pool lists them in.
 fn kits(data: &Data, mon: &Mon, attacks: &[usize]) -> Vec<Kit> {
-    let has = |cat: u8| attacks.iter().any(|&ix| cat_of(data, ix) == cat);
-    let mut atk = Vec::new();
-    if has(1) {
-        atk.push(AtkBuff::Sd);
-        if mon.pool.contains(&data.dragon_dance) {
-            atk.push(AtkBuff::Dd);
+    let mut buffs: Vec<usize> = mon.pool.iter().copied().filter(|&ix| data.moves[ix].kind_name == "buff").collect();
+    buffs.sort_by(|&x, &y| data.moves[x].id.cmp(&data.moves[y].id));
+    let max = match attacks.len() {
+        2 => 2,
+        3 => 1,
+        _ => 0,
+    };
+    let mut out = vec![Kit { buffs: 0, ix: [0, 0] }];
+    for (i, &x) in buffs.iter().enumerate() {
+        if max >= 1 {
+            out.push(Kit { buffs: 1, ix: [x, 0] });
         }
-    }
-    if has(2) {
-        atk.push(AtkBuff::Np);
-    }
-    let mut out = Vec::new();
-    match attacks.len() {
-        2 => {
-            for &a in &atk {
-                for agi in [false, true] {
-                    out.push(Kit { buffs: 3, atk: a, agi });
-                }
+        for &y in &buffs[i + 1..] {
+            if max >= 2 {
+                out.push(Kit { buffs: 3, ix: [x, y] });
             }
         }
-        3 => {
-            for &a in &atk {
-                out.push(Kit { buffs: 1, atk: a, agi: false });
-            }
-            for agi in [false, true] {
-                out.push(Kit { buffs: 2, atk: AtkBuff::Sd, agi });
-            }
-        }
-        _ => {}
     }
     out
 }
@@ -815,24 +805,16 @@ fn group_name(data: &Data, start: usize, comps: &[usize], kit: Kit) -> String {
     for &c in comps {
         parts.push(data.moves[c].id.clone());
     }
-    if kit.buffs & 1 != 0 {
-        parts.push(kit.atk.id().to_string());
-    }
-    if kit.buffs & 2 != 0 {
-        parts.push((if kit.agi { "agility" } else { "harden" }).to_string());
+    for k in 0..2 {
+        if kit.buffs & (1 << k) != 0 {
+            parts.push(data.moves[kit.ix[k]].id.clone());
+        }
     }
     parts.join("+")
 }
 
 fn ext_kit(ext: &Ext) -> Kit {
-    let atk = if ext.np {
-        AtkBuff::Np
-    } else if ext.dd {
-        AtkBuff::Dd
-    } else {
-        AtkBuff::Sd
-    };
-    Kit { buffs: ext.buffs, atk, agi: ext.agi }
+    ext.kit.unwrap_or(Kit { buffs: 0, ix: [0, 0] })
 }
 
 fn row_group(data: &Data, row: &Row, cfg: &Cfg) -> String {
@@ -1027,25 +1009,31 @@ fn tasks_cmd(data: &Data, cfg: &Cfg) {
             }
             sub.dd = cfg.dd;
             sub.agi = cfg.agi;
+            sub.kit = None;
             if !explicit.is_empty() {
                 sub.comps = Some(explicit);
             }
-            // optional 5th column: buffs held in the group, ';'-separated (sd, dd, hd, agi); "-" = none.
-            // An empty column keeps the group default (2+2 is Swords Dance and Harden).
+            // optional 5th column: buffs held in the group, ';'-separated move ids (the short names sd, dd,
+            // np, hd and agi also work); "-" = none. An empty column keeps the group default.
             if let Some(b) = c.get(4) {
                 if !b.is_empty() {
-                    let mut mask = 0u8;
+                    let mut kit = Kit { buffs: 0, ix: [0, 0] };
                     for x in b.split(';').filter(|x| !x.is_empty() && *x != "-") {
-                        match x {
-                            "sd" => mask |= 1,
-                            "dd" => { mask |= 1; sub.dd = true; }
-                            "np" => { mask |= 1; sub.np = true; }
-                            "hd" => mask |= 2,
-                            "agi" => { mask |= 2; sub.agi = true; }
-                            _ => panic!("buff {x}"),
-                        }
+                        let id = match x {
+                            "sd" => "swords-dance",
+                            "dd" => "dragon-dance",
+                            "np" => "nasty-plot",
+                            "hd" => "harden",
+                            "agi" => "agility",
+                            other => other,
+                        };
+                        let ix = *data.move_ix.get(id).unwrap_or_else(|| panic!("buff {x}"));
+                        assert!(data.moves[ix].kind_name == "buff" && kit.buffs != 3, "buff {x}");
+                        let k = if kit.buffs & 1 == 0 { 0 } else { 1 };
+                        kit.buffs |= 1 << k;
+                        kit.ix[k] = ix;
                     }
-                    sub.buffs = Some(mask);
+                    sub.kit = Some(kit);
                 }
             }
             // optional 9th column: species overrides for counterfactuals, "r=14.08;spd=105;hp=99;atk=1.17".
@@ -1110,7 +1098,7 @@ fn with_mods(mon: &Mon, mods: &str) -> Mon {
 }
 
 fn cfg_clone(c: &Cfg) -> Box<Cfg> {
-    Box::new(Cfg { seeds: c.seeds, seconds: c.seconds, bot: c.bot, cards: c.cards, terrain: c.terrain, status: c.status, out: None, group: c.group, dd: c.dd, np: c.np, agi: c.agi, xkinds: c.xkinds, legacy: c.legacy, item: c.item.clone(), fill: c.fill.clone(), buffs: c.buffs, atk_buff: c.atk_buff, comps: c.comps.clone(), swap: c.swap, crit: c.crit, full_cards: c.full_cards, stop: c.stop, heal_below: c.heal_below, dodge: c.dodge, locks: c.locks.clone(), synergy: c.synergy, no_synergy: c.no_synergy, seed0: c.seed0, count: c.count, list: c.list, only: c.only.clone(), explicit: c.explicit, parity: c.parity, rest: vec![] })
+    Box::new(Cfg { seeds: c.seeds, seconds: c.seconds, bot: c.bot, cards: c.cards, terrain: c.terrain, status: c.status, out: None, group: c.group, dd: c.dd, np: c.np, agi: c.agi, xkinds: c.xkinds, legacy: c.legacy, item: c.item.clone(), fill: c.fill.clone(), buffs: c.buffs, kit: c.kit, atk_buff: c.atk_buff, comps: c.comps.clone(), swap: c.swap, crit: c.crit, full_cards: c.full_cards, stop: c.stop, heal_below: c.heal_below, dodge: c.dodge, locks: c.locks.clone(), synergy: c.synergy, no_synergy: c.no_synergy, seed0: c.seed0, count: c.count, list: c.list, only: c.only.clone(), explicit: c.explicit, parity: c.parity, rest: vec![] })
 }
 
 fn cmp_run(a: &Summary, b: &Summary) -> std::cmp::Ordering {
@@ -1150,44 +1138,25 @@ fn tail_cols(s: &Summary) -> String {
     cols.join(",")
 }
 
-/// A group name as `group_name` writes it: attacks (start first), then the attack buff, then Harden or Agility.
+/// A group name as `group_name` writes it: attacks (start first), then the buffs in track order.
+/// Any move of the data can be named; a buff goes to the next free track, and a third buff is refused.
 fn parse_group(data: &Data, group: &str) -> Option<(usize, Vec<usize>, Kit)> {
     let mut atoms = Vec::new();
-    let mut atk = None;
-    let mut buffs = 0u8;
-    let mut agi = false;
+    let mut kit = Kit { buffs: 0, ix: [0, 0] };
     for part in group.split('+') {
-        match part {
-            "swords-dance" => {
-                atk = Some(AtkBuff::Sd);
-                buffs |= 1;
+        let ix = *data.move_ix.get(part)?;
+        if data.moves[ix].kind_name == "buff" {
+            if kit.buffs == 3 {
+                return None;
             }
-            "nasty-plot" => {
-                atk = Some(AtkBuff::Np);
-                buffs |= 1;
-            }
-            "dragon-dance" => {
-                atk = Some(AtkBuff::Dd);
-                buffs |= 1;
-            }
-            "harden" | "agility" => {
-                if buffs & 2 != 0 {
-                    return None;
-                }
-                buffs |= 2;
-                agi = part == "agility";
-            }
-            id => {
-                let ix = *data.move_ix.get(id)?;
-                if data.moves[ix].kind_name == "buff" {
-                    return None;
-                }
-                atoms.push(ix);
-            }
+            let k = if kit.buffs & 1 == 0 { 0 } else { 1 };
+            kit.buffs |= 1 << k;
+            kit.ix[k] = ix;
+        } else {
+            atoms.push(ix);
         }
     }
     let start = *atoms.first()?;
-    let kit = Kit { buffs, atk: atk.unwrap_or(AtkBuff::Sd), agi };
     Some((start, atoms[1..].to_vec(), kit))
 }
 
