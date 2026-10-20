@@ -385,7 +385,8 @@
         comboHtml(buildDamage(moves, pair[win].moves), win) + '</p>' : '') +
       '<button class="bd-share" type="button" aria-label="' + esc(t('build_share')) + '" title="' + esc(t('build_share')) + '">' + SHARE_SVG + '</button>' +
       '<span class="bd-toast" role="status" aria-live="polite"></span></header>' +
-      '<div class="bd-block bd-start">' + capOf('build_start') + '<ul class="bd-rows">' + startRow + '</ul></div>' +
+      '<div class="bd-block bd-start">' + capOf('build_start') + '<ul class="bd-rows">' + startRow + '</ul>' +
+      '<p class="bd-note">' + esc(t('build_start_note')) + '</p></div>' +
       (options.length > 1 ? '<p class="bd-cap">' + esc(t('bd_pair_cap')) + '</p>' : '') +
       '<div class="bd-pair' + (options.length > 1 ? '' : ' is-single') + '">' + options.join('') + '</div>' +
       '<div class="bd-gear">' + capOf('build_items') + '<ul class="bd-rows">' + itemRows + '</ul></div>' +
