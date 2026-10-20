@@ -254,16 +254,11 @@ def seo_check(base: str, body_by_url: dict[str, str], index: list[dict], err, no
         fresh_pages = {base, f"{base}en/", f"{base}metodo.html", f"{base}en/metodo.html"}
         if url in fresh_pages and (FRESH_LINE[lang] not in text or f"({legal.UPDATED_COMMIT})" not in text):
             err(f"{url}: falta la línea «{FRESH_LINE[lang]} …»")
-    top = sorted(index, key=lambda p: p["r"][0])[:30]
     for lang in ("", "en/"):
         html = body_by_url.get(f"{base}{lang}", "")
-        table = re.search(r'<section class="top30".*?</section>', html, re.S)
-        links = re.findall(r'<th scope="row"><a href="[^"]*pokemon/(\d+)-', table.group(0)) if table else []
-        if [int(d) for d in links] != [p["dex"] for p in top]:
-            err(f"{base}{lang}: la tabla de los 30 mejores no enlaza a las fichas en orden")
         ld = [json.loads(m.replace("<\\/", "</")) for m in LD_RE.findall(html)]
         types = {n["@type"] for d in ld for n in d.get("@graph", [d])}
-        if not {"WebSite", "ItemList", "Dataset"} <= types:
+        if not {"WebSite", "Dataset"} <= types:
             err(f"{base}{lang}: JSON-LD de la portada incompleto ({sorted(types)})")
     for url, html in pages.items():
         if re.search(r"/pokemon/\d+-[a-z0-9-]+/$", url):

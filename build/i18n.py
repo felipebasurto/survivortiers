@@ -27,7 +27,6 @@ STR: dict[str, tuple[str, str]] = {
     "nav_objetos": ("Objetos", "Items"),
     "nav_pasivas": ("Pasivas", "Passives"),
     "nav_gachas": ("Gacha", "Gacha"),
-    "nav_coleccion": ("Colección", "Collection"),
     "nav_acerca": ("Info", "About"),
     "lang_label": ("Idioma", "Language"),
     "theme_btn": ("Tema claro u oscuro", "Light or dark theme"),
@@ -89,16 +88,6 @@ STR: dict[str, tuple[str, str]] = {
                   "Ahora mismo en lo más alto: {top}.",
                   "{game} tier list with all {n} Pokémon ranked from simulated games, up to date with the {date} patch. "
                   "Right now at the top: {top}."),
-    "top30_h": ("Los 30 mejores Pokémon de {game}", "The 30 best Pokémon in {game}"),
-    "top30_lede": ("La misma lista en texto, por si no ves los dibujos. Cada nombre lleva a su ficha con la build y el cómo conseguirlo.",
-                   "The same list as plain text, in case you can't see the pictures. Each name links to its page with the build and how to get it."),
-    "top30_caption": ("Top 30 de la tier list de {game}", "Top 30 of the {game} tier list"),
-    "top30_rank": ("Puesto", "Rank"),
-    "top30_mon": ("Pokémon", "Pokémon"),
-    "top30_tier": ("Tier", "Tier"),
-    "top30_types": ("Tipos", "Types"),
-    "top30_band": ("Rango habitual", "Usual range"),
-    "top30_places": ("{lo} a {hi}", "{lo} to {hi}"),
     "card_title": ("{name} · nº {dex} · puesto {rank} · tier {tier}",
                    "{name} · no. {dex} · rank {rank} · tier {tier}"),
 
@@ -374,8 +363,7 @@ STR: dict[str, tuple[str, str]] = {
     "ataques_title": ("Ataques de {game} · {site}", "Moves in {game} · {site}"),
     "ataques_desc": ("Tier list de los {n} ataques de {game}.", "Tier list of the {n} moves in {game}."),
     "ataques_h1": ("Ataques de {game}", "Moves in {game}"),
-    "ataques_lede": ("Tier list de los ataques de {game}. 1× es un ataque normal; cuanto más alto, mejor.",
-                     "Tier list of the moves in {game}. 1× is a normal move; the higher, the better."),
+    "ataques_lede": ("Los ataques de {game}, de mejor a peor.", "The moves in {game}, best to worst."),
     "cat_melee": ("Cuerpo a cuerpo", "Melee"),
     "cat_ranged": ("Distancia", "Ranged"),
     "cat_stat": ("Potenciadores", "Boosts"),
@@ -385,7 +373,6 @@ STR: dict[str, tuple[str, str]] = {
     "mv_worse": ("peor", "worse"),
     "mv_search": ("Buscar ataque o tipo…", "Search a move or type…"),
     "mv_none": ("Ningún ataque coincide con la búsqueda.", "No move matches the search."),
-    "mv_example": ("Ejemplo: {name}", "Example: {name}"),
     "mv_evolves": ("Evoluciona a {move}", "Evolves into {move}"),
     "mv_evolves_card": ("Evoluciona a {move} con la carta {card}", "Evolves into {move} with the {card} card"),
     "mv_buff": ("Dura {dur} s, con recarga de {cd} s", "Lasts {dur} s, with a {cd} s cooldown"),
@@ -415,8 +402,9 @@ STR: dict[str, tuple[str, str]] = {
     "mv_kind_stun": ("Aturdimiento", "Stun"),
     "mv_new": ("Nuevo", "New"),
     "mv_unranked_h": ("Sin puesto", "Not ranked"),
-    "mv_unranked": ("Sin puesto: no hace daño por sí solo y la tier list mide ataques. Sus cifras son las del juego.",
-                    "Not ranked: it deals no damage on its own and the tier list measures attacks. Its numbers are the game's."),
+    "mv_unranked": ("No hace daño por sí solo, así que no entra en el ranking.",
+                    "It deals no damage on its own, so it is not ranked."),
+    "mv_read_h": ("Cómo leer las tarjetas", "How to read the cards"),
     "mv_stacks": ("Cada acumulación: {amt} de {stat}, hasta {n}", "Each stack: {amt} {stat}, up to {n}"),
     "mv_buff_max": ("Con las {ups} mejoras: {amt} por acumulación, hasta {n}, y dura {dur} s",
                     "With all {ups} upgrades: {amt} per stack, up to {n}, lasting {dur} s"),
@@ -463,8 +451,11 @@ STR: dict[str, tuple[str, str]] = {
     "gachas_title": ("Gacha de {game} · {site}", "Gacha for {game} · {site}"),
     "gachas_desc": ("Qué banner de gacha de {game} da más Pokémon top.",
                     "Which {game} gacha banner gives the most top Pokémon."),
-    "gachas_h1": ("Gacha de {game}", "Gacha for {game}"),
-    "g_yours": ("Tu colección dice dónde tirar.", "Your collection says where to pull."),
+    "gachas_h1": ("Gacha y colección de {game}", "Gacha and collection for {game}"),
+    "gc_tabs": ("Gacha o colección", "Gacha or collection"),
+    "tab_gacha": ("Gacha", "Gacha"),
+    "tab_coleccion": ("Mi colección", "My collection"),
+    "g_yours": ("Ver qué te falta en cada banner", "See what you're missing in each banner"),
     "g_one_in": ("1 de cada {n} es top", "1 in {n} is top"),
     "g_best": ("Mejor banner", "Best banner"),
     "g_worst": ("Mejor no", "Skip"),
@@ -473,7 +464,6 @@ STR: dict[str, tuple[str, str]] = {
     # ------------------------------------------------------------ colección
     "col_title": ("Mi colección de {game} · {site}", "My {game} collection · {site}"),
     "col_desc": ("Mira tu colección de {game} por tier.", "See your {game} collection by tier."),
-    "col_h1": ("Mi colección de {game}", "My {game} collection"),
     "col_step1_html": ("<strong>Abre el juego</strong> con tu cuenta. El modo invitado no guarda nada.",
                        "<strong>Open the game</strong> signed in. Guest mode saves nothing."),
     "col_step2_html": ("<strong>Pega esto en la consola</strong> (F12). Si te lo pide, escribe "
@@ -770,10 +760,8 @@ STR: dict[str, tuple[str, str]] = {
     "bp_mismatch_none": ("{boost} solo sube ataques {cat}, y este grupo no tiene ninguno.",
                          "{boost} only raises {cat} attacks, and this group has none."),
     "bp_mismatch_some": ("{boost} solo sube {n} de tus {total} ataques.", "{boost} only raises {n} of your {total} attacks."),
-    "bp_both": ("Danza Espada y Danza Dragón comparten el contador de ataque físico: no suman, y solo cuenta la última que se lanza. "
-                "No las lleves juntas.",
-                "Swords Dance and Dragon Dance share the physical attack counter: they don't add up, and only the last one to fire "
-                "counts. Don't take both."),
+    "bp_both": ("Danza Espada y Danza Dragón comparten el contador de ataque físico: no se suman. Elige solo una.",
+                "Swords Dance and Dragon Dance share the physical attack counter, so they don't add up. Pick one."),
     "bp_item_h": ("Objeto", "Item"),
     "bp_item_none": ("Sin objeto", "No item"),
     "bp_item_best": ("Recomendado", "Recommended"),
@@ -793,12 +781,10 @@ STR: dict[str, tuple[str, str]] = {
     "bp_rank": ("Puesto {rank} de {total} · tier {tier}", "Rank {rank} of {total} · tier {tier}"),
     "bp_open_sheet": ("Ver su ficha", "See its sheet"),
     "bp_boost_guide": ("Cómo funcionan los potenciadores", "How boosts work"),
-    "bp_how": ("Cada ataque es físico o especial, según la lista de movimientos del juego. Danza Espada y Danza Dragón suben "
-               "solo el físico y comparten contador; Maquinación sube el especial. Cada potenciador dura 7 s. Con dos potenciadores, "
-               "las cartas de movimiento nuevo ya no ofrecen más.",
-               "Each attack is physical or special, according to the game's move list. Swords Dance and Dragon Dance raise only "
-               "physical attack and share a counter; Maquinación raises special attack. Each boost lasts 7 s. With two boosts, "
-               "new-move cards stop offering more."),
+    "bp_how": ("Danza Espada y Danza Dragón suben solo el ataque físico y comparten contador. Maquinación sube el especial. "
+               "Cada potenciador dura 7 s. Con 2 potenciadores, las cartas de movimiento nuevo dejan de ofrecer potenciadores.",
+               "Swords Dance and Dragon Dance raise only physical attack and share a counter. Maquinación raises special attack. "
+               "Each boost lasts 7 s. With 2 boosts, new-move cards stop offering boosts."),
     "bp_source": ("Movimientos: <a href=\"{url}\" rel=\"noopener\">js/data/moves.js</a>. pa y sa: "
                   "<a href=\"{stats}\" rel=\"noopener\">js/data/pokedex.js</a>. Commit {sha}.",
                   "Moves: <a href=\"{url}\" rel=\"noopener\">js/data/moves.js</a> in the game. pa and sa: "

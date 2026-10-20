@@ -44,22 +44,19 @@ def physical_ids() -> frozenset[str]:
     return frozenset(mid for mid, m in _GAME_STATS["moves"].items() if m["cat"] == "physical")
 
 
-# Notas de los potenciadores. Cada una es una pareja (es, en). El límite de dos potenciadores es levelup.js:46-49
-# (recuento de los de tipo buff) y :56 (se quitan de la oferta de movimientos nuevos; las mejoras no). Los contadores
-# de ataque físico (patk) y especial (satk): player.js:42-50 y :99-102, combat.js:201-202.
-_CAP_ES = "Con dos potenciadores, las cartas de movimiento nuevo ya no ofrecen más."
-_CAP_EN = "With two boosts, new-move cards stop offering more."
+# Notas de los potenciadores. Cada una es una pareja (es, en). Las reglas de contador (cuántos a la vez y el
+# límite de dos) están en pasivas y en el planificador, no aquí. Contadores: player.js:42-50 y :99-102, combat.js:201-202.
 NOTES = {
     "swords-dance": (
-        "Solo sube el ataque físico y comparte contador con Danza Dragón: no se suman. " + _CAP_ES,
-        "Only raises physical attack and shares its counter with Dragon Dance: they don't add up. " + _CAP_EN,
+        "Solo sube el ataque físico. Comparte contador con Danza Dragón: no se suman.",
+        "Only raises physical attack. Shares its counter with Dragon Dance: they don't add up.",
     ),
     "dragon-dance": (
-        "Solo sube el ataque físico y comparte contador con Danza Espada: no se suman. " + _CAP_ES,
-        "Only raises physical attack and shares its counter with Swords Dance: they don't add up. " + _CAP_EN,
+        "Solo sube el ataque físico. Comparte contador con Danza Espada: no se suman.",
+        "Only raises physical attack. Shares its counter with Swords Dance: they don't add up.",
     ),
     "nasty-plot": (
-        "Solo sube el ataque especial y tiene su propio contador: una danza física no lo pisa. " + _CAP_ES,
-        "Only raises special attack and has its own counter: a physical dance doesn't overwrite it. " + _CAP_EN,
+        "Solo sube el ataque especial. Tiene su propio contador: una danza física no lo pisa.",
+        "Only raises special attack. It has its own counter: a physical dance doesn't overwrite it.",
     ),
 }

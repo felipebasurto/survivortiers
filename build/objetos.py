@@ -29,90 +29,76 @@ ITEMS = [
         "id": "choiceband", "name": ("Cinta Elección", "Choice Band"), "tiers": ("S", "A", "A"),
         "effect": ("+40 % de daño, pero no puedes cambiar de movimiento.",
                    "+40% damage, but you cannot switch moves."),
-        "reason": ("Si juegas con un grupo fijo de cuatro movimientos vinculados y no cambias nunca, el bloqueo no te "
-                   "cuesta nada y el +40 % es puro (también a los ataques del grupo). En la simulación de grupo fijo "
-                   "(2 ataques + Danza Espada y Fortaleza, vínculos al ganar la grieta, jefes y orbes de curación, "
-                   "150 Pokémon, 100 partidas) sube la mediana un 12 % (estimación). Solo pierde si todavía cambias de movimiento.",
-                   "If you play one fixed group of four bonded moves and never switch, the lock costs nothing and "
-                   "the +40% is pure (it applies to every move in the group). In the fixed-group simulation "
-                   "(2 attacks + Swords Dance and Harden, bonds when a rift is won, bosses and heal orbs, "
-                   "150 Pokémon, 100 runs) it raises the median by 12% (estimate). It only loses if you still switch moves."),
+        "reason": (
+        "Con cuatro movimientos fijos no pierdes nada. Si cambias de ataque a menudo, sí. Mediana +12 % (estimación).",
+        "With four fixed moves you lose nothing. If you switch attacks often, you do. Median +12% (estimate)."),
     },
     {
         "id": "luckyegg", "name": ("Huevo Suerte", "Lucky Egg"), "tiers": ("S", "S", "A"),
         "effect": ("+30 % de experiencia.", "+30% experience."),
-        "reason": ("Más niveles, más cartas. Un ×1,3 de XP suma pocos niveles, pero la prueba con ×3,2 pasa de "
-                   "21 / 39 / 49 a 34 / 62 / 77 niveles a los 5 / 10 / 15 min.",
-                   "More levels, more cards. A ×1.3 XP gain adds only a few levels, but the ×3.2 test goes from "
-                   "21 / 39 / 49 to 34 / 62 / 77 levels at 5 / 10 / 15 min."),
+        "reason": (
+        "Más niveles, más cartas. Con ×3,2 de XP, a los 10 min pasas de 39 a 62 niveles.",
+        "More levels, more cards. At ×3.2 XP, you go from 39 to 62 levels at 10 min."),
     },
     {
         "id": "choicescarf", "name": ("Pañuelo Elección", "Choice Scarf"), "tiers": ("S", "A", "B"),
         "effect": ("+35 % de velocidad.", "+35% speed."),
-        "reason": ("Sale del enjambre cuando aún no tienes defensa. Pierde valor cuando matas rápido.",
-                   "Gets you out of the swarm before you have defence. Loses value when you kill fast."),
+        "reason": (
+        "Te saca del enjambre antes de tener defensa. Vale menos si matas rápido.",
+        "Gets you out of the swarm before you have defence. Worth less if you kill fast."),
     },
     {
         "id": "quickclaw", "name": ("Garra Rápida", "Quick Claw"), "tiers": ("A", "A", "A"),
         "effect": ("-20 % de recarga en todos tus movimientos.", "-20% cooldown on all your moves."),
-        "reason": ("Ritmo de disparo para todo tu arsenal, sin depender de qué ataque tengas.",
-                   "Fire rate for your whole arsenal, no matter which moves you have."),
+        "reason": (
+        "Recarga más rápida para todo tu arsenal, sea cual sea el ataque.",
+        "Faster cooldowns for your whole arsenal, whatever the attack."),
     },
     {
         "id": "lifeorb", "name": ("Vidasfera", "Life Orb"), "tiers": ("B", "C", "C"),
         "effect": ("+30 % de daño, pero cada ataque te quita un poco de vida.",
                    "+30% damage, but each attack costs you some HP."),
-        "reason": ("Cada ataque te cuesta el 1 % de tu vida máxima (no te mata, y las órbitas y el rastro no cuentan). Con varios "
-                   "movimientos, esas pérdidas se acumulan.",
-                   "Each attack costs 1% of your max HP (it cannot kill you, and orbits and trails do not count). With several "
-                   "moves, those losses add up."),
+        "reason": (
+        "Cada ataque te quita el 1 % de tu vida máxima. Con varios ataques, se acumula.",
+        "Each attack costs 1% of your max HP. With several attacks, it adds up."),
     },
     {
         "id": "assaultvest", "name": ("Chaleco Asalto", "Assault Vest"), "tiers": ("B", "A", "B"),
         "effect": ("+20 % de reducción de daño recibido.", "+20% damage reduction."),
-        "reason": ("Vale más mientras la reducción total esté lejos del tope del 80 %. Las cartas Coraza suman "
-                   "reducción por el mismo camino, así que, con ellas, el tope llega antes.",
-                   "Worth more while your total reduction is far from the 80% cap. Armor cards add reduction too, "
-                   "so with them the cap is reached sooner."),
+        "reason": (
+        "Vale más mientras tu reducción total esté lejos del tope del 80 %. Las cartas Coraza lo acercan.",
+        "Worth more while your total reduction is far from the 80% cap. Armor cards get you there faster."),
     },
     {
         "id": "rockyhelmet", "name": ("Casco Dentado", "Rocky Helmet"), "tiers": ("B", "A", "A"),
         "effect": ("Los que te golpean cuerpo a cuerpo reciben daño.",
                    "Enemies that hit you in melee take damage."),
-        "reason": ("Cuando un enemigo te toca, le devuelve 15 + 4 × tu nivel de daño. A nivel 30 son 135 de golpe; "
-                   "a nivel 100, 415. Solo cuenta contra los que te tocan. En la simulación de grupo fijo la mediana "
-                   "solo sube un 3 % (estimación): las partidas acaban antes de que ese daño escale.",
-                   "When an enemy touches you, it takes 15 + 4 × your level in damage. At level 30 that is 135 per hit; "
-                   "at level 100, 415. Only counts against enemies that touch you. In the fixed-group simulation the "
-                   "median only rises by 3% (estimate): runs end before that damage scales."),
+        "reason": (
+        "Devuelve 15 + 4 × tu nivel a quien te toca: 135 a nivel 30. Mediana +3 % (estimación).",
+        "Hits back 15 + 4 × your level at whoever touches you: 135 at level 30. Median +3% (estimate)."),
     },
     {
         "id": "leftovers", "name": ("Restos", "Leftovers"), "tiers": ("C", "B", "B"),
         "effect": ("Recuperas un 1,5 % de tu vida máxima por segundo.",
                    "Recover 1.5% of your max HP per second."),
-        "reason": ("En la misma simulación de grupo fijo sube la mediana un 28 % (estimación). El bot no esquiva, "
-                   "así que esa cifra es un techo: en una partida de verdad pesa menos. Escala con la vida máxima.",
-                   "In the same fixed-group simulation it raises the median by 28% (estimate). The bot does not dodge, "
-                   "so that figure is a ceiling: in a real run it matters less. It scales with max HP."),
+        "reason": (
+        "Mediana +28 % (estimación). El bot no esquiva, así que es un techo. Escala con tu vida máxima.",
+        "Median +28% (estimate). The bot doesn't dodge, so treat it as a ceiling. It scales with max HP."),
     },
     {
         "id": "shellbell", "name": ("Cascabel Concha", "Shell Bell"), "tiers": ("A", "B", "C"),
         "effect": ("Recuperas vida con el daño que haces.", "Heal from the damage you deal."),
-        "reason": ("Cura el 4 % del daño que haces, con un tope de 4 de vida por segundo. En la simulación de grupo "
-                   "fijo (150 Pokémon, 100 partidas) sube la mediana un 36 % (estimación): al principio 4 de vida "
-                   "por segundo es mucho. Con vida máxima alta, el tope apenas cura.",
-                   "Heals 4% of the damage you deal, capped at 4 HP per second. In the fixed-group simulation "
-                   "(150 Pokémon, 100 runs) it raises the median by 36% (estimate): early on, 4 HP per second is a "
-                   "lot. With high max HP, the cap barely heals."),
+        "reason": (
+        "Cura el 4 % del daño que haces, con tope de 4 de vida por segundo. Mediana +36 % (estimación).",
+        "Heals 4% of the damage you deal, capped at 4 HP per second. Median +36% (estimate)."),
     },
     {
         "id": "focussash", "name": ("Banda Focus", "Focus Sash"), "tiers": ("C", "B", "A"),
         "effect": ("Un golpe que te dejaría KO te deja con 1 de vida (cada 60 s).",
                    "A hit that would KO you leaves you at 1 HP (once every 60 s)."),
-        "reason": ("Lista desde el primer segundo. En la simulación de grupo fijo sube la mediana un 6 % (estimación). "
-                   "En la partida tardía, con enemigos que pegan fuerte, cada golpe salvado decide más partidas.",
-                   "Ready from the first second. In the fixed-group simulation it raises the median by 6% (estimate). "
-                   "Late game, with hard-hitting enemies, each saved hit decides more runs."),
+        "reason": (
+        "Mediana +6 % (estimación). Vale más en partidas tardías, con enemigos que pegan fuerte.",
+        "Median +6% (estimate). Worth more late, against hard-hitting enemies."),
     },
 ]
 

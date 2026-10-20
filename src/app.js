@@ -351,9 +351,7 @@
 
   function syncDir() {
     const b = $('#dir');
-    const label = sortDesc ? b.dataset.desc : b.dataset.asc;
-    b.setAttribute('aria-label', label);
-    b.title = label;
+    $('#dir-label').textContent = sortDesc ? b.dataset.desc : b.dataset.asc;
     b.classList.toggle('desc', sortDesc);
   }
 
@@ -817,16 +815,36 @@
     if (dlg && dlg.open) dlg.close();
   }
 
-  // Progreso en cada tarjeta de gacha (página Gacha), si hay una colección guardada.
+  // Progreso en cada tarjeta de gacha con la colección guardada. Sin colección, la línea queda vacía.
+  // Se llama al cargar, al importar y al olvidar, así las dos pestañas no se contradicen.
   function initGachaProgress() {
     const saved = readSaved();
-    if (!saved) return;
-    const owned = new Set(saved.c.dex);
+    const owned = saved ? new Set(saved.c.dex) : null;
     const pools = bannerPools(state.mons);
     $$('.gc-own').forEach(el => {
+      if (!owned) { el.textContent = ''; return; }
       const b = pools.get(+el.dataset.gen);
       el.textContent = TEXT.ownedIn(b.all.filter(d => owned.has(d)).length, b.all.length);
     });
+  }
+
+  // Gacha y colección son dos pestañas de la misma página. El hash se deja para los enlaces #c= de la colección.
+  function initTabs() {
+    const root = $('#gc-tabs');
+    if (!root) return;
+    const show = name => {
+      $$('[data-tab]', root).forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tab === name)));
+      $$('.gc-panel').forEach(p => { p.hidden = p.dataset.panel !== name; });
+    };
+    root.addEventListener('click', e => {
+      const b = e.target.closest('[data-tab]');
+      if (b) show(b.dataset.tab);
+    });
+    document.addEventListener('click', e => {
+      const go = e.target.closest('[data-go-tab]');
+      if (go) show(go.dataset.goTab);
+    });
+    show(location.hash.startsWith('#c=') ? 'coleccion' : root.dataset.tab);
   }
 
   function showError(msg) {
@@ -1395,6 +1413,7 @@
       renderCollection(c, viewing.opts);
       renderSaved(stored === false ? 'failed' : 'own');
       showImport(false);
+      initGachaProgress();
     };
     const showView = () => {
       syncLangHash();
@@ -1466,6 +1485,7 @@
         $('#result').innerHTML = '';
         renderSaved('forgot');
         showImport(true);
+        initGachaProgress();
       } else if (btn.id === 'reimport') {
         showImport(true);
         area.scrollIntoView({ block: 'start' });
@@ -1901,8 +1921,11 @@
     getJSON('pokemon-index.json').then(mons => {
       state.mons = mons; indexMons(mons);
       if (page === 'index') initTierList();
-      else if (page === 'coleccion') initCollection();
-      else initGachaProgress();
+      else {
+        initTabs();
+        initGachaProgress();
+        initCollection();
+      }
     }).catch(err => {
       const el = $('#result') || $('#count');
       if (el) el.textContent = TEXT.loadFailAll(err.message);

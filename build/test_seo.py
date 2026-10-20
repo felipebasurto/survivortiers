@@ -18,7 +18,6 @@ sys.path.insert(0, str(ROOT / "build"))
 
 import agents  # noqa: E402
 import legal  # noqa: E402
-import seo  # noqa: E402
 from i18n import EN, ES  # noqa: E402
 
 SITE = ROOT / "site"
@@ -56,22 +55,13 @@ class Home(unittest.TestCase):
             html = _read(rel)
             self.assertLess(html.index("<h1>"), html.index('class="sprites-defs"'), rel)
 
-    def test_top30_table_links_the_first_thirty_in_order(self) -> None:
-        index = sorted(_index(), key=lambda p: p["r"][0])[:30]
-        for rel in ("index.html", "en/index.html"):
-            table = re.search(r'<section class="top30".*?</section>', _read(rel), re.S).group(0)
-            dex = [int(d) for d in re.findall(r'<th scope="row"><a href="[^"]*pokemon/(\d+)-', table)]
-            self.assertEqual(dex, [p["dex"] for p in index], rel)
-
-    def test_json_ld_has_website_and_itemlist_with_date(self) -> None:
+    def test_json_ld_has_website_collection_and_dataset_with_date(self) -> None:
         for rel in ("index.html", "en/index.html"):
             nodes = _graph(_read(rel))
             kinds = {n["@type"] for n in nodes}
-            self.assertTrue({"WebSite", "CollectionPage", "ItemList", "Dataset"} <= kinds, rel)
+            self.assertTrue({"WebSite", "CollectionPage", "Dataset"} <= kinds, rel)
             page = next(n for n in nodes if n["@type"] == "CollectionPage")
             self.assertRegex(page["dateModified"], r"^\d{4}-\d{2}-\d{2}$")
-            items = next(n for n in nodes if n["@type"] == "ItemList")["itemListElement"]
-            self.assertEqual(len(items), 30)
 
     def test_hreflang_pair_is_absolute_on_the_home(self) -> None:
         es, en = _read("index.html"), _read("en/index.html")
