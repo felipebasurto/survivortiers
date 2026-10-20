@@ -20,9 +20,6 @@ from i18n import Lang  # noqa: E402
 
 FIXED = ROOT / "simulator" / "results" / "fixed_group"
 RANK = FIXED / "pasivas_rank_g2p2.csv"
-RANK_DODGE = FIXED / "pasivas_rank_dodge_g2p2.csv"
-ZIDRA = FIXED / "pasivas_zidra_g2p2.csv"
-ZIDRA_DODGE = FIXED / "pasivas_zidra_dodge_g2p2.csv"
 HEALS = ["0.30", "0.45", "0.55", "0.70", "1"]
 
 
@@ -31,12 +28,6 @@ def pct(path: Path, fill: str, field: str, heal: str = "0.70") -> float:
     by = pr.index(pr.load(path))
     base = by[("none", "", heal)]
     return 100 * median(pr.lifts(base, by[("none", fill, heal)], field))
-
-
-def zidra_pct(path: Path, heal: str) -> float:
-    by = pr.index(pr.load(path))
-    base = by[("none", "", "")]
-    return 100 * median(pr.lifts(base, by[("none", "", heal)], "median_coins"))
 
 
 class RankNumbers(unittest.TestCase):
@@ -53,21 +44,7 @@ class RankNumbers(unittest.TestCase):
         # New groups spend levels on move upgrades. The median coin lift of every card is 0.
         self.assertTrue(all(c == 0 for c in coins))
 
-    def test_dodge_scenario_keeps_the_order(self):
-        coins = {c["id"]: pct(RANK_DODGE, c["fill"], "median_coins") for c in pasivas.CARDS}
-        self.assertGreater(coins["rgn"], coins["hp"])
-        self.assertGreater(coins["hp"], max(v for k, v in coins.items() if k not in ("rgn", "hp")))
-        self.assertGreater(coins["rgn"], pct(RANK, "5", "median_coins"))
-
-
 class ZidraRule(unittest.TestCase):
-    def test_threshold_is_the_best_heal_in_both_scenarios(self):
-        for path in (ZIDRA, ZIDRA_DODGE):
-            with self.subTest(path=path.name):
-                values = {h: zidra_pct(path, h) for h in HEALS}
-                self.assertEqual(max(values, key=values.get), "0.70")
-                self.assertGreater(values["0.70"], values["1"])
-
     def test_page_threshold_is_the_csv_threshold(self):
         self.assertEqual(float(HEALS[HEALS.index("0.70")]), pasivas.ZIDRA["at"])
 

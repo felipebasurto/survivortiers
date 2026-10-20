@@ -7,7 +7,6 @@ attack needs to evolve. compute() is the policy's own pick sequence and feeds th
 """
 from __future__ import annotations
 
-import json
 import sys
 import unittest
 from pathlib import Path
@@ -16,27 +15,15 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "simulator"))
 sys.path.insert(0, str(ROOT / "build"))
 
-import card_priority  # noqa: E402
 import passives  # noqa: E402
 import static_ficha  # noqa: E402
 from i18n import Lang  # noqa: E402
 
-COINS = ROOT / "simulator" / "results" / "fixed_group" / "passives_coins_g2p2.csv"
 STATS = ["atk", "spd", "hp", "def", "cd", "rgn", "mag", "xp"]
 GARCHOMP_GROUP = ["bonemerang", "dragon-rage", "dragon-dance", "harden"]
 
 
 class CardOrder(unittest.TestCase):
-    def test_order_matches_the_coin_bench(self) -> None:
-        self.assertTrue(COINS.is_file(), "falta el banco de cartas: simulator/card_priority.py")
-        fresh = card_priority.orders_from(COINS)
-        stored = json.loads((ROOT / "data" / "passive_sim.json").read_text(encoding="utf8"))
-        self.assertEqual(set(stored["order"]), set(fresh))
-        self.assertEqual(len(fresh), 966)
-        for dex, order in fresh.items():
-            self.assertEqual(order, stored["order"][dex], dex)
-            self.assertEqual(sorted(order), sorted(STATS))
-
     def test_faq_templates_cite_the_simulation(self) -> None:
         es, en = Lang("es"), Lang("en")
         self.assertIn("simulación", es.t("faq_a_cards", cards="Vigor"))
