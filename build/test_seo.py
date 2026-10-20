@@ -42,15 +42,14 @@ def _graph(html: str) -> list[dict]:
 
 
 class Home(unittest.TestCase):
-    def test_lede_is_text_before_the_tier_list_and_names_the_top_five(self) -> None:
+    def test_tier_list_comes_first_and_shows_the_top_five(self) -> None:
         index = _index()
-        for rel, lang, key in (("index.html", ES, "name"), ("en/index.html", EN, "nameEn")):
+        for rel, lang in (("index.html", ES), ("en/index.html", EN)):
             html = _read(rel)
-            lede = re.search(r'<p class="tagline">(.*?)</p>', html, re.S).group(1)
-            text = html_lib.unescape(re.sub(r"<[^>]+>", "", lede))
-            self.assertLess(html.index('<p class="tagline">'), html.index('id="tierlist"'))
+            self.assertNotIn('<p class="tagline">', html)
+            tiers = html[html.index('id="tierlist"'):]
             for p in sorted(index, key=lambda p: p["r"][0])[:5]:
-                self.assertIn(f"{lang.mon(p)} ({p['r'][1]})", text)
+                self.assertIn(lang.mon(p), html_lib.unescape(tiers))
 
     def test_svg_defs_come_after_the_h1(self) -> None:
         for rel in ("index.html", "pokemon/150-mewtwo/index.html"):

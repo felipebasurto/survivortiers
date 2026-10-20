@@ -3,7 +3,7 @@
     python3 build/check_site.py http://localhost:8765/
     python3 build/check_site.py https://mi-proyecto.vercel.app/ --external
 
-Comprueba, en español y en inglés: enlaces internos y anclas sin romper, aviso legal en cada página, conteos por
+Comprueba, en español y en inglés: enlaces internos y anclas sin romper, aviso legal en Info, conteos por
 tier, % de gacha, barras en cada ataque, que el inglés no mezcla español, que los créditos de sprites solo salen en
 Acerca y cubren los 966 Pokémon, que no se carga nada de otros dominios salvo los sprites del repositorio (jsDelivr o
 el sitio mismo), que cada Pokémon tiene sus datos y su sprite, que los enlaces viejos /pokemon/<n>.html caen en la
@@ -255,15 +255,8 @@ def seo_check(base: str, body_by_url: dict[str, str], index: list[dict], err, no
         if url in fresh_pages and (FRESH_LINE[lang] not in text or f"({legal.UPDATED_COMMIT})" not in text):
             err(f"{url}: falta la línea «{FRESH_LINE[lang]} …»")
     top = sorted(index, key=lambda p: p["r"][0])[:30]
-    for lang, key in (("", "name"), ("en/", "nameEn")):
+    for lang in ("", "en/"):
         html = body_by_url.get(f"{base}{lang}", "")
-        lede = re.search(r'<p class="tagline">(.*?)</p>', html, re.S)
-        lede_text = html_lib.unescape(re.sub(r"<[^>]+>", "", lede.group(1))) if lede else ""
-        if not lede or html.index('<p class="tagline">') > html.index('id="tierlist"'):
-            err(f"{base}{lang}: falta el párrafo de la portada antes de la tier list")
-        missing = [p[key] for p in top[:5] if p[key] not in lede_text]
-        if missing:
-            err(f"{base}{lang}: el párrafo de la portada no nombra a los cinco primeros ({missing})")
         table = re.search(r'<section class="top30".*?</section>', html, re.S)
         links = re.findall(r'<th scope="row"><a href="[^"]*pokemon/(\d+)-', table.group(0)) if table else []
         if [int(d) for d in links] != [p["dex"] for p in top]:
@@ -712,9 +705,11 @@ def main() -> int:
         if re.search(r"\bv[34]\b|fórmula v", text, re.I):
             err(f"{url}: menciona una fórmula interna (v3/v4)")
         english = url.startswith(base + "en/")
-        notice = ("unofficial", "not affiliated") if english else ("no oficial", "no afiliado")
-        if not all(n in text.lower() for n in notice):
-            err(f"{url}: falta el aviso de fan no oficial")
+        # el aviso de fan no oficial vive en Info (acerca), no en el pie de cada página
+        if url.endswith("acerca.html"):
+            notice = ("unofficial", "not affiliated") if english else ("no oficial", "no afiliado")
+            if not all(n in text.lower() for n in notice):
+                err(f"{url}: falta el aviso de fan no oficial")
         lang = re.search(r'<html lang="(\w+)"', body_by_url[url])
         if not lang or lang.group(1) != ("en" if english else "es"):
             err(f"{url}: atributo lang incorrecto")

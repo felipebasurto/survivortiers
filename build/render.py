@@ -240,7 +240,6 @@ def page(c: Ctx, page_id: str, title: str, description: str, content: str, meta:
     nav = _nav_html(c, page_id)
     build_info = f'{legal.GAME_NAME} {meta["gameCommit"]}, ranking {meta["version"]}, generated {meta["generatedAt"][:10]}'
     switch, alternates = "", ""
-    foot = L.t("foot_html", about=f"{c.home}acerca.html")
     if c.other:
         links = "".join(
             f'<a href="{c.other if code != L.code else "#"}" lang="{code}" hreflang="{code}"'
@@ -250,8 +249,8 @@ def page(c: Ctx, page_id: str, title: str, description: str, content: str, meta:
     return BASE.substitute(
         lang=L.code, assets=c.assets, home=c.home, sprites=esc(SPRITES), sprites_alt=esc(legal.SPRITE_ALT), sprites_ext=EXT, asset_v=ASSET_V, page_id=page_id, title=esc(title),
         description=esc(description), alternates=alternates, skip=esc(L.t("skip")),
-        nav_aria=esc(L.t("nav_main")), foot_aria=esc(L.t("nav_foot")), switch=switch, theme=theme_button(L), nav=nav,
-        content=content, foot=foot, build_info=esc(build_info.replace("--", "-")),
+        nav_aria=esc(L.t("nav_main")), switch=switch, theme=theme_button(L), nav=nav,
+        content=content, build_info=esc(build_info.replace("--", "-")),
         extra_head=extra_head, social=social, follow=follow, analytics=analytics, theme_init=theme.script_tag())
 
 
@@ -298,7 +297,6 @@ def render_index(c: Ctx, pokemon: list[dict], meta: dict) -> str:
 
 <h1>{esc(L.t("index_h1", game=legal.GAME_NAME))}</h1>
 <p class="fresh">{esc(legal.freshness_text(L, meta))}</p>
-<p class="tagline">{seo.lede_html(L, pokemon, meta, c.home)}</p>
 <div class="finder">
   <div class="search">
     <label class="sr" for="q">{esc(L.t("search_label"))}</label>

@@ -31,12 +31,6 @@ def home_texts(L: Lang, index: list[dict], meta: dict) -> tuple[str, str]:
     return title, desc
 
 
-def lede_html(L: Lang, index: list[dict], meta: dict, home: str) -> str:
-    return L.t("value_html", top=escape(top_names(L, index)), n=meta["total"], date=L.date(legal.UPDATED_DATE),
-               sha=legal.UPDATED_COMMIT, built=L.date(meta["generatedAt"][:10]), method=f"{home}metodo.html",
-               repo=escape(legal.REPO_URL), **legal.method_counts(L, meta))
-
-
 def top30_html(L: Lang, index: list[dict], home: str) -> str:
     rows = []
     for p in _ranked(index, TOP_TABLE):

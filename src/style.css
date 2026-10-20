@@ -54,7 +54,7 @@
 }
 /* Tokens oscuros (la paleta del juego): con el tema elegido a mano (data-theme) o, sin elección, con el sistema en oscuro. */
 :root[data-theme="dark"] {
-  --bg: #050914; --ink: #ffffff; --ink-2: #b9cbf0; --rule: #2c519f; --rule-soft: #0f1d3f; --grid: transparent;
+  --bg: #14265a; --ink: #ffffff; --ink-2: #c3d4f5; --rule: #3d63b5; --rule-soft: #1f3c7a; --grid: transparent;
   --accent: #ffd23f; --on-accent: #3a2300; --gold: #ffd23f; --gold-2: #f0a31e; --gold-ink: #3a2300; --link: #8fb8ff;
   --tb-A: #ffffff; --tb-B: #b9cbf0; --tb-C: #7f94bd;
   --up: #5fe08a; --down: #ff8a8a;
@@ -69,7 +69,7 @@
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #050914; --ink: #ffffff; --ink-2: #b9cbf0; --rule: #2c519f; --rule-soft: #0f1d3f; --grid: transparent;
+    --bg: #14265a; --ink: #ffffff; --ink-2: #c3d4f5; --rule: #3d63b5; --rule-soft: #1f3c7a; --grid: transparent;
     --accent: #ffd23f; --on-accent: #3a2300; --gold: #ffd23f; --gold-2: #f0a31e; --gold-ink: #3a2300; --link: #8fb8ff;
     --tb-A: #ffffff; --tb-B: #b9cbf0; --tb-C: #7f94bd;
     --arena-bg: #0a1430; --arena-wall: #2c519f; --arena-water: #2c5a96; --arena-enemy: #ff7b3d;
@@ -110,10 +110,6 @@ img.px { image-rendering: pixelated; image-rendering: crisp-edges; }
 .nav a[aria-current="page"] { color: var(--ink); border-bottom-color: var(--accent); }
 
 main { flex: 1; padding-block: 44px 72px; }
-.foot { border-top: 1px solid var(--rule); color: var(--ink-2); font: .8125rem/1.55 var(--sans); padding-block: 22px 28px; }
-.foot p { max-width: 85ch; margin: 0; }
-.foot a { color: var(--ink-2); }
-
 /* ---------- texto ---------- */
 h1 { font: 700 clamp(2rem, 4.4vw, 3rem)/1.1 var(--ui); letter-spacing: -.015em; margin: 0 0 14px; }
 h2 { font: 700 1.5rem/1.25 var(--ui); margin: 48px 0 16px; }
@@ -902,7 +898,6 @@ pre.snippet { background: var(--rule-soft); padding: 14px; overflow: auto; max-h
 
 /* ---------- textos explicativos y números legibles ---------- */
 p.lede { font: 1.1rem/1.55 var(--sans); color: var(--ink-2); max-width: 66ch; margin: 0 0 26px; }
-p.tagline { font: .9375rem/1.5 var(--sans); color: var(--ink-2); max-width: 86ch; margin: 0 0 24px; }
 .fig-lede { font: .95rem/1.5 var(--sans); color: var(--ink-2); max-width: 64ch; margin: -8px 0 16px; }
 .fig-note { font: .8125rem/1.45 var(--sans); color: var(--ink-2); margin: 12px 0 0; }
 .met-steps { list-style: none; counter-reset: ms; margin: 30px 0 8px; padding: 0; max-width: 72ch; display: grid; gap: 18px; }
@@ -1486,7 +1481,6 @@ html { overflow-x: hidden; }
   .nav-menu a[aria-current="page"] { background: var(--accent); color: var(--on-accent); }
   main { padding-block: 20px 56px; }
   h1 { font-size: 1.9rem; margin-bottom: 16px; }
-  p.tagline { font-size: .875rem; margin-bottom: 20px; }
   h2 { font-size: 1.3rem; margin-top: 40px; }
   /* tier list: buscador arriba, orden en una fila y agrupación deslizable; 5 por fila a 360-414 px */
   .finder { grid-template-columns: 1fr; gap: 10px; }
@@ -1779,10 +1773,7 @@ html { overflow-x: hidden; }
 }
 
 /* Portada: párrafo de arriba, tabla de los 30 mejores y línea de actualización */
-p.tagline { font-size: 1rem; line-height: 1.55; color: var(--ink); }
-p.tagline a { color: var(--accent); }
 p.fresh { font: .8125rem/1.4 var(--sans); color: var(--ink-2); margin: 0 0 14px; }
-.foot p.fresh { margin: 10px 0 0; }
 .top30 { margin: 48px 0 8px; }
 .top30 > p { max-width: 62ch; margin: 0 0 14px; }
 .top30 table { max-width: 46rem; }

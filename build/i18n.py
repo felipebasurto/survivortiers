@@ -20,7 +20,6 @@ STR: dict[str, tuple[str, str]] = {
                "Unofficial PokéSurvivor tier list: S-tier cards with pixel-art sprites."),
     "follow_label": ("Sigue a {handle} en X", "Follow {handle} on X"),
     "nav_main": ("Principal", "Main"),
-    "nav_foot": ("Pie", "Footer"),
     "nav_tiers": ("Tiers", "Tiers"),
     "nav_novedades": ("Novedades", "Updates"),
     "nav_metodo": ("Método", "Method"),
@@ -77,18 +76,6 @@ STR: dict[str, tuple[str, str]] = {
                  "No Pokémon match. Try another name or type."),
     "noscript": ("El buscador y el filtro de ataque necesitan JavaScript.",
                  "Search and the attack filter need JavaScript."),
-    "value_html": (
-        'Los cinco primeros de {game}: {top}. Tier list de fans con {n} Pokémon, cada uno simulado en {sims} partidas. '
-        'El ranking mide cuánto aguanta, cuánto daño hace y a cuántos enemigos derrota. '
-        '<a href="{method}">Cómo se calcula</a> · <a href="{repo}" rel="noopener">código y datos en GitHub</a>.',
-        'Top five in {game}: {top}. A fan-made tier list of {n} Pokémon, each simulated in {sims} games. '
-        'The ranking measures how long they survive, how much damage they deal and how many enemies they defeat. '
-        '<a href="{method}">How it is calculated</a> · <a href="{repo}" rel="noopener">code and data on GitHub</a>.'),
-    "foot_html": (
-        'Sitio de fans, no oficial y no afiliado a Nintendo ni The Pokémon Company. Sprites: SpriteCollab (CC BY-NC 4.0). '
-        '<a href="{about}">Info y créditos</a>.',
-        'Fan site, unofficial and not affiliated with Nintendo or The Pokémon Company. Sprites: SpriteCollab (CC BY-NC 4.0). '
-        '<a href="{about}">Info and credits</a>.'),
     "filters_btn": ("Filtros y orden", "Filters and sorting"),
     "nav_more": ("Más", "More"),
     "about_value_html": (
