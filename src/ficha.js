@@ -248,6 +248,16 @@
     esc(t('dmg_' + m.damage)) + '</span>' : '';
   // Cuerpo a cuerpo o a distancia (build/static_ficha.py range_html): color e icono propios.
   const rangeChip = c => '<span class="rng-tag is-' + c + '" title="' + esc(t('rng_tip_' + c)) + '">' + esc(t('bd_' + c)) + '</span>';
+  // Tipo de daño de una build: físico o especial si todos sus ataques de daño lo son, mixto si mezcla. Potenciadores fuera.
+  const DMG_KEY = { physical: 'dmg_physical', special: 'dmg_special', mix: 'dmg_mix' };
+  const buildDamage = (moves, ids) => {
+    const kinds = new Set(ids.map(id => moves.find(x => x.id === id))
+      .filter(m => m && (m.damage === 'physical' || m.damage === 'special')).map(m => m.damage));
+    if (!kinds.size) return null;
+    return kinds.size === 2 ? 'mix' : [...kinds][0];
+  };
+  // Tipo de daño y rango de una build, con las mismas etiquetas que los ataques (build/static_ficha.py combo_html).
+  const comboHtml = (dmg, rng) => (dmg ? '<span class="cat-tag is-' + dmg + '">' + esc(t(DMG_KEY[dmg])) + '</span>' : '') + rangeChip(rng);
   const rangeTag = m => (!m || !m.kind) ? '' : rangeChip(m.kind === 'melee' ? 'melee' : 'ranged');  // objetos: sin rango
   // Misma clave que game_moves.shape_key y que la etiqueta de ataques.html (mv_kind_*).
   const shapeKey = m => {
@@ -333,7 +343,7 @@
   }
 
   function buildOption(kind, b, other, moves, cards, win) {
-    const head = '<h3 class="bd-kind is-' + kind + '">' + esc(t(BUILD_NAME[kind])) + '</h3>';
+    const head = '<h3 class="bd-kind">' + comboHtml(b ? buildDamage(moves, b.moves) : null, kind) + '</h3>';
     if (!b) return '<article class="bd-opt is-none" data-build="' + kind + '">' + head +
       '<p class="bd-none">' + esc(t(BUILD_NONE[kind])) + '</p></article>';
     const ids = b.moves, nb = b.nBoost;
@@ -373,7 +383,8 @@
     const itemRows = items.map((m, i) => moveRow(m, '', i === 0 ? { text: t('build_best_item'), gold: true } : null)).join('');
     return '<section class="fig anim fig-build" id="build" aria-labelledby="bd-h"><div class="bd-card" style="' + typeVars(p) + '">' +
       '<header class="bd-head">' + sprite + '<div><h2 id="bd-h">' + esc(t('t_build')) + '</h2><span class="bd-who">' + esc(name) + '</span></div>' +
-      (win ? rangeChip(win) : '') +
+      (win ? '<p class="bd-best"><span class="bd-best-lbl">' + esc(t('bd_best_label')) + '</span>' +
+        comboHtml(buildDamage(moves, pair[win].moves), win) + '</p>' : '') +
       '<button class="bd-share" type="button" aria-label="' + esc(t('build_share')) + '" title="' + esc(t('build_share')) + '">' + SHARE_SVG + '</button>' +
       '<span class="bd-toast" role="status" aria-live="polite"></span></header>' +
       '<div class="bd-block bd-start">' + capOf('build_start') + '<ul class="bd-rows">' + startRow + '</ul></div>' +

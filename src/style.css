@@ -678,7 +678,7 @@ summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
   font: 700 .6875rem/1.5 var(--ui); letter-spacing: .02em; border: 1px solid var(--cat, var(--rng)); }
 .cat-tag { background: var(--cat); color: var(--cat-ink); }
 .rng-tag { background: transparent; color: var(--rng); }
-.cat-tag::before, .rng-tag::before, .bd-kind::before { content: ""; flex: none; width: 12px; height: 12px;
+.cat-tag::before, .rng-tag::before { content: ""; flex: none; width: 12px; height: 12px;
   -webkit-mask: var(--ico) center / contain no-repeat; mask: var(--ico) center / contain no-repeat; }
 .cat-tag::before { background: var(--cat-ink); }
 .rng-tag::before { background: var(--rng); }
@@ -686,10 +686,11 @@ summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
 .cat-tag.is-special { --cat: var(--cat-spec); --ico: url(img/ui/sparkle.png); }
 .cat-tag.is-status { --cat: var(--cat-stat); --ico: url(img/ui/potion.png); }
 .cat-tag.is-mix { --cat: var(--cat-mix); --ico: url(img/ui/ball.png); }
-.rng-tag.is-melee, .bd-kind.is-melee { --rng: var(--cat-melee); --ico: url(img/ui/fist.png); }
-.rng-tag.is-ranged, .bd-kind.is-ranged { --rng: var(--cat-ranged); --ico: url(img/ui/bow.png); }
-.bd-kind.is-melee::before, .bd-kind.is-ranged::before { width: 18px; height: 18px; background: var(--rng); }
-.bd-kind.is-melee, .bd-kind.is-ranged { display: flex; align-items: center; gap: 8px; }
+.rng-tag.is-melee { --rng: var(--cat-melee); --ico: url(img/ui/fist.png); }
+.rng-tag.is-ranged { --rng: var(--cat-ranged); --ico: url(img/ui/bow.png); }
+.bd-kind { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.bd-best { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; }
+.bd-best-lbl { font: 700 .6875rem/1 var(--ui); letter-spacing: .05em; text-transform: uppercase; color: var(--bd-ink-2); }
 .lt-move > .cat-tag { margin-left: 6px; }
 .bond li > .bd-tags { margin-left: 6px; }
 .bd-tags { display: inline-flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 3px; max-width: 100%; min-width: 0; }

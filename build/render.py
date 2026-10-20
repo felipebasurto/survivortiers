@@ -357,7 +357,7 @@ FICHA_KEYS = (
     "cb_kind_spec", "cb_kind_mix", "cb_note",
     "bd_pair_cap", "bd_melee", "bd_ranged", "bd_time", "bd_dealt", "bd_kills", "bd_score", "bd_best", "bd_tie",
     "bd_gap_small", "bd_gap", "bd_other_melee", "bd_other_ranged", "bd_none_melee", "bd_none_ranged", "bd_melee_note",
-    "dmg_physical", "dmg_special", "dmg_status", "dmg_tip_physical", "dmg_tip_special", "dmg_tip_status",
+    "dmg_physical", "dmg_special", "dmg_status", "dmg_mix", "bd_best_label", "dmg_tip_physical", "dmg_tip_special", "dmg_tip_status",
     "rng_tip_melee", "rng_tip_ranged",
     "mv_new") + tuple(k for k in STR if k.startswith("mv_kind_"))
 

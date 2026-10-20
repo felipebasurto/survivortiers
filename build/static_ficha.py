@@ -243,13 +243,34 @@ def _winner(pair: dict[str, dict | None]) -> str | None:
     return max(have, key=lambda k: have[k]["score"])
 
 
-def best_range_html(L: Lang, pair: dict[str, dict | None]) -> str:
-    """Etiqueta del rango de la build ganadora (cuerpo a cuerpo o a distancia). Sin empate, sin etiqueta."""
+DMG_KEY = {"physical": "dmg_physical", "special": "dmg_special", "mix": "dmg_mix"}
+
+
+def build_damage(moves: dict[str, dict], ids: list[str]) -> str | None:
+    """Tipo de daño de una build: físico o especial si todos sus ataques de daño lo son, mixto si mezcla los dos.
+    Los potenciadores no cuentan. None si la build no tiene ataques de daño."""
+    kinds = {moves[m]["damage"] for m in ids if m in moves and moves[m]["damage"] in ("physical", "special")}
+    if not kinds:
+        return None
+    if len(kinds) == 2:
+        return "mix"
+    return kinds.pop()
+
+
+def combo_html(L: Lang, dmg: str | None, rng: str) -> str:
+    """Tipo de daño y rango de una build, con las mismas etiquetas que los ataques: por ejemplo Físico · Cuerpo a cuerpo."""
+    dmg_chip = f'<span class="cat-tag is-{dmg}">{esc(L.t(DMG_KEY[dmg]))}</span>' if dmg else ""
+    return (dmg_chip + f'<span class="rng-tag is-{rng}" title="{esc(L.t("rng_tip_" + rng))}">'
+            f'{esc(L.t(BUILD_NAME[rng]))}</span>')
+
+
+def best_range_html(L: Lang, pair: dict[str, dict | None], moves: dict[str, dict]) -> str:
+    """La build que puntúa más: su combinación de daño y rango. Con empate, nada."""
     win = _winner(pair)
     if not win:
         return ""
-    return (f'<span class="rng-tag is-{win}" title="{esc(L.t("rng_tip_" + win))}">'
-            f'{esc(L.t(BUILD_NAME[win]))}</span>')
+    dmg = build_damage(moves, pair[win]["moves"])
+    return f'<p class="bd-best"><span class="bd-best-lbl">{esc(L.t("bd_best_label"))}</span>{combo_html(L, dmg, win)}</p>'
 
 
 def _lead(pair: dict[str, dict | None]) -> str:
@@ -309,7 +330,8 @@ def _meter(label: str, v: int, cls: str) -> str:
 def _build_option(L: Lang, moves: dict[str, dict], cards: dict, kind: str, b: dict | None, other: dict | None,
                   win: str | None) -> str:
     """Una de las dos builds: veredicto, ataques en filas, estadísticas y las cartas en orden, todo a la vista."""
-    head = f'<h3 class="bd-kind is-{kind}">{esc(L.t(BUILD_NAME[kind]))}</h3>'
+    dmg = build_damage(moves, b["moves"]) if b else None
+    head = f'<h3 class="bd-kind">{combo_html(L, dmg, kind)}</h3>'
     if not b:
         return (f'<article class="bd-opt is-none" data-build="{kind}">{head}'
                 f'<p class="bd-none">{esc(L.t(BUILD_NONE[kind]))}</p></article>')
@@ -414,7 +436,7 @@ def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, detail: list,
 </header>
 <section class="fig fig-build" id="build" aria-labelledby="bd-h">
 <div class="bd-card" style="--p1:{tc};--p2:{tc2}">
-<header class="bd-head"><div><h2 id="bd-h">{esc(L.t("t_build"))}</h2><span class="bd-who">{esc(name)}</span></div>{best_range_html(L, pair)}</header>
+<header class="bd-head"><div><h2 id="bd-h">{esc(L.t("t_build"))}</h2><span class="bd-who">{esc(name)}</span></div>{best_range_html(L, pair, moves)}</header>
 <div class="bd-block bd-start"><h3 class="bd-cap">{esc(L.t("build_start"))}</h3><ul class="bd-rows">{start_row}</ul></div>
 <p class="bd-cap">{esc(L.t("bd_pair_cap"))}</p>
 <div class="bd-pair">{options}</div>

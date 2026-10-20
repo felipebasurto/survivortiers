@@ -235,8 +235,10 @@ STR: dict[str, tuple[str, str]] = {
                      "un 25\u00a0% el daño que recibes, y eso ya cuenta en la puntuación de la build cuerpo a cuerpo.",
                      "Both scores come from the same simulator. While a melee move is active, the game cuts the damage you take "
                      "by 25%, and that is already counted in the melee build's score."),
-    "bd_pair_cap": ("Dos builds: la mejor de cuerpo a cuerpo y la mejor a distancia. La simulación puntúa cada una.",
-                    "Two builds: the best melee and the best ranged. The simulation scores each one."),
+    "bd_pair_cap": ("Se simulan dos builds: la mejor cuerpo a cuerpo y la mejor a distancia. Cada una dice qué daño hace: "
+                    "físico, especial o mixto.",
+                    "Two builds are simulated: the best melee and the best ranged. Each one shows its damage type: "
+                    "physical, special or mixed."),
     "bd_melee": ("Cuerpo a cuerpo", "Melee"),
     "bd_ranged": ("A distancia", "Ranged"),
     "bd_time": ("Tiempo", "Time"),
@@ -428,6 +430,8 @@ STR: dict[str, tuple[str, str]] = {
     "dmg_physical": ("Físico", "Physical"),
     "dmg_special": ("Especial", "Special"),
     "dmg_status": ("Estado", "Status"),
+    "dmg_mix": ("Mixto", "Mixed"),
+    "bd_best_label": ("Mejor build", "Best build"),
     "dmg_tip_physical": ("Ataque físico: pega con el Ataque", "Physical attack: deals damage with Attack"),
     "dmg_tip_special": ("Ataque especial: pega con el Ataque Especial", "Special attack: deals damage with Sp. Attack"),
     "dmg_tip_status": ("Potenciador: no hace daño", "Boost: deals no damage"),
