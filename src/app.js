@@ -262,21 +262,58 @@
     applySearch();
   }
 
-  // Oculta las tarjetas que no coinciden, los grupos que quedan vacíos y enseña el recuento.
+  // Filtro de ataque del mejor grupo simulado (pokemon-index.json «side»). Vacío = todos.
+  // Se combina con el buscador y con la agrupación (tier, tipo, …) y queda en ?side=.
+  const SIDES = ['phys', 'spec', 'mix'];
+  let sideFilter = '';
+
+  function sideFromUrl() {
+    const v = new URLSearchParams(location.search).get('side');
+    return SIDES.includes(v) ? v : '';
+  }
+
+  function syncSideUrl() {
+    const u = new URL(location.href);
+    if (sideFilter) u.searchParams.set('side', sideFilter);
+    else u.searchParams.delete('side');
+    const next = u.pathname + u.search + u.hash;
+    if (next !== location.pathname + location.search + location.hash) history.replaceState(null, '', next);
+    $$('.lang a[hreflang]').forEach(a => {
+      const href = a.getAttribute('href');
+      if (!href || href === '#') return;
+      const path = href.split(/[?#]/)[0];
+      const dest = new URL(href, location.href);
+      if (sideFilter) dest.searchParams.set('side', sideFilter);
+      else dest.searchParams.delete('side');
+      a.setAttribute('href', path + dest.search);
+    });
+  }
+
+  function pressSide() {
+    $$('.seg[data-side]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.side === sideFilter)));
+  }
+
+  // Oculta las tarjetas que no coinciden con el filtro ni con la búsqueda, los grupos que quedan vacíos y enseña el recuento.
   function applySearch() {
     const raw = $('#q').value;
     const terms = plain(raw).trim().split(/\s+/).filter(Boolean);
+    const filtering = terms.length > 0 || sideFilter !== '';
     let shown = 0;
     state.cards.forEach(el => {
       const p = state.byDex.get(+el.dataset.dex);
-      const ok = terms.every(term => p.q.includes(term));
+      const ok = (!sideFilter || p.side === sideFilter) && terms.every(term => p.q.includes(term));
       el.classList.toggle('dim', !ok);
       if (ok) shown++;
     });
-    state.groups.forEach(g => g.el.classList.toggle('hidden', terms.length > 0 && g.cards.every(el => el.classList.contains('dim'))));
+    state.groups.forEach(g => {
+      const visible = g.cards.filter(el => !el.classList.contains('dim')).length;
+      g.el.classList.toggle('hidden', filtering && visible === 0);
+      const n = g.el.querySelector('.n');
+      if (n) n.textContent = String(filtering ? visible : g.cards.length);
+    });
     $('#clear').hidden = !raw;
-    $('#count').textContent = terms.length ? TEXT.count(shown, state.mons.length) : '';
-    $('#nomatch').hidden = !(terms.length && shown === 0);
+    $('#count').textContent = filtering ? TEXT.count(shown, state.mons.length) : '';
+    $('#nomatch').hidden = !(filtering && shown === 0);
   }
 
   // ---------------------------------------------------------------- orden de la lista
@@ -323,7 +360,7 @@
   function indexMons(mons) {
     state.byDex = new Map();
     mons.forEach(p => {
-      p.q = plain([p.name, p.nameEn, p.dex, '#' + p.dex, ...p.types, ...p.types.map(t => TYPE_ES[t]), TEXT.attackKind[p.v.ak]].join(' '));
+      p.q = plain([p.name, p.nameEn, p.dex, '#' + p.dex, ...p.types, ...p.types.map(t => TYPE_ES[t]), TEXT.attackKind[p.side]].join(' '));
       state.byDex.set(p.dex, p);
     });
   }
@@ -346,7 +383,16 @@
     // Las tiers que dibuja el servidor se rehacen aquí: las tarjetas se reparten de nuevo según el modo.
     $$('#tierlist > section').forEach(s => s.remove());
     const q = $('#q'), sort = $('#sort');
+    sideFilter = sideFromUrl();
+    pressSide();
+    syncSideUrl();
     q.addEventListener('input', applySearch);
+    $$('.seg[data-side]').forEach(b => b.addEventListener('click', () => {
+      sideFilter = b.dataset.side;
+      pressSide();
+      syncSideUrl();
+      applySearch();
+    }));
     $('#clear').addEventListener('click', () => { q.value = ''; applySearch(); q.focus(); });
     $('#random').addEventListener('click', pickRandom);
     sort.addEventListener('change', () => {

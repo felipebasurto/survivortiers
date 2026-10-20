@@ -12,10 +12,22 @@ import json
 import unittest
 from pathlib import Path
 
+import catalog
 import combos
+import game_moves
 import picks
 
 ROOT = Path(__file__).resolve().parent.parent
+
+
+def _side(classes: set[str]) -> str:
+    if classes == {"physical", "special"}:
+        return "mix"
+    if classes == {"physical"}:
+        return "phys"
+    if classes == {"special"}:
+        return "spec"
+    raise AssertionError(classes)
 
 
 class Groups(unittest.TestCase):
@@ -35,6 +47,14 @@ class Groups(unittest.TestCase):
         for dex, (attacks, buffs) in self.picked.items():
             self.assertIn(len(attacks), (2, 3), (dex, attacks))
             self.assertLessEqual(len(attacks) + len(buffs), picks.BOND_SLOTS, (dex, attacks, buffs))
+
+    def test_side_follows_the_published_attacks(self):
+        """phys / spec / mix from the attacks the sheet shows, via the game's damage class."""
+        for dex, group in self.groups.items():
+            attacks = group["moves"][: len(group["moves"]) - group["nBoost"]]
+            classes = {game_moves.attack_class(mid) for mid in attacks}
+            self.assertTrue(classes <= {"physical", "special"}, (dex, attacks, classes))
+            self.assertEqual(catalog.group_side(attacks), _side(classes), dex)
 
     def test_published_buffs_are_the_winning_groups(self):
         for dex, (attacks, buffs) in self.picked.items():

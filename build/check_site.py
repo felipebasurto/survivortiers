@@ -531,6 +531,36 @@ def main() -> int:
         if not ok:
             err(f"data/species.json: datos incompletos o raros para el Pokémon {d}")
 
+    # side: phys / spec / mix según los ataques del grupo que enseña la ficha, no según v.ak (pa/sa).
+    damage_of = {m["id"]: m.get("damage") for m in moves}
+    side_of = {"physical": "phys", "special": "spec"}
+    if damage_of and species:
+        for p in index:
+            side = p.get("side")
+            ak = p.get("v", {}).get("ak")
+            if side not in ("phys", "spec", "mix"):
+                err(f"pokemon-index {p['dex']}: side {side!r}")
+                continue
+            if ak not in ("phys", "spec", "mix"):
+                err(f"pokemon-index {p['dex']}: falta v.ak")
+            entry = species.get(str(p["dex"]))
+            if not isinstance(entry, list) or len(entry) < 10 or not isinstance(entry[9], list) or len(entry[9]) < 6:
+                continue
+            n_boost = entry[9][5]
+            ids = entry[9][2]
+            attacks = ids[:len(ids) - n_boost] if isinstance(n_boost, int) and isinstance(ids, list) else []
+            classes = {side_of.get(damage_of.get(m)) for m in attacks}
+            if classes == {"phys"}:
+                want = "phys"
+            elif classes == {"spec"}:
+                want = "spec"
+            elif classes == {"phys", "spec"}:
+                want = "mix"
+            else:
+                want = None
+            if side != want:
+                err(f"pokemon-index {p['dex']}: side {side} no sale de los ataques del grupo {attacks} ({classes})")
+
     # resúmenes de la ficha (build/summary_pipeline.py): uno por Pokémon e idioma, 2-3 frases, salvo los marcados
     flagged = set(json.loads((ROOT / "data" / "summaries.json").read_text(encoding="utf8")).get("flagged", {}))
     for lang in ("es", "en"):
@@ -702,6 +732,10 @@ def main() -> int:
             err(f"{lang}pokemon/: falta algo de la plantilla de ficha")
         if len(re.findall(r'<span data-t="', tpl)) != 18 or len(re.findall(r'<span data-gen="', tpl)) != 9:
             err(f"{lang}pokemon/: tipos o regiones incompletos en la plantilla")
+    for lang, labels in (("", ("Todos", "Físico", "Especial", "Mixto")), ("en/", ("All", "Physical", "Special", "Mixed"))):
+        home = body_by_url.get(f"{base}{lang}", "")
+        if 'class="side-filter"' not in home or any(f">{label}<" not in home for label in labels):
+            err(f"{lang or 'es'}: la tier list no tiene el filtro de ataque ({labels})")
 
     # enlaces viejos: /pokemon/<n>.html cae en la 404, que los reenvía a la ficha
     for lang in LANGS:
@@ -711,6 +745,8 @@ def main() -> int:
     app_js = fetch(base + "app.js")[1].decode("utf8", "replace")
     if "location.replace" not in app_js or "pokemon" not in app_js:
         err("app.js no reenvía los enlaces viejos de fichas")
+    if "sideFilter" not in app_js:
+        err("app.js no aplica el filtro de ataque")
 
     # créditos: cada Pokémon tiene artista y todos los artistas salen en Acerca
     credited = {d for cr in meta["credits"] for d in cr["dex"]}

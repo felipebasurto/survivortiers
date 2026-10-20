@@ -284,6 +284,10 @@ def render_index(c: Ctx, pokemon: list[dict], meta: dict) -> str:
         f'<button type="button" class="seg" data-group="{g}" aria-pressed="{"true" if g == "tier" else "false"}">'
         f'{esc(L.t("group_" + g))}</button>'
         for g in ("tier", "type", "rar", "region", "leg", "none"))
+    sides = "".join(
+        f'<button type="button" class="seg" data-side="{k}" aria-pressed="{"true" if not k else "false"}">'
+        f'{esc(L.t(key))}</button>'
+        for k, key in (("", "side_all"), ("phys", "side_phys"), ("spec", "side_spec"), ("mix", "side_mix")))
     content = f"""
 {balls.defs()}
 {novedades.patch_note(L, c.home)}
@@ -304,6 +308,7 @@ def render_index(c: Ctx, pokemon: list[dict], meta: dict) -> str:
     <button id="dir" class="icon-btn" type="button" data-asc="{esc(L.t("dir_asc"))}" data-desc="{esc(L.t("dir_desc"))}" aria-label="{esc(L.t("dir_asc"))}" title="{esc(L.t("dir_asc"))}"><i class="ico ico-arrow" aria-hidden="true"></i></button>
     <button id="random" class="icon-btn" type="button" aria-label="{esc(L.t("random_btn"))}" title="{esc(L.t("random_btn"))}"><i class="ico ico-dice" aria-hidden="true"></i></button>
   </div>
+  <div class="side-filter" role="group" aria-label="{esc(L.t("side_filter"))}">{sides}</div>
   <div class="group-by" role="group" aria-label="{esc(L.t("group_by"))}">{groups}</div>
   <p id="count" aria-live="polite"></p>
   <p id="nomatch" class="nomatch" hidden>{esc(L.t("no_match"))}</p>

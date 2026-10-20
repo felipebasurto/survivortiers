@@ -22,6 +22,12 @@ def damage_class(move_id: str, kind: str) -> str:
     return "physical" if _GAME_STATS["moves"][move_id]["cat"] == "physical" else "special"
 
 
+def attack_class(move_id: str) -> str:
+    """Categoría de daño de un movimiento del juego: physical, special o status."""
+    info = _GAME_STATS["moves"][move_id]
+    return damage_class(move_id, info["kind"])
+
+
 def physical_ids() -> frozenset[str]:
     return frozenset(mid for mid, m in _GAME_STATS["moves"].items() if m["cat"] == "physical")
 
