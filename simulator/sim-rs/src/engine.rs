@@ -597,6 +597,7 @@ struct Jump {
     dur: f64,
 }
 
+#[derive(Clone)]
 struct Enemy {
     id: u32,
     dex: u16,
@@ -669,6 +670,10 @@ struct Enemy {
     stun_t: f64,
     /// Boss attack state (enemy.js bossInit `ai`). Some only for bosses built by spawn_boss.
     bai: Option<BossAi>,
+    /// Spawn scale the game passes as `this.sc` (enemy.js:94): hp (with hpK), spd, dmg. Summons use it.
+    sc: [f64; 3],
+    /// Id of the summoner that made this minion (enemy.js summon). Minions carry no DMG_K or XP_K.
+    owner: Option<u32>,
 }
 
 /// What one hit applies to an enemy: the move's slow, burn and poison values (applySlow,
@@ -918,28 +923,13 @@ fn strike(e: &mut Enemy, dmg: f64, atk: f64, ty: u8, tm: &[Vec<f64>], w: &Option
     e.hp -= left;
 }
 
-/// Damage over time, as Enemy.hurt() in the game: rounded, at least 1, and the shield takes it first.
-/// Returns the rounded tick (shield included) so a caller can record it. Combat is unchanged.
-fn hurt_dot(e: &mut Enemy, amount: f64) -> f64 {
+/// Damage over time: enemy.js update() calls this.hurt(), so it takes the same path as a hit (round,
+/// shield first, at least 1 HP after the shield, noteDmg). See raw_hurt.
+fn hurt_dot(e: &mut Enemy, amount: f64) {
     if e.hp <= 0.0 {
-        return 0.0;
+        return;
     }
-    let d = jmax(1.0, js_round(amount));
-    // enemy.js hurt: bosses add the rounded hit before the shield takes it.
-    if e.boss {
-        e.rd += d;
-    }
-    let mut left = d;
-    if e.shield > 0.0 {
-        let used = jmin(e.shield, d);
-        e.shield -= used;
-        left = d - used;
-        if left <= 0.0 {
-            return d;
-        }
-    }
-    e.hp -= left;
-    d
+    raw_hurt(e, amount, 0.0, 0.0, 0.0);
 }
 
 /// Enemy.hurt (enemy.js:100) once the ranking path is on: round, min 1, shield first, knock only if the
@@ -1029,8 +1019,9 @@ fn note_bell(bell: &mut f64, on: bool, dealt: f64) {
     }
 }
 
+/// enemy.js:633-634: pow = Math.max(1, ...players' atk / baseAtk), then 0.07 * min(2.5, pow^0.35).
 fn heal_fraction<M: MathFns>(math: &M, atk: f64, base_atk: f64) -> f64 {
-    let p = if base_atk > 0.0 { atk / base_atk } else { 1.0 };
+    let p = jmax(1.0, if base_atk > 0.0 { atk / base_atk } else { 1.0 });
     0.07 * jmin(2.5, math.pow(p, 0.35))
 }
 
@@ -1096,14 +1087,18 @@ impl Default for Sep {
 
 /// Enemy positions in SoA form for the shot collision prefilter.
 struct ShotSoa {
-    xs: [f64; 64],
-    ys: [f64; 64],
-    rs: [f64; 64],
+    xs: [f64; SOA_LANES],
+    ys: [f64; SOA_LANES],
+    rs: [f64; SOA_LANES],
 }
+
+/// Lanes of the shot prefilter: two 64-bit masks. Summoned minions can take the enemy count past 64
+/// (enemy.js summon allows up to CAP + 15 + 2 = 81), so this is 128, not CAP.
+const SOA_LANES: usize = 128;
 
 impl Default for ShotSoa {
     fn default() -> Self {
-        ShotSoa { xs: [0.0; 64], ys: [0.0; 64], rs: [0.0; 64] }
+        ShotSoa { xs: [0.0; SOA_LANES], ys: [0.0; SOA_LANES], rs: [0.0; SOA_LANES] }
     }
 }
 
@@ -1111,7 +1106,7 @@ impl ShotSoa {
     /// Returns the padded lane count.
     fn load(&mut self, enemies: &[Enemy]) -> usize {
         let n = enemies.len();
-        assert!(n <= 64, "roll_spawn caps enemies at CAP = 64");
+        assert!(n <= SOA_LANES, "enemy count {n} exceeds the shot lanes");
         let lanes = (n + 7) & !7;
         for (j, e) in enemies.iter().enumerate() {
             self.xs[j] = e.x;
@@ -1127,8 +1122,8 @@ impl ShotSoa {
     }
 
     /// Bit j set unless enemy j fails the same axis-aligned box test the exact loop applies.
-    fn box_mask(&self, lanes: usize, n: usize, x: f64, y: f64, r: f64) -> u64 {
-        let mut mask = 0u64;
+    fn box_mask(&self, lanes: usize, n: usize, x: f64, y: f64, r: f64) -> [u64; 2] {
+        let mut mask = [0u64; 2];
         for c in (0..lanes).step_by(8) {
             let mut bits = 0u64;
             for k in 0..8 {
@@ -1139,10 +1134,15 @@ impl ShotSoa {
                 let keep = !((dx > rad) | (dx < -rad) | (dy > rad) | (dy < -rad));
                 bits |= (keep as u64) << k;
             }
-            mask |= bits << c;
+            mask[c / 64] |= bits << (c % 64);
         }
-        if n < 64 {
-            mask &= (1u64 << n) - 1;
+        for (w, word) in mask.iter_mut().enumerate() {
+            let lo = w * 64;
+            if n <= lo {
+                *word = 0;
+            } else if n < lo + 64 {
+                *word &= (1u64 << (n - lo)) - 1;
+            }
         }
         mask
     }
@@ -1448,6 +1448,7 @@ struct BCast {
 }
 
 /// enemy.js bossInit `ai`: the attack lists, far/close mode, cooldowns and fury (below half HP).
+#[derive(Clone)]
 struct BossAi {
     melee: [BAtk; 2],
     ranged: [BAtk; 2],
@@ -1785,6 +1786,8 @@ fn special_enemy(
         rd: 0.0,
         stun_t: 0.0,
         bai: None,
+        sc: [1.0; 3],
+        owner: None,
     }
 }
 
@@ -2028,6 +2031,8 @@ fn blank_enemy(hp: f64, shield: f64, combo: u16, cat: u8, taken: f64) -> Enemy {
         rd: 0.0,
         stun_t: 0.0,
         bai: None,
+        sc: [1.0; 3],
+        owner: None,
     }
 }
 
@@ -2646,10 +2651,12 @@ impl<'a, M: MathFns> Match<'a, M> {
             let legend = self.enemies[i].legend;
             let elite = self.enemies[i].elite;
             let judge = self.enemies[i].judge;
+            let minion = self.enemies[i].owner.is_some();
             let (ex, ey) = (self.enemies[i].x, self.enemies[i].y);
             // spawner.js:107-108. Wild XP is round(xp * 5.6); an elite then round(that * 1.6).
             // Parity keeps the unrounded product so the XP trace matches match.js.
-            let gained = if boss || legend {
+            // enemy.js summon(): minions take no XP_K, so they give their raw xp.
+            let gained = if boss || legend || minion {
                 raw
             } else if self.faith() {
                 let v = js_round(raw * 5.6);
@@ -4454,10 +4461,18 @@ impl<'a, M: MathFns> Match<'a, M> {
                 }
             }
             }
-            let mut mask = soa.box_mask(lanes, enemies.len(), shot.x, shot.y, shot.r);
-            while mask != 0 {
-                let k = mask.trailing_zeros() as usize;
-                mask &= mask - 1;
+            let masks = soa.box_mask(lanes, enemies.len(), shot.x, shot.y, shot.r);
+            let hits = masks.into_iter().enumerate().flat_map(|(w, mut mask)| {
+                std::iter::from_fn(move || {
+                    if mask == 0 {
+                        return None;
+                    }
+                    let k = w * 64 + mask.trailing_zeros() as usize;
+                    mask &= mask - 1;
+                    Some(k)
+                })
+            });
+            for k in hits {
                 let e = &mut enemies[k];
                 if e.hp <= 0.0 || has(&shot.hit, e.id) {
                     continue;
@@ -5575,7 +5590,8 @@ impl<'a, M: MathFns> Match<'a, M> {
         let shot_cd = or(def.shot_cd, 2.0) * ai.next();
         let skill = ai.next() * 3.0;
         let heal_cd = or(def.shot_cd, 3.5) * ai.next();
-        let shield_cd = 6.0 * ai.next();
+        // enemy.js:97 skillCd = rand(1, 4) for shielders, then every 6 s (enemy.js:352).
+        let shield_cd = 1.0 + 3.0 * ai.next();
         let dmg = def.dmg * sc_dmg * DMG_K;
         let mut e = Enemy {
             id: self.seq,
@@ -5639,6 +5655,8 @@ impl<'a, M: MathFns> Match<'a, M> {
             rd: 0.0,
             stun_t: 0.0,
             bai: None,
+            sc: [sc_hp * hpk, sc_spd, sc_dmg],
+            owner: None,
         };
         self.seq += 1;
         e.shot = or(e.def.shot_dmg, 10.0) * (e.dmg / or(e.def.dmg, 1.0));
@@ -5766,6 +5784,79 @@ impl<'a, M: MathFns> Match<'a, M> {
 
     // ------------------------------------------------ enemies
 
+    /// enemy.js:665-682 summon(): two chasers next to the summoner at `i`. Skipped while it already has 4
+    /// alive minions (the game checks >= 4 before adding two, so 5 is possible) or while more than
+    /// CAP + 15 enemies are alive. A minion is the summoner's species (enemy.js:669, def.minion is not
+    /// vendored) with 0.35 x hp, 0.6 x dmg, 1.1 x spd and max(1, 0.25 x xp), scaled by the summoner's own
+    /// spawn scale and without DMG_K or XP_K.
+    fn summon(&mut self, i: usize) {
+        let parent = self.enemies[i].clone();
+        let id = parent.id;
+        let mine = self.enemies.iter().filter(|m| m.owner == Some(id) && m.hp > 0.0).count();
+        let alive = self.enemies.iter().filter(|m| m.hp > 0.0).count();
+        if mine >= 4 || alive > CAP + 15 {
+            return;
+        }
+        let mut def = parent.def.clone();
+        def.beh = Beh::Chase;
+        def.hp = js_round(parent.def.hp * 0.35);
+        def.spd = js_round(parent.def.spd * 1.1);
+        def.dmg = js_round(parent.def.dmg * 0.6);
+        let xp = jmax(1.0, js_round(parent.def.xp * 0.25));
+        for _ in 0..2 {
+            let a = self.enemies[i].ai.next() * PI * 2.0;
+            let seed = (self.enemies[i].ai.next() * 4294967296.0) as u32;
+            let mut m = parent.clone();
+            m.id = self.seq;
+            self.seq += 1;
+            m.owner = Some(id);
+            m.beh = Beh::Chase;
+            m.def = def.clone();
+            m.x = parent.x + a.cos() * 30.0;
+            m.y = parent.y + a.sin() * 22.0;
+            m.hp = def.hp * parent.sc[0];
+            m.max = m.hp;
+            m.spd = def.spd * parent.sc[1];
+            m.dmg = def.dmg * parent.sc[2];
+            m.shot = or(def.shot_dmg, 10.0) * (m.dmg / or(def.dmg, 1.0));
+            m.xp = xp;
+            m.ai = Rng::new(seed);
+            m.shot_cd = 0.0;
+            m.heal_cd = 0.0;
+            m.shield_cd = 0.0;
+            m.skill = 0.0;
+            m.touch = 0.0;
+            m.kx = 0.0;
+            m.ky = 0.0;
+            m.phase = Phase::Walk;
+            m.pt = 0.0;
+            m.jump = None;
+            m.fuse = -1.0;
+            m.shield = 0.0;
+            m.shield_t = 0.0;
+            m.side_t = 0.0;
+            m.stuck_t = 0.0;
+            m.lava_t = 0.0;
+            m.slow = 0.0;
+            m.slow_t = 0.0;
+            m.burn = 0.0;
+            m.burn_t = 0.0;
+            m.burn_tick = 0.0;
+            m.poison = 0.0;
+            m.poison_t = 0.0;
+            m.poison_tick = 0.0;
+            m.stun_t = 0.0;
+            m.boss = false;
+            m.legend = false;
+            m.elite = false;
+            m.lag_t = 0.0;
+            m.judge = false;
+            m.dps_acc = 0.0;
+            m.rd = 0.0;
+            self.enemies.push(m);
+        }
+    }
+
     fn step_enemies(&mut self) {
         let faithful = self.faith();
         let snow_mul = if faithful { self.snow_mul() } else { 1.0 };
@@ -5847,7 +5938,9 @@ impl<'a, M: MathFns> Match<'a, M> {
             let dist = or(len(dx, dy), 1e-3);
             dx /= dist;
             dy /= dist;
-            if dist > OUTER + 250.0 {
+            // Parity only. enemy.js has no such teleport: on the ranking path the straggler rules
+            // (tick_stragglers, enemy.js:989-1002 and 984-987) move far enemies, and they run after this loop.
+            if !faithful && dist > OUTER + 250.0 {
                 let a = math.atan2(pdiry, pdirx) + (e.ai.next() * 1.8 - 0.9);
                 let dd = OUTER + 10.0 + e.ai.next() * 60.0;
                 e.x = plx + math.cos(a) * dd;
@@ -6075,6 +6168,7 @@ impl<'a, M: MathFns> Match<'a, M> {
                     }
                 }
             }
+            let mut summon_now = false;
             if beh.keeps() && !boss {
                 let range = or(e.def.range, 200.0);
                 let hold = range * 0.82;
@@ -6154,18 +6248,23 @@ impl<'a, M: MathFns> Match<'a, M> {
                                 });
                             }
                         }
+                        Beh::Summoner => summon_now = true,
                         _ => {}
                     }
                 }
             }
+            // enemy.js:403: a healer fires only inside its range. The cooldown keeps running outside it.
             if beh == Beh::Healer {
                 e.heal_cd -= dt;
-                if e.heal_cd <= 0.0 {
+                if e.heal_cd <= 0.0 && dist < or(e.def.range, 200.0) {
                     e.heal_cd = or(e.def.shot_cd, 3.5);
                     let (hx, hy) = (e.x, e.y);
                     let (atk, base) = (self.st.atk, self.mon.atk);
                     pulse_healer(math, hx, hy, &mut self.enemies, atk, base);
                 }
+            }
+            if summon_now {
+                self.summon(i);
             }
             let e = &mut self.enemies[i];
             if beh == Beh::Shielder {

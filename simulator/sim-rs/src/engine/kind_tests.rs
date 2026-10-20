@@ -514,3 +514,160 @@ fn boss_slam_warns_a_ring_for_0_85_s_at_1_3_times_dmg() {
     assert!((hz[0].delay - 0.85).abs() < 1e-12);
     assert!((hz[0].dmg - 13.0).abs() < 1e-9);
 }
+
+/// One frame on the ranking path, without the player's attacks: enemies move, then the straggler rules run
+/// (engine step order, enemy.js update() then EnemyMgr.update()).
+fn frame(m: &mut Match<'static, Libm>) {
+    m.t += DT;
+    m.stats();
+    m.step_enemies();
+    m.tick_stragglers();
+}
+
+/// A summoner 150 px from the player, with the game's values for a 100-HP, 10-dmg, 8-xp species.
+fn summoner(m: &mut Match<'static, Libm>) -> usize {
+    let s = foe(m, 0, 150.0, 0.0, false, 0.0);
+    let e = &mut m.enemies[s];
+    e.beh = crate::data::Beh::Summoner;
+    e.def.hp = 100.0;
+    e.def.dmg = 10.0;
+    e.def.xp = 8.0;
+    e.def.spd = 60.0;
+    e.def.shot_cd = 2.0;
+    e.shot_cd = 2.0;
+    s
+}
+
+#[test]
+fn a_summoner_calls_two_minions_per_cooldown_up_to_four_alive() {
+    // enemy.js:665-682: two chasers at 0.35 x hp, 0.6 x dmg and max(1, 0.25 x xp), no DMG_K or XP_K.
+    let mut m = scene(133, "rapid-spin");
+    let s = summoner(&mut m);
+    let id = m.enemies[s].id;
+    m.pl.hp = 1e12;
+    let mine = |m: &Match<'static, Libm>| m.enemies.iter().filter(|e| e.owner == Some(id) && e.hp > 0.0).count();
+    for _ in 0..45 {
+        frame(&mut m);
+        m.pl.hp = 1e12;
+    }
+    assert_eq!(mine(&m), 2);
+    for e in m.enemies.iter().filter(|e| e.owner == Some(id)) {
+        assert_eq!(e.beh, crate::data::Beh::Chase);
+        assert_eq!(e.max, 35.0);
+        assert_eq!(e.dmg, 6.0);
+        assert_eq!(e.xp, 2.0);
+    }
+    for _ in 0..90 {
+        frame(&mut m);
+        m.pl.hp = 1e12;
+    }
+    // Second cooldown: 4 alive. The third one finds 4 of its own and summons nothing.
+    assert_eq!(mine(&m), 4);
+}
+
+#[test]
+fn a_summoner_stays_quiet_while_more_than_cap_plus_15_enemies_live() {
+    // enemy.js:668: no summon while EnemyMgr.count > CAP + 15 (79). 81 enemies live here.
+    let mut m = scene(133, "rapid-spin");
+    let s = summoner(&mut m);
+    let id = m.enemies[s].id;
+    for _ in 0..80 {
+        foe(&mut m, 0, 5000.0, 5000.0, false, 0.0);
+    }
+    for _ in 0..60 {
+        m.step_enemies();
+    }
+    assert_eq!(m.enemies.iter().filter(|e| e.owner == Some(id)).count(), 0);
+}
+
+#[test]
+fn a_shielder_walks_in_instead_of_holding_range() {
+    // enemy.js:578: keepsDistance() has no shielder, so it chases like a plain walker.
+    let mut m = scene(133, "rapid-spin");
+    let s = foe(&mut m, 0, 140.0, 0.0, false, 60.0);
+    m.enemies[s].beh = crate::data::Beh::Shielder;
+    for _ in 0..40 {
+        m.step_enemies();
+        m.pl.hp = 1e12;
+    }
+    assert!(m.enemies[s].x < 100.0, "x = {}", m.enemies[s].x);
+}
+
+#[test]
+fn a_healer_heals_only_inside_its_range() {
+    // enemy.js:403: it fires only when dist < range. Its cooldown runs meanwhile and fires on entry.
+    let mut m = scene(133, "rapid-spin");
+    let h = foe(&mut m, 0, 300.0, 0.0, false, 0.0);
+    let t = foe(&mut m, 0, 300.0, 20.0, false, 0.0);
+    m.enemies[h].beh = crate::data::Beh::Healer;
+    m.enemies[t].hp = 5e8;
+    for _ in 0..200 {
+        m.step_enemies();
+    }
+    assert_eq!(m.enemies[t].hp, 5e8);
+    m.enemies[h].x = 100.0;
+    m.enemies[t].x = 100.0;
+    m.step_enemies();
+    assert!(m.enemies[t].hp > 5e8, "hp = {}", m.enemies[t].hp);
+}
+
+#[test]
+fn healer_power_never_drops_below_one() {
+    // enemy.js:633-634: pow = Math.max(1, atk / baseAtk). Being weaker than base does not weaken the heal.
+    assert!((heal_fraction(&LIBM, 0.5, 1.0) - 0.07).abs() < 1e-12);
+    assert!((heal_fraction(&LIBM, 4.0, 1.0) - 0.07 * 4f64.powf(0.35)).abs() < 1e-9);
+}
+
+#[test]
+fn damage_over_time_takes_the_shield_first_then_rounds_and_costs_at_least_one() {
+    // enemy.js:137-144: the shield takes it first, then Math.max(1, Math.round(amount)), and noteDmg.
+    let mut e = blank_enemy(100.0, 4.6, 0, 1, 1.0);
+    hurt_dot(&mut e, 5.0); // 4.6 absorbed, 0.4 left: costs 1
+    assert!((e.hp - 99.0).abs() < 1e-9);
+    assert_eq!(e.shield, 0.0);
+    hurt_dot(&mut e, 0.3); // costs 1
+    assert!((e.hp - 98.0).abs() < 1e-9);
+    e.shield = 2.0;
+    hurt_dot(&mut e, 5.2); // 2 absorbed, round(3) = 3 lost
+    assert!((e.hp - 95.0).abs() < 1e-9);
+    assert!((e.dps_acc - 5.0).abs() < 1e-9);
+}
+
+#[test]
+fn a_wild_enemy_past_1400_px_is_placed_ahead_in_the_same_frame() {
+    // enemy.js:999: more than 1400 px away respawns ahead. The frame runs the rule after the movement.
+    let mut m = scene(133, "rapid-spin");
+    let w = foe(&mut m, 0, 1500.0, 0.0, false, 0.0);
+    frame(&mut m);
+    let d = m.enemies[w].x.hypot(m.enemies[w].y);
+    assert!(d < 1400.0, "d = {d}");
+}
+
+#[test]
+fn a_wild_enemy_1000_px_away_is_left_alone_when_not_unseen_and_behind() {
+    // enemy.js:989-1002: 1000 px is inside the 1400 px rule and the player is standing still, so no
+    // straggler rule applies. The old teleport at OUTER + 250 (730 px) moved it on the first frame.
+    let mut m = scene(133, "rapid-spin");
+    let w = foe(&mut m, 0, 1000.0, 0.0, false, 0.0);
+    for _ in 0..100 {
+        frame(&mut m);
+    }
+    assert_eq!(m.enemies[w].x, 1000.0);
+}
+
+#[test]
+fn a_boss_2600_px_away_is_moved_only_after_four_seconds() {
+    // enemy.js:984-987: a boss farther than 2500 px for 4 s respawns ahead. It must not be teleported first.
+    let mut m = scene(133, "rapid-spin");
+    let b = foe(&mut m, 0, BOSS_FAR + 100.0, 0.0, true, 0.0);
+    let mut moved_at = None;
+    for call in 1..=100 {
+        frame(&mut m);
+        if m.enemies[b].x < BOSS_FAR {
+            moved_at = Some(call);
+            break;
+        }
+    }
+    let call = moved_at.expect("the boss never respawned");
+    assert!((80..=82).contains(&call), "moved on frame {call}");
+}
