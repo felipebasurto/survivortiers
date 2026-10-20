@@ -43,7 +43,7 @@ SCREEN_SEEDS = 16
 REFINE_SEEDS = 96
 REFINE_SEED0 = 1000
 SEARCH_SECONDS = 900
-REFINE_PER_SHAPE = 2
+REFINE_PER_SHAPE = picks.REFINE_PER_SHAPE
 CSV_FIELDS = ["dex", "name", "build", "group", "median_s", "mean_s", "median_kills", "median_dealt",
               "median_score", "mean_score", "score_lo", "score_hi", "seeds"]
 

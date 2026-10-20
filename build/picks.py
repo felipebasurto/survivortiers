@@ -23,6 +23,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 V3 = ROOT / "simulator" / "v3" / "v3_data.json"
 BOND_SLOTS = 4
+# Grupos por (especie, forma) que pasan de la criba de 16 semillas al afinado de 96. Lo usan regen.py y builds.py.
+REFINE_PER_SHAPE = 2
 
 
 @lru_cache(maxsize=1)
