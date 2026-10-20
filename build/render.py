@@ -37,7 +37,7 @@ import static_ficha  # noqa: E402
 import theme  # noqa: E402
 import toolpages  # noqa: E402
 import typedata  # noqa: E402
-from i18n import EN, ES, LANGS, TYPE_NAMES, Lang  # noqa: E402
+from i18n import EN, ES, LANGS, STR, TYPE_NAMES, Lang  # noqa: E402
 from slugs import species_path  # noqa: E402
 
 SITE = ROOT / "site"
@@ -337,7 +337,8 @@ FICHA_KEYS = (
     "bs_total", "bs_alt_item", "bs_s_hp", "bs_s_atk", "bs_s_def", "bs_s_spa", "bs_s_spd", "bs_s_spe",
     "sheet_title", "sheet_desc", "fh_game", "fresh", "t_combat", "cb_pa", "cb_sa", "cb_df", "cb_sd", "cb_kind_phys",
     "cb_kind_spec", "cb_kind_mix", "cb_note", "cb_src",
-    "dmg_physical", "dmg_special", "dmg_status", "dmg_tip_physical", "dmg_tip_special", "dmg_tip_status")
+    "dmg_physical", "dmg_special", "dmg_status", "dmg_tip_physical", "dmg_tip_special", "dmg_tip_status",
+    "mv_new") + tuple(k for k in STR if k.startswith("mv_kind_"))
 
 
 def ficha_chrome(L: Lang, meta: dict) -> tuple[str, str]:
@@ -494,7 +495,7 @@ def move_facts(L: Lang, m: dict) -> str:
 def move_card(L: Lang, m: dict, mon: dict, home: str) -> str:
     name = m["en"]["name"] if L.en else m["name"]
     # Teledirigido y perforante se nombran aparte del proyectil normal: cambian cómo se usa el ataque.
-    kind = L.t("mv_kind_" + {"home": "homing", "pierce": "pierce"}.get(move_fx(m), m["kind"]))
+    kind = L.t("mv_kind_" + game_moves.shape_key(m))
     if "score" in m:
         meter = f'<div class="mv-meter">{charts.move_bars(L, m["score"])}</div>'
     else:

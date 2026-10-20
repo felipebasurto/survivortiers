@@ -14,6 +14,7 @@ from html import escape
 
 import catalog
 import charts
+import game_moves
 import legal
 import regions
 import typedata
@@ -30,6 +31,17 @@ def esc(x) -> str:
 
 def damage_badge(L: Lang, cls: str) -> str:
     return f'<span class="cat-tag is-{cls}" title="{esc(L.t("dmg_tip_" + cls))}">{esc(L.t("dmg_" + cls))}</span>'
+
+
+def shape_html(L: Lang, move: dict) -> str:
+    """La forma del ataque (la misma etiqueta que ataques.html) y, si el dato trae `nuevo`, una marca pequeña."""
+    label = L.t("mv_kind_" + game_moves.shape_key(move))
+    mark = f'<span class="mv-new">{esc(L.t("mv_new"))}</span>' if move.get("nuevo") else ""
+    return f'<span class="mv-shape">{esc(label)}</span>{mark}'
+
+
+def move_tags(L: Lang, move: dict) -> str:
+    return f'<span class="bd-tags">{damage_badge(L, move["damage"])}{shape_html(L, move)}</span>'
 
 
 def js_round(x: float) -> int:
@@ -247,10 +259,14 @@ def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, detail: list,
     legendary = f'<span class="chip">{esc(L.t("legendary"))}</span>' if entry["legendary"] else ""
     region = regions.badge(L, sprites, entry["bannerId"], banner, {}, small=True)
     buff_set = set(buff_ids)
-    chips = "".join(
-        f'<li class="is-buff">{esc(_move_name(L, moves, mid))} {damage_badge(L, moves[mid]["damage"])}</li>' if mid in buff_set
-        else f'<li>{esc(_move_name(L, moves, mid))} {damage_badge(L, moves[mid]["damage"])}</li>'
-        for mid in ids)
+
+    def _move_li(mid: str) -> str:
+        cls = ' class="is-buff"' if mid in buff_set else ""
+        return f"<li{cls}>{esc(_move_name(L, moves, mid))} {move_tags(L, moves[mid])}</li>"
+
+    start_id = detail[2]
+    chips = "".join(_move_li(mid) for mid in ids)
+    start_chip = _move_li(start_id)
     card_items = []
     for i, (cid, card_name) in enumerate(zip(card_ids, card_names), 1):
         once = f' <small class="bd-gate" title="{esc(L.t("build_card_once"))}">1×</small>' if cid == gate else ""
@@ -292,6 +308,8 @@ def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, detail: list,
 <section class="fig fig-build" id="build" aria-labelledby="bd-h">
 <div class="bd-card" style="--p1:{tc};--p2:{tc2}">
 <header class="bd-head"><div><h2 id="bd-h">{esc(L.t("t_build"))}</h2><span class="bd-who">{esc(name)}</span></div></header>
+<p class="bd-cap">{esc(L.t("build_start"))}</p>
+<ul class="bond">{start_chip}</ul>
 <p class="bd-cap">{esc(L.t("build_group"))}</p>
 <ul class="bond">{chips}</ul>
 <p class="bd-cap">{esc(L.t("build_cards"))}</p>
