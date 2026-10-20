@@ -97,6 +97,9 @@ Nota de conteo: el mensaje de `dd11ca8` dice 7.498 corridas. Los dos CSV de cont
 
 Lectura: la mejor build publicada cae de 98,6 a 86,3 con semillas nuevas. Era el ganador maldito del refinado, igual que la criba. Los dos primeros empatan, y no cambia nada entre Agilidad y Fortaleza como cuarta. Pulso Ácido queda 5.º, unos 5 puntos por debajo de la cima. El veneno aparece en el top de 96 semillas, pero con 1.024 semillas no domina. Medianas de supervivencia de estos grupos: 136–155 s, con 122–141 bajas. Falta una referencia de partidas reales para saber si el bot es bueno, no solo estable.
 
+13. **Las pasivas publicadas no se reproducen (2026-10-20, de PR #54, no publicada).** `pasivas_rank_g2p2.csv` (150 especies, `9615695`) no sale con el código actual. Ejemplo: `647 water-gun`, 106,95 s publicado frente a 156,65 s con el binario actual, con 100 semillas y desfases de semilla. Se intentó una corrida de 966 especies (26.082 tareas, `--group 2+2 --seeds 20 --terrain --status --full-cards`); el CSV resultante no se publica ni se guarda en el repo.
+14. **Reglas de build salen de datos, nunca de listas escritas a mano (2026-10-20).** Se rechazó PR #55 por nombres de movimientos fijos en el código (relleno normal, Sustituto), por un criterio de "dentro del ruido" que decide la build sin medirlo, y por cambiar el espacio de búsqueda del motor sin ejecutarlo. Cualquier filtro nuevo tiene que deducirse de los datos del juego o del simulador, y tiene que estar medido antes de publicarse.
+
 ## Procedimiento para una corrida nueva
 
 1. Revisar las tablas de este archivo: ¿existe la salida con esas semillas y flags?
