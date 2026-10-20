@@ -42,6 +42,7 @@ import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import builds  # noqa: E402
 import picks  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -72,6 +73,7 @@ GROUP_SEARCH = FIXED / "group_search.csv"
 START_SWEEP = FIXED / "g2p2" / "starter_sweep.csv"
 START_RANK = FIXED / "g2p2" / "rank_200.csv"
 START_BLOCKS = ((FIXED / "stage2" / "rank_b.csv", "100"), (FIXED / "stage2" / "rank_c.csv", "200"))
+
 
 
 def pokesim(*args: str) -> None:
@@ -171,6 +173,49 @@ def start_rank() -> None:
         pokesim("rank", *common, "--seed0", seed0, "--out", rel(dest))
 
 
+BUILD_CHUNK = 4000
+BUILD_SCREEN = FIXED / "builds" / "screen_new.csv"
+BUILD_REFINE = FIXED / "builds" / "refine_new.csv"
+
+
+def build_screen() -> None:
+    """Melee and ranged builds (build/builds.py): the constrained groups that group_screen.csv lacks, 16 seeds.
+    Chunks are written one by one, so an interrupted run resumes where it stopped."""
+    keys = builds.missing_screen()
+    chunks = FIXED / "builds" / "screen_chunks"
+    parts = []
+    for i in range(0, len(keys), BUILD_CHUNK):
+        n = i // BUILD_CHUNK
+        part = chunks / f"{n:03d}.csv"
+        parts.append(part)
+        if part.exists():
+            continue
+        only = builds.write_only(chunks / f"{n:03d}.txt", keys[i:i + BUILD_CHUNK])
+        pokesim("synergy", "--explicit", "--seeds", str(builds.SCREEN_SEEDS), "--seconds", "900",
+                "--partners", rel(SOLO_SCREEN), "--only", rel(only), "--out", rel(part))
+    merge_csv(parts, BUILD_SCREEN)
+
+
+def build_refine() -> None:
+    """The two best groups of each shape and build (build/builds.py), 96 seeds on fresh seeds."""
+    short = builds.shortlist(builds.screen_rows())
+    only = builds.write_only(FIXED / "builds" / "refine_only.txt", builds.missing_refine(short))
+    pokesim("synergy", "--explicit", "--seeds", str(builds.REFINE_SEEDS), "--seed0", str(builds.REFINE_SEED0), "--seconds", "900",
+            "--partners", rel(SOLO_SCREEN), "--only", rel(only), "--out", rel(BUILD_REFINE))
+
+
+def merge_csv(parts: list[Path], out: Path) -> None:
+    lines: list[str] = []
+    header = None
+    for part in parts:
+        text = part.read_text(encoding="utf8").splitlines()
+        if header is None:
+            header = text[0]
+        lines.extend(text[1:])
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text("\n".join([header or "", *lines]) + "\n", encoding="utf8")
+
+
 STAGES = (
     ("solo_screen", SOLO_SCREEN, solo_screen),
     ("solo_refine", SOLO_REFINE, solo_refine),
@@ -179,6 +224,8 @@ STAGES = (
     ("group_refine", GROUP_SEARCH, group_refine),
     ("start_sweep", START_SWEEP, start_sweep),
     ("start_rank", START_RANK, start_rank),
+    ("build_screen", BUILD_SCREEN, build_screen),
+    ("build_refine", BUILD_REFINE, build_refine),
 )
 
 
@@ -242,10 +289,14 @@ def main() -> None:
             if not filecmp.cmp(out, ranking, shallow=False):
                 raise SystemExit("ranking_definitive.csv does not match a rebuild from the committed sim CSVs")
         print("ranking matches the committed sim CSVs")
+        if builds.main(["--check"]):
+            raise SystemExit("data/builds.csv: una fila no cumple las reglas de build")
         return
 
     rebuild(ranking)
     print(f"wrote {ranking}")
+    if builds.main([]):
+        raise SystemExit("data/builds.csv: una fila no cumple las reglas de build")
     if args.facts:
         facts()
 

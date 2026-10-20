@@ -116,14 +116,21 @@
     return order.filter(id => picks.includes(id));
   }
 
-  // Build recomendada: el grupo que publica build/combos.py, ataques y potenciadores tal cual los eligió la búsqueda.
+  // Build recomendada: la de mayor puntuación entre las dos que publica build/builds.py (cuerpo a cuerpo y a distancia).
+  // Sin ninguna, el grupo de build/combos.py.
+  function publishedBuilds(species, dex) {
+    const pair = (species.builds || {})[String(dex)] || {};
+    return ['melee', 'ranged'].map(k => pair[k]).filter(Boolean);
+  }
+
   function recommended(dex, species) {
     const d = species.d[String(dex)];
-    const group = d[9][2].slice(0, PLAN_SLOTS);
+    const top = publishedBuilds(species, dex).reduce((best, b) => (!best || b.score > best.score ? b : best), null);
+    const group = (top ? top.moves : d[9][2]).slice(0, PLAN_SLOTS);
     return {
       group: group.concat(Array(PLAN_SLOTS - group.length).fill(null)),
       item: species.items[0] ? species.items[0].id : null,
-      cards: plannerCards(d[10]).concat(Array(PLAN_SLOTS).fill(null)).slice(0, PLAN_SLOTS),
+      cards: plannerCards(top ? top.cards : d[10]).concat(Array(PLAN_SLOTS).fill(null)).slice(0, PLAN_SLOTS),
     };
   }
 
@@ -149,6 +156,7 @@
     // The published build can include this species' own start move, which is not always in the type pool.
     const built = (species.d[String(start)] && species.d[String(start)][9][2]) || [];
     for (const id of built) pool.add(id);
+    for (const b of publishedBuilds(species, start)) for (const id of b.moves) pool.add(id);
     const seen = new Set();
     const group = (q.get(PARAM.group) || '').split(',').slice(0, PLAN_SLOTS).map(id => {
       if (!id || id === '-' || seen.has(id) || !pool.has(id) || !game.moves[id]) return null;
