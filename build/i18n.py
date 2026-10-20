@@ -235,10 +235,8 @@ STR: dict[str, tuple[str, str]] = {
                      "un 25\u00a0% el daño que recibes, y eso ya cuenta en la puntuación de la build cuerpo a cuerpo.",
                      "Both scores come from the same simulator. While a melee move is active, the game cuts the damage you take "
                      "by 25%, and that is already counted in the melee build's score."),
-    "bd_pair_cap": ("Se simulan dos builds: la mejor cuerpo a cuerpo y la mejor a distancia. Cada una dice qué daño hace: "
-                    "físico, especial o mixto.",
-                    "Two builds are simulated: the best melee and the best ranged. Each one shows its damage type: "
-                    "physical, special or mixed."),
+    "bd_pair_cap": ("Se simulan dos builds: la mejor cuerpo a cuerpo y la mejor a distancia.",
+                    "Two builds are simulated: the best melee and the best ranged."),
     "bd_melee": ("Cuerpo a cuerpo", "Melee"),
     "bd_ranged": ("A distancia", "Ranged"),
     "bd_time": ("Tiempo", "Time"),
@@ -253,8 +251,8 @@ STR: dict[str, tuple[str, str]] = {
     "bd_other_ranged": ("a distancia", "ranged"),
     "bd_none_melee": ("No hay ataques cuerpo a cuerpo que le valgan.", "No melee moves worth using on it."),
     "bd_none_ranged": ("No hay ataques a distancia que le valgan.", "No ranged moves worth using on it."),
-    "bd_melee_note": ("Los ataques cuerpo a cuerpo te obligan a pegar de cerca. Mientras uno está activo, el juego te quita un 25\u00a0% del daño que recibes.",
-                      "Melee moves make you get close to enemies. While one is active, the game cuts the damage you take by 25%."),
+    "bd_melee_note": ("Mientras un ataque cuerpo a cuerpo está activo, recibes un 25\u00a0% menos de daño.",
+                      "While a melee move is active, you take 25% less damage."),
     "faq_a_build": ("{kind}: {attacks}, con {buffs}.", "{kind}: {attacks}, with {buffs}."),
     "faq_a_build_best": ("Puntúa más la build {kind}.", "The {kind} build scores higher."),
     "t_rank": ("Ranking", "Ranking"),
