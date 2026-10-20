@@ -196,7 +196,7 @@ from the game (103 moves, 38 of them new; dragon has 4 attacks in the game, ever
 - Tests: `cargo test --release` (`engine/kind_tests.rs`), `node --test v3/game_update.test.js` (v3_data.json against the game),
   `node validate/game_formulas.js` (mono, damp and the older formulas against the game's own functions) and
   `node validate/game_scenarios.js` (the vendored `combat.js` and `projectile.js` on the same scenes as the Rust tests).
-- Not modelled: boss-priority targeting, manual aim, coop ghost casts, prop damage, lava ticks while stunned, the ±0.03
+- Not modelled: manual aim, coop ghost casts, prop damage, lava ticks while stunned, the ±0.03
   projectile jitter, homing toward `cy()` (the sim has no heights), wall cuts for the plain beam kind (charge and quake do cut).
 - Regeneration order (`build/regen.py --sim`): solo screen, solo refine, solo contend, group screen, group refine, start
   sweep, start rank. Group search takes its partners from the solo screen, so it always runs after it.

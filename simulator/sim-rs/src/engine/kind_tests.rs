@@ -726,3 +726,26 @@ fn an_extra_ticks_only_while_its_hole_is_active() {
     m.cast_extras();
     assert!((m.extras[0].1 - (5.0 - m.dt)).abs() < 1e-12, "the active hole ticks");
 }
+
+#[test]
+fn the_active_extra_is_the_move_the_stats_read() {
+    let mut m = scene(1, "vine-whip");
+    let ix = dat().moves.iter().position(|mv| mv.id == "ember").unwrap();
+    m.extras = vec![(ix, 5.0)];
+    m.slot = 1;
+    m.stat_dirty = true;
+    m.stats();
+    assert!(std::ptr::eq(m.st.mv, &dat().moves[ix].levels[0]), "the extra's move drives range, aim and reduction");
+    assert_eq!(m.st.melee, 1.0, "a projectile extra is not a melee cut");
+}
+
+#[test]
+fn an_orbit_hole_never_reloads_so_it_does_not_rotate_away() {
+    let mut m = scene(1, "vine-whip");
+    let ix = dat().moves.iter().position(|mv| mv.id == "fire-spin").unwrap();
+    m.extras = vec![(ix, 5.0)];
+    m.slot = 1;
+    assert_eq!(m.active_timer().0, 0.0, "combat.js:29 an orbit has no timer to wait out");
+    m.maybe_swap();
+    assert_eq!(m.slot, 1, "the orbit stays active");
+}

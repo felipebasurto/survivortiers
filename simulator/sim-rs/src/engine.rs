@@ -2130,7 +2130,7 @@ impl<'a, M: MathFns> Match<'a, M> {
         }
         self.stat_dirty = false;
         self.stat_snow = snow;
-        let mv = self.current_move();
+        let mv = self.active_move();
         let s = &self.state;
         let mut atk_buff = 0.0;
         let mut def_buff = 0.0;
@@ -2163,7 +2163,7 @@ impl<'a, M: MathFns> Match<'a, M> {
         }
         // player.js:254. The cut applies whenever a melee move is in the active group.
         // The starter always is. A companion counts once that bond has landed, not from t=0.
-        let melee_cut = mv.kind == Kind::Melee || self.active_has_melee();
+        let melee_cut = mv.kind == Kind::Melee || (self.slot == 0 && self.active_has_melee());
         let st = &mut self.st;
         st.max_hp = self.mon.hp + 20.0 * s.cards[Stat::Hp as usize] as f64;
         st.atk = self.mon.atk * self.tables.atk[s.cards[Stat::Pow as usize] as usize] * (1.0 + atk_buff) * it.atk;
@@ -2197,13 +2197,6 @@ impl<'a, M: MathFns> Match<'a, M> {
                 1 => st.spd *= 1.45,
                 3 => st.cd_mul *= 0.6,
                 _ => {}
-            }
-        }
-        if self.slot == 1 {
-            if let Some(id) = self.opts.ext.alt {
-                let alt = &self.data.moves[id].levels[0];
-                st.melee = if alt.kind == Kind::Melee { 0.75 } else { 1.0 };
-                st.mv = alt;
             }
         }
         // player.js spd getter: Judgment.capSpd only while Sentencia is active (judgment.js:46-48).
@@ -2311,13 +2304,28 @@ impl<'a, M: MathFns> Match<'a, M> {
 
     /// Timer and base cooldown of the active hole.
     fn active_timer(&self) -> (f64, f64) {
+        let mv = self.active_move();
+        // combat.js:29: an orbit has no cooldown to wait out, so its hole is always ready.
+        if mv.kind == Kind::Orbit {
+            return (0.0, mv.cd);
+        }
         if self.slot == 0 {
-            (self.atk_cd, self.current_move().cd)
+            (self.atk_cd, mv.cd)
         } else if self.alt_active() {
-            (self.alt_cd, self.data.moves[self.opts.ext.alt.unwrap()].levels[0].cd)
+            (self.alt_cd, mv.cd)
         } else {
-            let (ix, t) = self.extras[(self.slot - self.first_extra()) as usize];
-            (t, self.data.moves[ix].levels[0].cd)
+            (self.extras[(self.slot - self.first_extra()) as usize].1, mv.cd)
+        }
+    }
+
+    /// The move of the active hole: the group's first move on hole 0, the `--swap` move, or an extra.
+    fn active_move(&self) -> &'a MoveLvl {
+        if self.slot == 0 {
+            self.current_move()
+        } else if self.alt_active() {
+            &self.data.moves[self.opts.ext.alt.unwrap()].levels[0]
+        } else {
+            &self.data.moves[self.extras[(self.slot - self.first_extra()) as usize].0].levels[0]
         }
     }
 
@@ -5680,9 +5688,10 @@ impl<'a, M: MathFns> Match<'a, M> {
         }
         let hpk = 3.3 + jmin(1.7, t / 210.0);
         let shot_cd = or(def.shot_cd, 2.0) * ai.next();
-        let skill = ai.next() * 3.0;
+        // enemy.js:97 skillCd = rand(1, 4) for the jumper's first skill.
+        let skill = 1.0 + 3.0 * ai.next();
         let heal_cd = or(def.shot_cd, 3.5) * ai.next();
-        // enemy.js:97 skillCd = rand(1, 4) for shielders, then every 6 s (enemy.js:352).
+        // Shielders then reset every 6 s (enemy.js:352).
         let shield_cd = 1.0 + 3.0 * ai.next();
         let dmg = def.dmg * sc_dmg * DMG_K;
         let mut e = Enemy {

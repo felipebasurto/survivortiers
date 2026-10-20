@@ -584,6 +584,9 @@ fn ensure_partners() {
             return;
         }
     }
+    // Without the file the partner order falls back to the tier list. Say so once, and keep it.
+    eprintln!("warning: no solo_sweep.csv found, so the solo partner order is empty and the tier list decides. Pass --partners to pin it.");
+    let _ = PARTNERS.set(HashMap::new());
 }
 
 /// move id -> score_rel from the v4 move tier list. Empty if the file is not next to the sim.
@@ -1463,6 +1466,7 @@ fn main() {
     } else {
         cfg.bot = Bot::Play;
     }
+    ensure_partners();
     let data = Data::load("v3/v3_data.json");
     let t0 = Instant::now();
     match cfg.rest.first().map(String::as_str) {
