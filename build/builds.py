@@ -20,6 +20,7 @@ from __future__ import annotations
 import csv
 import itertools
 import json
+import os
 import sys
 from functools import lru_cache
 from pathlib import Path
@@ -29,7 +30,8 @@ import picks
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
-FIXED = ROOT / "simulator" / "results" / "fixed_group"
+# SURVIVOR_FIXED moves every run output (smoke tests); the published folder is the default.
+FIXED = Path(os.environ["SURVIVOR_FIXED"]) if os.environ.get("SURVIVOR_FIXED") else ROOT / "simulator" / "results" / "fixed_group"
 BUILDS_DIR = FIXED / "builds"
 SCREEN_CSV = FIXED / "group_screen.csv"
 REFINE_CSV = FIXED / "group_search.csv"

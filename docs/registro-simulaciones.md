@@ -109,6 +109,8 @@ Lectura: la mejor build publicada cae de 98,6 a 86,3 con semillas nuevas. Era el
     - Las pruebas que solo comprobaban datos retirados se han quitado (`test_best_move.py` entero; en `test_pasivas.py` el escenario de esquiva y el umbral de Zidra; en `test_card_priority.py` el banco de monedas). La suite de Python pasa (176 OK, 2 omitidas).
     - Hasta regenerar, `data/` (ranking, builds, pasivas, resúmenes) es la última versión publicada, de `5a23d49`.
 
+18. **Pipeline de regeneración (2026-10-20).** `build/regen.py --sim` es la única forma de producir datos. Una sola ruta para todos los grupos (`synergy --explicit`), con una compuerta que exige que el generador y la explícita den los mismos bytes en 300 grupos muestreados. Trozos reanudables de 25.000 grupos, escritos a un temporal y renombrados al terminar. Comprobación de conteo: las filas de la criba tienen que ser iguales al número de grupos. `MANIFEST.json` con commit, hash del binario, máquina, tiempos y hash de cada salida; el modo real se niega con el árbol sucio. `--quick N --scope D` solo para pruebas, con `SURVIVOR_FIXED` apuntando a otra carpeta; publicar se niega fuera de la carpeta oficial. Medido: un hilo y cuatro dan los mismos bytes, y repetir una corrida da lo mismo. Etapas añadidas: contrafactuales y cartas de pasivas. Pendiente: la tabla de 150 especies de pasivas (`pasivas_rank.py` lee `items_g2p2.csv`, que no está en el repo). Protocolo en `docs/CORRER.md`.
+
 ## Procedimiento para una corrida nueva
 
 1. Revisar las tablas de este archivo: ¿existe la salida con esas semillas y flags?
