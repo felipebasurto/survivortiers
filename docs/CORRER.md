@@ -27,7 +27,9 @@ git status --short                       # tiene que estar vacío: el manifiesto
 cargo build --release --manifest-path simulator/sim-rs/Cargo.toml
 ```
 
-## 3. Prueba de humo (unos 10 minutos en 4 vCPU)
+## 3. Prueba de humo (unos 15 minutos en 4 vCPU)
+
+Medida en `4a6a85b`, horizonte de 1800 s: solo screen 91 s, solo refine 226 s, solo contend 497 s, start sweep 87 s, start rank 22 s, resto menos de 5 s cada uno; 13 etapas, unos 16 minutos. Con 1 semilla y 3 especies, así que no sirve para estimar la corrida completa.
 
 No publica nada. Escribe en una carpeta aparte, con 1 semilla por partida y 3 especies (Bulbasaur, Gengar y Pikachu):
 
@@ -89,7 +91,7 @@ python3 build/summary_pipeline.py check  # tiene que pasar
 python3 build/checks.py --site           # y ahora el sitio
 ```
 
-`refresh_summaries.py` reescribe desde las afirmaciones permitidas. La versión con subagentes
+`refresh_summaries.py` reescribe **todas** las fichas desde las afirmaciones permitidas (plantilla determinista; no conserva texto antiguo). La versión con subagentes
 (`summary_pipeline.py plan / validate / assemble`) da mejor prosa, pero necesita que alguien la ejecute.
 
 ## 8. Qué guardar
