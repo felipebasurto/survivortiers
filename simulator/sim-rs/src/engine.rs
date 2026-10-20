@@ -2288,8 +2288,6 @@ impl<'a, M: MathFns> Match<'a, M> {
         raw_hurt(e, dmg, 80.0, dx, dy);
     }
 
-    /// Swap when the active timer is still above 35% of base cd (player.js:148). cdMul at or below
-    /// 0.35 already waits less than the clamp, so swapping does not help. Choice Band never reaches this.
     fn first_extra(&self) -> u8 {
         if self.opts.ext.alt.is_some() { 2 } else { 1 }
     }
@@ -2330,7 +2328,8 @@ impl<'a, M: MathFns> Match<'a, M> {
     }
 
     /// Swap when the active timer is still above 35% of base cd (player.js:148), or when the active hole
-    /// found no target. The next hole in turn takes over. Choice Band never reaches this.
+    /// found no target. The next hole in turn takes over. cdMul at or below 0.35 already waits less than
+    /// the clamp, so swapping does not help. Choice Band never reaches this.
     fn maybe_swap(&mut self) {
         if self.holes() < 2 || self.opts.ext.item.lock || self.st.cd_mul <= 0.35 {
             return;

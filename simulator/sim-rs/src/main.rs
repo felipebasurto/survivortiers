@@ -338,7 +338,7 @@ fn ext_for(data: &Data, mon: &Mon, start: usize, cfg: &Cfg) -> Ext {
 }
 
 fn group_label(cfg: &Cfg) -> &'static str {
-    match (cfg.group, cfg.legacy) { (2, false) => "grupo fijo 2 ataques + Danza Espada o Maquinación y Fortaleza con vínculos de grieta, jefes y todos los tipos de ataque", (3, false) => "grupo fijo 3 ataques + Danza Espada o Maquinación con vínculos de grieta, jefes y todos los tipos de ataque", (2, true) => "grupo fijo 2 ataques + Danza Espada o Maquinación y Fortaleza desde t=0, sin grietas, sin jefes", (3, true) => "grupo fijo 3 ataques + Danza Espada o Maquinación desde t=0, sin grietas, sin jefes", (0, false) => "un movimiento, sin grietas, con jefes", _ => "un movimiento, sin grietas, sin jefes" }
+    match (cfg.group, cfg.legacy) { (2, false) => "grupo fijo 2 ataques + Danza Espada o Maquinación y Fortaleza o Agilidad con vínculos de grieta, jefes y todos los tipos de ataque", (3, false) => "grupo fijo 3 ataques + Danza Espada o Maquinación con vínculos de grieta, jefes y todos los tipos de ataque", (2, true) => "grupo fijo 2 ataques + Danza Espada o Maquinación y Fortaleza o Agilidad desde t=0, sin grietas, sin jefes", (3, true) => "grupo fijo 3 ataques + Danza Espada o Maquinación desde t=0, sin grietas, sin jefes", (0, false) => "un movimiento, sin grietas, con jefes", _ => "un movimiento, sin grietas, sin jefes" }
 }
 
 fn bot_name(b: Bot) -> &'static str {
