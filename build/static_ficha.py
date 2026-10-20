@@ -289,10 +289,9 @@ def _meter(label: str, v: int, cls: str) -> str:
 def _build_option(L: Lang, moves: dict[str, dict], cards: dict, kind: str, b: dict | None, other: dict | None,
                   win: str | None) -> str:
     """Una de las dos builds: veredicto, ataques en filas, estadísticas y las cartas en orden, todo a la vista."""
-    head = f'<h3 class="bd-kind">{esc(L.t(BUILD_NAME[kind]))}</h3>'
     if not b:
-        return (f'<article class="bd-opt is-none" data-build="{kind}">{head}'
-                f'<p class="bd-none">{esc(L.t(BUILD_NONE[kind]))}</p></article>')
+        return ""
+    head = f'<h3 class="bd-kind">{esc(L.t(BUILD_NAME[kind]))}</h3>'
     ids, nb = b["moves"], int(b["nBoost"])
     rows = "".join(_move_row(L, moves, mid, str(i + 1), i >= len(ids) - nb) for i, mid in enumerate(ids))
     stats = (f'<dl class="bd-stats">'
@@ -364,9 +363,12 @@ def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, detail: list,
     region = regions.badge(L, sprites, entry["bannerId"], banner, {}, small=True)
     start_row = _move_row(L, moves, detail[2])
     super_pct, neutral_pct = detail[9][0], detail[9][1]
-    options = "".join(
+    options = [
         _build_option(L, moves, cards, kind, pair.get(kind), pair.get(BUILD_OTHER_KIND[kind]), win)
-        for kind in BUILD_NAME)
+        for kind in BUILD_NAME]
+    options = [o for o in options if o]
+    pair_cap = f'<p class="bd-cap">{esc(L.t("bd_pair_cap"))}</p>' if len(options) > 1 else ""
+    pair_cls = "bd-pair" if len(options) > 1 else "bd-pair is-single"
     stat_rows = "".join(
         f'<tr><th scope="row">{esc(L.t(key))}</th><td class="num">{n}</td></tr>'
         for key, n in zip(STAT_KEYS, stats))
@@ -396,8 +398,8 @@ def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, detail: list,
 <div class="bd-card" style="--p1:{tc};--p2:{tc2}">
 <header class="bd-head"><div><h2 id="bd-h">{esc(L.t("t_build"))}</h2><span class="bd-who">{esc(name)}</span></div></header>
 <div class="bd-block bd-start"><h3 class="bd-cap">{esc(L.t("build_start"))}</h3><ul class="bd-rows">{start_row}</ul></div>
-<p class="bd-cap">{esc(L.t("bd_pair_cap"))}</p>
-<div class="bd-pair">{options}</div>
+{pair_cap}
+<div class="{pair_cls}">{"".join(options)}</div>
 <div class="bd-cover">{_meter(L.t("build_super"), int(super_pct), "bd-super")}{_meter(L.t("build_neutral"), int(neutral_pct), "bd-neutral")}</div>
 <p class="bd-brand">{esc(L.t("build_brand", site=legal.SITE_NAME))}</p>
 </div>

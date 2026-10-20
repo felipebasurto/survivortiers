@@ -4,6 +4,8 @@
 """
 from __future__ import annotations
 
+import csv
+import html as html_lib
 import sys
 import unittest
 from pathlib import Path
@@ -18,6 +20,14 @@ from i18n import EN, ES  # noqa: E402
 
 def _sample_dex(cls: str, n: int = 1) -> list[int]:
     return [d for d, groups in builds.space().items() if builds.attacker_class(d) == cls and groups][:n]
+
+
+def _kinds_by_dex() -> dict[str, set[str]]:
+    out: dict[str, set[str]] = {}
+    with (ROOT / "data" / "builds.csv").open(encoding="utf8", newline="") as f:
+        for row in csv.DictReader(f):
+            out.setdefault(row["dex"], set()).add(row["build"])
+    return out
 
 
 class Candidates(unittest.TestCase):
@@ -106,10 +116,51 @@ class Text(unittest.TestCase):
         self.assertIn("is-best", static_ficha._verdict(ES, "melee", win, self._b(90.0), "melee"))
         self.assertEqual(static_ficha._verdict(ES, "melee", win, None, "melee"), "")
 
-    def test_missing_build_renders_the_none_line(self) -> None:
-        empty = static_ficha._build_option(ES, {}, {}, "ranged", None, None, None)
-        self.assertIn("No hay ataques a distancia que le valgan.", empty)
-        self.assertIn("is-none", empty)
+    def test_missing_build_renders_nothing(self) -> None:
+        self.assertEqual(static_ficha._build_option(ES, {}, {}, "melee", None, None, None), "")
+        self.assertEqual(static_ficha._build_option(EN, {}, {}, "ranged", None, None, None), "")
+
+
+class FichaBuildLayout(unittest.TestCase):
+    """Las fichas ya generadas (python3 build/render.py): una especie sin build cuerpo a cuerpo no pinta su caja."""
+
+    def _page(self, prefix: str, slug: str) -> str:
+        path = ROOT / "site" / prefix / "pokemon" / slug / "index.html"
+        self.assertTrue(path.is_file(), "falta la ficha estática: python3 build/render.py")
+        return path.read_text(encoding="utf8")
+
+    def test_single_build_species_has_one_full_width_box(self) -> None:
+        for prefix in ("", "en"):
+            page = self._page(prefix, "94-gengar")
+            with self.subTest(prefix=prefix):
+                self.assertEqual(page.count('class="bd-opt'), 1)
+                self.assertIn('data-build="ranged"', page)
+                self.assertNotIn('data-build="melee"', page)
+                self.assertIn('class="bd-pair is-single"', page)
+                self.assertNotIn("bd-none", page)
+                self.assertNotIn("is-none", page)
+                self.assertNotIn("bd-note", page)
+                self.assertNotIn('<p class="bd-cap">' + html_lib.escape(ES.t("bd_pair_cap")), page)
+                self.assertNotIn('<p class="bd-cap">' + html_lib.escape(EN.t("bd_pair_cap")), page)
+
+    def test_species_with_both_builds_is_unchanged(self) -> None:
+        for prefix, lang in (("", ES), ("en", EN)):
+            page = self._page(prefix, "354-banette")
+            with self.subTest(prefix=prefix):
+                self.assertEqual(page.count('class="bd-opt'), 2)
+                self.assertIn('data-build="melee"', page)
+                self.assertIn('data-build="ranged"', page)
+                self.assertIn('class="bd-pair"', page)
+                self.assertNotIn("is-single", page)
+                self.assertIn('<p class="bd-cap">' + html_lib.escape(lang.t("bd_pair_cap")), page)
+
+    def test_shape_follows_the_build_data(self) -> None:
+        for dex, kinds in list(_kinds_by_dex().items())[:40]:
+            slug = next(p.name for p in (ROOT / "site" / "pokemon").glob(f"{dex}-*"))
+            page = self._page("", slug)
+            with self.subTest(dex=dex):
+                self.assertEqual(page.count('class="bd-opt'), len(kinds))
+                self.assertEqual("melee" in kinds, 'data-build="melee"' in page)
 
 
 if __name__ == "__main__":
