@@ -78,7 +78,7 @@ pub struct Summary {
     pub n_cap: usize,
     pub mean_hp_frac: Option<f64>,
     pub status_ignored: bool,
-    /// Median of time * dealt * (1 + kills). Zero damage scores 0.
+    /// Median of the damage dealt. A run that deals nothing scores 0.
     pub median_score: f64,
     pub mean_score: f64,
     pub score_lo: f64,
@@ -87,6 +87,22 @@ pub struct Summary {
     /// independent blocks of the same run, for the stability check.
     pub score_a: f64,
     pub score_b: f64,
+    /// Share of all damage dealt, summed over the runs, by source. NaN when no run dealt damage.
+    pub start_share: f64,
+    pub comp_share: f64,
+    pub extra_share: f64,
+    pub other_share: f64,
+    pub bomb_share: f64,
+    /// Share of runs with at least one rift bond, and the mean bonds per run.
+    pub share_bond: f64,
+    pub mean_bonds: f64,
+    /// Share of runs whose starter evolved, and the mean starter level at the end.
+    pub share_evolved: f64,
+    pub mean_start_lvl: f64,
+    /// Mean level-up cards taken per run: up, evo, buff, stat, learn, other.
+    pub mean_cards: [f64; 6],
+    /// Share of runs in which a boss spawned.
+    pub share_boss_seen: f64,
 }
 
 /// `runs` must be in seed order (1..N), as runSpecies produces them.
@@ -162,7 +178,36 @@ pub fn summarize(runs: &[RunResult]) -> Summary {
         score_hi,
         score_a,
         score_b,
+        start_share: damage_share(runs, |r| r.dealt_start),
+        comp_share: damage_share(runs, |r| r.dealt_comps.iter().sum()),
+        extra_share: damage_share(runs, |r| r.dealt_extra),
+        other_share: damage_share(runs, |r| r.dealt_other),
+        bomb_share: damage_share(runs, |r| r.dealt_bomb),
+        share_bond: mean_of(runs, |r| flag(r.bonds > 0)),
+        mean_bonds: mean_of(runs, |r| r.bonds as f64),
+        share_evolved: mean_of(runs, |r| flag(r.start_evolved)),
+        mean_start_lvl: mean_of(runs, |r| r.start_lvl as f64),
+        mean_cards: std::array::from_fn(|k| mean_of(runs, |r| r.cards[k] as f64)),
+        share_boss_seen: mean_of(runs, |r| flag(!r.first_boss_t.is_nan())),
     }
+}
+
+fn mean_of(runs: &[RunResult], f: impl Fn(&RunResult) -> f64) -> f64 {
+    runs.iter().map(f).sum::<f64>() / runs.len() as f64
+}
+
+/// Share of the damage dealt by all runs together. NaN when nothing was dealt.
+fn damage_share(runs: &[RunResult], f: impl Fn(&RunResult) -> f64) -> f64 {
+    let total: f64 = runs.iter().map(|r| r.dealt).sum();
+    if total > 0.0 {
+        runs.iter().map(f).sum::<f64>() / total
+    } else {
+        f64::NAN
+    }
+}
+
+fn flag(on: bool) -> f64 {
+    if on { 1.0 } else { 0.0 }
 }
 
 /// Medians of the first half and the second half of `scores` in seed order.
@@ -218,25 +263,23 @@ mod tests {
     use super::*;
 
     fn run(time: f64, dealt: f64, kills: u32) -> RunResult {
-        RunResult {
-            time,
-            kills,
-            bosses: 0,
-            coins: 0.0,
-            level: 1,
-            capped: false,
-            status_ignored: false,
-            hp: 0.0,
-            max_hp: 1.0,
-            hp_frac: 0.0,
-            dealt,
-        }
+        RunResult { time, kills, level: 1, max_hp: 1.0, dealt, ..Default::default() }
     }
 
     #[test]
     fn halves_are_taken_in_seed_order() {
         let (a, b) = half_medians(&[1.0, 2.0, 3.0, 10.0, 20.0, 30.0]);
         assert_eq!((a, b), (2.0, 20.0));
+    }
+
+    #[test]
+    fn shares_split_the_damage() {
+        let mut r = run(120.0, 100.0, 1);
+        r.dealt_start = 60.0;
+        r.dealt_comps = [30.0, 0.0, 0.0];
+        r.dealt_other = 10.0;
+        let s = summarize(&[r]);
+        assert_eq!((s.start_share, s.comp_share, s.other_share, s.bomb_share), (0.6, 0.3, 0.1, 0.0));
     }
 
     #[test]

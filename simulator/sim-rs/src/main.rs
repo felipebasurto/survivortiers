@@ -891,7 +891,7 @@ fn sweep(data: &Data, cfg: &Cfg) {
     std::fs::create_dir_all(&out_dir).unwrap();
     let mut long = format!(
         "# barrido: todos los movimientos simulados del pool como inicial. seeds=1-{} seconds={} bot={}\n\
-         dex,name,start,kind,n,median_s,mean_s,boot_lo,boot_hi,p10_s,p90_s,median_kills,median_lvl,status_ignored,group,median_dealt,median_score,mean_score,score_lo,score_hi,score_a,score_b\n",
+         dex,name,start,kind,n,median_s,mean_s,boot_lo,boot_hi,p10_s,p90_s,median_kills,median_lvl,status_ignored,group,median_dealt,median_score,mean_score,score_lo,score_hi,score_a,score_b,{EXTRA_COLS}\n",
         cfg.seeds, cfg.seconds, bot_name(cfg.bot)
     );
     for r in &rows {
@@ -914,7 +914,7 @@ fn sweep(data: &Data, cfg: &Cfg) {
             num(s.median_lvl),
             s.status_ignored as u8,
             row_group(data, r, cfg),
-            score_tail(s)
+            tail_cols(s)
         )
         .unwrap();
     }
@@ -953,7 +953,7 @@ fn sweep(data: &Data, cfg: &Cfg) {
     let old = read_old_rank("out/rank_200.csv");
     let mut text = format!(
         "# mejor movimiento inicial por especie. seeds=1-{} seconds={} bot={}\n\
-         rank,dex,name,best_start,best_kind,median_s,mean_s,boot_lo,boot_hi,p10_s,p90_s,median_kills,median_lvl,status_ignored,n_candidates,alt_start,alt_median_s,rank_old_200,group,median_dealt,median_score,mean_score,score_lo,score_hi,score_a,score_b\n",
+         rank,dex,name,best_start,best_kind,median_s,mean_s,boot_lo,boot_hi,p10_s,p90_s,median_kills,median_lvl,status_ignored,n_candidates,alt_start,alt_median_s,rank_old_200,group,median_dealt,median_score,mean_score,score_lo,score_hi,score_a,score_b,{EXTRA_COLS}\n",
         cfg.seeds, cfg.seconds, bot_name(cfg.bot)
     );
     for (i, (r, n, alt)) in best.iter().enumerate() {
@@ -980,7 +980,7 @@ fn sweep(data: &Data, cfg: &Cfg) {
             alt.map(|a| num(a.s.median_s)).unwrap_or_default(),
             old.get(&r.mon.dex).map(|x| x.to_string()).unwrap_or_default(),
             row_group(data, r, cfg),
-            score_tail(&s)
+            tail_cols(&s)
         )
         .unwrap();
     }
@@ -1081,12 +1081,12 @@ fn tasks_cmd(data: &Data, cfg: &Cfg) {
                 num(s.p90_coins),
                 num(s.p10_dealt),
                 num(s.p90_dealt),
-                score_tail(&s)
+                tail_cols(&s)
             )
         })
         .collect();
     let path = cfg.out.clone().expect("--out");
-    std::fs::write(&path, format!("dex,move,item,fill,buffs,stop,heal_below,lock,mods,median_s,mean_s,boot_lo,boot_hi,p75_s,p90_s,median_lvl,alive180,alive300,alive600,median_kills,p10_kills,p90_kills,median_bosses,median_kpm,median_coins,p10_coins,p90_coins,p10_dealt,p90_dealt,median_dealt,median_score,mean_score,score_lo,score_hi,score_a,score_b\n{}\n", rows.join("\n"))).unwrap();
+    std::fs::write(&path, format!("dex,move,item,fill,buffs,stop,heal_below,lock,mods,median_s,mean_s,boot_lo,boot_hi,p75_s,p90_s,median_lvl,alive180,alive300,alive600,median_kills,p10_kills,p90_kills,median_bosses,median_kpm,median_coins,p10_coins,p90_coins,p10_dealt,p90_dealt,median_dealt,median_score,mean_score,score_lo,score_hi,score_a,score_b,{EXTRA_COLS}\n{}\n", rows.join("\n"))).unwrap();
     eprintln!("wrote {path}");
 }
 
@@ -1119,17 +1119,32 @@ fn cmp_run(a: &Summary, b: &Summary) -> std::cmp::Ordering {
         .then(cmp_desc(a.median_kills, b.median_kills))
 }
 
-fn score_tail(s: &Summary) -> String {
-    format!(
-        "{},{},{},{},{},{},{}",
+/// Column names after `score_b`, in the order `tail_cols` writes them.
+const EXTRA_COLS: &str = "share_start,share_comp,share_extra,share_other,share_bomb,share_bond,mean_bonds,share_evolved,mean_start_lvl,mean_cards_up,mean_cards_evo,mean_cards_buff,mean_cards_stat,mean_cards_learn,mean_cards_other,share_boss_seen";
+
+/// The score columns, then the damage-source, bond, evolution and card columns, all appended last.
+fn tail_cols(s: &Summary) -> String {
+    let mut cols = vec![
         num(s.median_dealt),
         num(s.median_score),
         num(s.mean_score),
         num(s.score_lo),
         num(s.score_hi),
         num(s.score_a),
-        num(s.score_b)
-    )
+        num(s.score_b),
+        num(s.start_share),
+        num(s.comp_share),
+        num(s.extra_share),
+        num(s.other_share),
+        num(s.bomb_share),
+        num(s.share_bond),
+        num(s.mean_bonds),
+        num(s.share_evolved),
+        num(s.mean_start_lvl),
+    ];
+    cols.extend(s.mean_cards.iter().map(|&v| num(v)));
+    cols.push(num(s.share_boss_seen));
+    cols.join(",")
 }
 
 /// A group name as `group_name` writes it: attacks (start first), then the attack buff, then Harden or Agility.
@@ -1237,8 +1252,8 @@ fn synergy_cmd(data: &Data, cfg: &Cfg) {
             std::fs::create_dir_all(dir).unwrap();
         }
     }
-    let mut text = String::from(
-        "dex,name,group,median_s,mean_s,boot_lo,boot_hi,p10_s,p90_s,median_kills,median_lvl,status_ignored,median_dealt,median_score,mean_score,score_lo,score_hi,score_a,score_b\n",
+    let mut text = format!(
+        "dex,name,group,median_s,mean_s,boot_lo,boot_hi,p10_s,p90_s,median_kills,median_lvl,status_ignored,median_dealt,median_score,mean_score,score_lo,score_hi,score_a,score_b,{EXTRA_COLS}\n",
     );
     for r in &rows {
         let s = &r.s;
@@ -1257,7 +1272,7 @@ fn synergy_cmd(data: &Data, cfg: &Cfg) {
             num(s.median_kills),
             num(s.median_lvl),
             s.status_ignored as u8,
-            score_tail(s)
+            tail_cols(s)
         )
         .unwrap();
     }
@@ -1278,7 +1293,7 @@ fn rank(data: &Data, cfg: &Cfg) {
     let note = if cfg.swap { format!("{note}, cambio de hueco al 35% de la recarga") } else { note.to_string() };
     let mut text = format!(
         "# step={} seeds=1-{} seconds={} bot={} sin mejoras permanentes, {}, controlador compartido{}\n\
-         dex,name,n,median_s,mean_s,boot_lo,boot_hi,p10_s,p90_s,median_kills,median_lvl,n_cap,mean_hp_frac,status_ignored,median_dealt,median_score,mean_score,score_lo,score_hi,score_a,score_b\n",
+         dex,name,n,median_s,mean_s,boot_lo,boot_hi,p10_s,p90_s,median_kills,median_lvl,n_cap,mean_hp_frac,status_ignored,median_dealt,median_score,mean_score,score_lo,score_hi,score_a,score_b,{EXTRA_COLS}\n",
         DT, cfg.seeds, cfg.seconds, bot_name(cfg.bot), group_label(cfg), note
     );
     for r in &rows {
@@ -1300,7 +1315,7 @@ fn rank(data: &Data, cfg: &Cfg) {
             s.n_cap,
             s.mean_hp_frac.map(num).unwrap_or_default(),
             s.status_ignored as u8,
-            score_tail(s)
+            tail_cols(s)
         )
         .unwrap();
     }
@@ -1413,8 +1428,10 @@ fn find<'a>(data: &'a Data, dex: &str, mv: &str) -> (&'a Mon, usize) {
 
 fn print_result(r: &RunResult) {
     println!(
-        "{{\"time\":{:?},\"kills\":{},\"bosses\":{},\"coins\":{:?},\"level\":{},\"capped\":{},\"statusIgnored\":{},\"hp\":{:?},\"maxHp\":{:?},\"hpFrac\":{:?}}}",
-        r.time, r.kills, r.bosses, r.coins, r.level, r.capped, r.status_ignored, r.hp, r.max_hp, r.hp_frac
+        "{{\"time\":{:?},\"kills\":{},\"bosses\":{},\"coins\":{:?},\"level\":{},\"capped\":{},\"statusIgnored\":{},\"hp\":{:?},\"maxHp\":{:?},\"hpFrac\":{:?},\"dealt\":{:?},\"dealtStart\":{:?},\"dealtComps\":{:?},\"dealtExtra\":{:?},\"dealtOther\":{:?},\"dealtBomb\":{:?},\"bonds\":{},\"startLvl\":{},\"startEvolved\":{},\"compsEvolved\":{},\"cards\":{:?},\"firstBossT\":{}}}",
+        r.time, r.kills, r.bosses, r.coins, r.level, r.capped, r.status_ignored, r.hp, r.max_hp, r.hp_frac,
+        r.dealt, r.dealt_start, r.dealt_comps, r.dealt_extra, r.dealt_other, r.dealt_bomb, r.bonds, r.start_lvl, r.start_evolved, r.comps_evolved, r.cards,
+        if r.first_boss_t.is_nan() { "null".to_string() } else { format!("{:?}", r.first_boss_t) }
     );
 }
 

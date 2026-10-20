@@ -212,7 +212,7 @@ pub fn take_trace() -> Vec<Frame> {
     TRACE.with(|t| std::mem::take(&mut *t.borrow_mut()))
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct RunResult {
     pub time: f64,
     pub kills: u32,
@@ -229,6 +229,26 @@ pub struct RunResult {
     /// HP and shield actually removed. Overkill is not counted. DoT is not included
     /// (combat.js adds the hit to `dmgDealt`, not the burn or poison ticks).
     pub dealt: f64,
+    /// `dealt` by source. The parts add up to `dealt` up to rounding. `dealt_start` is the starter,
+    /// `dealt_comps` the first three companions in `Ext::companions` order, `dealt_extra` the extra
+    /// attacks (`Match::extras`), `dealt_other` the rest (learned bonds, companions past the third),
+    /// `dealt_bomb` the screen bomb. All zero in `--parity` runs, where `faith()` is off and damage is not tracked.
+    pub dealt_start: f64,
+    pub dealt_comps: [f64; 3],
+    pub dealt_extra: f64,
+    pub dealt_other: f64,
+    pub dealt_bomb: f64,
+    /// Rift bonds made. Zero outside rift runs.
+    pub bonds: u32,
+    /// Starter level and evolution when the run ended.
+    pub start_lvl: u32,
+    pub start_evolved: bool,
+    /// Companions that evolved.
+    pub comps_evolved: u32,
+    /// Level-up cards taken: up, evo, buff, stat, learn, other (see `card_tag`).
+    pub cards: [u32; 6],
+    /// Seconds to the first boss spawn. NaN when no boss spawned.
+    pub first_boss_t: f64,
 }
 
 /// End-of-run Pokémonedas. game.js:295-301.
@@ -471,6 +491,19 @@ enum Card {
     Heal,
 }
 
+/// Index into `Match::cards`: up, evo, buff, stat, learn, other. A learned bond is `CARD_LEARN`.
+const CARD_LEARN: usize = 4;
+
+fn card_tag(c: Card) -> usize {
+    match c {
+        Card::Up | Card::Up2(_) => 0,
+        Card::Evo | Card::Evo2(_) => 1,
+        Card::Sd | Card::Hd => 2,
+        Card::Stat(_) => 3,
+        Card::Xp | Card::Heal => 5,
+    }
+}
+
 const FILL: [Card; 9] = [
     Card::Sd,
     Card::Hd,
@@ -669,6 +702,8 @@ struct Shot {
     drain: f64,
     /// Seconds since the cast (projectile.js p.t). Only the rebound reads it.
     age: f64,
+    /// Owning move index (`MoveLvl::ix`), for the per-move damage split.
+    src: u16,
 }
 
 struct Boom {
@@ -688,6 +723,8 @@ struct Boom {
     st: Status,
     knock: f64,
     cat: u8,
+    /// Owning move index (`MoveLvl::ix`), for the per-move damage split.
+    src: u16,
 }
 
 struct Orb {
@@ -1512,6 +1549,11 @@ struct Match<'a, M: MathFns> {
     picked: f64,
     /// Post-type, post-guard, post-crit damage before the shield. Burn and poison are not included.
     dealt: f64,
+    /// Damage by move index (`MoveLvl::ix`) and the counters RunResult reports.
+    dealt_by: Vec<f64>,
+    dealt_bomb: f64,
+    cards: [u32; 6],
+    first_boss_t: f64,
     xp: f64,
     level: u32,
     need: f64,
@@ -2225,6 +2267,7 @@ impl<'a, M: MathFns> Match<'a, M> {
         // Group mode spends the level on a missing bond move when the offer shows it.
         // Parity and solo runs leave rift off, so this returns before touching card_roll.
         if self.try_learn() {
+            self.cards[CARD_LEARN] += 1;
             return;
         }
         let mut legal = Vec::with_capacity(12);
@@ -2248,6 +2291,7 @@ impl<'a, M: MathFns> Match<'a, M> {
         let id = self.pick_card(&legal);
         let before = self.st.max_hp;
         self.apply_card(id);
+        self.cards[card_tag(id)] += 1;
         if id == Card::Sd {
             self.state.sd_cd = 0.0;
         }
@@ -2415,6 +2459,13 @@ impl<'a, M: MathFns> Match<'a, M> {
         }
     }
 
+    /// Credits `dealt` to the move that dealt it. The bell item sees the same damage.
+    fn add_dealt(&mut self, ix: u16, dealt: f64) {
+        self.dealt += dealt;
+        self.dealt_by[ix as usize] += dealt;
+        note_bell(&mut self.bell, self.opts.ext.item.bell, dealt);
+    }
+
     /// game.js:525. Everything on screen takes 60 + 14 * level.
     fn detonate(&mut self) {
         let dmg = 60.0 + self.level as f64 * 14.0;
@@ -2428,6 +2479,7 @@ impl<'a, M: MathFns> Match<'a, M> {
             raw_hurt(e, dmg, 160.0, e.x - px, e.y - py);
         }
         self.dealt += dealt;
+        self.dealt_bomb += dealt;
     }
 
     /// pickup.js update. Pull inside the magnet, collect inside 15px.
@@ -2981,8 +3033,7 @@ impl<'a, M: MathFns> Match<'a, M> {
                         }
                     }
                 }
-                self.dealt += dealt;
-                note_bell(&mut self.bell, self.opts.ext.item.bell, dealt);
+                self.add_dealt(mv.ix, dealt);
             }
             Kind::Beam => {
                 let (px, py) = (self.pl.x, self.pl.y);
@@ -2998,8 +3049,7 @@ impl<'a, M: MathFns> Match<'a, M> {
                         }
                     }
                 }
-                self.dealt += dealt;
-                note_bell(&mut self.bell, self.opts.ext.item.bell, dealt);
+                self.add_dealt(mv.ix, dealt);
             }
             Kind::Orbit => {
                 let count = or(mv.count, 1.0);
@@ -3034,6 +3084,7 @@ impl<'a, M: MathFns> Match<'a, M> {
                     let dx = math.cos(a);
                     let dy = math.sin(a);
                     self.booms.push(Boom {
+                        src: mv.ix,
                         st,
                         ox: self.pl.x,
                         oy: self.pl.y,
@@ -3097,6 +3148,7 @@ impl<'a, M: MathFns> Match<'a, M> {
             st,
             knock: or(mv.knock, 0.0),
             cat: mv.cat,
+            src: mv.ix,
             bounce: or(mv.bounce, 0.0) as u32,
             drain: or(mv.drain, 0.0),
             age: 0.0,
@@ -3140,8 +3192,7 @@ impl<'a, M: MathFns> Match<'a, M> {
                 }
             }
         }
-        self.dealt += dealt;
-        note_bell(&mut self.bell, self.opts.ext.item.bell, dealt);
+        self.add_dealt(mv.ix, dealt);
     }
 
     fn cast_x(&mut self, mv: &'a MoveLvl, aim: f64, st: Status) -> bool {
@@ -3231,8 +3282,7 @@ impl<'a, M: MathFns> Match<'a, M> {
                     }
                     cur = best;
                 }
-                self.dealt += dealt;
-                note_bell(&mut self.bell, self.opts.ext.item.bell, dealt);
+                self.add_dealt(mv.ix, dealt);
             }
             // aura(): everything in the circle; drain heals at most 6 per cast
             4 => {
@@ -3255,8 +3305,7 @@ impl<'a, M: MathFns> Match<'a, M> {
                         }
                     }
                 }
-                self.dealt += dealt;
-                note_bell(&mut self.bell, self.opts.ext.item.bell, dealt);
+                self.add_dealt(mv.ix, dealt);
                 if healed > 0.0 {
                     self.pl.hp = jmin(self.st.max_hp, self.pl.hp + jmin(healed, 6.0));
                 }
@@ -3342,8 +3391,7 @@ impl<'a, M: MathFns> Match<'a, M> {
                         }
                     }
                 }
-                self.dealt += dealt;
-                note_bell(&mut self.bell, self.opts.ext.item.bell, dealt);
+                self.add_dealt(mv.ix, dealt);
             }
             // mines(): armed after 0.35 s, burst when stepped on (half damage when they expire); 4 + 2n at most
             6 => {
@@ -3995,6 +4043,9 @@ impl<'a, M: MathFns> Match<'a, M> {
         e.g_spec = guard(self.math, mon.sd);
         self.seq += 1;
         self.enemies.push(e);
+        if self.first_boss_t.is_nan() {
+            self.first_boss_t = self.t;
+        }
         true
     }
 
@@ -4010,6 +4061,7 @@ impl<'a, M: MathFns> Match<'a, M> {
         let enemies = &mut self.enemies;
         let shots = &mut self.shots;
         let terrain = &mut self.terrain;
+        let by = &mut self.dealt_by;
         let mut dealt = 0.0;
         let mut healed = 0.0;
         // strike() only touches hp/shield, so positions stay fixed for the whole shot pass.
@@ -4099,7 +4151,9 @@ impl<'a, M: MathFns> Match<'a, M> {
                     let (sd, sa, sty, sst, sk, svx, svy, scat) = (shot.dmg, shot.atk, shot.ty, shot.st, if faithful { shot.knock } else { 0.0 }, shot.vx, shot.vy, shot.cat);
                     {
                         let mut rng = crit_rng.borrow_mut();
-                        dealt += hit_one(faithful, e, sd, sa, sty, tm, weather, sst, sk, svx, svy, chance, &mut rng, scat);
+                        let got = hit_one(faithful, e, sd, sa, sty, tm, weather, sst, sk, svx, svy, chance, &mut rng, scat);
+                        dealt += got;
+                        by[shot.src as usize] += got;
                     }
                     healed += shot.drain;
                     if shot.bounce > 0 {
@@ -4171,7 +4225,9 @@ impl<'a, M: MathFns> Match<'a, M> {
                     let (dx, dy) = (e.x - x, e.y - y);
                     {
                         let mut rng = crit_rng.borrow_mut();
-                        dealt += hit_one(faithful, e, bd, ba, bt, tm, weather, bst, bk, dx, dy, chance, &mut rng, bcat);
+                        let got = hit_one(faithful, e, bd, ba, bt, tm, weather, bst, bk, dx, dy, chance, &mut rng, bcat);
+                        dealt += got;
+                        by[b.src as usize] += got;
                     }
                 }
             }
@@ -4252,6 +4308,7 @@ impl<'a, M: MathFns> Match<'a, M> {
             }
         }
         self.dealt += dealt;
+        self.dealt_by[mv.ix as usize] += dealt;
         note_bell(&mut self.bell, bell_on, dealt);
         self.step_side_orbs();
     }
@@ -4311,8 +4368,7 @@ impl<'a, M: MathFns> Match<'a, M> {
                 }
             }
         }
-        self.dealt += dealt;
-        note_bell(&mut self.bell, self.opts.ext.item.bell, dealt);
+        self.add_dealt(mv.ix, dealt);
     }
 
     // ------------------------------------------------ bot
@@ -5961,6 +6017,10 @@ fn init_match<'a, M: MathFns>(
         bosses: 0,
         picked: 0.0,
         dealt: 0.0,
+        dealt_by: vec![0.0; data.moves.len()],
+        dealt_bomb: 0.0,
+        cards: [0; 6],
+        first_boss_t: f64::NAN,
         xp: 0.0,
         level: 1,
         need: 0.0,
@@ -6255,6 +6315,22 @@ pub fn run_match<M: MathFns>(
     }
 
     m.stats();
+    let start_ix = data.moves.iter().position(|mv| mv.id == m.start.id).unwrap_or(usize::MAX);
+    let mut dealt_start = 0.0;
+    let mut dealt_comps = [0.0; 3];
+    let mut dealt_extra = 0.0;
+    let mut dealt_other = 0.0;
+    for (ix, &d) in m.dealt_by.iter().enumerate() {
+        if ix == start_ix {
+            dealt_start += d;
+        } else if let Some(k) = m.comps.iter().take(3).position(|c| c.0 == ix) {
+            dealt_comps[k] += d;
+        } else if m.extras.iter().any(|e| e.0 == ix) {
+            dealt_extra += d;
+        } else {
+            dealt_other += d;
+        }
+    }
     let capped = m.pl.hp > 0.0;
     let time = if capped { max_time } else { m.t };
     RunResult {
@@ -6269,6 +6345,17 @@ pub fn run_match<M: MathFns>(
         max_hp: m.st.max_hp,
         hp_frac: if capped { m.pl.hp / m.st.max_hp } else { 0.0 },
         dealt: m.dealt,
+        dealt_start,
+        dealt_comps,
+        dealt_extra,
+        dealt_other,
+        dealt_bomb: m.dealt_bomb,
+        bonds: m.bonds as u32,
+        start_lvl: m.state.move_lvl as u32,
+        start_evolved: m.state.evolved,
+        comps_evolved: m.comp_evo.iter().filter(|&&e| e).count() as u32,
+        cards: m.cards,
+        first_boss_t: m.first_boss_t,
     }
 }
 

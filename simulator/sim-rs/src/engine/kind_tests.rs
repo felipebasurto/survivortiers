@@ -384,3 +384,17 @@ fn a_boss_within_boss_far_is_never_moved_by_stragglers() {
     }
     assert_eq!(m.enemies[b].x, BOSS_FAR - 200.0);
 }
+
+#[test]
+fn damage_is_credited_to_the_move_that_dealt_it() {
+    let mut m = scene(1, "vine-whip");
+    let ty = m.st.mv.ty;
+    foe(&mut m, ty, 30.0, 0.0, false, 0.0);
+    for _ in 0..600 {
+        tick(&mut m);
+    }
+    assert!(m.dealt > 0.0);
+    let total: f64 = m.dealt_by.iter().sum();
+    assert!((total - m.dealt).abs() < 1e-6, "{total} vs {}", m.dealt);
+    assert!((m.dealt_by[mv("vine-whip")] - m.dealt).abs() < 1e-6);
+}

@@ -248,7 +248,6 @@ impl<'a, M: MathFns> Match<'a, M> {
                 }
             }
         }
-        self.dealt += dealt;
-        note_bell(&mut self.bell, self.opts.ext.item.bell, dealt);
+        self.add_dealt(mv.ix, dealt);
     }
 }
