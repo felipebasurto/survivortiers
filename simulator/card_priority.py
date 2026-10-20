@@ -23,7 +23,7 @@ ROOT = Path(__file__).resolve().parent.parent
 RANKING = ROOT / "data" / "ranking_definitive.csv"
 PASSIVE = ROOT / "data" / "passive_sim.json"
 # Evolution card of each move: Moves.EVO in the vendored game
-# (simulator/vendor/pokesurvivor-5a23d49/js/data/moves.js, commit 5a23d49),
+# (simulator/vendor/pokesurvivor-11fe868/js/data/moves.js, commit 11fe868),
 # extracted into v3/v3_data.json by simulator/v3/extract_v3.js.
 GAME = ROOT / "simulator" / "v3" / "v3_data.json"
 STATS = ["atk", "spd", "hp", "def", "cd", "rgn", "mag", "xp"]

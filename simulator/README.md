@@ -169,8 +169,11 @@ Results used for the site are in `results/fixed_group/`.
 
 ### PokéSurvivor update (66610d9, 5a23d49)
 
-Game data, the vendored sources in `vendor/pokesurvivor-5a23d49/` and `v3/v3_data.json` (`v3/extract_v3.js`) are pinned to
-`5a23d49`. `tmult` and `upgrades_src_ok` in `v3_data.json` are carried over from the previous extract; the rest is re-read
+Game data, the vendored sources in `vendor/pokesurvivor-11fe868/` and `v3/v3_data.json` (`v3/extract_v3.js`) are pinned to
+`11fe868`, the game's `main` on 2026-10-20. The published CSVs in `results/` were generated from `5a23d49` (the previous pin,
+still in `vendor/pokesurvivor-5a23d49/`). Until they are regenerated, `v3_data.json` and the published data disagree on 12 moves:
+the projectile spread of their multi-projectile levels changed (`spread` ×0.12 in 18 level/evolution entries). On the 330 groups
+of Bulbasaur 22 medians change, by up to 5 points. `tmult` and `upgrades_src_ok` in `v3_data.json` are carried over from the previous extract; the rest is re-read
 from the game (103 moves, 38 of them new; dragon has 4 attacks in the game, every other type has 5 or more).
 
 - New kinds run on the faithful path only (`--xkinds`, always on for group ranks), as `Kind::Inert` with `xk` 9-16, in
