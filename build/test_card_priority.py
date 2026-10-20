@@ -55,12 +55,17 @@ class CardOrder(unittest.TestCase):
         sim = passives.load()
         ids, gate = passives.priority(445, GARCHOMP_GROUP, sim)
         self.assertEqual(gate, "atk")
-        self.assertEqual(ids, ["rgn", "cd", "def", "atk", "spd", "hp", "mag", "xp"])
+        self.assertEqual(ids, ["rgn", "spd", "xp", "def", "hp", "atk", "mag", "cd"])
 
     def test_every_needed_card_is_a_gate_for_its_move(self) -> None:
         sim = passives.load()
+        self.assertEqual(len(sim["needs"]), 97)
         for move, card in sim["needs"].items():
             self.assertEqual(passives.priority(1, [move], sim)[1], card, move)
+        # 19 Oct 2026 moves (moves.js EVO, vendored at 5a23d49).
+        self.assertEqual(sim["needs"]["hyper-beam"], "atk")
+        self.assertEqual(sim["needs"]["ominous-wind"], "mag")
+        self.assertEqual(sim["needs"]["outrage"], "hp")
         self.assertIsNone(passives.priority(1, ["no-such-move"], sim)[1])
 
     def test_priority_refuses_an_incomplete_order(self) -> None:
@@ -71,7 +76,8 @@ class CardOrder(unittest.TestCase):
     def test_summary_facts_keep_the_policy_picks(self) -> None:
         sim = passives.load()
         shown = passives.compute(936, ["psychic", "heat-wave", "swords-dance", "harden"], sim)
-        self.assertEqual(shown, [["mag", "hp"], 1])
+        # psychic evolves on Imán; the policy takes that card once, then stacks the best coin card.
+        self.assertEqual(shown, [["mag", "rgn"], 1])
 
     def test_card_answer_names_the_gate_once(self) -> None:
         es, en = Lang("es"), Lang("en")
