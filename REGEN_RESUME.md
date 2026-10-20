@@ -1,5 +1,7 @@
 # Regen: resume on the 8-core machine
 
+> **Obsoleto.** Las salidas de las etapas ya existen en el repositorio. Antes de relanzar cualquier etapa, leer `docs/registro-simulaciones.md`: ahí están las salidas vigentes, el commit que las publica y los problemas abiertos.
+
 The code is final; the data is half regenerated. Stages 1-3 of `build/regen.py --sim` finished on the 4-core VM (game commit `5a23d49`). The group screen was killed at about 24,000 of 24,320 groups and left no output. Everything from the group search on is still the old data, so `data/ranking_definitive.csv`, the summaries and the site are **not** regenerated and several tests fail until the steps below are done.
 
 ## Reusable outputs (do not rerun)
