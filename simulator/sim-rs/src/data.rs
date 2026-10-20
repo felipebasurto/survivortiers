@@ -180,12 +180,9 @@ impl Beh {
         }
     }
 
-    /// KEEPS in match.js: hold range and shoot.
+    /// enemy.js keepsDistance(): hold range and shoot. Shielders walk in like any chaser (enemy.js:578).
     pub fn keeps(self) -> bool {
-        matches!(
-            self,
-            Beh::Ranged | Beh::Fan | Beh::Beamer | Beh::Zoner | Beh::Healer | Beh::Summoner | Beh::Shielder
-        )
+        matches!(self, Beh::Ranged | Beh::Fan | Beh::Beamer | Beh::Zoner | Beh::Healer | Beh::Summoner)
     }
 
     pub fn no_touch(self) -> bool {
