@@ -398,3 +398,56 @@ fn damage_is_credited_to_the_move_that_dealt_it() {
     assert!((total - m.dealt).abs() < 1e-6, "{total} vs {}", m.dealt);
     assert!((m.dealt_by[mv("vine-whip")] - m.dealt).abs() < 1e-6);
 }
+
+/// A fixed group of `comps` bonded through the rift, run from `start` (not the species default).
+fn rift_scene(dex: u32, start: usize, comps: Vec<usize>) -> Match<'static, Libm> {
+    let opts: &'static Opts = Box::leak(Box::new(Opts {
+        seed: 1,
+        seconds: 60.0,
+        cards: false,
+        bot: Bot::Play,
+        terrain: false,
+        trace: false,
+        status: true,
+        ext: Ext { xkinds: true, rift: true, companions: comps, ..Ext::default() },
+    }));
+    init_match(&LIBM, dat(), tables(), mon(dex), start, opts)
+}
+
+/// A species with enough attacks to draw from, and the attacks that are not its default start.
+fn pool_species() -> (&'static Mon, usize, Vec<usize>) {
+    let mon = dat().dex.iter().find(|m| m.pool.iter().filter(|&&ix| ix != m.start).count() >= 5).expect("pool");
+    let start = *mon.pool.iter().find(|&&ix| ix != mon.start).expect("start");
+    let others: Vec<usize> = mon.pool.iter().copied().filter(|&ix| ix != start && ix != mon.start).collect();
+    (mon, start, others)
+}
+
+#[test]
+fn the_run_starter_and_companions_are_never_drawn_as_extras() {
+    let (mon, start, others) = pool_species();
+    let comps = vec![others[0]];
+    let mut drawn = 0;
+    for seed in 1..=200u32 {
+        let mut m = rift_scene(mon.dex, start, comps.clone());
+        m.card_roll = Rng::new(seed);
+        for _ in 0..3 {
+            m.try_learn();
+        }
+        drawn += m.extras.len();
+        assert!(!m.extras.iter().any(|e| e.0 == start), "run starter drawn as an extra (seed {seed})");
+        assert!(!m.extras.iter().any(|e| comps.contains(&e.0)), "companion drawn as an extra (seed {seed})");
+    }
+    assert!(drawn > 0, "no extra was ever drawn, the check is vacuous");
+}
+
+#[test]
+fn a_bonded_pair_of_companions_is_one_hole_with_the_starter() {
+    let (mon, start, others) = pool_species();
+    let mut m = rift_scene(mon.dex, start, others[..2].to_vec());
+    m.learned = vec![true, true];
+    m.bonds = 2;
+    assert_eq!(m.holes_used(), 1);
+    assert!(m.extra_room());
+    m.bonds = 0;
+    assert_eq!(m.holes_used(), 3);
+}

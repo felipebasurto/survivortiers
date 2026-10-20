@@ -1491,6 +1491,8 @@ struct Match<'a, M: MathFns> {
     tables: &'a Tables,
     mon: &'a Mon,
     start: &'a Move,
+    /// index of the run's starter in `data.moves` (the species default is `mon.start`)
+    start_ix: usize,
     opts: &'a Opts,
     dt: f64,
     knock_fade: f64,
@@ -2711,8 +2713,7 @@ impl<'a, M: MathFns> Match<'a, M> {
         if self.has_hd && self.state.hd < 5 && (self.opts.ext.buffs == 0 || self.bonded(101)) {
             ups += 8.0;
         }
-        let known = 1 + self.learned.iter().filter(|on| **on).count();
-        let slots_open = !self.opts.ext.rift || known < 4;
+        let slots_open = !self.opts.ext.rift || self.holes_used() < 4;
         let per = if slots_open { 4.0 } else { 7.0 };
         let mut room = 0usize;
         for st in STATS {
@@ -2755,11 +2756,10 @@ impl<'a, M: MathFns> Match<'a, M> {
         }
         stat.truncate(5);
         let (_, evos) = self.level_offer_parts();
-        let per = if evos > 0 && self.learned.iter().filter(|on| **on).count() + 1 >= 4 {
+        let per = if evos > 0 && self.holes_used() >= 4 {
             7.0
         } else {
-            let known = 1 + self.learned.iter().filter(|on| **on).count();
-            if !self.opts.ext.rift || known < 4 { 4.0 } else { 7.0 }
+            if !self.opts.ext.rift || self.holes_used() < 4 { 4.0 } else { 7.0 }
         };
         let mut pool: Vec<(Card, f64)> = Vec::new();
         let mut picked: Vec<Card> = Vec::new();
@@ -2814,12 +2814,19 @@ impl<'a, M: MathFns> Match<'a, M> {
         if !self.opts.ext.rift || self.learned.iter().all(|on| *on) {
             return false;
         }
-        let known_n = 1 + self.learned.iter().filter(|on| **on).count();
-        if known_n >= 4 {
+        if self.holes_used() >= 4 {
             return false;
         }
         let buffs_known = self.learned.iter().enumerate().filter(|(i, on)| **on && self.bond_order[*i] >= 100).count();
-        let mut known = vec![self.mon.start];
+        // player.js:117 addMove refuses a move the player already has (levelup.js:55 drops those from the pool).
+        // A companion still waiting for its bond stays in the pool, or its bond could never be offered.
+        let queued: Vec<usize> = self.bond_order.iter().enumerate()
+            .filter(|&(i, _)| !self.learned.get(i).copied().unwrap_or(false))
+            .map(|(_, &b)| self.bond_move(b))
+            .collect();
+        let mut known = vec![self.start_ix];
+        known.extend(self.extras.iter().map(|e| e.0));
+        known.extend(self.comps.iter().map(|c| c.0).filter(|ix| !queued.contains(ix)));
         for (i, on) in self.learned.iter().enumerate() {
             if *on {
                 known.push(self.bond_move(self.bond_order[i]));
@@ -2893,9 +2900,19 @@ impl<'a, M: MathFns> Match<'a, M> {
         false
     }
 
-    /// Slots left after the starter, learned bonds, extras, and unlearned attack partners.
+    /// Holes in use (player.js:116 `slots`). The fixed group is one hole with the starter and its bonded
+    /// members, at most BOND_MAX = 4 (player.js:180, fuse at player.js:191). A learned member not yet
+    /// bonded and each extra take a hole of their own.
+    fn holes_used(&self) -> usize {
+        let loose = self.bond_order.iter().enumerate()
+            .filter(|&(i, &b)| self.learned.get(i).copied().unwrap_or(false) && !self.bonded(b))
+            .count();
+        1 + self.extras.len() + loose
+    }
+
+    /// Holes left after the fixed group, learned loose members, extras, and unlearned attack partners.
     fn extra_room(&self) -> bool {
-        let known = 1 + self.learned.iter().filter(|on| **on).count() + self.extras.len();
+        let known = self.holes_used();
         let reserved = self.bond_order.iter().enumerate().filter(|(i, b)| {
             **b < 100 && !self.learned.get(*i).copied().unwrap_or(false)
         }).count();
@@ -5944,6 +5961,7 @@ fn init_match<'a, M: MathFns>(
         tables,
         mon,
         start: start_move,
+        start_ix: start,
         opts,
         dt,
         knock_fade,
@@ -6108,7 +6126,7 @@ fn init_match<'a, M: MathFns>(
         } else {
             m.comps[slot as usize].0
         };
-        ix == mon.start || !mon.pool.contains(&ix)
+        ix == start || !mon.pool.contains(&ix)
     }).collect();
     m.need = xp_for(math, 1);
     m.roll_roster();
