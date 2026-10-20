@@ -195,21 +195,18 @@ class FaqCopy(unittest.TestCase):
 
     def test_faq_branches(self) -> None:
         cards = "Según nuestra simulación, en este orden: Imán una vez y después Vigor."
-        plain = static_ficha._faqs(ES, "A", 87, "Psíquico y Vozarrón", "", 0, 13, cards, "Kanto", False, "0,25", 400)
-        self.assertEqual(plain[1][1], "Psíquico y Vozarrón. Pega super efectivo al 13\u00a0% de los enemigos.")
+        plain = static_ficha._faqs(ES, "A", 87, "Cuerpo a cuerpo: Psíquico y Vozarrón.", cards, "Kanto", False, "0,25", 400)
+        self.assertEqual(plain[1][1], "Cuerpo a cuerpo: Psíquico y Vozarrón.")
         self.assertEqual(plain[0][1], "Sí, está entre los buenos: tier A, puesto 87 de 966.")
         self.assertEqual(plain[-1][1], "Sale en el banner Kanto. Cada tirada tiene un 0,25\u00a0% de probabilidad, "
                                        "así que de media hacen falta unas 400 tiradas, sin contar las garantías.")
-        one = static_ficha._faqs(ES, "B", 300, "Vozarrón y Golpe Cuerpo", "Danza Espada", 1, 0, "", "Galar", True,
-                                 "2", 51)
+        one = static_ficha._faqs(ES, "B", 300, "A distancia: Vozarrón y Golpe Cuerpo, con Danza Espada.", "", "Galar",
+                                 True, "2", 51)
         self.assertEqual([q for q, _ in one], ["¿Vale la pena?", "¿Qué ataques le pongo?", "¿Cómo se consigue?"])
-        self.assertEqual(one[1][1], "Vozarrón y Golpe Cuerpo, con Danza Espada de potenciador. "
-                                    "Ninguno de sus ataques es super efectivo contra los enemigos.")
         self.assertTrue(one[-1][1].startswith("Es de los legendarios y sale en el banner Galar."))
-        en = static_ficha._faqs(EN, "D", 966, "Hyper Voice and Petal Blizzard", "Swords Dance and Harden", 2, 19,
-                                "Based on our simulation, in this order: Reflexes.", "Galar", False, "2.0", 51)
-        self.assertEqual(en[1][1], "Hyper Voice and Petal Blizzard, with Swords Dance and Harden as boosts. "
-                                   "Its moves are super effective against 19% of enemies.")
+        en = static_ficha._faqs(EN, "D", 966, "Ranged: Hyper Voice, with Swords Dance.", "Based on our simulation, "
+                                "in this order: Reflexes.", "Galar", False, "2.0", 51)
+        self.assertEqual(en[1][1], "Ranged: Hyper Voice, with Swords Dance.")
         self.assertEqual(en[-1][1], "It is on the Galar banner. Each pull has a 2.0% chance, so on average it takes "
                                     "about 51 pulls, not counting pity guarantees.")
 

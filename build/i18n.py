@@ -217,6 +217,42 @@ STR: dict[str, tuple[str, str]] = {
     "build_group": ("Vínculo", "Bond"),
     "build_best_item": ("Mejor objeto", "Best item"),
     "build_more": ("Más", "More"),
+    "met_builds_h": ("Dos builds por Pokémon", "Two builds per Pokémon"),
+    "met_builds_1": ("La ficha enseña dos grupos vinculados: el mejor de cuerpo a cuerpo (con al menos un ataque cuerpo a cuerpo) "
+                     "y el mejor a distancia (sin ninguno). Cada uno se elige por la mediana de puntuación de la simulación, en la "
+                     "búsqueda de grupo fijo.",
+                     "Each sheet shows two bonded groups: the best melee one (at least one melee move) and the best ranged one "
+                     "(none). Each is picked by the simulation's median score, from the fixed-group search."),
+    "met_builds_2": ("Un atacante físico (ataque físico mayor que el especial) lleva Danza Espada; uno especial, Maquinación. "
+                     "Empatan en especial. Los ataques son de su categoría, y Ataque Rápido, Placaje y Golpe Cuerpo no entran. "
+                     "Si ningún ataque vale para una build, la ficha lo dice.",
+                     "A physical attacker (physical attack above special) carries Swords Dance; a special one carries Nasty Plot. "
+                     "Ties count as special. Moves match its category, and Quick Attack, Tackle and Body Slam are left out. "
+                     "If no move is worth it for a build, the sheet says so."),
+    "met_builds_3": ("Las dos puntuaciones salen del mismo simulador. Mientras un cuerpo a cuerpo está activo, el juego reduce "
+                     "un 25\u00a0% el daño que recibes, y eso ya cuenta en la puntuación de la build cuerpo a cuerpo.",
+                     "Both scores come from the same simulator. While a melee move is active, the game cuts the damage you take "
+                     "by 25%, and that is already counted in the melee build's score."),
+    "bd_pair_cap": ("Dos builds: la mejor de cuerpo a cuerpo y la mejor a distancia. La simulación puntúa cada una.",
+                    "Two builds: the best melee and the best ranged. The simulation scores each one."),
+    "bd_melee": ("Cuerpo a cuerpo", "Melee"),
+    "bd_ranged": ("A distancia", "Ranged"),
+    "bd_time": ("Tiempo", "Time"),
+    "bd_dealt": ("Daño", "Damage"),
+    "bd_kills": ("Bajas", "Kills"),
+    "bd_score": ("Puntuación", "Score"),
+    "bd_best": ("Puntúa más", "Scores higher"),
+    "bd_tie": ("Puntúan igual.", "Both score the same."),
+    "bd_gap_small": ("Solo un {pct} peor que la build {other}.", "Only {pct} below the {other} build."),
+    "bd_gap": ("Un {pct} peor que la build {other}.", "{pct} below the {other} build."),
+    "bd_other_melee": ("cuerpo a cuerpo", "melee"),
+    "bd_other_ranged": ("a distancia", "ranged"),
+    "bd_none_melee": ("No hay ataques cuerpo a cuerpo que le valgan.", "No melee moves worth using on it."),
+    "bd_none_ranged": ("No hay ataques a distancia que le valgan.", "No ranged moves worth using on it."),
+    "bd_melee_note": ("Los ataques cuerpo a cuerpo te obligan a pegar de cerca. Mientras uno está activo, el juego te quita un 25\u00a0% del daño que recibes.",
+                      "Melee moves make you get close to enemies. While one is active, the game cuts the damage you take by 25%."),
+    "faq_a_build": ("{kind}: {attacks}, con {buffs}.", "{kind}: {attacks}, with {buffs}."),
+    "faq_a_build_best": ("Puntúa más la build {kind}.", "The {kind} build scores higher."),
     "t_rank": ("Ranking", "Ranking"),
     "rank_how": ("Cómo se calcula", "How it is calculated"),
     "ficha_rank": ("Puesto {rank} de {total}", "Rank {rank} of {total}"),

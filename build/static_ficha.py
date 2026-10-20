@@ -124,19 +124,20 @@ def card_answer(L: Lang, names: list[str], once: str | None) -> str:
     return L.t("faq_a_cards", cards=cards)
 
 
-def _faqs(L: Lang, tier: str, rank: int, attacks: str, buffs: str, n_buffs: int, super_pct: int,
-          cards: str, banner: str, legendary: bool, pct: str, pulls: int) -> list[tuple[str, str]]:
+BUILD_NAME = {"melee": "bd_melee", "ranged": "bd_ranged"}
+BUILD_OTHER = {"melee": "bd_other_ranged", "ranged": "bd_other_melee"}
+BUILD_NONE = {"melee": "bd_none_melee", "ranged": "bd_none_ranged"}
+BUILD_LOWER = {"melee": "bd_other_melee", "ranged": "bd_other_ranged"}
+BUILD_OTHER_KIND = {"melee": "ranged", "ranged": "melee"}
+GAP_SMALL_PCT = 5
+
+
+def _faqs(L: Lang, tier: str, rank: int, build_text: str, card_text: str, banner: str, legendary: bool,
+          pct: str, pulls: int) -> list[tuple[str, str]]:
     worth = (L.t("faq_q_worth"), L.t(f"faq_a_{tier}", rank=rank, total=charts.TOTAL))
-    if n_buffs == 0:
-        head = L.t("faq_a_moves_plain", attacks=attacks)
-    elif n_buffs == 1:
-        head = L.t("faq_a_moves_one", attacks=attacks, buffs=buffs)
-    else:
-        head = L.t("faq_a_moves", attacks=attacks, buffs=buffs)
-    cover = L.t("faq_a_cover", super=L.pcts(super_pct)) if super_pct else L.t("faq_a_cover_none")
-    out = [worth, (L.t("faq_q_moves"), f"{head} {cover}")]
-    if cards:
-        out.append((L.t("faq_q_cards"), cards))
+    out = [worth, (L.t("faq_q_moves"), build_text)]
+    if card_text:
+        out.append((L.t("faq_q_cards"), card_text))
     where = L.t("faq_get_where_leg" if legendary else "faq_get_where", banner=banner)
     out.append((L.t("faq_q_get"), f"{where} {L.t('faq_get_odds', pct=pct, n=L.num(pulls))}"))
     return out
@@ -203,35 +204,111 @@ def combat(L: Lang, entry: dict) -> str:
             f'<p class="cb-src">{esc(L.t("cb_src", combat=legal.COMBAT_COMMIT))}</p></section>')
 
 
-def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, detail: list, moves: dict[str, dict],
-          prev: dict | None, nxt: dict | None, odds: tuple[float, int], cards: dict, *, summary: str, fresh: str,
-          guides: str, updated: str) -> tuple[str, str]:
-    """Devuelve el HTML visible (sin <head>) y el JSON-LD de las preguntas. summary es el resumen ya en texto plano;
-    fresh, la línea de datos del juego; guides, el bloque de enlaces a las listas."""
+
+
+def _gap_pct(high: float, low: float) -> int:
+    return round((high - low) / high * 100) if high > 0 else 0
+
+
+def _winner(pair: dict[str, dict | None]) -> str | None:
+    """La build de mayor puntuación. Con empate, ninguna; si solo hay una, esa."""
+    have = {k: b for k, b in pair.items() if b}
+    if len(have) < 2:
+        return next(iter(have), None)
+    if have["melee"]["score"] == have["ranged"]["score"]:
+        return None
+    return max(have, key=lambda k: have[k]["score"])
+
+
+def _build_answer(L: Lang, moves: dict[str, dict], pair: dict[str, dict | None]) -> str:
+    parts = []
+    for kind in BUILD_NAME:
+        b = pair.get(kind)
+        if not b:
+            parts.append(L.t(BUILD_NONE[kind]))
+            continue
+        ids, nb = b["moves"], int(b["nBoost"])
+        attacks = _join(L, [_move_name(L, moves, m) for m in ids[:len(ids) - nb]])
+        boosts = _join(L, [_move_name(L, moves, m) for m in ids[len(ids) - nb:]])
+        parts.append(L.t("faq_a_build", kind=L.t(BUILD_NAME[kind]), attacks=attacks, buffs=boosts))
+    win = _winner(pair)
+    if win and len(pair) == 2 and all(pair.values()):
+        parts.append(L.t("faq_a_build_best", kind=L.t(BUILD_LOWER[win])))
+    return " ".join(parts)
+
+
+def _verdict(L: Lang, kind: str, b: dict, other: dict | None, win: str | None) -> str:
+    if other is None:
+        return ""
+    if win == kind:
+        return f'<p class="bd-verdict is-best">{esc(L.t("bd_best"))}</p>'
+    if win is None:
+        return f'<p class="bd-verdict">{esc(L.t("bd_tie"))}</p>'
+    gap = _gap_pct(other["score"], b["score"])
+    if gap == 0:
+        return f'<p class="bd-verdict">{esc(L.t("bd_tie"))}</p>'
+    key = "bd_gap_small" if gap < GAP_SMALL_PCT else "bd_gap"
+    return f'<p class="bd-verdict">{esc(L.t(key, pct=L.pcts(gap), other=L.t(BUILD_OTHER[kind])))}</p>'
+
+
+def _build_option(L: Lang, moves: dict[str, dict], cards: dict, kind: str, b: dict | None, other: dict | None,
+                  win: str | None) -> str:
+    head = f'<h3 class="bd-kind">{esc(L.t(BUILD_NAME[kind]))}</h3>'
+    if not b:
+        return (f'<article class="bd-opt is-none" data-build="{kind}">{head}'
+                f'<p class="bd-none">{esc(L.t(BUILD_NONE[kind]))}</p></article>')
+    ids, nb = b["moves"], int(b["nBoost"])
+    boost_set = set(ids[len(ids) - nb:]) if nb else set()
+    chips = "".join(
+        f'<li class="is-buff">{esc(_move_name(L, moves, mid))} {damage_badge(L, moves[mid]["damage"])}</li>' if mid in boost_set
+        else f'<li>{esc(_move_name(L, moves, mid))} {damage_badge(L, moves[mid]["damage"])}</li>'
+        for mid in ids)
+    stats = (f'<dl class="bd-stats">'
+             f'<div><dt>{esc(L.t("bd_time"))}</dt><dd>{esc(L.dec(b["time"], 1))} s</dd></div>'
+             f'<div><dt>{esc(L.t("bd_dealt"))}</dt><dd>{esc(L.num(b["dealt"]))}</dd></div>'
+             f'<div><dt>{esc(L.t("bd_kills"))}</dt><dd>{esc(L.dec(b["kills"], 1))}</dd></div>'
+             f'<div><dt>{esc(L.t("bd_score"))}</dt><dd>{esc(L.dec(b["score"], 1))}</dd></div></dl>')
+    card_ids, gate = b["cards"]
+    items = []
+    for i, cid in enumerate(card_ids, 1):
+        once = f' <small class="bd-gate" title="{esc(L.t("build_card_once"))}">1×</small>' if cid == gate else ""
+        items.append(f'<li><b class="bd-n">{i}</b>{esc(_card_name(L, cards[cid]))}{once}</li>')
+    cards_html = (f'<p class="bd-cap">{esc(L.t("build_cards"))}</p>'
+                  f'<ol class="bond bd-prio">{"".join(items[:4])}</ol>'
+                  + (f'<details class="bd-more"><summary>{esc(L.t("build_card_more"))}</summary>'
+                     f'<ol class="bond bd-prio" start="5">{"".join(items[4:])}</ol></details>' if len(items) > 4 else "")
+                  + (f'<p class="bd-legend">{esc(L.t("build_card_once"))}</p>' if gate else ""))
+    note = f'<p class="bd-note">{esc(L.t("bd_melee_note"))}</p>' if kind == "melee" else ""
+    best = " is-best" if win == kind and other else ""
+    return (f'<article class="bd-opt{best}" data-build="{kind}">{head}'
+            f'<ul class="bond">{chips}</ul>{stats}{_verdict(L, kind, b, other, win)}{cards_html}{note}</article>')
+
+
+def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, moves: dict[str, dict], cards: dict,
+          pair: dict[str, dict | None], prev: dict | None, nxt: dict | None, odds: tuple[float, int], *,
+          summary: str, fresh: str, guides: str, updated: str) -> tuple[str, str]:
+    """Devuelve el HTML visible (sin <head>) y el JSON-LD de las preguntas. pair son las dos builds de la simulación
+    ({melee, ranged}; falta la clave si no hay build). summary es el resumen ya en texto plano; fresh, la línea de
+    datos del juego; guides, el bloque de enlaces a las listas."""
     name = L.mon(entry)
     rank, tier = entry["r"]["rank"], entry["r"]["tier"]
     methods = entry["r"]["methods"]
     stats = list(entry["stats"])
     if len(stats) != 6:
         raise ValueError(f"{entry['dex']}: se esperaban 6 estadísticas base")
-    super_pct, neutral_pct, ids, _atk_types, _alts, n_boost = detail[9]
-    n_boost = int(n_boost)
-    if n_boost > len(ids):
-        raise ValueError(f"{entry['dex']}: más potenciadores que ataques en el grupo")
-    buff_ids = ids[-n_boost:] if n_boost else []
-    atk_ids = ids[:-n_boost] if n_boost else list(ids)
-    attacks = _join(L, [_move_name(L, moves, mid) for mid in atk_ids])
-    buffs = _join(L, [_move_name(L, moves, mid) for mid in buff_ids])
     p_pull, pulls = odds
     if not p_pull or not pulls:
         raise ValueError(f"{entry['dex']}: la tirada no tiene probabilidad")
     pct = L.dec(p_pull * 100, _digits(p_pull * 100))
     banner = L.banner(entry["banner"])
-    card_ids, gate = detail[10]
-    card_names = [_card_name(L, cards[c]) for c in card_ids]
-    gate_name = _card_name(L, cards[gate]) if gate else None
-    card_text = card_answer(L, card_names, gate_name)
-    faqs = _faqs(L, tier, rank, attacks, buffs, len(buff_ids), int(super_pct), card_text, banner,
+    win = _winner(pair)
+    win_card = pair[win] if win else None
+    card_text = ""
+    if win_card:
+        card_ids, gate = win_card["cards"]
+        gate_name = _card_name(L, cards[gate]) if gate else None
+        card_text = card_answer(L, [_card_name(L, cards[c]) for c in card_ids], gate_name)
+    faqs = _faqs(L, tier, rank, _build_answer(L, moves, pair), card_text, banner,
                  bool(entry["legendary"]), pct, pulls)
     w, h = entry["sprite"]["w"], entry["sprite"]["h"]
     scale = max(1, min(5, 170 // max(w, h)))
@@ -246,23 +323,9 @@ def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, detail: list,
     rarity_name = esc(L.t(f"rar_{rarity}"))
     legendary = f'<span class="chip">{esc(L.t("legendary"))}</span>' if entry["legendary"] else ""
     region = regions.badge(L, sprites, entry["bannerId"], banner, {}, small=True)
-    buff_set = set(buff_ids)
-    chips = "".join(
-        f'<li class="is-buff">{esc(_move_name(L, moves, mid))} {damage_badge(L, moves[mid]["damage"])}</li>' if mid in buff_set
-        else f'<li>{esc(_move_name(L, moves, mid))} {damage_badge(L, moves[mid]["damage"])}</li>'
-        for mid in ids)
-    card_items = []
-    for i, (cid, card_name) in enumerate(zip(card_ids, card_names), 1):
-        once = f' <small class="bd-gate" title="{esc(L.t("build_card_once"))}">1×</small>' if cid == gate else ""
-        card_items.append(f'<li><b class="bd-n">{i}</b>{esc(card_name)}{once}</li>')
-    card_top = "".join(card_items[:4])
-    card_more = "".join(card_items[4:])
-    card_block = (
-        f'<p class="bd-hint">{esc(L.t("build_card_hint"))}</p>'
-        f'<ol class="bond bd-prio">{card_top}</ol>'
-        + (f'<details class="bd-more"><summary>{esc(L.t("build_card_more"))}</summary>'
-           f'<ol class="bond bd-prio" start="5">{card_more}</ol></details>' if card_more else "")
-        + (f'<p class="bd-legend">{esc(L.t("build_card_once"))}</p>' if gate else ""))
+    options = "".join(
+        _build_option(L, moves, cards, kind, pair.get(kind), pair.get(BUILD_OTHER_KIND[kind]), win)
+        for kind in BUILD_NAME)
     stat_rows = "".join(
         f'<tr><th scope="row">{esc(L.t(key))}</th><td class="num">{n}</td></tr>'
         for key, n in zip(STAT_KEYS, stats))
@@ -292,12 +355,8 @@ def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, detail: list,
 <section class="fig fig-build" id="build" aria-labelledby="bd-h">
 <div class="bd-card" style="--p1:{tc};--p2:{tc2}">
 <header class="bd-head"><div><h2 id="bd-h">{esc(L.t("t_build"))}</h2><span class="bd-who">{esc(name)}</span></div></header>
-<p class="bd-cap">{esc(L.t("build_group"))}</p>
-<ul class="bond">{chips}</ul>
-<p class="bd-cap">{esc(L.t("build_cards"))}</p>
-{card_block}
-<p>{esc(L.t("sheet_a_build", attacks=attacks, buffs=buffs) if buffs else L.t("sheet_a_build_plain", attacks=attacks))}</p>
-<p class="muted">{esc(L.t("sheet_a_cover", super=L.pcts(int(super_pct)), neutral=L.pcts(int(neutral_pct))))}</p>
+<p class="bd-cap">{esc(L.t("bd_pair_cap"))}</p>
+<div class="bd-pair">{options}</div>
 </div>
 </section>
 {combat(L, entry)}

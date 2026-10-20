@@ -332,6 +332,8 @@ FICHA_KEYS = (
     "bs_total", "bs_alt_item", "bs_s_hp", "bs_s_atk", "bs_s_def", "bs_s_spa", "bs_s_spd", "bs_s_spe",
     "sheet_title", "sheet_desc", "fh_game", "fresh", "t_combat", "cb_pa", "cb_sa", "cb_df", "cb_sd", "cb_kind_phys",
     "cb_kind_spec", "cb_kind_mix", "cb_note", "cb_src",
+    "bd_pair_cap", "bd_melee", "bd_ranged", "bd_time", "bd_dealt", "bd_kills", "bd_score", "bd_best", "bd_tie",
+    "bd_gap_small", "bd_gap", "bd_other_melee", "bd_other_ranged", "bd_none_melee", "bd_none_ranged", "bd_melee_note",
     "dmg_physical", "dmg_special", "dmg_status", "dmg_tip_physical", "dmg_tip_special", "dmg_tip_status")
 
 
@@ -370,10 +372,10 @@ def render_ficha(c: Ctx, index: list[dict], meta: dict) -> str:
                 extra_head='<meta name="robots" content="noindex">')
 
 
-def render_species(c: Ctx, entry: dict, detail: list, moves: dict, prev: dict | None, nxt: dict | None,
+def render_species(c: Ctx, entry: dict, pair: dict, moves: dict, prev: dict | None, nxt: dict | None,
                    odds: tuple[float, int], cards: dict, before: str, after: str, meta: dict, summary: str) -> str:
     L = c.L
-    html, ld = static_ficha.build(L, c.home, SPRITES, EXT, entry, detail, moves, prev, nxt, odds, cards,
+    html, ld = static_ficha.build(L, c.home, SPRITES, EXT, entry, moves, cards, pair, prev, nxt, odds,
                                   summary=summary, fresh=legal.freshness_text(L, meta),
                                   guides=landing.guides_nav(L, c.home, types=entry["types"]),
                                   updated=meta["generatedAt"][:10])
@@ -690,6 +692,10 @@ def render_metodo(c: Ctx, index: list[dict], full: list[dict], meta: dict) -> st
 {charts.stability(L, meta["stability"])}
 {charts.tier_strip(L, meta["tierCuts"])}
 {charts.agreement(L, meta["agreement"])}
+<h2>{esc(L.t("met_builds_h"))}</h2>
+<p>{esc(L.t("met_builds_1"))}</p>
+<p>{esc(L.t("met_builds_2"))}</p>
+<p>{esc(L.t("met_builds_3"))}</p>
 <h2>{esc(L.t("met_limits_h"))}</h2>
 <ul class="plain limits">{limits}</ul>
 """
@@ -737,6 +743,12 @@ def render_404(meta: dict) -> str:
     c = Ctx(L, "404.html", "/", "/", None)
     content = f'<h1>{esc(L.t("nf_h1"))}</h1><p>{L.t("nf_p_html")}</p>'
     return page(c, "404", L.t("nf_title", site=legal.SITE_NAME), L.t("nf_title", site=legal.SITE_NAME), content, meta)
+
+
+def species_pair(species: dict, dex: int) -> dict:
+    """Las dos builds de un Pokémon: {melee, ranged}, con None la que no existe."""
+    have = species.get("builds", {}).get(str(dex), {})
+    return {"melee": have.get("melee"), "ranged": have.get("ranged")}
 
 
 def main() -> int:
@@ -802,11 +814,11 @@ def main() -> int:
         for i, entry in enumerate(ordered):
             prev = ordered[i - 1] if i else None
             nxt = ordered[i + 1] if i + 1 < len(ordered) else None
-            detail = species["d"][str(entry["dex"])]
+            pair = species_pair(species, entry["dex"])
             rel = f"pokemon/{species_path(entry['dex'], entry['nameEn'])}/index.html"
             summary = static_ficha.summary_plain(summaries[L.code][str(entry["dex"])])
-            put(rel, lambda c, e=entry, d=detail, pv=prev, nx=nxt, b=before, a=after, s=summary:
-                render_species(c, e, d, moves_by, pv, nx, odds[e["dex"]], species["cards"], b, a, meta, s))
+            put(rel, lambda c, e=entry, pr=pair, pv=prev, nx=nxt, b=before, a=after, s=summary:
+                render_species(c, e, pr, moves_by, pv, nx, odds[e["dex"]], species["cards"], b, a, meta, s))
     write("data/game-stats.json", json.dumps(gamestats.site_json(), ensure_ascii=False, separators=(",", ":")) + "\n")
     write("404.html", render_404(meta))
     share_image.save(SITE / "og.png")

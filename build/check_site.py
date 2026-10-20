@@ -54,8 +54,8 @@ MAX_FILES, MAX_BYTES = 4_000, 180_000_000
 EXPECTED_COUNTS = tiers.COUNTS
 SPANISH_WORDS = re.compile(r"\b(el|los|las|del|con|para|puesto|aguante|daño|ficha|partidas?|repeticiones|cuántos)\b", re.I)
 LANGS = ("", "en/")
-EXPECTED_GACHA = {"Paldea": 17.4, "Alola": 19.3, "Galar": 13.8, "Sinnoh": 14.0, "Kanto": 7.3, "Teselia": 12.8,
-                  "Johto": 12.0, "Kalos": 11.4, "Hoenn": 8.9}
+EXPECTED_GACHA = {"Paldea": 17.4, "Alola": 15.7, "Galar": 12.6, "Sinnoh": 15.9, "Kanto": 8.6, "Teselia": 14.2,
+                  "Johto": 13.0, "Kalos": 8.6, "Hoenn": 8.1}
 
 
 CARD_IDS = {"atk", "spd", "hp", "cd", "def", "rgn", "mag", "xp"}
@@ -305,16 +305,17 @@ def browser_check(base: str, index: list[dict], args, err, notes: list[str]) -> 
                     h1: document.querySelector('h1').firstChild.textContent.trim(),
                     img: document.querySelector('.ficha-sprite img').naturalWidth,
                     src: document.querySelector('.ficha-sprite img').src,
-                    build: { start: document.querySelectorAll('#build .bd-start .bd-tile').length,
-                             slots: document.querySelectorAll('#build .bd-slots .bd-tile').length,
-                             alts: document.querySelectorAll('#build .bd-alts .bd-tile').length,
-                             items: document.querySelectorAll('#build .bd-items .bd-tile').length,
-                             cards: document.querySelectorAll('#build .bd-cards .bd-tile').length,
-                             cardNumbers: [...document.querySelectorAll('#build .bd-cards .bd-tile .bd-badge')].map(b => b.textContent.trim()),
-                             once: document.querySelectorAll('#build .bd-cards .bd-once').length,
-                             icons: [...document.querySelectorAll('#build .bd-ico img')].every(i => i.complete && i.naturalWidth > 0),
+                    build: { options: document.querySelectorAll('#build .bd-opt').length,
+                             none: [...document.querySelectorAll('#build .bd-opt.is-none')].length,
+                             best: document.querySelectorAll('#build .bd-opt.is-best').length,
+                             chips: [...document.querySelectorAll('#build .bd-opt:not(.is-none) ul.bond')].map(u => u.children.length),
+                             stats: document.querySelectorAll('#build .bd-opt:not(.is-none) .bd-stats dd').length,
+                             notes: document.querySelectorAll('#build .bd-opt[data-build=melee] .bd-note').length,
+                             cards: [...document.querySelectorAll('#build .bd-opt:not(.is-none)')].map(o => [...o.querySelectorAll('.bd-prio .bd-n')].map(n => n.textContent.trim())),
+                             once: document.querySelectorAll('#build .bd-gate').length,
                              title: (document.querySelector('#build h2') || {}).textContent,
                              overflow: [...document.querySelectorAll('#build, #build *')].some(e => e.getBoundingClientRect().right > innerWidth + 1) },
+                    buildKinds: [...document.querySelectorAll('#build .bd-opt:not(.is-none)')].map(e => e.dataset.build),
                     base: new URL(document.documentElement.dataset.sprites, location.href).href,
                     ext: document.documentElement.dataset.spritesExt || '.png' })""")
                 want = by_dex[d]["nameEn" if en else "name"]
@@ -323,10 +324,16 @@ def browser_check(base: str, index: list[dict], args, err, notes: list[str]) -> 
                 if len(info["alts"]) != 5 or min(info["alts"]) < 20:
                     err(f"{lang}pokemon/?id={d}: {len(info['alts'])} gráficos con texto alternativo (se esperaban 5 de 20+ letras)")
                 b = info["build"]
-                if (b["start"], b["slots"]) != (1, 4) or not 2 <= b["alts"] <= 3 or b["items"] != 3 or not b["icons"] or b["title"] != "Build":
-                    err(f"{lang}pokemon/?id={d}: la sección Build está incompleta ({b})")
-                if b["cards"] != 8 or b["cardNumbers"] != [str(i) for i in range(1, 9)] or b["once"] != 1:
-                    err(f"{lang}pokemon/?id={d}: las cartas por prioridad no salen 1 a 8 con una marca 1× ({b['cards']}, {b['cardNumbers']}, {b['once']})")
+                built = b["chips"]
+                want_cards = [str(i) for i in range(1, 9)]
+                if b["options"] != 2 or b["title"] != "Build" or b["none"] + len(built) != 2 or b["best"] > 1:
+                    err(f"{lang}pokemon/?id={d}: la sección Build no tiene dos builds ({b})")
+                if any(not 2 <= n <= 4 for n in built) or b["stats"] != 4 * len(built):
+                    err(f"{lang}pokemon/?id={d}: una build sin 2 a 4 ataques o sin sus cuatro cifras ({b})")
+                if any(c != want_cards for c in b["cards"]) or len(b["cards"]) != len(built):
+                    err(f"{lang}pokemon/?id={d}: las cartas por prioridad no salen 1 a 8 en cada build ({b['cards']})")
+                if b["notes"] != (1 if "melee" in info["buildKinds"] else 0):
+                    err(f"{lang}pokemon/?id={d}: la nota de cuerpo a cuerpo no aparece o sobra ({b['notes']})")
                 if b["overflow"]:
                     err(f"{lang}pokemon/?id={d}: la sección Build se desborda en 390 px de ancho")
                 if info["src"] != f"{info['base']}{d}{info['ext']}" or info["img"] == 0:
