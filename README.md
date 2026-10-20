@@ -101,7 +101,11 @@ Cada página responde en sus dos primeras líneas (el título de la lista y una 
 
 ## Frescura
 
-La portada, cada ficha y cada página de consulta muestran «Datos del juego: commit <sha> · actualizado <fecha>» (en inglés, «Game data: commit … · updated …»). El commit es `GAME_COMMIT` de `build/legal.py`, y la fecha es la del build (`generatedAt` en `meta.json`). Las fichas y las páginas de consulta llevan esa fecha como `dateModified` en el JSON-LD.
+Cada página muestra en el pie «Actualizado al parche del <fecha> (<sha>)» (en inglés, «Updated to the <date> patch (<sha>)»). El commit y la fecha salen de `UPDATED_COMMIT` y `UPDATED_DATE` en `build/legal.py`; es el único sitio donde se compone la línea (`freshness_text`). La portada añade la fecha de reconstrucción (`generatedAt` en `meta.json`), que también es el `dateModified` del JSON-LD y el `lastmod` del sitemap.
+
+## SEO
+
+`build/seo.py` genera lo que ve un rastreador sin JavaScript en la portada: el párrafo con los cinco primeros, la tabla de los 30 primeros con enlaces a las fichas y el JSON-LD (WebSite + ItemList). Cada ficha lleva título y descripción desde los datos, canonical, hreflang es/en/x-default y Open Graph/Twitter. `build/agents.py` escribe `robots.txt`, `sitemap.xml` y `llms.txt`. `python3 build/check_site.py` comprueba todo esto (ver `seo_check` y `sitemap_check`).
 
 ## Similitud entre fichas
 

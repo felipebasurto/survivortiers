@@ -106,8 +106,8 @@ class StaticMewtwo(unittest.TestCase):
         moves.update({m["id"]: m for m in json.loads((SITE / "data" / "moves_unranked.json").read_text(encoding="utf8"))})
         ids, n_boost = species["d"]["150"][9][2], species["d"]["150"][9][5]
         game = legal.GAME_NAME
-        self.assertIn(f"<title>Mewtwo en {game}: tier, build y cómo conseguirlo</title>", es)
-        self.assertIn(f"<title>Mewtwo in {game}: tier, build and how to get it</title>", en)
+        self.assertIn(f"<title>Mewtwo en {game}: tier {row['tier']}, mejor build y ataques | SurvivorTiers</title>", es)
+        self.assertIn(f"<title>Mewtwo in {game}: {row['tier']} tier, best build and moves | SurvivorTiers</title>", en)
         for html, rank_word in ((es, "puesto"), (en, "rank")):
             self.assertRegex(html, r"<h1>Mewtwo <span")
             self.assertRegex(html, r'<img class="px"[^>]* alt="[^"]*Mewtwo[^"]*"')
@@ -121,7 +121,7 @@ class StaticMewtwo(unittest.TestCase):
                 self.assertIn(str(n), text)
             self.assertNotIn("Esta página necesita JavaScript", html)
             self.assertNotIn("This page needs JavaScript", html)
-            self.assertIn(legal.GAME_COMMIT, text)
+            self.assertIn(legal.UPDATED_COMMIT, text)
             self.assertIn("FAQPage", html)
             self.assertIn(f'rel="canonical" href="{legal.SITE_URL}/', html)
             self.assertIn('hreflang="es"', html)
@@ -138,8 +138,9 @@ class StaticMewtwo(unittest.TestCase):
         self.assertIn(f"{legal.SITE_URL}/en/pokemon/150-mewtwo/", es)
         shell = (SITE / "pokemon" / "index.html").read_text(encoding="utf8")
         self.assertIn('id="slugs"', shell)
-        self.assertIn("Esta página necesita JavaScript", shell)
-        self.assertIn('name="robots" content="noindex"', shell)
+        self.assertNotIn("necesita JavaScript", _visible(shell))
+        self.assertEqual(len(re.findall(r'<li><a href="[^"]*pokemon/\d+-', shell)), 966)
+        self.assertIn(f'<link rel="canonical" href="{legal.SITE_URL}/">', shell)
         sitemap = (SITE / "sitemap.xml").read_text(encoding="utf8")
         self.assertEqual(sitemap.count("<url>"), (8 + 966 + 22 + len(toolpages.FOLDERS) + 1) * 2)
         self.assertIn("/pokemon/150-mewtwo/", sitemap)
