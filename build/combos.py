@@ -8,6 +8,9 @@ En el juego no hay bonificación por tipo propio (STAB): el daño es daño del a
 de tipo contra el rival × clima, y los ataques normales nunca son super efectivos.
 
 Qué elige, de los ataques que ofrece el juego a ese Pokémon (POOL.normal + POOL de sus tipos):
+  0. Excluidos siempre: Placaje, Ataque Rápido y Golpe Cuerpo (picks.BANNED_MOVES). No entran como
+     candidatos, no se publican en un grupo buscado, y si la simulación los puso de mejor ataque, se toma el
+     de más daño que no esté excluido.
   1. Si la búsqueda de grupo fijo tiene una fila para esa especie
      (`simulator/results/fixed_group/group_search.csv`), los ataques del grupo con mejor mediana
      (si empatan, mejor media, bajas y daño). Ahí entran Hex con quemadura, veneno o ralentización, las
@@ -74,6 +77,14 @@ def total_damage(row: dict, mech: dict) -> float:
     return float(row["dps"] or 0) * max(1, mech["count"])
 
 
+def _best_clean_attack(attacks: list[str], rows: dict, mech: dict) -> str:
+    """Lead for a species whose ranked best move is banned: the most damaging attack left."""
+    clean = [i for i in attacks if i in rows]
+    if not clean:
+        raise ValueError("no attack left after excluding picks.BANNED_MOVES")
+    return max(clean, key=lambda i: (total_damage(rows[i], mech[i]), i))
+
+
 def _coverage(matrix: dict, types: list[str], enemies: list[list[str]], cache: dict) -> tuple[int, int]:
     """(rivales a los que algún ataque pega super efectivo, rivales a los que ninguno resiste). Solo depende del
     conjunto de tipos de ataque, así que se guarda en `cache`."""
@@ -128,8 +139,11 @@ def _search_picks() -> dict[int, tuple[list[str], list[str]]]:
     """dex -> (attack ids, buff ids) of the winning searched group (build/picks.best_groups)."""
     if not SEARCH_CSV.exists():
         return {}
+    # Owner rule (picks.BANNED_MOVES): a searched group with Placaje, Ataque Rápido or Golpe Cuerpo
+    # is not a candidate, so the best clean group wins instead.
+    rows = [r for r in picks.load_rows(SEARCH_CSV) if not picks.has_banned(r["group"])]
     out = {}
-    for dex, row in picks.best_groups(picks.load_rows(SEARCH_CSV)).items():
+    for dex, row in picks.best_groups(rows).items():
         attacks, buff, fourth = picks.split_group(row["group"])
         out[dex] = (attacks, [b for b in (buff, fourth) if b])
     return out
@@ -195,9 +209,12 @@ def compute_all(types_by_dex: dict[int, list[str]], best_move_by_dex: dict[int, 
         ids = set(pool["normal"])
         for t in types:
             ids.update(pool.get(t, []))
-        attacks = sorted(i for i in ids if mech[i]["kind"] != "buff")
+        # Owner rule (picks.BANNED_MOVES): never a candidate attack, never the lead.
+        attacks = sorted(i for i in ids if mech[i]["kind"] != "buff" and i not in picks.BANNED_MOVES)
         buffs = sorted(i for i in ids if mech[i]["kind"] == "buff")
         best = best_move_by_dex[dex]
+        if best in picks.BANNED_MOVES:
+            best = _best_clean_attack(attacks, rows, mech)
         if best not in attacks and best in rows:
             # el ataque inicial propio de la especie (p. ej. Confusión de Psyduck) no está en POOL, pero lo lleva desde el inicio
             attacks.append(best)

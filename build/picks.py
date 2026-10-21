@@ -23,6 +23,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 V3 = ROOT / "simulator" / "v3" / "v3_data.json"
 BOND_SLOTS = 4
+# Owner rule: these never appear in builds. Placaje, Ataque Rápido and Golpe Cuerpo are excluded
+# from every candidate list (builds.decent_attacks, combos.compute_all, combos._search_picks).
+# The sim mirrors this in sim-rs engine.rs (BUILD_EXCLUDED). Keep the two lists in step.
+BANNED_MOVES = frozenset({"tackle", "quick-attack", "body-slam"})
 
 
 @lru_cache(maxsize=1)
@@ -133,6 +137,11 @@ def split_group(group: str) -> tuple[list[str], str | None, str | None]:
         else:
             attacks.append(part)
     return attacks, attack_buff, fourth
+
+
+def has_banned(group: str) -> bool:
+    attacks, buff, fourth = split_group(group)
+    return bool(BANNED_MOVES & set(attacks))
 
 
 def group_ok(group: str) -> bool:

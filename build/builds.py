@@ -36,7 +36,7 @@ REFINE_CSV = FIXED / "group_search.csv"
 OUT_CSV = DATA / "builds.csv"
 
 BUILDS = ("melee", "ranged")
-FILLER = frozenset({"tackle", "quick-attack", "body-slam"})
+FILLER = picks.BANNED_MOVES
 CLASS_BUFF = {"physical": "swords-dance", "special": "nasty-plot"}
 FOURTH = ("harden", "agility")
 SCREEN_SEEDS = 16

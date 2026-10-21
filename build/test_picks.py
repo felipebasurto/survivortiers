@@ -54,6 +54,11 @@ class BestGroup(unittest.TestCase):
         self.assertTrue(picks.group_ok("water-gun+hydro-pump+bubble+harden"))
         self.assertTrue(picks.group_ok("substitute+tackle+swords-dance+harden"))
 
+    def test_owner_banned_moves_are_flagged_in_a_group(self):
+        self.assertTrue(picks.has_banned("water-gun+tackle+nasty-plot+harden"))
+        self.assertTrue(picks.has_banned("body-slam+whirlpool+swords-dance+harden"))
+        self.assertFalse(picks.has_banned("water-gun+hyper-beam+nasty-plot+harden"))
+
     def test_a_group_needs_two_attacks_inside_four_slots(self):
         self.assertFalse(picks.group_ok("water-gun+nasty-plot+harden"))
         self.assertFalse(picks.group_ok("water-gun+hydro-pump+bubble+nasty-plot+harden"))

@@ -48,6 +48,14 @@ class Groups(unittest.TestCase):
             self.assertIn(len(attacks), (2, 3), (dex, attacks))
             self.assertLessEqual(len(attacks) + len(buffs), picks.BOND_SLOTS, (dex, attacks, buffs))
 
+    def test_banned_moves_never_in_a_candidate_or_a_published_group(self):
+        """Owner rule: Placaje, Ataque Rápido and Golpe Cuerpo never appear in builds."""
+        for dex, (attacks, _) in self.picked.items():
+            self.assertFalse(set(attacks) & picks.BANNED_MOVES, (dex, attacks))
+        for dex, group in self.groups.items():
+            self.assertFalse(set(group["moves"]) & picks.BANNED_MOVES, (dex, group["moves"]))
+            self.assertFalse(set(group["alts"]) & picks.BANNED_MOVES, (dex, group["alts"]))
+
     def test_side_follows_the_published_attacks(self):
         """phys / spec / mix from the attacks the sheet shows, via the game's damage class."""
         for dex, group in self.groups.items():
