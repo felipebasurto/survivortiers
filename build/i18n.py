@@ -99,9 +99,9 @@ STR: dict[str, tuple[str, str]] = {
     "fh_title": ("{name} en {game}: tier {tier}, mejor build y ataques | {site}",
                  "{name} in {game}: {tier} tier, best build and moves | {site}"),
     "fh_desc_buffs": ("{name} es tier {tier} en {game}: puesto {rank} de {total}. Mejor build: {attacks}, con {buffs}. "
-                      "Aguanta {time} de mediana y sale en el banner {banner}.",
+                      "Sale en el banner {banner}.",
                       "{name} is {tier} tier in {game}: rank {rank} of {total}. Best build: {attacks}, with {buffs}. "
-                      "It survives {time} on median and is on the {banner} banner."),
+                      "It is on the {banner} banner."),
     "sheet_obtain_h": ("Cómo conseguirlo", "How to get it"),
     "sheet_faq_h": ("Preguntas", "Questions"),
     "faq_q_worth": ("¿Vale la pena?", "Is it worth it?"),
@@ -130,12 +130,12 @@ STR: dict[str, tuple[str, str]] = {
     "pager_aria": ("Pokémon vecinos", "Neighbouring Pokémon"),
     "dex_no": ("nº {dex}", "no. {dex}"),
     "tpl_title": ("Fichas de los Pokémon de {game} | {site}", "Pokémon pages of {game} | {site}"),
-    "tpl_desc": ("Las {n} fichas de {game}, una por Pokémon: tier, por qué, cuánto aguanta, builds y cómo conseguirlo.",
-                 "All {n} {game} pages, one per Pokémon: tier, why, survival time, builds and how to get it."),
+    "tpl_desc": ("Las {n} fichas de {game}, una por Pokémon: tier, por qué, builds y cómo conseguirlo.",
+                 "All {n} {game} pages, one per Pokémon: tier, why, builds and how to get it."),
     "tpl_h1": ("Fichas de los Pokémon de {game}", "Pokémon pages of {game}"),
-    "tpl_lede": ("Cada uno de los {n} Pokémon tiene su ficha con el tier, el puesto, por qué está ahí, cuánto aguanta, sus "
+    "tpl_lede": ("Cada uno de los {n} Pokémon tiene su ficha con el tier, el puesto, por qué está ahí, sus "
                  "builds y cómo conseguirlo. Elige uno de la lista.",
-                 "Each of the {n} Pokémon has its own page with its tier, rank, why it is there, how long it survives, its "
+                 "Each of the {n} Pokémon has its own page with its tier, rank, why it is there, its "
                  "builds and how to get it. Pick one from the list."),
 
     # ------------------------------------------------------------ gráficos de la ficha
@@ -182,12 +182,13 @@ STR: dict[str, tuple[str, str]] = {
     "why_spd": ("Velocidad {v}", "Speed {v}"),
     "why_size": ("Tamaño: radio de {v} px", "Size: {v} px radius"),
     "why_types": ("Por sus tipos recibe ×{v} de daño", "Its types take ×{v} damage"),
-    "surv_h": ("Cuánto aguanta", "How long it survives"),
-    "surv_cap": ("de mediana, con la build {kind}", "on median, with the {kind} build"),
+    "surv_h": ("En la simulación", "In the simulation"),
+    "surv_text": ("Un bot juega partidas de hasta {minutes} minutos sin objetos. Con la build {kind} aguanta {t} de "
+                  "mediana; la mediana de los 966 es {med}. Sirve para comparar Pokémon, no es lo que durará tu partida.",
+                  "A bot plays runs of up to {minutes} minutes with no items. With the {kind} build it lasts {t} on "
+                  "median; the median of all 966 is {med}. It is for comparing Pokémon, not how long your run will last."),
     "surv_alt": ("{t}; la mediana de los 966 es {med} y el que más aguanta llega a {max}",
                  "{t}; the median of all 966 is {med} and the longest reaches {max}"),
-    "surv_median": ("mediana {t}", "median {t}"),
-    "surv_best": ("mejor {t}", "best {t}"),
     "st_h": ("Estadísticas en el juego", "In-game stats"),
     "st_hp": ("PS", "HP"),
     "st_spd": ("Velocidad", "Speed"),

@@ -1698,7 +1698,10 @@ p.fresh { font: .8125rem/1.4 var(--sans); color: var(--ink-2); margin: 0 0 14px;
 
 /* ---------- ficha: por qué, cuánto aguanta y estadísticas ---------- */
 .why, .surv, .stats { margin: 0 0 28px; }
+.surv { color: var(--ink-2); font-size: .9rem; }
+.surv p { margin: 0; max-width: 60ch; }
 .why h2, .surv h2, .stats h2 { margin: 0 0 12px; font-size: 1.25rem; }
+.surv h2 { margin-bottom: 6px; font-size: 1rem; color: var(--ink); }
 .why-list, .st-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .why-row { display: grid; grid-template-columns: 5.2ch minmax(0, 1fr) minmax(70px, 28%); align-items: center; gap: 12px;
   padding: 10px 14px; background: var(--bg); box-shadow: var(--notch-soft); }
@@ -1709,19 +1712,9 @@ p.fresh { font: .8125rem/1.4 var(--sans); color: var(--ink-2); margin: 0 0 14px;
 .why-note { margin: 8px 0 0; font: .78rem/1.45 var(--sans); color: var(--ink-2); }
 .pct-bar { display: block; height: 8px; background: var(--rule-soft); overflow: hidden; }
 .pct-bar b { display: block; height: 100%; background: var(--accent); }
-.surv-big { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 0 0 12px; }
-.surv-big strong { font: 700 2.4rem/1 var(--ui); font-variant-numeric: tabular-nums lining-nums; }
-.surv-big span { color: var(--ink-2); font: .95rem var(--sans); }
-.surv-bar { position: relative; height: 14px; background: var(--rule-soft); box-shadow: var(--notch-soft); }
+.surv-bar { position: relative; height: 6px; margin-top: 10px; background: var(--rule-soft); box-shadow: var(--notch-soft); }
 .surv-bar b { display: block; height: 100%; background: var(--tier-C); }
 .surv-bar i { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; background: var(--ink); }
-.surv-scale { position: relative; height: 1.4em; margin: 6px 0 14px; font: .75rem var(--sans); color: var(--ink-2); }
-.surv-scale span { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; }
-.surv-scale .end { right: 0; transform: none; }
-.surv-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 0; }
-.surv-stats div { padding: 10px 12px; background: var(--bg); box-shadow: var(--notch-soft); }
-.surv-stats dt { font: .72rem var(--ui); text-transform: uppercase; letter-spacing: .05em; color: var(--ink-2); }
-.surv-stats dd { margin: 2px 0 0; font: 700 1.05rem var(--ui); font-variant-numeric: tabular-nums lining-nums; }
 .st-list li { display: grid; grid-template-columns: minmax(0, 13rem) 6ch minmax(60px, 1fr); align-items: center; gap: 12px;
   padding: 4px 0; font: .9rem var(--ui); }
 .st-list .st-name { color: var(--ink-2); }
@@ -1732,7 +1725,6 @@ p.fresh { font: .8125rem/1.4 var(--sans); color: var(--ink-2); margin: 0 0 14px;
   .why-row .pct-bar { grid-column: 2; }
   .st-list li { grid-template-columns: minmax(0, 1fr) 6ch; }
   .st-list .pct-bar { grid-column: 1 / -1; }
-  .surv-stats { grid-template-columns: 1fr; }
 }
 
 /* aviso del método nuevo (portada y Método) */

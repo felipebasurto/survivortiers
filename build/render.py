@@ -370,7 +370,7 @@ def render_species(c: Ctx, entry: dict, moves: dict, prev: dict | None, nxt: dic
     title, desc = static_ficha.head_texts(L, entry, moves)
     html, ld = static_ficha.build(L, c.home, SPRITES, EXT, entry, moves, meta, entry["start"], prev, nxt, odds,
                                   guides=landing.guides_nav(L, c.home, types=entry["types"]), url=page_url(c),
-                                  title=title)
+                                  title=title, assets=c.assets)
     return page(c, "ficha", title, desc, html + balls.defs(), meta, extra_head=ld,
                 head_links=static_ficha.alternates(species_path(entry["dex"], entry["nameEn"])), og_type="article")
 
@@ -379,8 +379,9 @@ def render_species(c: Ctx, entry: dict, moves: dict, prev: dict | None, nxt: dic
 LETTERS = "abcdefghijklmnopqrstuvwxyz"  # la rejilla de píxeles de moves.json usa letras para la paleta
 
 
-def move_icon_svg(icon: dict) -> str:
-    """El icono del juego (ui/icons.js) como SVG: la misma rejilla de píxeles que usa la ficha."""
+def move_icon_svg(icon: dict, standalone: bool = False) -> str:
+    """El icono del juego (ui/icons.js) como SVG: la misma rejilla de píxeles en Ataques y en la ficha. La ficha lo
+    pide como archivo (img/moves/<id>.svg), así el navegador lo guarda una vez para las 966 fichas."""
     w, h = icon["size"]
     rects = []
     for y, row in enumerate(icon["rows"]):
@@ -392,6 +393,9 @@ def move_icon_svg(icon: dict) -> str:
             if ch != ".":
                 rects.append(f'<rect x="{x}" y="{y}" width="{n}" height="1" fill="{icon["pal"][LETTERS.index(ch)]}"/>')
             x += n
+    if standalone:
+        return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} {h}" width="{w}" height="{h}" '
+                f'shape-rendering="crispEdges">{"".join(rects)}</svg>\n')
     return (f'<svg class="mv-icon" viewBox="0 0 {w} {h}" width="{w * 3}" height="{h * 3}" aria-hidden="true" '
             f'focusable="false" shape-rendering="crispEdges">{"".join(rects)}</svg>')
 
@@ -789,6 +793,9 @@ def main() -> int:
     # Boosts have no tier, so they live in moves_unranked.json. Species pages still name them.
     moves_by = {m["id"]: m for m in moves}
     moves_by.update({m["id"]: m for m in unranked})
+    for mid, m in moves_by.items():
+        if "icon" in m:
+            write(f"img/moves/{mid}.svg", move_icon_svg(m["icon"], standalone=True))
     odds = static_ficha.odds_table(full)
     sheet_paths = [f"pokemon/{species_path(e['dex'], e['nameEn'])}/" for e in ordered]
     by_dex = {p["dex"]: p for p in full}

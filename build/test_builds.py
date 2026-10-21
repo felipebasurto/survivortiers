@@ -94,6 +94,16 @@ class FichaBuilds(unittest.TestCase):
                         self.assertIn(f'<span class="bd-nm">{name}</span>', rows[0])
                         self.assertEqual(sum("is-start" in r for r in rows), 1)
 
+    def test_every_move_row_has_its_game_icon(self) -> None:
+        for dex, prefix, up in ((94, "", "../../"), (354, "en", "../../../")):
+            page = self._page(prefix, dex)
+            ids = [m for k in ("melee", "ranged") for m in self.pairs[str(dex)][k]["moves"]]
+            srcs = re.findall(r'<span class="bd-ico"><img src="([^"]+)"', page)
+            with self.subTest(dex=dex, prefix=prefix):
+                self.assertEqual(sorted(srcs), sorted(f"{up}img/moves/{m}.svg" for m in ids))
+                for m in ids:
+                    self.assertTrue((ROOT / "site" / "img" / "moves" / f"{m}.svg").is_file(), m)
+
     def test_boosts_have_no_range_tag(self) -> None:
         page = self._page("", 483)
         for row in re.findall(r'<li class="bd-row is-buff[^"]*">.*?</li>', page, re.S):

@@ -398,7 +398,8 @@ def browser_check(base: str, index: list[dict], args, err, notes: list[str]) -> 
                     starts: [...document.querySelectorAll('#build .bd-opt')].map(o => [...o.querySelectorAll('.bd-row')].map(r => r.classList.contains('is-start'))),
                     stats: document.querySelectorAll('#build .bd-opt .bd-stats dd').length,
                     why: document.querySelectorAll('#porque .why-row, #porque .why-flat').length,
-                    surv: !!document.querySelector('#supervivencia .surv-big'),
+                    surv: !!document.querySelector('#supervivencia .surv-bar'),
+                    icons: [...document.querySelectorAll('#build .bd-ico img')].every(i => i.complete && i.naturalWidth > 0) && document.querySelectorAll('#build .bd-ico img').length >= 4,
                     statRows: document.querySelectorAll('#stats li').length,
                     overflow: [...document.querySelectorAll('#ficha, #ficha *')].some(e => e.getBoundingClientRect().right > innerWidth + 1),
                     base: new URL(document.documentElement.dataset.sprites, location.href).href,
@@ -412,6 +413,8 @@ def browser_check(base: str, index: list[dict], args, err, notes: list[str]) -> 
                     err(f"{lang}pokemon/?id={d}: las builds no son las dos de species.json con la mejor primero ({info})")
                 if any(r[:1] != [True] or any(r[1:]) or not 2 <= len(r) <= 4 for r in info["starts"]) or info["stats"] != 8:
                     err(f"{lang}pokemon/?id={d}: cada build debe tener 2 a 4 ataques, el primero marcado, y sus cuatro cifras ({info})")
+                if not info["icons"]:
+                    err(f"{lang}pokemon/?id={d}: los iconos de los ataques no cargan ({info})")
                 if not info["why"] or not info["surv"] or not info["statRows"]:
                     err(f"{lang}pokemon/?id={d}: faltan por qué, supervivencia o stats ({info})")
                 if info["overflow"]:

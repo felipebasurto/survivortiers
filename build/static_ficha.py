@@ -231,21 +231,16 @@ def why(L: Lang, entry: dict, moves: dict[str, dict]) -> str:
 
 # ---------------------------------------------------------------- supervivencia
 def survival(L: Lang, entry: dict, meta: dict) -> str:
+    """Lo que dura en la simulación, en pequeño y al final: sirve para comparar Pokémon, no para prever una partida."""
     r, t = entry["r"], meta["time"]
-    top = t["max"]
-    fill = r["time"] / top * 100
-    med = t["median"] / top * 100
+    fill = r["time"] / t["max"] * 100
+    med = t["median"] / t["max"] * 100
+    text = L.t("surv_text", minutes=meta["method"]["seconds"] // 60, kind=L.t(BUILD_LOWER[r["best"]]),
+               t=mmss(r["time"]), med=mmss(t["median"]))
     return (f'<section class="surv" id="supervivencia" aria-labelledby="surv-h">'
-            f'<h2 id="surv-h">{esc(L.t("surv_h"))}</h2>'
-            f'<p class="surv-big"><strong>{mmss(r["time"])}</strong>'
-            f'<span>{esc(L.t("surv_cap", kind=L.t(BUILD_LOWER[r["best"]])))}</span></p>'
-            f'<div class="surv-bar" role="img" aria-label="{esc(L.t("surv_alt", t=mmss(r["time"]), med=mmss(t["median"]), max=mmss(top)))}">'
-            f'<b style="width:{fill:.2f}%"></b><i style="left:{med:.2f}%"></i></div>'
-            f'<p class="surv-scale"><span style="left:{med:.2f}%">{esc(L.t("surv_median", t=mmss(t["median"])))}</span>'
-            f'<span class="end">{esc(L.t("surv_best", t=mmss(top)))}</span></p>'
-            f'<dl class="surv-stats">'
-            f'<div><dt>{esc(L.t("bd_kills"))}</dt><dd>{esc(L.num(r["kills"]))}</dd></div>'
-            f'<div><dt>{esc(L.t("bd_dealt"))}</dt><dd>{esc(L.num(r["dealt"]))}</dd></div></dl></section>')
+            f'<h2 id="surv-h">{esc(L.t("surv_h"))}</h2><p>{esc(text)}</p>'
+            f'<div class="surv-bar" role="img" aria-label="{esc(L.t("surv_alt", t=mmss(r["time"]), med=mmss(t["median"]), max=mmss(t["max"])))}">'
+            f'<b style="width:{fill:.2f}%"></b><i style="left:{med:.2f}%"></i></div></section>')
 
 
 # ---------------------------------------------------------------- builds
@@ -297,23 +292,25 @@ def _verdict(L: Lang, kind: str, b: dict, other: dict, win: str | None) -> str:
     return f'<p class="bd-verdict">{esc(L.t(key, pct=L.pcts(gap), other=L.t(BUILD_OTHER[kind])))}</p>'
 
 
-def _move_row(L: Lang, moves: dict[str, dict], mid: str, n: str, boost: bool, start: bool) -> str:
-    """Una fila de la build: número, nombre, etiquetas y el tier del ataque en la fase 1. Los potenciadores van
-    marcados, y el ataque con el que empieza lleva la marca dorada."""
+def _move_row(L: Lang, assets: str, moves: dict[str, dict], mid: str, n: str, boost: bool, start: bool) -> str:
+    """Una fila de la build: número, icono del juego, nombre, etiquetas y el tier del ataque en la fase 1. Los
+    potenciadores van marcados, y el ataque con el que empieza lleva la marca dorada."""
     m = moves[mid]
+    ico = (f'<span class="bd-ico"><img src="{assets}img/moves/{mid}.svg" width="32" height="32" alt="" '
+           f'decoding="async"></span>' if "icon" in m else "")
     cls = "bd-row" + (" is-buff" if boost else "") + (" is-start" if start else "")
     pill = f'<span class="bd-pill is-gold">{esc(L.t("bd_start_with"))}</span>' if start else ""
     tier = (f'<span class="tier-badge mini {m["tier"]}" title="{esc(L.t("mv_tier_tip", t=m["tier"]))}">{m["tier"]}</span>'
             if "tier" in m else "")
-    return (f'<li class="{cls}"><span class="bd-n">{n}</span><span class="bd-info"><span class="bd-nm">'
-            f'{esc(_move_name(L, moves, mid))}</span>{move_tags(L, m)}</span>{pill}{tier}</li>')
+    return (f'<li class="{cls}"><span class="bd-n">{n}</span>{ico}<span class="bd-info"><span class="bd-nm">'
+            f'{esc(_move_name(L, moves, mid))}</span>{pill}{move_tags(L, m)}</span>{tier}</li>')
 
 
-def _build_option(L: Lang, moves: dict[str, dict], kind: str, b: dict, other: dict, win: str | None) -> str:
+def _build_option(L: Lang, assets: str, moves: dict[str, dict], kind: str, b: dict, other: dict, win: str | None) -> str:
     """Una de las dos builds: veredicto, ataques en filas y lo que hace en partida."""
     head = f'<h3 class="bd-kind">{combo_html(L, b["mix"], kind)}</h3>'
     ids, nb = b["moves"], int(b["nBoost"])
-    rows = "".join(_move_row(L, moves, mid, str(i + 1), i >= len(ids) - nb, i == 0) for i, mid in enumerate(ids))
+    rows = "".join(_move_row(L, assets, moves, mid, str(i + 1), i >= len(ids) - nb, i == 0) for i, mid in enumerate(ids))
     stats = (f'<dl class="bd-stats">'
              f'<div><dt>{esc(L.t("bd_time"))}</dt><dd>{mmss(b["time"])}</dd></div>'
              f'<div><dt>{esc(L.t("bd_kills"))}</dt><dd>{esc(L.num(b["kills"]))}</dd></div>'
@@ -324,11 +321,11 @@ def _build_option(L: Lang, moves: dict[str, dict], kind: str, b: dict, other: di
             f'{_verdict(L, kind, b, other, win)}<ol class="bd-rows">{rows}</ol>{stats}</article>')
 
 
-def builds(L: Lang, entry: dict, moves: dict[str, dict], start_move: str) -> str:
+def builds(L: Lang, assets: str, entry: dict, moves: dict[str, dict], start_move: str) -> str:
     pair = entry["builds"]
     win = _winner(pair)
     order = (entry["r"]["best"], BUILD_OTHER_KIND[entry["r"]["best"]])
-    options = "".join(_build_option(L, moves, k, pair[k], pair[BUILD_OTHER_KIND[k]], win) for k in order)
+    options = "".join(_build_option(L, assets, moves, k, pair[k], pair[BUILD_OTHER_KIND[k]], win) for k in order)
     t = entry["types"]
     tint = f'--p1:{typedata.TYPE_COLOR[t[0]]};--p2:{typedata.TYPE_COLOR[t[-1]]}'
     return (f'<section class="fig fig-build" id="build" aria-labelledby="bd-h">'
@@ -362,13 +359,13 @@ def head_texts(L: Lang, entry: dict, moves: dict[str, dict]) -> tuple[str, str]:
     attacks, buffs = build_names(L, moves, entry["builds"][entry["r"]["best"]])
     title = L.t("fh_title", name=name, tier=tier)
     desc = L.t("fh_desc_buffs", name=name, tier=tier, rank=rank, total=catalog.TOTAL, attacks=attacks, buffs=buffs,
-               time=mmss(entry["r"]["time"]), banner=L.banner(entry["banner"]))
+               banner=L.banner(entry["banner"]))
     return title, desc
 
 
 def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, moves: dict[str, dict], meta: dict,
           start_move: str, prev: dict | None, nxt: dict | None, odds: tuple[float, int], *,
-          guides: str, url: str, title: str) -> tuple[str, str]:
+          guides: str, url: str, title: str, assets: str) -> tuple[str, str]:
     """Devuelve el HTML visible (sin <head>) y el JSON-LD de las preguntas. start_move es el ataque con el que empieza de
     serie en el juego; guides, el bloque de enlaces a las listas."""
     name = L.mon(entry)
@@ -412,9 +409,9 @@ def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, moves: dict[s
 </div>
 </header>
 {why(L, entry, moves)}
-{survival(L, entry, meta)}
-{builds(L, entry, moves, start_move)}
+{builds(L, assets, entry, moves, start_move)}
 {stats(L, entry)}
+{survival(L, entry, meta)}
 <nav class="pager" aria-label="{esc(L.t("pager_aria"))}">{pager}</nav>
 </article>
 <section class="sheet" id="obtain" aria-labelledby="obtain-h">
