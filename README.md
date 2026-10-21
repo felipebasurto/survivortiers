@@ -81,7 +81,7 @@ El sitio es estático y no tiene API: los datos son JSON y CSV en `/data/`, sin 
 
 El motor Rust ya se ha migrado al parche `ce57853` (21 de octubre), pero **todavía no hay un ranking nuevo validado**. El sitio conserva los datos publicados de `5a23d49`. Las órdenes históricas `--sim` están retiradas para impedir que se mezclen resultados de versiones distintas; `--check` sigue comprobando los CSV publicados.
 
-La importación del juego, los escenarios y las pruebas de ejecución son ahora Rust, sin JavaScript. Véase [simulator/README.md](simulator/README.md) para importar el parche, listar candidatos y ejecutar manifiestos de diagnóstico (máximo 20 partidas de 15 segundos). El informe de esta migración está en [docs/simulator/2026-10-21.md](docs/simulator/2026-10-21.md).
+La importación del juego, los escenarios y las pruebas de ejecución son ahora Rust, sin JavaScript. Véase [simulator/README.md](simulator/README.md) para importar el parche, listar candidatos y ejecutar manifiestos de diagnóstico (máximo 20 partidas de 15 segundos). El informe de esta migración está en [docs/simulator/2026-10-21.md](docs/simulator/2026-10-21.md). El seguimiento de preparación y los bloqueos del recálculo están en [docs/simulator/readiness-2026-10-21.md](docs/simulator/readiness-2026-10-21.md), y el contrato de datos de la web en [docs/simulator/web-contract.md](docs/simulator/web-contract.md).
 
 Antes de recalcular hace falta calibrar las nuevas métricas de exposición contra juego real y cerrar la selección de perfiles de naturaleza/habilidad. Las pruebas cortas verifican ejecución y escenarios concretos; no validan tiers ni balance. No se han cambiado los resultados publicados ni su fórmula histórica: supervivencia × √(dps/(dps+80) × kpm/(kpm+40)).
 

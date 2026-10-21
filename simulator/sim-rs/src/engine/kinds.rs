@@ -56,9 +56,6 @@ impl<'a, M: MathFns> Match<'a, M> {
                 self.angles = angles;
             }
             11 => {
-                if within(mv.radius + 20.0).is_none() {
-                    return false;
-                }
                 let at = if mv.charge.is_finite() && mv.charge > 0.0 {
                     mv.charge
                 } else {
@@ -81,9 +78,6 @@ impl<'a, M: MathFns> Match<'a, M> {
                 });
             }
             12 => {
-                if within(mv.radius + 20.0).is_none() {
-                    return false;
-                }
                 self.fields.push(Field {
                     k: 12,
                     x: px,
@@ -101,9 +95,6 @@ impl<'a, M: MathFns> Match<'a, M> {
                 });
             }
             13 => {
-                if within(count * QSTEP + mv.radius).is_none() {
-                    return false;
-                }
                 self.fields.push(Field {
                     k: 13,
                     x: px,
@@ -121,9 +112,7 @@ impl<'a, M: MathFns> Match<'a, M> {
                 });
             }
             14 => {
-                let Some((x, y, _)) = within(300.0) else {
-                    return false;
-                };
+                let (x, y, _) = within(300.0).expect("target preflight validated vortex reach");
                 let life = if mv.dur.is_finite() && mv.dur > 0.0 {
                     mv.dur
                 } else {
@@ -160,9 +149,6 @@ impl<'a, M: MathFns> Match<'a, M> {
                 });
             }
             15 => {
-                if within(mv.radius + 20.0).is_none() {
-                    return false;
-                }
                 let knock = if mv.knock.is_finite() && mv.knock > 0.0 {
                     mv.knock
                 } else {
@@ -171,9 +157,7 @@ impl<'a, M: MathFns> Match<'a, M> {
                 self.blast_ex(px, py, mv.radius, mv.dmg, atk, mv, knock, 0.0);
             }
             16 => {
-                let Some((x, y, _)) = within(300.0) else {
-                    return false;
-                };
+                let (x, y, _) = within(300.0).expect("target preflight validated stun reach");
                 self.fields.push(Field {
                     k: 16,
                     x,

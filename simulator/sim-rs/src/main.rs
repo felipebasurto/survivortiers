@@ -1,23 +1,7 @@
-//! Fast headless PokéSurvivor sim. Run from `simulator/`.
-//!
-//!   cargo run --release --manifest-path sim-rs/Cargo.toml -- sweep
-//!       every simulated pool move as start; writes out/starter_sweep.csv
-//!       and out/rank_best_starter.csv
-//!   ... -- rank [--out out/rank_200.csv]
-//!       game start move only
-//!   ... -- synergy --partners <solo_screen.csv> --out <csv>
-//!       the searched bonded groups of every species
-//!   ... -- repertorio <starter_sweep.csv>
-//!       Repertorio + Veto opening per species, as JSON on stdout (make_definitive.py)
-//!   ... -- run <dex> <move> <seed> [--out trace.csv]
-//!   ... -- mapcheck <seed> [half]
-//!       terrain digest; must match `node sim-rs/mapcheck.js <game repo> <seed> [half]`
-//!
-//! Options: --seeds N (200) --seconds S (900) --bot repulse|line|kite --lvl1 --dodge F
-//!          --terrain  play on the real map (walls, props, liquids, pathing)
-//!          --status   model slow, burn and poison with the game's values (enemy.js); moves the
-//!                     sim never fires keep status_ignored=1
+//! Rust-only PokéSurvivor diagnostics. See simulator/README.md for current commands.
+//! Historical ranking entrypoints are disabled until calibration and readiness review.
 
+mod batch;
 mod data;
 mod engine;
 mod math;
@@ -25,6 +9,8 @@ mod radii;
 mod repertorio;
 mod research;
 mod rng;
+mod selection;
+mod selection_io;
 mod stats;
 mod terrain;
 
@@ -1925,9 +1911,14 @@ fn main() {
     match cfg.rest.first().map(String::as_str) {
         Some("fingerprint") => println!("{}", research::fingerprint()),
         Some("candidates") => {
-            research::candidates(&data, cfg.rest[1].parse().expect("dex"), cfg.list)
+            research::candidates(&data, cfg.rest[1].parse().expect("dex"), cfg.list, false)
         }
+        Some("configurations") => {
+            research::candidates(&data, cfg.rest[1].parse().expect("dex"), cfg.list, true)
+        }
+        Some("select") => selection_io::command(&cfg.rest[1]),
         Some("evaluate") => research::evaluate(&data, &cfg.rest[1]),
+        Some("plan") | Some("resume") => batch::command(&data, &cfg.rest),
         Some("sweep") => sweep(&data, &cfg),
         Some("formulas") => formulas_cmd(&data),
         Some("rank") => rank(&data, &cfg),

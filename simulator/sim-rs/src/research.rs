@@ -23,6 +23,9 @@ pub fn fingerprint() -> String {
         include_bytes!("math.rs"),
         include_bytes!("main.rs"),
         include_bytes!("research.rs"),
+        include_bytes!("selection.rs"),
+        include_bytes!("selection_io.rs"),
+        include_bytes!("batch.rs"),
         include_bytes!("../Cargo.toml"),
         include_bytes!("../Cargo.lock"),
         include_bytes!("../../data/game.json"),
@@ -43,16 +46,21 @@ fn index(data: &Data, id: &str) -> usize {
 }
 /// Emit only combinations the engine can represent, with every possible lead.
 /// The role is descriptive. Normal moves and MTs compete without hard-coded type quotas.
-pub fn candidates(data: &Data, dex: u32, list: bool) {
+pub fn candidates(data: &Data, dex: u32, list: bool, expand_profiles: bool) {
     let base = base(data, dex);
     let taught: Vec<String> = base.tms.iter().map(|&i| data.moves[i].id.clone()).collect();
     let mon = data
         .configure(base, "hardy", None, &taught)
         .expect("all legal TMs");
+    let leads = mon.start_choices(&data.moves);
     let attacks: Vec<usize> = mon
-        .start_choices(&data.moves)
-        .into_iter()
+        .pool
+        .iter()
+        .copied()
+        .chain(std::iter::once(mon.start))
         .filter(|&i| data.moves[i].is_attack())
+        .collect::<BTreeSet<_>>()
+        .into_iter()
         .collect();
     let profiles = base
         .abilities
@@ -61,10 +69,35 @@ pub fn candidates(data: &Data, dex: u32, list: bool) {
         .collect::<BTreeSet<_>>()
         .len()
         * data.natures.as_array().unwrap().len();
+    let equivalences: BTreeSet<_> = data
+        .natures
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|n| {
+            crate::selection::nature_equivalence(data, base, n["id"].as_str().unwrap()).unwrap()
+        })
+        .collect();
+    let distinct_profiles = equivalences.len()
+        * base
+            .abilities
+            .iter()
+            .flatten()
+            .collect::<BTreeSet<_>>()
+            .len()
+            .max(1);
     let mut count = 0usize;
+    let mut natural_count = 0usize;
+    let engine_fingerprint = fingerprint();
     let mut out = io::BufWriter::new(io::stdout().lock());
     let mut emit = |group: Vec<usize>| {
         count += 1;
+        if group
+            .iter()
+            .all(|i| base.pool.contains(i) || *i == base.start)
+        {
+            natural_count += 1;
+        }
         if !list {
             return;
         }
@@ -98,6 +131,26 @@ pub fn candidates(data: &Data, dex: u32, list: bool) {
             }
         }
         let defense = group.iter().any(|&i| i == data.harden || i == data.agility);
+        if expand_profiles {
+            use crate::selection::{configurations, BuildStyle, CombatRole};
+            let ids: Vec<String> = group_ids.iter().map(|id| (*id).clone()).collect();
+            let configs = configurations(
+                data,
+                dex,
+                &[ids],
+                if melee {
+                    BuildStyle::Melee
+                } else {
+                    BuildStyle::Ranged
+                },
+                CombatRole::Base,
+            )
+            .expect("legal generated group");
+            for c in configs {
+                writeln!(out,"{}",json!({"configurationId":c.id,"dex":c.dex,"group":c.moves,"nature":c.nature,"natureEquivalence":c.nature_equivalence,"ability":c.ability,"tms":c.tms,"second":c.second,"build":if melee {"melee"}else{"ranged"},"role":"base","gameCommit":GAME_COMMIT,"engine":ENGINE_VERSION,"engineFingerprint":engine_fingerprint})).unwrap();
+            }
+            return;
+        }
         writeln!(out,"{}",json!({"dex":dex,"group":group_ids,"second":if group[0]!=base.start&&group.contains(&base.start)&&!base.pool.contains(&base.start){Some(&data.moves[base.start].id)}else{None},"tms":tms,"build":if melee{"melee"}else{"ranged"},"aggro":!defense,"ownAttacks":own,"resistedSpecies":resist})).expect("write candidate");
     };
     let fills = |xs: &[usize], n: usize| -> Vec<Vec<usize>> {
@@ -130,13 +183,31 @@ pub fn candidates(data: &Data, dex: u32, list: bool) {
         }
         buffs
     };
-    for &lead in &attacks {
+    for &lead in &leads {
+        if !data.moves[lead].is_attack() {
+            continue;
+        }
         for &b in &attacks {
             if b == lead {
                 continue;
             }
             for g in fills(&[lead, b], 2) {
                 emit(g);
+            }
+        }
+        for (i, &b) in attacks.iter().enumerate() {
+            if b == lead {
+                continue;
+            }
+            for (j, &c) in attacks.iter().enumerate().skip(i + 1) {
+                if c == lead {
+                    continue;
+                }
+                for &d in attacks.iter().skip(j + 1) {
+                    if d != lead {
+                        emit(vec![lead, b, c, d]);
+                    }
+                }
             }
         }
         for (j, &b) in attacks.iter().enumerate() {
@@ -157,16 +228,23 @@ pub fn candidates(data: &Data, dex: u32, list: bool) {
     if !list {
         println!(
             "{}",
-            json!({"dex":dex,"moveGroups":count,"natureAbilityProfiles":profiles,"gameCommit":data.commit,"engine":ENGINE_VERSION,"engineFingerprint":fingerprint(),"rankingReady":false})
+            json!({"dex":dex,"moveGroups":count,"natureAbilityProfiles":profiles,"distinctNatureAbilityProfiles":distinct_profiles,"jointConfigurations":count as u64*distinct_profiles as u64,"noTmGroups":natural_count,"noTmConfigurations":natural_count as u64*distinct_profiles as u64,"unsupportedMoves":["aqua-ring"],"gameCommit":data.commit,"engine":ENGINE_VERSION,"engineFingerprint":fingerprint(),"rankingReady":false})
         );
     }
 }
-fn run_value(r: &RunResult) -> Value {
+pub(crate) fn run_value(r: &RunResult) -> Value {
     json!({"time":r.time,"kills":r.kills,"bosses":r.bosses,"dealt":r.dealt,"hp":r.hp,"maxHp":r.max_hp,"level":r.level,
  "risk":{"contactAttempts":r.risk.contact_attempts,"hits":r.risk.hits,"damage":r.risk.damage,"contactSeconds":r.risk.contact_seconds,"surroundedSeconds":r.risk.surrounded_seconds,"maxSurrounded":r.risk.max_surrounded,"invulnerableSeconds":r.risk.invulnerable_seconds,"dashCasts":r.risk.dash_casts,"dashHitsAfter":r.risk.dash_hits_after}})
 }
 /// Max 20 runs, max 15 simulated seconds each. Validate all rows before starting any run.
-pub fn evaluate(data: &Data, path: &str) {
+pub(crate) struct Task {
+    pub spec: Value,
+    mon: Mon,
+    start: usize,
+    opts: Opts,
+}
+
+pub(crate) fn prepare(data: &Data, path: &str) -> Vec<Task> {
     let text = std::fs::read_to_string(path).expect("read diagnostic JSONL");
     let rows: Vec<Value> = text
         .lines()
@@ -239,6 +317,22 @@ pub fn evaluate(data: &Data, path: &str) {
                 "legal second starting attack"
             );
         }
+        let mut known = group.iter().copied().collect::<BTreeSet<_>>();
+        if let Some(i) = second {
+            known.insert(i);
+        }
+        assert!(
+            known.len() <= 4,
+            "second starting attack occupies one of four learned slots"
+        );
+        let stock = base(data, dex).start;
+        assert!(
+            stock == group[0]
+                || !group.contains(&stock)
+                || mon.pool.contains(&stock)
+                || second == Some(stock),
+            "off-pool stock attack requires the second starting slot"
+        );
         let mut ext = Ext {
             ability: Some(ab.into()),
             bonded: mode == "assembled",
@@ -246,6 +340,7 @@ pub fn evaluate(data: &Data, path: &str) {
             bosses: true,
             full_cards: true,
             initial_second: second,
+            alt: if mode == "opening" { second } else { None },
             ..Ext::default()
         };
         for &i in &group[1..] {
@@ -264,11 +359,11 @@ pub fn evaluate(data: &Data, path: &str) {
                 panic!("unsupported buff: {}", data.moves[i].id);
             }
         }
-        tasks.push((
-            row,
+        tasks.push(Task {
+            spec: row,
             mon,
-            group[0],
-            Opts {
+            start: group[0],
+            opts: Opts {
                 seed: seed as u32,
                 seconds,
                 cards: true,
@@ -277,21 +372,81 @@ pub fn evaluate(data: &Data, path: &str) {
                 trace: false,
                 ext,
             },
-        ));
+        });
     }
+    tasks
+}
+
+pub(crate) fn execute(data: &Data, tables: &Tables, task: &Task) -> Value {
+    let t = Instant::now();
+    let result = run_match(&Libm, data, tables, &task.mon, task.start, &task.opts);
+    assert!(
+        [result.time, result.hp, result.dealt, result.risk.damage]
+            .iter()
+            .all(|x| x.is_finite()),
+        "non-finite result"
+    );
+    json!({"spec":task.spec,"result":run_value(&result),"elapsedMs":t.elapsed().as_millis(),"rankingReady":false})
+}
+
+pub fn evaluate(data: &Data, path: &str) {
+    let tasks = prepare(data, path);
     let tables = Tables::new();
-    for (spec, mon, start, opts) in tasks {
-        let t = Instant::now();
-        let result = run_match(&Libm, data, &tables, &mon, start, &opts);
+    for task in tasks {
+        println!("{}", execute(data, &tables, &task));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    fn reject(name: &str, mutate: impl FnOnce(&mut Vec<Value>)) {
+        let data = Data::load(concat!(env!("CARGO_MANIFEST_DIR"), "/../data/game.json"));
+        let mut row: Value = serde_json::from_str(
+            include_str!("../../tests/smoke.jsonl")
+                .lines()
+                .next()
+                .unwrap(),
+        )
+        .unwrap();
+        row["engineFingerprint"] = json!(fingerprint());
+        let mut rows = vec![row];
+        mutate(&mut rows);
+        let path = std::env::temp_dir().join(format!(
+            "pokesim-reject-{}-{name}.jsonl",
+            std::process::id()
+        ));
+        std::fs::write(
+            &path,
+            rows.iter()
+                .map(Value::to_string)
+                .collect::<Vec<_>>()
+                .join("\n"),
+        )
+        .unwrap();
+        let result = std::panic::catch_unwind(|| prepare(&data, path.to_str().unwrap()));
+        std::fs::remove_file(path).unwrap();
         assert!(
-            [result.time, result.hp, result.dealt, result.risk.damage]
-                .iter()
-                .all(|x| x.is_finite()),
-            "non-finite result"
+            result.is_err(),
+            "invalid manifest must be rejected before execution"
         );
-        println!(
-            "{}",
-            json!({"spec":spec,"result":run_value(&result),"elapsedMs":t.elapsed().as_millis(),"rankingReady":false})
-        );
+    }
+    #[test]
+    fn rejects_over_budget_without_running() {
+        reject("time", |r| r[0]["seconds"] = json!(16));
+        reject("count", |r| *r = vec![r[0].clone(); 21]);
+    }
+    #[test]
+    fn rejects_stale_or_illegal_profiles_without_running() {
+        reject("stale", |r| r[0]["engineFingerprint"] = json!("stale"));
+        reject("ability", |r| r[0]["ability"] = json!("huge-power"));
+        reject("slots", |r| r[0]["second"] = json!("psybeam"));
+    }
+    #[test]
+    fn validates_later_rows_before_any_execution() {
+        reject("later", |r| {
+            r.push(r[0].clone());
+            r[1]["seconds"] = json!(16);
+        });
     }
 }

@@ -1,0 +1,37 @@
+{
+  "engineFingerprint": "6b68c69896c4453e5c28f533fce3e64a288ee6c14b629c52decd61af7e1166f1",
+  "before": {
+    "cached": 0,
+    "engineFingerprint": "6b68c69896c4453e5c28f533fce3e64a288ee6c14b629c52decd61af7e1166f1",
+    "limit": {
+      "runs": 20,
+      "secondsPerRun": 15
+    },
+    "note": "Simulated seconds are not wall time. No calibrated cost estimate or ranking authorization.",
+    "rankingReady": false,
+    "remaining": 10,
+    "remainingSimulatedSeconds": 150.0,
+    "tasks": 10,
+    "wallCostEstimate": null
+  },
+  "after": {
+    "cached": 10,
+    "engineFingerprint": "6b68c69896c4453e5c28f533fce3e64a288ee6c14b629c52decd61af7e1166f1",
+    "limit": {
+      "runs": 20,
+      "secondsPerRun": 15
+    },
+    "note": "Simulated seconds are not wall time. No calibrated cost estimate or ranking authorization.",
+    "rankingReady": false,
+    "remaining": 0,
+    "remainingSimulatedSeconds": -0.0,
+    "tasks": 10,
+    "wallCostEstimate": null
+  },
+  "executedRuns": 10,
+  "reusedRuns": 10,
+  "resultSha256": "41dd2854c744e19e6876b536a68a1fbcadfb7b33216d9dee11a4c5de268b0910",
+  "maxElapsedMs": 1,
+  "totalElapsedMs": 2,
+  "rankingReady": false
+}

@@ -13,7 +13,7 @@ cargo build --release --manifest-path simulator/sim-rs/Cargo.toml --bin pokesim 
 cargo test --manifest-path simulator/sim-rs/Cargo.toml
 ```
 
-`sim-rs/src/engine.rs` owns combat and the frame loop. `engine/abilities.rs` implements the current ability effects, including the official fallback to primary-type damage. `data.rs` validates nature, ability and TM configurations. `research.rs` generates move groups and evaluates explicit diagnostic manifests.
+`sim-rs/src/engine.rs` owns combat and the frame loop. `engine/abilities.rs` implements the current ability effects, including the official fallback to primary-type damage. `data.rs` validates nature, ability and TM configurations. `research.rs` generates move groups and evaluates explicit diagnostic manifests. `selection.rs` and `selection_io.rs` expose conservative staged comparisons. `batch.rs` plans and resumes bounded diagnostics.
 
 ## Import upstream data
 
@@ -35,12 +35,16 @@ From `simulator/`:
 ./sim-rs/target/release/pokesim fingerprint
 ./sim-rs/target/release/pokesim candidates 150
 ./sim-rs/target/release/pokesim candidates 150 --list > /tmp/mewtwo-candidates.jsonl
-./sim-rs/target/release/pokesim evaluate tests/smoke.jsonl
+./sim-rs/target/release/pokesim configurations 150
+# Refresh the fingerprint in a NEW manifest; historical manifests stay immutable.
+./sim-rs/target/release/pokesim plan /tmp/current-diagnostics.jsonl /tmp/pokesim-checkpoints
+./sim-rs/target/release/pokesim resume /tmp/current-diagnostics.jsonl /tmp/pokesim-checkpoints
+./sim-rs/target/release/pokesim select /tmp/selection.json
 ```
 
-`candidates` performs no runs. It considers the natural pool plus all compatible TMs and every eligible attack lead. It reports melee/ranged, no-defense groups, own-type attack count and elemental resistance coverage. It does not impose two own-type attacks, one attack per type, or a Normal-type penalty. Nature/ability profile counts are reported separately; the command does not claim to have optimized those profiles.
+`candidates` performs no runs. It considers the natural pool plus all compatible TMs and every eligible attack lead. It reports melee/ranged, no-defense groups, own-type attack count and elemental resistance coverage. It does not impose two own-type attacks, one attack per type, or a Normal-type penalty. It includes four-attack groups and off-type natural companions even when they cannot be chosen as the lead. `configurations --list` expands legal groups into explicit nature/ability/TM profiles with stable identities; without `--list` it only reports counts. Exact-stat nature equivalences avoid identical computations, while abilities remain distinct. These are enumeration commands, not measured optimization. Aqua Ring and unsupported buff combinations are not yet enumerated; the candidate universe is not complete.
 
-A diagnostic manifest has one JSON object per run, with `gameCommit`, `engine`, `engineFingerprint`, `dex`, `nature`, `ability`, `tms`, `group`, `second`, `mode`, `seed` and `seconds`. All rows are validated before the first run. A stale fingerprint, illegal configuration, more than 20 rows or a duration above 15 simulated seconds is rejected. `mode` is `opening` (acquire moves and unlock bonds through rifts) or `assembled` (the complete group is bonded at the start). These are different questions and must remain labelled separately.
+A diagnostic manifest has one JSON object per run, with `gameCommit`, `engine`, `engineFingerprint`, `dex`, `nature`, `ability`, `tms`, `group`, `second`, `mode`, `seed` and `seconds`. All rows are validated before the first run. A stale fingerprint, illegal configuration, more than 20 rows or a duration above 15 simulated seconds is rejected. `mode` is `opening` (acquire moves and unlock bonds through rifts) or `assembled` (the complete group is bonded at the start). These are different questions and must remain labelled separately. The second attack occupies one of the four learned slots. In opening mode it is immediately available for switching; once bonded it is not retained as a duplicate slot.
 
 The committed smoke manifest and its result belong to the exact fingerprint they contain. Source or data changes invalidate it; generate a new manifest with the new fingerprint instead of editing historical results. Single `run` diagnostics also require an explicit duration of at most 15 seconds. Old bulk commands (`rank`, `sweep`, `synergy`, `tasks`, `repertorio`) are retired. The Python historical writers refuse `--sim`; their `--check` readers still verify the published snapshots.
 
@@ -60,8 +64,16 @@ Results include actual damage taken and hit count, attempted contacts, contact t
 
 The historical survival/DPS/kills formula remains only for reading and testing old results. These diagnostics do not invent weights for exposure or publish a replacement score. Selecting those weights requires calibration against real play. Neither a passing unit suite nor a 15-second smoke run establishes ranking quality, long-run fidelity, the value of a nature/ability profile, or the best build.
 
-`tests/smoke-results.jsonl` records the 20 authorized startup runs. The crowd tests are scripted scenarios, since those short startup runs do not establish behavior during a mature swarm.
+`tests/smoke-results.jsonl` records the original 20 startup runs. The readiness follow-up adds two ten-match batches; `tests/readiness-final-smoke-results-20261021.jsonl` belongs to the final source fingerprint. See [the readiness report](../docs/simulator/readiness-2026-10-21.md) for checks and outstanding gates. The crowd tests are scripted scenarios, since those short startup runs do not establish behavior during a mature swarm.
 
 `v3/v3_data.json` and `results/` are historical inputs/results for the existing website. They are not loaded by the current engine and must not be relabelled as results from the new patch. The A/B builds and aggro/coverage presentation are preserved in the published snapshot; new recommendations need new measured results, including a combined aggro+coverage configuration where offered.
 
 PokéSurvivor and its code are by JPTER78. Upstream sources and extracted game data retain their original licensing: [PolyForm Noncommercial 1.0.0 for the current source](https://github.com/JPTER78/pokesurvivor/blob/ce57853/LICENSE). This simulator is unofficial.
+
+## Restarting and selecting diagnostics
+
+`plan` validates the complete manifest and every existing checkpoint, then reports task counts and remaining simulated seconds without running a match. It does not extrapolate a wall-time bill from startup measurements. `resume` uses the same 20-run/15-second limits, one writer lock, exact content identities, and atomic synced per-task checkpoints. Complete matching records are reused; corrupt records are rejected. After an interrupted process, verify no live writer exists before removing its stale `writer.lock`. Changed engine/data/profile/seed inputs cannot silently reuse an old task. Re-running `resume` over a complete cache executes zero additional matches.
+
+`select` consumes one JSON object with current `provenance: {gameCommit, engineFingerprint}`, `incumbent`, `policy: {screeningSeeds, confirmationSeeds, margins: {contactDamage, contactSeconds, trappedSeconds}}`, and `observations: [{configurationId, seed, metrics: {damage, contactDamage, contactSeconds, trappedSeconds, kills, bosses, survivalSeconds}}]`. All metrics and margins are finite and nonnegative. Screening and confirmation seed sets are distinct. Only the screening frontier plus incumbent need confirmation observations. Confirmation compares exposure against the incumbent using the supplied margins, then reports a descriptive Pareto set. Empirical means do not establish statistical superiority: the report deliberately returns `confidenceUnresolved: true`, `winner: null`, `rankingReady: false`. Margins still need real-play calibration; no default calibrated weights exist. Roles have separate identities, but the CLI does not yet choose final Aggro/Coverage winners.
+
+The future publication schema and web presentation are specified in [web-contract.md](../docs/simulator/web-contract.md). Its Python validator is a web boundary, not another simulator. It checks measured variant completeness, seed provenance, legal build metadata and links to separately measured no-TM alternatives. No frontend page or export adapter is implemented by that contract.

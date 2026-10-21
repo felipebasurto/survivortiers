@@ -32,6 +32,10 @@ fn lvl1(id: &str) -> &'static MoveLvl {
 }
 
 fn scene(dex: u32, move_id: &str) -> Match<'static, Libm> {
+    scene_with_ext(dex, move_id, Ext::default())
+}
+
+fn scene_with_ext(dex: u32, move_id: &str, ext: Ext) -> Match<'static, Libm> {
     let opts: &'static Opts = Box::leak(Box::new(Opts {
         seed: 1,
         seconds: 15.0,
@@ -40,7 +44,7 @@ fn scene(dex: u32, move_id: &str) -> Match<'static, Libm> {
         terrain: false,
         trace: false,
 
-        ext: Ext { ..Ext::default() },
+        ext,
     }));
     let mut m = init_match(&LIBM, dat(), tables(), mon(dex), mv(move_id), opts);
     m.ability = Ability { id: "none" };
@@ -520,6 +524,251 @@ fn thirty_contacts_cannot_extend_dash_invulnerability() {
     m.note_exposure(DT);
     assert_eq!(m.risk.surrounded_seconds, DT);
     assert!(m.risk.contact_seconds > 0.);
+}
+
+#[test]
+fn contact_scenes_scale_attempts_without_scaling_hits_during_global_immunity() {
+    for count in [10, 20, 30] {
+        let mut m = scene(150, "quick-attack");
+        for i in 0..count {
+            let a = i as f64 * PI * 2. / count as f64;
+            let n = foe(&mut m, T_NORMAL, a.cos() * 10., a.sin() * 10., false, 0.);
+            m.enemies[n].dmg = 10.;
+        }
+        m.pl.inv = 0.3;
+        let hp = m.pl.hp;
+        m.resolve_contact();
+        assert_eq!(m.pl.hp, hp, "{count} contacts bypassed active immunity");
+        assert_eq!(m.risk.contact_attempts, count as u32);
+        assert_eq!(m.risk.hits, 0);
+        assert_eq!(m.risk.damage, 0.);
+    }
+}
+
+#[test]
+fn kill_abilities_update_damage_live_and_stop_at_fifteen_percent() {
+    let mut m = scene(150, "shadow-ball");
+    m.ability = Ability::of("moxie");
+    let attack = lvl1("shadow-ball");
+    let target = foe(&mut m, T_NORMAL, 500., 0., false, 0.);
+    let mut rng = crate::rng::Rng::new(7);
+    let base = m.ability_frame().outgoing(
+        m.status_of(attack),
+        attack.ty,
+        attack.cat,
+        &m.enemies[target],
+        &dat().tmult,
+        &mut rng,
+    );
+    for kill in 1..=40 {
+        let n = foe(&mut m, T_NORMAL, 500., kill as f64, false, 0.);
+        m.enemies[n].hp = 0.;
+        m.reap();
+        let next = m.ability_frame().outgoing(
+            m.status_of(attack),
+            attack.ty,
+            attack.cat,
+            &m.enemies[target],
+            &dat().tmult,
+            &mut rng,
+        );
+        let expected = 1. + (kill as f64 * 0.005).min(0.15);
+        assert!((next / base - expected).abs() < 1e-12, "after {kill} kills");
+    }
+}
+
+#[test]
+fn initially_learned_second_attack_is_a_separate_swappable_slot() {
+    let start = mv("water-gun");
+    let second = mv("quick-attack");
+    let mut m = scene_with_ext(
+        54,
+        "water-gun",
+        Ext {
+            initial_second: Some(second),
+            alt: Some(second),
+            ..Ext::default()
+        },
+    );
+    assert_eq!(
+        m.known_count(),
+        2,
+        "start and chosen second are both learned"
+    );
+    assert_eq!(m.current_move().ty, dat().moves[start].levels[0].ty);
+    m.atk_cd = 10.;
+    m.maybe_swap();
+    assert_eq!(m.slot, 1);
+    assert_eq!(
+        m.alt_cd, 0.,
+        "new slot is immediately available when its timer was ready"
+    );
+    m.maybe_swap();
+    assert_eq!(
+        m.slot, 1,
+        "entering an available slot does not immediately bounce back"
+    );
+    m.alt_cd = 10.;
+    m.maybe_swap();
+    assert_eq!(m.slot, 0);
+    assert!(m.atk_cd <= dat().moves[start].levels[0].cd * 0.35);
+}
+
+#[test]
+fn bonded_second_attack_is_not_retained_as_a_duplicate_alt_slot() {
+    let start = mv("water-gun");
+    let second = mv("quick-attack");
+    let mut m = scene_with_ext(
+        54,
+        "water-gun",
+        Ext {
+            initial_second: Some(second),
+            alt: Some(second),
+            companions: vec![second],
+            bonded: true,
+            ..Ext::default()
+        },
+    );
+    m.atk_cd = 10.;
+    m.maybe_swap();
+    assert_eq!(
+        m.slot, 0,
+        "an active-group member has no duplicate standalone slot"
+    );
+    assert_eq!(m.current_move().ty, dat().moves[start].levels[0].ty);
+    m.slot = 1;
+    m.st.cd_mul = 0.3;
+    m.maybe_swap();
+    assert_eq!(
+        m.slot, 0,
+        "group membership normalizes even when swapping is unnecessary"
+    );
+}
+
+#[test]
+fn failed_target_gated_cast_does_not_charge_life_orb() {
+    let mut m = scene_with_ext(
+        150,
+        "quick-attack",
+        Ext {
+            item: Item::by_id("lifeorb"),
+            ..Ext::default()
+        },
+    );
+    let hp = m.pl.hp;
+    assert!(!m.cast(), "quick attack waits until a target is in reach");
+    assert_eq!(
+        m.pl.hp, hp,
+        "a failed cast is not an attack and costs no HP"
+    );
+}
+
+#[test]
+fn failed_companion_target_gate_does_not_charge_life_orb() {
+    let second = mv("quick-attack");
+    let mut m = scene_with_ext(
+        150,
+        "water-gun",
+        Ext {
+            item: Item::by_id("lifeorb"),
+            companions: vec![second],
+            bonded: true,
+            ..Ext::default()
+        },
+    );
+    let hp = m.pl.hp;
+    m.cast_comps();
+    assert_eq!(m.pl.hp, hp);
+    assert_eq!(
+        m.comps[0].2, 0.05,
+        "failed companion waits for the next target check"
+    );
+}
+
+#[test]
+fn life_orb_cost_precedes_blaze_threshold_damage_calculation() {
+    let mut m = scene_with_ext(
+        150,
+        "ember",
+        Ext {
+            item: Item::by_id("lifeorb"),
+            ..Ext::default()
+        },
+    );
+    let attack = lvl1("ember");
+    let target = foe(&mut m, T_NORMAL, 20., 0., false, 0.);
+    m.ability = Ability::of("blaze");
+    m.pl.hp = m.st.max_hp * 0.34;
+    let before = m.pl.hp;
+    assert!(m.cast_player_move(attack));
+    assert!(m.pl.hp < before && m.pl.hp / m.st.max_hp < 1. / 3.);
+    let mut rng = crate::rng::Rng::new(9);
+    let factor = m.ability_frame().outgoing(
+        m.status_of(attack),
+        attack.ty,
+        attack.cat,
+        &m.enemies[target],
+        &dat().tmult,
+        &mut rng,
+    );
+    assert_eq!(factor, 1.35, "Blaze sees HP after the pre-cast item cost");
+}
+
+#[test]
+fn dash_invulnerability_expires_before_the_next_contact_resolution() {
+    let mut m = scene(150, "quick-attack");
+    let n = foe(&mut m, T_NORMAL, 100., 0., false, 0.);
+    m.enemies[n].dmg = 10.;
+    assert!(m.cast());
+    assert!(m.pl.inv >= 0.3);
+    m.enemies[n].x = m.pl.x;
+    m.enemies[n].y = m.pl.y;
+    m.enemies[n].kx = 0.;
+    m.enemies[n].ky = 0.;
+    for _ in 0..7 {
+        m.pl.inv -= DT;
+        m.enemies[n].touch = 0.;
+        m.resolve_contact();
+    }
+    assert_eq!(m.risk.contact_attempts, 7);
+    assert_eq!(
+        m.risk.hits, 1,
+        "contact hurts after dash protection expires"
+    );
+    assert!(m.pl.hp < m.st.max_hp);
+}
+
+#[test]
+fn dash_stops_at_the_first_wall_on_its_aim_line() {
+    let mut m = scene(150, "quick-attack");
+    let mut world = crate::terrain::World::new(7920);
+    let radius = lvl1("quick-attack").radius;
+    let mut start = None;
+    'search: for y in (-512..=512).step_by(32) {
+        for x in (-512..=512).step_by(32) {
+            if !world.is_free_ex(x as f64, y as f64, m.pl.r * 0.8, true) {
+                continue;
+            }
+            for d in (8..=radius as i32).step_by(8) {
+                if !world.is_free_ex(x as f64 + d as f64, y as f64, m.pl.r * 0.8, true) {
+                    start = Some((x as f64, y as f64, d as f64));
+                    break 'search;
+                }
+            }
+        }
+    }
+    let (x, y, wall_at) = start.expect("seed has a wall within one dash of a free tile");
+    m.terrain = Some(Box::new(Terr {
+        world,
+        path: Path::new(),
+    }));
+    m.pl.x = x;
+    m.pl.y = y;
+    m.pl.aim = 0.;
+    foe(&mut m, T_NORMAL, x + 12., y, false, 0.);
+    assert!(m.cast());
+    assert!((m.pl.x - x - (wall_at - 8.)).abs() < 1e-9);
+    assert_eq!(m.pl.y, y);
 }
 #[test]
 fn ranged_combat_does_not_force_the_player_inside_the_magnet() {

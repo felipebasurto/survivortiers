@@ -2111,14 +2111,30 @@ impl<'a, M: MathFns> Match<'a, M> {
     /// Swap when the active timer is still above 35% of base cd (player.js:148). cdMul at or below
     /// 0.35 already waits less than the clamp, so swapping does not help. Choice Band never reaches this.
     fn maybe_swap(&mut self) {
-        if self.opts.ext.alt.is_none() || self.opts.ext.item.lock || self.st.cd_mul <= 0.35 {
+        let Some(alt) = self.opts.ext.alt else {
+            return;
+        };
+        // A move selected as the initial second attack can appear in the planned group
+        // as a companion after bonding. Once it belongs to the active group it is no
+        // longer a separate slot in Player.slots; avoid firing the same move twice.
+        let in_group = self
+            .comps
+            .iter()
+            .enumerate()
+            .any(|(i, (id, _, _))| *id == alt && self.bonded(i as u8));
+        if in_group {
+            if self.slot != 0 {
+                self.enter_slot(0);
+            }
+            return;
+        }
+        if self.opts.ext.item.lock || self.st.cd_mul <= 0.35 {
             return;
         }
         let (timer, base) = if self.slot == 0 {
             (self.atk_cd, self.current_move().cd)
         } else {
-            let id = self.opts.ext.alt.unwrap();
-            (self.alt_cd, self.data.moves[id].levels[0].cd)
+            (self.alt_cd, self.data.moves[alt].levels[0].cd)
         };
         if timer > base * 0.35 {
             self.enter_slot(1 - self.slot);
@@ -2711,17 +2727,47 @@ impl<'a, M: MathFns> Match<'a, M> {
             self.pl.hp = jmax(1.0, self.pl.hp - jmax(1.0, self.st.max_hp * 0.01));
         }
     }
+    /// combat.js needsTarget/reach, evaluated before Player.cast charges Life Orb.
+    /// Manual aiming is absent from this automated simulator, so targeted kinds wait
+    /// until an enemy is inside their source-defined reach.
+    fn target_ready(&self, mv: &MoveLvl) -> bool {
+        let reach = match mv.kind {
+            Kind::Melee => Some(mv.radius + 30.0),
+            Kind::Beam => Some(mv.radius + 20.0),
+            Kind::Projectile => Some(520.0),
+            Kind::Boomerang => Some(mv.radius + 40.0),
+            Kind::Effect => match mv.xk {
+                1 => Some(mv.speed * mv.life + 30.0), // cone
+                2 => Some(340.0),                     // meteor
+                3 => Some(280.0),                     // chain
+                5 => Some(mv.radius + 60.0),          // dash
+                9 | 10 => Some(520.0),                // homing / bounce
+                11 | 12 | 15 => Some(mv.radius + 20.0),
+                13 => Some(or(mv.count, 1.0).floor().max(1.0) * kinds::QSTEP + mv.radius),
+                14 | 16 => Some(300.0),
+                _ => None,
+            },
+            _ => None,
+        };
+        reach.is_none_or(|r| {
+            self.enemies
+                .iter()
+                .any(|e| e.hp > 0.0 && len(e.x - self.pl.x, e.y - self.pl.y) <= r)
+        })
+    }
+    fn cast_player_move(&mut self, mv: &'a MoveLvl) -> bool {
+        if !self.target_ready(mv) {
+            return false;
+        }
+        // Player.cast charges before combat.run, affecting HP-threshold abilities on this hit.
+        if mv.kind != Kind::Orbit && !(mv.kind == Kind::Effect && mv.xk == 7) {
+            self.life_orb();
+        }
+        self.cast_mv(mv)
+    }
     fn cast(&mut self) -> bool {
         let mv = self.st.mv;
-        let extra = mv.kind == Kind::Effect && mv.xk != 0;
-        if mv.kind != Kind::Orbit && !extra {
-            self.life_orb();
-        }
-        let ok = self.cast_mv(mv);
-        if extra && ok && mv.xk != 7 {
-            self.life_orb();
-        }
-        ok
+        self.cast_player_move(mv)
     }
     fn bonded(&self, slot: u8) -> bool {
         if !self.opts.ext.rift {
@@ -3074,7 +3120,7 @@ impl<'a, M: MathFns> Match<'a, M> {
             self.extras[i].1 = self.cooled(cd);
             if kind == Kind::Orbit {
                 self.side_orbit = Some((ix, 0));
-            } else if !self.cast_mv(mv) {
+            } else if !self.cast_player_move(mv) {
                 self.extras[i].1 = 0.05;
             }
         }
@@ -3100,20 +3146,14 @@ impl<'a, M: MathFns> Match<'a, M> {
             self.comps[i].2 -= self.dt;
             if self.comps[i].2 <= 0.0 {
                 let mv = self.comp_lvl(i);
-                let (cd, kind, xk) = (mv.cd, mv.kind, mv.xk);
+                let (cd, kind) = (mv.cd, mv.kind);
                 self.comps[i].2 = self.cooled(cd);
-                let extra = kind == Kind::Effect && xk != 0;
-                if kind != Kind::Orbit && !extra {
-                    self.life_orb();
-                }
                 if kind == Kind::Orbit {
                     self.side_orbit = Some((self.comps[i].0, self.comps[i].1.saturating_sub(1)));
                     continue;
                 }
-                if !self.cast_mv(mv) {
+                if !self.cast_player_move(mv) {
                     self.comps[i].2 = 0.05;
-                } else if extra && xk != 7 {
-                    self.life_orb();
                 }
             }
         }
@@ -3356,13 +3396,6 @@ impl<'a, M: MathFns> Match<'a, M> {
         let count = or(mv.count, 1.0).floor().max(1.0);
         match mv.xk {
             1 => {
-                if !self
-                    .enemies
-                    .iter()
-                    .any(|e| e.hp > 0.0 && len(e.x - px, e.y - py) < mv.speed * mv.life + 30.0)
-                {
-                    return false;
-                }
                 let n = count.max(2.0);
                 let arc = or(mv.arc, 0.9);
                 let mut i = 0.0;
@@ -3375,13 +3408,6 @@ impl<'a, M: MathFns> Match<'a, M> {
                 }
             }
             2 => {
-                if !self
-                    .enemies
-                    .iter()
-                    .any(|e| e.hp > 0.0 && len(e.x - px, e.y - py) < 340.0)
-                {
-                    return false;
-                }
                 let mut near: Vec<usize> = (0..self.enemies.len())
                     .filter(|&i| {
                         let e = &self.enemies[i];
@@ -3421,12 +3447,7 @@ impl<'a, M: MathFns> Match<'a, M> {
                 }
             }
             3 => {
-                let mut cur = match nearest(&self.enemies, px, py) {
-                    Some(i) if len(self.enemies[i].x - px, self.enemies[i].y - py) < 280.0 => {
-                        Some(i)
-                    }
-                    _ => return false,
-                };
+                let mut cur = nearest(&self.enemies, px, py);
                 let mut done: Vec<usize> = Vec::new();
                 let mut k = 1.0;
                 let chance = { self.opts.ext.crit };
@@ -3510,13 +3531,6 @@ impl<'a, M: MathFns> Match<'a, M> {
                 }
             }
             5 => {
-                if !self
-                    .enemies
-                    .iter()
-                    .any(|e| e.hp > 0.0 && len(e.x - px, e.y - py) < mv.radius + 60.0)
-                {
-                    return false;
-                }
                 let (ca, sa) = (aim.cos(), aim.sin());
                 let mut l = 0.0;
                 let mut d = 8.0;
@@ -5798,6 +5812,9 @@ impl<'a, M: MathFns> Match<'a, M> {
             }
             *cd -= dt;
             if *cd <= 0.0 {
+                if self.opts.ext.item.lifeorb {
+                    self.pl.hp = jmax(1.0, self.pl.hp - jmax(1.0, self.st.max_hp * 0.01));
+                }
                 *stacks = jmin(inst.stacks, *stacks + 1.0);
                 *time = inst.dur;
                 *cd = (inst.cd
@@ -5809,9 +5826,6 @@ impl<'a, M: MathFns> Match<'a, M> {
                     })
                 .max(0.05);
                 self.stat_dirty = true;
-                if self.opts.ext.item.lifeorb {
-                    self.pl.hp = jmax(1.0, self.pl.hp - jmax(1.0, self.st.max_hp * 0.01));
-                }
             }
         }
     }

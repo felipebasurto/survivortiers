@@ -1,0 +1,38 @@
+{
+  "engineFingerprint": "73a79fdac2957a3a3c0f99decb6e9550ab8cb843dc33faa8be251806029860b4",
+  "before": {
+    "cached": 0,
+    "engineFingerprint": "73a79fdac2957a3a3c0f99decb6e9550ab8cb843dc33faa8be251806029860b4",
+    "limit": {
+      "runs": 20,
+      "secondsPerRun": 15
+    },
+    "note": "Simulated seconds are not wall time. No calibrated cost estimate or ranking authorization.",
+    "rankingReady": false,
+    "remaining": 10,
+    "remainingSimulatedSeconds": 150.0,
+    "tasks": 10,
+    "wallCostEstimate": null
+  },
+  "after": {
+    "cached": 10,
+    "engineFingerprint": "73a79fdac2957a3a3c0f99decb6e9550ab8cb843dc33faa8be251806029860b4",
+    "limit": {
+      "runs": 20,
+      "secondsPerRun": 15
+    },
+    "note": "Simulated seconds are not wall time. No calibrated cost estimate or ranking authorization.",
+    "rankingReady": false,
+    "remaining": 0,
+    "remainingSimulatedSeconds": -0.0,
+    "tasks": 10,
+    "wallCostEstimate": null
+  },
+  "executedRuns": 10,
+  "reusedRuns": 10,
+  "resultSha256": "55bcb9398a67e2855aade6b608825a3247bb255c857398a26dc7ccaaab212838",
+  "maxElapsedMs": 1,
+  "totalElapsedMs": 2,
+  "hits": 0,
+  "rankingReady": false
+}
