@@ -57,7 +57,7 @@ python3 build/check_site.py http://127.0.0.1:8765/ --external   # además, enlac
 
 `check_site.py` dibuja una muestra de fichas en un navegador si tienes Playwright (`pip install playwright`); con `--all-species` dibuja las 966 de cada idioma. También recorre las 20 páginas de consulta a 390 px y comprueba que su lista visible sea la del JSON-LD, en el mismo orden.
 
-`site/` y `build/out/` son salida generada y no se versionan. Para publicar, genera el sitio **sin** `SPRITE_BASE` y ejecuta `npx wrangler deploy` (Cloudflare Workers, ver `wrangler.jsonc`). `vercel.json` queda por si se despliega allí.
+`site/` y `build/out/` son salida generada y no se versionan. Para publicar, genera el sitio **sin** `SPRITE_BASE` y ejecuta `npx wrangler pages deploy site --project-name survivortiers --branch main` (Cloudflare Pages, sirve `survivortiers.pages.dev`). `npx wrangler deploy` sube un Worker sin rutas y no publica nada. `vercel.json` queda por si se despliega allí.
 
 ### Fichas y sprites
 
