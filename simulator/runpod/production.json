@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "gameCommit": "ce5785313b0205af8b9477423f64b0a7b7039dcd",
-  "engineFingerprint": "6525f697990d64e7c57ce5c591f609014bcc45c71b90a1d0dfd5164bdde25f65",
+  "engineFingerprint": "6f53b2c958556bdc9eb5500e6ceb905b0d01dbe9be0b00f90e5004a8b80e7960",
   "policyVersion": "survivortiers-survival-safety-v1",
   "dex": "all",
   "screeningSeeds": [

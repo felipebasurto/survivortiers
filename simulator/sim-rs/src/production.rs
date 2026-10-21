@@ -12,7 +12,7 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::{
     cmp::Ordering,
-    collections::{BTreeMap, BTreeSet},
+    collections::{BTreeMap, BTreeSet, HashMap},
     fs::{self, File, OpenOptions},
     io::Write,
     path::{Path, PathBuf},
@@ -1211,12 +1211,28 @@ fn nominate_confirmation(
     configs: &BTreeMap<String, Candidate>,
     m: &Manifest,
 ) -> BTreeMap<String, Vec<u32>> {
+    // Index screening rows once. Lookups are then hash probes instead of scans over every row.
+    let mut by_config: HashMap<&str, Vec<&Value>> = HashMap::new();
+    let mut first_by_key: HashMap<(&str, u64), &Value> = HashMap::new();
+    for row in rows {
+        if row["stage"] != "screening" {
+            continue;
+        }
+        let Some(id) = row["configurationId"].as_str() else {
+            continue;
+        };
+        by_config.entry(id).or_default().push(row);
+        if let Some(seed) = row["seed"].as_u64() {
+            first_by_key.entry((id, seed)).or_insert(row);
+        }
+    }
     let mut out = BTreeMap::new();
     for t in templates {
         let dex = t["dex"].as_u64().unwrap_or(0) as u32;
-        let control = configs
+        let control_id = configs
             .values()
-            .find(|c| c.config.dex == dex && c.branch == "control_no_tm");
+            .find(|c| c.config.dex == dex && c.branch == "control_no_tm")
+            .map(|c| c.config.id.as_str());
         let mut scores = Vec::new();
         for id in t["allowedConfigurationIds"]
             .as_array()
@@ -1225,20 +1241,11 @@ fn nominate_confirmation(
             .filter_map(Value::as_str)
         {
             let mut ds = [Vec::new(), Vec::new(), Vec::new(), Vec::new()];
-            for row in rows {
-                if row["stage"] != "screening" || row["configurationId"].as_str() != Some(id) {
-                    continue;
-                }
+            for row in by_config.get(id).into_iter().flatten() {
                 let seed = row["seed"].as_u64().unwrap_or(u64::MAX);
-                let Some(base) = control
-                    .and_then(|c| {
-                        rows.iter().find(|r| {
-                            r["stage"] == "screening"
-                                && r["configurationId"] == c.config.id
-                                && r["seed"].as_u64() == Some(seed)
-                        })
-                    })
-                    .and_then(row_metrics)
+                let Some(base) = control_id
+                    .and_then(|cid| first_by_key.get(&(cid, seed)))
+                    .and_then(|r| row_metrics(r))
                 else {
                     continue;
                 };
@@ -1413,25 +1420,50 @@ fn execute(data: &Data, plan_path: &str, cache_dir: &str, out: &str) -> Result<(
     let mut failed_now = BTreeSet::new();
     let mut failure_rows = Vec::new();
     let mut run_stage = |stage_tasks: &[ParsedTask]| -> Result<(), String> {
-        loop {
-            let todo = stage_tasks
-                .iter()
-                .filter(|t| {
-                    !cache.join(format!("{}.json", t.task_id)).exists()
-                        && !failed_now.contains(&t.task_id)
-                })
-                .take(manifest.limits.threads)
-                .cloned()
-                .collect::<Vec<_>>();
-            if todo.is_empty() || began.elapsed().as_secs_f64() >= manifest.limits.max_wall_seconds
-            {
+        // Pending tasks are listed once per stage; the cursor only moves forward.
+        let pending = stage_tasks
+            .iter()
+            .filter(|t| !cache.join(format!("{}.json", t.task_id)).exists())
+            .collect::<Vec<_>>();
+        let batch_size = manifest.limits.threads * 16;
+        let mut cursor = 0;
+        while cursor < pending.len() {
+            if began.elapsed().as_secs_f64() >= manifest.limits.max_wall_seconds {
                 break;
             }
-            let results=pool.install(||todo.par_iter().map(|t|{let c=&configs[&t.config_id];run_one(data,&tables,c,t.seed,manifest.seconds).map(|row|json!({"taskId":t.task_id,"configurationId":t.config_id,"stage":t.stage,"seed":t.seed,"row":row}))}).collect::<Vec<_>>());
-            for (task, result) in todo.iter().zip(results) {
-                match result {
-                    Ok(v) => atomic_json(&cache.join(format!("{}.json", task.task_id)), &v)?,
-                    Err(e) => {
+            let mut batch = Vec::with_capacity(batch_size);
+            while cursor < pending.len() && batch.len() < batch_size {
+                let task = pending[cursor];
+                cursor += 1;
+                if !failed_now.contains(&task.task_id) {
+                    batch.push(task);
+                }
+            }
+            if batch.is_empty() {
+                break;
+            }
+            // Each worker writes its own checkpoint, so writes overlap instead of queueing
+            // behind the slowest match of the batch. Outer Err = I/O failure (hard stop);
+            // inner Some = a match failure, counted against the failed-task budget.
+            let outcomes = pool.install(|| {
+                batch
+                    .par_iter()
+                    .map(|t| {
+                        let c = &configs[&t.config_id];
+                        match run_one(data, &tables, c, t.seed, manifest.seconds) {
+                            Ok(row) => {
+                                let v = json!({"taskId":t.task_id,"configurationId":t.config_id,"stage":t.stage,"seed":t.seed,"row":row});
+                                atomic_json(&cache.join(format!("{}.json", t.task_id)), &v).map(|_| None)
+                            }
+                            Err(e) => Ok(Some(e)),
+                        }
+                    })
+                    .collect::<Vec<Result<Option<String>, String>>>()
+            });
+            for (task, outcome) in batch.iter().zip(outcomes) {
+                match outcome? {
+                    None => {}
+                    Some(e) => {
                         failures += 1;
                         failed_now.insert(task.task_id.clone());
                         failure_rows.push(json!({"taskId":task.task_id,"error":e}));
@@ -1524,12 +1556,14 @@ fn analyze_winners(plan: &Value, rows: &[Value], m: &Manifest) -> Vec<Value> {
         );
         strata.entry(key).or_default().push(c);
     }
+    let mut confirmed_rows: HashMap<&str, Vec<&Value>> = HashMap::new();
+    for row in rows.iter().filter(|r| r["stage"] == "confirmation") {
+        if let Some(id) = row["configurationId"].as_str() {
+            confirmed_rows.entry(id).or_default().push(row);
+        }
+    }
+    let confirmed = confirmed_rows.keys().copied().collect::<BTreeSet<&str>>();
     for ((dex, build, role, branch), cs) in strata {
-        let confirmed = rows
-            .iter()
-            .filter(|r| r["stage"] == "confirmation")
-            .map(|r| r["configurationId"].as_str().unwrap_or(""))
-            .collect::<BTreeSet<_>>();
         let cs = cs
             .into_iter()
             .filter(|c| confirmed.contains(c["id"].as_str().unwrap_or("")))
@@ -1545,16 +1579,18 @@ fn analyze_winners(plan: &Value, rows: &[Value], m: &Manifest) -> Vec<Value> {
         for c in cs {
             let id = c["id"].as_str().unwrap_or("");
             let mut paired = BTreeMap::<u32, (Option<&Value>, Option<&Value>)>::new();
-            for row in rows {
-                if row["stage"] != "confirmation" {
-                    continue;
-                }
+            for row in confirmed_rows.get(id).into_iter().flatten() {
                 let seed = row["seed"].as_u64().unwrap_or(u64::MAX) as u32;
-                if row["configurationId"].as_str() == Some(id) {
-                    paired.entry(seed).or_default().0 = row_metrics(row);
-                } else if control.is_some_and(|base| row["configurationId"] == base["id"]) {
-                    paired.entry(seed).or_default().1 = row_metrics(row);
-                }
+                paired.entry(seed).or_default().0 = row_metrics(row);
+            }
+            let control_id = control.and_then(|base| base["id"].as_str());
+            for row in control_id
+                .and_then(|cid| confirmed_rows.get(cid))
+                .into_iter()
+                .flatten()
+            {
+                let seed = row["seed"].as_u64().unwrap_or(u64::MAX) as u32;
+                paired.entry(seed).or_default().1 = row_metrics(row);
             }
             let mut ds = [Vec::new(), Vec::new(), Vec::new(), Vec::new()];
             let mut seed_rows = Vec::new();
