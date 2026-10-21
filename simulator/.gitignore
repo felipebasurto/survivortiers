@@ -1,2 +1,4 @@
 sim-rs/target/
 out/
+runpod-funnel/
+gate2/node_modules
