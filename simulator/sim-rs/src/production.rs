@@ -1930,4 +1930,222 @@ mod tests {
         assert!(best("huge-power") > best("thick-fat"));
         assert!(best("huge-power") > best("sap-sipper"));
     }
+
+    /// The original nominator, kept verbatim as the reference: every lookup scans all rows.
+    /// `nominate_confirmation` must return exactly what this returns; only its speed may differ.
+    fn nominate_reference(
+        rows: &[Value],
+        templates: &[Value],
+        configs: &BTreeMap<String, Candidate>,
+        m: &Manifest,
+    ) -> BTreeMap<String, Vec<u32>> {
+        let mut out = BTreeMap::new();
+        for t in templates {
+            let dex = t["dex"].as_u64().unwrap_or(0) as u32;
+            let control = configs
+                .values()
+                .find(|c| c.config.dex == dex && c.branch == "control_no_tm");
+            let mut scores = Vec::new();
+            for id in t["allowedConfigurationIds"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(Value::as_str)
+            {
+                let mut ds = [Vec::new(), Vec::new(), Vec::new(), Vec::new()];
+                for row in rows {
+                    if row["stage"] != "screening" || row["configurationId"].as_str() != Some(id) {
+                        continue;
+                    }
+                    let seed = row["seed"].as_u64().unwrap_or(u64::MAX);
+                    let Some(base) = control
+                        .and_then(|c| {
+                            rows.iter().find(|r| {
+                                r["stage"] == "screening"
+                                    && r["configurationId"] == c.config.id
+                                    && r["seed"].as_u64() == Some(seed)
+                            })
+                        })
+                        .and_then(row_metrics)
+                    else {
+                        continue;
+                    };
+                    let Some(a) = row_metrics(row) else { continue };
+                    let life = a["survivalSeconds"].as_f64().unwrap_or(0.);
+                    let base_life = base["survivalSeconds"].as_f64().unwrap_or(0.);
+                    let ae = normalized_exposure(a);
+                    let be = normalized_exposure(base);
+                    ds[0].push(life - base_life);
+                    ds[1].push(ae[0] - be[0]);
+                    ds[2].push(ae[1] - be[1]);
+                    ds[3].push(ae[2] - be[2]);
+                }
+                let mean = |v: &Vec<f64>| v.iter().sum::<f64>() / v.len().max(1) as f64;
+                if ds[0].is_empty() {
+                    continue;
+                }
+                let safety = mean(&ds[1]) <= m.policy.exposure_margins[0]
+                    && mean(&ds[2]) <= m.policy.exposure_margins[1]
+                    && mean(&ds[3]) <= m.policy.exposure_margins[2];
+                scores.push((id.to_owned(), safety, mean(&ds[0])));
+            }
+            scores.sort_by(|a, b| b.2.total_cmp(&a.2).then_with(|| a.0.cmp(&b.0)));
+            let safe = scores
+                .iter()
+                .filter(|x| x.1)
+                .map(|x| x.0.clone())
+                .collect::<Vec<_>>();
+            let chosen = if safe.is_empty() {
+                scores
+                    .iter()
+                    .take(1)
+                    .map(|x| x.0.clone())
+                    .collect::<Vec<_>>()
+            } else {
+                safe.into_iter()
+                    .take(m.policy.confirm_per_stratum)
+                    .collect()
+            };
+            let seeds = t["seeds"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(Value::as_u64)
+                .filter(|x| *x <= u32::MAX as u64)
+                .map(|x| x as u32)
+                .collect::<Vec<_>>();
+            for id in chosen {
+                out.insert(id, seeds.clone());
+            }
+        }
+        for c in configs.values().filter(|c| c.branch == "control_no_tm") {
+            out.insert(c.config.id.clone(), m.confirm.iter().copied().collect());
+        }
+        out
+    }
+
+    fn nomination_manifest(margins: [f64; 3], confirm_per_stratum: usize) -> Manifest {
+        Manifest {
+            raw: json!({}),
+            dex: vec![1],
+            screen: BTreeSet::new(),
+            confirm: [2001, 2002].into_iter().collect(),
+            seconds: 900.0,
+            limits: Limits {
+                max_configurations: 0,
+                max_matches: 0,
+                max_simulated_seconds: 0.0,
+                max_wall_seconds: 0.0,
+                max_failed_tasks: 0,
+                threads: 1,
+            },
+            policy: SearchPolicy {
+                group_quota: 1,
+                shortlist_per_stratum: 1,
+                confirm_per_stratum,
+                exposure_margins: margins,
+                survival_margin: 0.0,
+            },
+            hash: String::new(),
+            rustc: String::new(),
+        }
+    }
+
+    fn nomination_config(id: &str, branch: &str) -> Candidate {
+        Candidate {
+            config: Configuration {
+                id: id.to_owned(),
+                dex: 1,
+                moves: Vec::new(),
+                tms: Vec::new(),
+                second: None,
+                nature: "hardy".to_owned(),
+                ability: None,
+                nature_equivalence: "hardy".to_owned(),
+                style: BuildStyle::Melee,
+                role: CombatRole::Base,
+            },
+            branch: branch.to_owned(),
+            stratum: Stratum {
+                dex: 1,
+                style: "melee".to_owned(),
+                role: "base".to_owned(),
+                branch: branch.to_owned(),
+            },
+            proxy_dps: 0.0,
+            coverage_types: 0,
+            own_type_attacks: 0,
+        }
+    }
+
+    fn screening_row(config: &str, seed: u64, survival: f64, contact: f64) -> Value {
+        json!({
+            "stage": "screening",
+            "configurationId": config,
+            "seed": seed,
+            "row": {"metrics": {
+                "survivalSeconds": survival,
+                "contactDamage": contact,
+                "contactSeconds": contact / 10.0,
+                "trappedSeconds": 1.0,
+            }},
+        })
+    }
+
+    /// Deterministic synthetic screening data: several configurations over several seeds, with
+    /// one duplicated row (the first one must win in both versions), a confirmation row that
+    /// must be ignored, and a row without a seed.
+    fn nomination_rows() -> Vec<Value> {
+        let mut rows = Vec::new();
+        for seed in 1..=6u64 {
+            let s = seed as f64;
+            rows.push(screening_row("control", seed, 100.0 + s * 3.0, 40.0 + s));
+            rows.push(screening_row("tm-a", seed, 130.0 + (s * 7.0) % 11.0, 30.0 + s));
+            // tm-b has no seed-3 row, so a wrong baseline for seed 3 moves tm-a and tm-c but not tm-b.
+            if seed != 3 {
+                rows.push(screening_row("tm-b", seed, 120.0 + (s * 5.0) % 13.0, 20.0 + s * 2.0));
+            }
+            rows.push(screening_row("tm-c", seed, 90.0 + s, 80.0 - s));
+        }
+        // Duplicates: the first control row for a seed is the baseline; the later one must be ignored.
+        rows.push(screening_row("control", 3, 5000.0, 1.0));
+        rows.push(screening_row("tm-a", 3, 999.0, 0.0));
+        rows.push(json!({"stage": "confirmation", "configurationId": "tm-a", "seed": 1,
+            "row": {"metrics": {"survivalSeconds": 1.0}}}));
+        rows.push(json!({"stage": "screening", "configurationId": "tm-b",
+            "row": {"metrics": {"survivalSeconds": 1.0}}}));
+        rows
+    }
+
+    fn nomination_configs() -> BTreeMap<String, Candidate> {
+        [
+            nomination_config("control", "control_no_tm"),
+            nomination_config("tm-a", "optimized_tm"),
+            nomination_config("tm-b", "optimized_tm"),
+            nomination_config("tm-c", "optimized_tm"),
+        ]
+        .into_iter()
+        .map(|c| (c.config.id.clone(), c))
+        .collect()
+    }
+
+    #[test]
+    fn nominate_confirmation_matches_reference_scan() {
+        let rows = nomination_rows();
+        let configs = nomination_configs();
+        let templates = vec![json!({
+            "dex": 1,
+            "allowedConfigurationIds": ["tm-a", "tm-b", "tm-c", "missing"],
+            "seeds": [2001, 2002, 2003],
+        })];
+        // Zero margins make every candidate unsafe, which exercises the fallback to the best one.
+        // Generous margins make all candidates safe, which exercises the confirm_per_stratum cut.
+        for (margins, per_stratum) in [([0.0; 3], 2), ([1e9; 3], 2), ([1e9; 3], 1), ([-1e9; 3], 3)] {
+            let m = nomination_manifest(margins, per_stratum);
+            let indexed = nominate_confirmation(&rows, &templates, &configs, &m);
+            let reference = nominate_reference(&rows, &templates, &configs, &m);
+            assert_eq!(indexed, reference, "margins {margins:?}, per stratum {per_stratum}");
+            assert!(indexed.contains_key("control"), "control always confirmed");
+        }
+    }
 }
