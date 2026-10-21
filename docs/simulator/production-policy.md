@@ -13,3 +13,17 @@ The final report uses paired Student-t 95% descriptive intervals, with a convent
 `policyHash` hashes the manifest's `searchPolicy`; `manifestHash` hashes the canonical complete manifest; `planHash` additionally binds the candidate roster, task templates, game commit, and engine fingerprint. Plan execution rechecks these values and the Rust compiler version. The result contains observations, paired seed rows, winners, missing tasks, unavailable strata, limits, and provenance for independent export.
 
 For CPU sizing only, `production benchmark <dex> <seed> <seconds<=15> <foes:10|20|30> <threads> <repetitions<=20> [mature]` runs independent scripted engine scenes in a bounded Rayon pool. It reports aggregate simulated seconds per wall second, per-scene timings, host metadata, and the exact mature-fixture label. These scenes do not model the full spawn schedule and are not ranking evidence. Measure on the target host; do not extrapolate a universal runtime or cost from one machine.
+
+## Funnel v1 (provisional until gate 2)
+
+`pokesim funnel` is the morning search. The production beam above still plans and runs. It is not the search the morning Pod should execute. `rankingReady` stays false until gate 2.
+
+Four builds when the species has a legal TM. Melee and ranged, each without a taught TM and with at least one. Nineteen species have no legal TM and keep only the two no-TM builds. Their dex numbers are 10, 11, 13, 14, 129, 132, 201, 202, 235, 265, 266, 268, 360, 374, 412, 789, 790, 824, and 840. A TM build is still reported when it loses, with the paired difference and the CI. Aggro, coverage, and both stay out of the search. They are web controls.
+
+`tmCost` sums the shop prices of TMs that must be taught. A move already in the natural pool, or the stock start, costs 0. `tmBudget` is optional and has no default. Omitting it and setting it to null produce the same plan hash. A number filters the roster at plan time and is checked again on the confirmed row.
+
+The objective is mean paired survival against the stock no-TM control. The exposure margins used for `safe` are 10% of the control value. The report also gives the no_safe_candidate rate at 0%, 5%, and 10%. Those fractions reclassify the single stage-D candidate. They do not rerun the search.
+
+Recall passes when the CI95 upper bound of (real best minus funnel best), on seeds 3001 through 3032, is at most 5% of the real best's survival. Recall enumerates every legal group at hardy and the slot-1 ability on seeds 1001 through 1004, then re-measures the top 50 per style and branch on the confirmation seeds.
+
+PENDING DECISION. The 10% exposure margin and the 5% recall gap are provisional until gate 2. On Ditto (dex 132), the smallest legal pool, the real best was absent from the prior's top 30 in both styles and the recall gap failed. That was measured on this VM in 24.1 seconds. Stage A was not widened, and it was not shrunk, because the full-roster upper bound still fits in 2.5 hours and 3 USD. Whether stage A should grow is a human decision. Do not publish a ranking from these rows.
