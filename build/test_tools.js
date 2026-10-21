@@ -80,9 +80,17 @@ check('cada build recomendada: sin repetidos, máximo 2 potenciadores, ids en el
   }
 });
 
-check('la build recomendada es el grupo publicado, sin cambios', () => {
+// The planner recommends the best-scored published build (melee or ranged, build/builds.py). A species with
+// no build pair falls back to the fixed group of the ranking (d[9]) and its planner cards (d[10]).
+const publishedTop = dex => {
+  const pair = (species.builds || {})[String(dex)] || {};
+  return ['melee', 'ranged'].map(k => pair[k]).filter(Boolean).reduce((best, b) => (!best || b.score > best.score ? b : best), null);
+};
+
+check('la build recomendada es la mejor build publicada (melee o ranged), o el grupo fijo si no hay', () => {
   for (const p of index) {
-    const ids = species.d[String(p.dex)][9][2].slice(0, tools.PLAN_SLOTS);
+    const top = publishedTop(p.dex);
+    const ids = (top ? top.moves : species.d[String(p.dex)][9][2]).slice(0, tools.PLAN_SLOTS);
     assert.deepEqual(tools.recommended(p.dex, species).group.filter(Boolean), ids, String(p.dex));
   }
 });
@@ -148,7 +156,9 @@ check('cartas del planificador: cuatro, en orden de prioridad, y con la que evol
     const pos = picks.map(id => order.indexOf(id));
     assert.deepEqual(pos, [...pos].sort((a, b) => a - b), 'fuera de orden en ' + p.dex);
     if (gate) assert.ok(picks.includes(gate), 'falta la carta que evoluciona en ' + p.dex);
-    assert.deepEqual(tools.recommended(p.dex, species).cards, picks, String(p.dex));
+    const top = publishedTop(p.dex);
+    const expected = top ? tools.plannerCards(top.cards) : picks;
+    assert.deepEqual(tools.recommended(p.dex, species).cards, expected, String(p.dex));
   }
 });
 
@@ -166,7 +176,6 @@ check('la danza de la build recomendada se elige por categoría, sin Danza Espad
 const report = {
   pokemon: index.length,
   coverageMismatch: coverageMismatch.length,
-  swapped: swaps.length,
 };
 if (failures.length) {
   console.error(failures.join('\n'));

@@ -97,7 +97,7 @@ the key to verify the claim. The visible text is yours, but keep it close to the
 ## m.group:nasty-plot, m.group:harden, i.best:luckyegg, up:best_move)
 
 ```json
-{"dex": 784, "es": "[atk+|Pega fuerte] y [td+|aguanta bien los tipos rivales]. Empieza con [m.start:dragon-rage|Furia Dragón] y vincula [m.group:substitute|Sustituto], [m.group:nasty-plot|Maquinación] y [m.group:harden|Fortaleza]; lleva [i.best:luckyegg|Huevo Suerte]. Lo que más lo sube es [up:best_move|Esfera Aural].", "en": "[atk+|Hits hard] and [td+|shrugs off enemy types]. Start with [m.start:dragon-rage|Dragon Rage] and bond [m.group:substitute|Substitute], [m.group:nasty-plot|Nasty Plot] and [m.group:harden|Harden]; carry [i.best:luckyegg|Lucky Egg]. What lifts it most is [up:best_move|Aura Sphere]."}
+{"dex": 784, "es": "[atk+|Pega fuerte] y [td+|aguanta bien los tipos rivales]. Empieza con [m.start:dragon-rage|Furia Dragón] y vincula [m.group:hyper-beam|Hiperrayo] (o [m.alt:dragon-breath|Dragoaliento]), [m.group:aura-sphere|Esfera Aural] y [m.group:nasty-plot|Maquinación]; lleva [i.best:luckyegg|Huevo Suerte]. Lo que más lo sube es [up:best_move|Furia Dragón], y [nodown|nada lo frena] de verdad.", "en": "[atk+|Hits hard] and [td+|shrugs off enemy types]. Start with [m.start:dragon-rage|Dragon Rage], bond [m.group:hyper-beam|Hyper Beam] (or [m.alt:dragon-breath|Dragon Breath]), [m.group:aura-sphere|Aura Sphere] and [m.group:nasty-plot|Nasty Plot]; carry [i.best:luckyegg|Lucky Egg]. What lifts it most is [up:best_move|Dragon Rage], and [nodown|nothing holds it back] much."}
 ```
 
 Vary the sentence shapes between species; do not copy this example's wording for every one.

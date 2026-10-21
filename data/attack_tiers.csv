@@ -1,0 +1,99 @@
+# Fase 1 (build/attack_tiers.py): cada ataque solo, 128 semillas por referencia. Referencias physical: 259 Marshtomp, 814 Raboot, 168 Ariados, 811 Thwackey, 603 Eelektrik, 262 Mightyena; special: 394 Prinplup, 702 Dedenne, 137 Porygon, 5 Charmeleon, 44 Gloom, 528 Swoobat.
+class,tier,rank,move_id,name,name_en,type,kind,score_rel,worst_ref,best_ref,median_s,median_kills,median_dealt
+physical,S,1,meteor-mash,Puño Meteoro,Meteor Mash,steel,meteor,1.686,1.460,2.034,151.7,169.8,25206
+physical,S,2,rock-throw,Lanzarrocas,Rock Throw,rock,projectile,1.657,1.503,1.740,154.3,154.5,23879
+physical,S,3,sand-tomb,Bucle Arena,Sand Tomb,ground,vortex,1.504,1.335,1.722,134.0,136.5,17886
+physical,S,4,bonemerang,Huesomerang,Bonemerang,ground,boomerang,1.470,1.342,1.728,139.3,136.2,18399
+physical,A,5,rock-slide,Avalancha,Rock Slide,rock,meteor,1.333,1.104,1.577,123.3,114.5,14194
+physical,A,6,magnitude,Magnitud,Magnitude,ground,quake,1.282,1.173,1.408,124.9,113.5,14122
+physical,A,7,dragon-claw,Garra Dragón,Dragon Claw,dragon,melee,1.199,1.157,1.237,126.0,95.2,10932
+physical,A,8,play-rough,Carantoña,Play Rough,fairy,melee,1.178,1.111,1.312,123.5,93.2,10098
+physical,A,9,outrage,Enfado,Outrage,dragon,spin,1.138,1.077,1.217,121.1,89.2,9470
+physical,A,10,poison-sting,Picotazo Veneno,Poison Sting,poison,projectile,1.137,1.097,1.208,121.2,98.0,9713
+physical,A,11,karate-chop,Golpe Kárate,Karate Chop,fighting,melee,1.090,1.012,1.118,119.3,83.2,9064
+physical,A,12,spikes,Púas,Spikes,ground,mine,1.085,0.995,1.163,115.7,94.0,11475
+physical,B,13,wing-attack,Ataque Ala,Wing Attack,flying,melee,1.066,0.993,1.146,118.2,84.5,9093
+physical,B,14,body-slam,Golpe Cuerpo,Body Slam,normal,melee,1.065,1.023,1.127,120.2,83.8,9039
+physical,B,15,night-slash,Tajo Umbrío,Night Slash,dark,spin,1.061,0.996,1.182,117.6,85.0,8639
+physical,B,16,bite,Mordisco,Bite,dark,melee,1.060,1.027,1.155,121.5,82.0,8734
+physical,B,17,rock-tomb,Tumba Rocas,Rock Tomb,rock,stun,1.052,0.959,1.149,113.1,87.2,10127
+physical,B,18,rolling-kick,Patada Giro,Rolling Kick,fighting,spin,1.044,0.961,1.124,120.8,82.8,9463
+physical,B,19,vine-whip,Látigo Cepa,Vine Whip,grass,melee,1.010,0.940,1.174,116.9,82.0,8870
+physical,B,20,gyro-ball,Giro Bola,Gyro Ball,steel,spin,1.007,0.941,1.087,113.2,78.5,8218
+physical,B,21,string-shot,Disparo Demora,String Shot,bug,mine,1.004,0.975,1.035,111.1,81.8,10284
+physical,B,22,rapid-spin,Giro Rápido,Rapid Spin,normal,spin,0.996,0.964,1.032,114.9,76.5,7816
+physical,B,23,metal-claw,Garra Metal,Metal Claw,steel,melee,0.984,0.940,1.024,113.5,75.5,7868
+physical,B,24,tackle,Placaje,Tackle,normal,melee,0.984,0.934,1.040,115.4,76.5,8413
+physical,B,25,dynamic-punch,Puño Dinámico,Dynamic Punch,fighting,stun,0.969,0.903,1.046,108.3,78.0,8315
+physical,C,26,flame-wheel,Rueda Fuego,Flame Wheel,fire,trail,0.960,0.841,1.157,107.0,83.8,7578
+physical,C,27,toxic-spikes,Púas Tóxicas,Toxic Spikes,poison,mine,0.952,0.880,1.024,109.0,84.0,7300
+physical,C,28,seed-bomb,Bomba Germen,Seed Bomb,grass,bounce,0.931,0.820,1.015,102.6,74.8,7939
+physical,C,29,bulldoze,Terratemblor,Bulldoze,ground,aura,0.814,0.751,0.899,103.1,59.5,6078
+physical,C,30,lick,Lengüetazo,Lick,ghost,melee,0.804,0.742,0.860,106.3,59.5,5821
+physical,C,31,sucker-punch,Golpe Bajo,Sucker Punch,dark,homing,0.755,0.663,0.980,102.7,57.5,5036
+physical,C,32,bug-bite,Picadura,Bug Bite,bug,melee,0.749,0.688,0.855,107.2,54.5,5369
+physical,C,33,psycho-cut,Psicocorte,Psycho Cut,psychic,boomerang,0.735,0.651,0.844,91.3,58.2,5641
+physical,C,34,substitute,Sustituto,Substitute,normal,turret,0.727,0.610,0.819,92.3,58.2,5049
+physical,C,35,razor-leaf,Hoja Afilada,Razor Leaf,grass,boomerang,0.690,0.656,0.753,88.0,55.2,5077
+physical,D,36,ice-shard,Canto Helado,Ice Shard,ice,homing,0.630,0.576,0.716,92.6,45.5,3771
+physical,D,37,shadow-sneak,Sombra Vil,Shadow Sneak,ghost,homing,0.547,0.500,0.624,90.4,41.0,3192
+physical,D,38,aerial-ace,Golpe Aéreo,Aerial Ace,flying,dash,0.123,0.106,0.146,117.5,6.0,584
+physical,D,39,flame-charge,Nitrocarga,Flame Charge,fire,dash,0.108,0.082,0.132,106.4,6.0,483
+physical,D,40,quick-attack,Ataque Rápido,Quick Attack,normal,dash,0.087,0.068,0.103,103.9,4.0,443
+physical,D,41,u-turn,Ida y Vuelta,U-turn,bug,dash,0.084,0.068,0.105,101.9,3.8,483
+special,S,1,flamethrower,Lanzallamas,Flamethrower,fire,cone,2.000,1.761,2.150,171.9,207.0,29721
+special,S,2,shadow-ball,Bola Sombra,Shadow Ball,ghost,projectile,1.940,1.767,2.116,163.3,188.2,33485
+special,S,3,dark-pulse,Pulso Umbrío,Dark Pulse,dark,nova,1.892,1.481,2.083,165.3,190.5,29832
+special,S,4,heat-wave,Onda Ígnea,Heat Wave,fire,nova,1.852,1.611,2.039,165.7,193.8,26844
+special,S,5,thunder-shock,Impactrueno,Thunder Shock,electric,projectile,1.799,1.754,1.859,152.6,162.2,26356
+special,S,6,water-gun,Pistola Agua,Water Gun,water,projectile,1.784,1.479,2.089,148.9,152.8,23823
+special,A,7,ember,Ascuas,Ember,fire,projectile,1.676,1.442,2.192,152.5,148.8,19755
+special,A,8,whirlpool,Torbellino,Whirlpool,water,vortex,1.590,1.432,1.903,136.7,138.2,19410
+special,A,9,ominous-wind,Viento Aciago,Ominous Wind,ghost,vortex,1.574,1.386,1.807,132.8,132.8,17845
+special,A,10,thunderbolt,Rayo,Thunderbolt,electric,chain,1.478,1.333,1.593,131.5,119.8,16436
+special,A,11,hail,Granizo,Hail,ice,meteor,1.443,1.354,1.748,132.6,126.8,18616
+special,A,12,dragon-breath,Dragoaliento,Dragon Breath,dragon,cone,1.345,1.200,1.476,132.5,113.2,16400
+special,A,13,psychic,Psíquico,Psychic,psychic,nova,1.292,1.146,1.511,120.8,100.2,13212
+special,A,14,power-gem,Joya de Luz,Power Gem,rock,bounce,1.232,1.190,1.297,119.2,99.0,12382
+special,A,15,sludge,Residuos,Sludge,poison,projectile,1.161,1.074,1.212,122.8,96.5,9624
+special,A,16,dragon-rage,Furia Dragón,Dragon Rage,dragon,beam,1.156,1.108,1.256,113.4,89.0,10889
+special,A,17,bubble-beam,Rayo Burbuja,Bubble Beam,water,cone,1.146,1.026,1.424,117.3,89.0,10595
+special,B,18,hyper-beam,Hiperrayo,Hyper Beam,normal,charge,1.130,1.062,1.210,113.3,93.2,10128
+special,B,19,aura-sphere,Esfera Aural,Aura Sphere,fighting,projectile,1.120,1.054,1.212,120.8,89.2,9652
+special,B,20,fairy-wind,Viento Feérico,Fairy Wind,fairy,nova,1.118,0.995,1.247,117.8,87.0,10681
+special,B,21,hyper-voice,Vozarrón,Hyper Voice,normal,nova,1.069,0.955,1.296,113.6,86.2,10988
+special,B,22,electro-ball,Bola Voltio,Electro Ball,electric,bounce,1.062,0.996,1.124,111.9,85.8,10089
+special,B,23,whirlwind,Remolino,Whirlwind,flying,shove,1.053,0.926,1.140,117.9,77.8,9426
+special,B,24,hex,Infortunio,Hex,ghost,chain,1.047,0.960,1.153,111.8,86.8,9909
+special,B,25,ice-beam,Rayo Hielo,Ice Beam,ice,beam,1.037,0.989,1.147,106.6,76.8,9394
+special,B,26,confusion,Confusión,Confusion,psychic,projectile,1.027,0.902,1.125,115.7,83.8,8906
+special,B,27,freeze-dry,Liofilización,Freeze-Dry,ice,stun,1.009,0.895,1.077,108.8,77.0,8852
+special,B,28,air-slash,Tajo Aéreo,Air Slash,flying,homing,1.006,0.930,1.088,112.7,81.5,8297
+special,B,29,flash-cannon,Foco Resplandor,Flash Cannon,steel,beam,0.996,0.961,1.046,103.5,77.5,8249
+special,B,30,solar-beam,Rayo Solar,Solar Beam,grass,charge,0.985,0.940,1.082,105.8,80.5,8155
+special,B,31,signal-beam,Rayo Señal,Signal Beam,bug,bounce,0.982,0.894,1.030,105.5,75.8,8632
+special,B,32,mirror-shot,Disparo Espejo,Mirror Shot,steel,bounce,0.981,0.906,1.041,107.1,78.0,8850
+special,B,33,acid-spray,Bomba Ácida,Acid Spray,poison,bounce,0.979,0.921,1.024,111.1,87.5,7153
+special,B,34,vacuum-wave,Onda Vacío,Vacuum Wave,fighting,shove,0.974,0.874,1.094,114.6,70.2,8674
+special,C,35,extrasensory,Paranormal,Extrasensory,psychic,shove,0.943,0.846,1.005,110.6,67.8,7593
+special,C,36,hydro-pump,Hidrobomba,Hydro Pump,water,beam,0.921,0.857,1.004,101.4,71.0,6966
+special,C,37,disarming-voice,Voz Cautivadora,Disarming Voice,fairy,shove,0.917,0.884,0.980,108.8,63.5,7119
+special,C,38,thunder-wave,Onda Trueno,Thunder Wave,electric,stun,0.888,0.849,0.941,102.3,67.2,6989
+special,C,39,toxic,Tóxico,Toxic,poison,trail,0.813,0.732,0.857,94.7,64.5,4973
+special,C,40,psybeam,Psicorrayo,Psybeam,psychic,beam,0.760,0.715,0.822,92.5,57.0,5398
+special,C,41,powder-snow,Nieve Polvo,Powder Snow,ice,aura,0.719,0.551,0.864,101.8,48.5,5797
+special,C,42,dazzling-gleam,Brillo Mágico,Dazzling Gleam,fairy,aura,0.666,0.541,0.747,92.8,50.5,4488
+special,C,43,night-shade,Tinieblas,Night Shade,dark,aura,0.666,0.571,0.744,92.4,52.2,4272
+special,C,44,will-o-wisp,Fuego Fatuo,Will-O-Wisp,fire,turret,0.651,0.572,0.727,91.8,53.0,3825
+special,C,45,bubble,Burbuja,Bubble,water,nova,0.618,0.537,0.812,94.2,33.5,3855
+special,C,46,discharge,Chispazo,Discharge,electric,aura,0.616,0.522,0.724,90.9,45.5,4124
+special,C,47,fire-spin,Giro Fuego,Fire Spin,fire,orbit,0.598,0.547,0.664,88.8,48.2,3449
+special,C,48,mud-shot,Disparo Lodo,Mud Shot,ground,nova,0.589,0.491,0.724,95.2,37.5,3987
+special,D,49,ancient-power,Poder Pasado,Ancient Power,rock,orbit,0.564,0.520,0.649,83.4,40.2,3231
+special,D,50,leaf-storm,Tormenta Floral,Petal Blizzard,grass,orbit,0.549,0.488,0.657,86.2,39.0,3158
+special,D,51,energy-ball,Energibola,Energy Ball,grass,homing,0.548,0.500,0.579,88.0,38.0,3027
+special,D,52,giga-drain,Hierba Lazo,Grass Knot,grass,aura,0.539,0.453,0.591,85.5,39.0,3308
+special,D,53,draining-kiss,Beso Drenaje,Draining Kiss,fairy,homing,0.519,0.486,0.553,92.0,33.2,2787
+special,D,54,gust,Tornado,Gust,flying,orbit,0.517,0.440,0.594,83.8,39.5,3157
+special,D,55,mist-ball,Bola Neblina,Mist Ball,psychic,homing,0.489,0.455,0.522,90.1,33.2,2770
+special,D,56,bug-buzz,Zumbido,Bug Buzz,bug,aura,0.485,0.367,0.546,86.1,32.8,2887

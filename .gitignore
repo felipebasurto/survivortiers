@@ -10,3 +10,7 @@ NOTA_PARA_JPTER78.md
 .venv/
 .cache/
 simulator/results/fixed_group/builds/screen_chunks/
+.claude/
+# entradas de pokesim de las fases 2 y 3: se regeneran con --sim
+simulator/results/fase2/*_only.txt
+simulator/results/fase3/*_only.txt

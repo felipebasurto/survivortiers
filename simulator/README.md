@@ -30,6 +30,7 @@ cargo build --release --manifest-path sim-rs/Cargo.toml
 ```
 
 Options: `--seeds N` (200), `--seconds S` (900), `--bot repulse|line|kite`, `--lvl1`, `--terrain` (real map), `--status` (slow, burn and poison).
+`--bonded` (group mode) bonds the whole group from t=0 instead of one member per rift win; bosses and every kind stay on. `build/bond_tiers.py` uses it, because with rift bonds the bot dies before the third member is bonded.
 `--full-cards` also offers Aprendizaje and Baya Zidra (levelup.js). `--stop N` limits a `--fill` priority to N copies. `--heal-below F` takes Baya Zidra when HP is at or below that fraction, ahead of the stat cards (0 = only if the fill list prefers it). `--dodge F` ignores that fraction of contact and shot damage (lava and weather still hit). `--lock 2:4` starts with 4 Vigor and takes no more (index 7 is Aprendizaje).
 `tasks` also writes `median_kills`, `median_bosses`, `median_kpm` and `median_coins`. Coins are game.js:295-301 with coinMul 1 (upgrades.js:41, no Fortuna): `floor(time/5) + floor(kills*0.25) + bosses*80 + picked`, rounded. Picked coins are the boss shower (enemy.js:174, 10×5) and the rift-legend shower (enemy.js:191, 10×8). A rift legend counts as a boss (rift.js spawnLegend, enemy.js:910).
 

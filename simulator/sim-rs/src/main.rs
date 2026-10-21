@@ -55,6 +55,8 @@ struct Cfg {
     agi: bool,
     xkinds: bool,
     legacy: bool,
+    /// group mode: the whole group is bonded from t=0 (no rift bonds); bosses and every kind stay on
+    bonded: bool,
     item: String,
     fill: Vec<u8>,
     buffs: Option<u8>,
@@ -93,7 +95,7 @@ struct Cfg {
 }
 
 fn parse(args: &[String]) -> Cfg {
-    let mut c = Cfg { seeds: 200, seconds: 900.0, bot: Bot::Repulse, cards: true, terrain: false, status: false, out: None, group: 0, dd: false, np: false, agi: false, xkinds: false, legacy: false, item: "none".into(), fill: vec![], buffs: None, atk_buff: None, comps: None, swap: false, crit: 0.0, full_cards: false, stop: 0, heal_below: 0.0, dodge: 0.0, locks: vec![], synergy: false, no_synergy: false, bot_set: false, seed0: 0, count: false, list: false, only: None, explicit: false, rest: vec![] };
+    let mut c = Cfg { seeds: 200, seconds: 900.0, bot: Bot::Repulse, cards: true, terrain: false, status: false, out: None, group: 0, dd: false, np: false, agi: false, xkinds: false, legacy: false, bonded: false, item: "none".into(), fill: vec![], buffs: None, atk_buff: None, comps: None, swap: false, crit: 0.0, full_cards: false, stop: 0, heal_below: 0.0, dodge: 0.0, locks: vec![], synergy: false, no_synergy: false, bot_set: false, seed0: 0, count: false, list: false, only: None, explicit: false, rest: vec![] };
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
@@ -151,6 +153,7 @@ fn parse(args: &[String]) -> Cfg {
                 c.crit = args[i].parse::<f64>().expect("--crit") * 0.03;
             }
             "--legacy-group" => c.legacy = true,
+            "--bonded" => c.bonded = true,
             "--buffs" => {
                 i += 1;
                 c.buffs = Some(args[i].parse().unwrap());
@@ -333,7 +336,8 @@ fn ext_for(data: &Data, mon: &Mon, start: usize, cfg: &Cfg) -> Ext {
         item,
         fill: cfg.fill.clone(),
         xkinds: cfg.xkinds || (cfg.group > 0 && !cfg.legacy),
-        rift: cfg.group > 0 && !cfg.legacy,
+        rift: cfg.group > 0 && !cfg.legacy && !cfg.bonded,
+        bonded: cfg.bonded,
         bosses: cfg.group > 0 && !cfg.legacy,
         alt,
         crit: cfg.crit,
@@ -1117,7 +1121,7 @@ fn with_mods(mon: &Mon, mods: &str) -> Mon {
 }
 
 fn cfg_clone(c: &Cfg) -> Box<Cfg> {
-    Box::new(Cfg { seeds: c.seeds, seconds: c.seconds, bot: c.bot, cards: c.cards, terrain: c.terrain, status: c.status, out: None, group: c.group, dd: c.dd, np: c.np, agi: c.agi, xkinds: c.xkinds, legacy: c.legacy, item: c.item.clone(), fill: c.fill.clone(), buffs: c.buffs, atk_buff: c.atk_buff, comps: c.comps.clone(), swap: c.swap, crit: c.crit, full_cards: c.full_cards, stop: c.stop, heal_below: c.heal_below, dodge: c.dodge, locks: c.locks.clone(), synergy: c.synergy, no_synergy: c.no_synergy, bot_set: c.bot_set, seed0: c.seed0, count: c.count, list: c.list, only: c.only.clone(), explicit: c.explicit, rest: vec![] })
+    Box::new(Cfg { seeds: c.seeds, seconds: c.seconds, bot: c.bot, cards: c.cards, terrain: c.terrain, status: c.status, out: None, group: c.group, dd: c.dd, np: c.np, agi: c.agi, xkinds: c.xkinds, legacy: c.legacy, bonded: c.bonded, item: c.item.clone(), fill: c.fill.clone(), buffs: c.buffs, atk_buff: c.atk_buff, comps: c.comps.clone(), swap: c.swap, crit: c.crit, full_cards: c.full_cards, stop: c.stop, heal_below: c.heal_below, dodge: c.dodge, locks: c.locks.clone(), synergy: c.synergy, no_synergy: c.no_synergy, bot_set: c.bot_set, seed0: c.seed0, count: c.count, list: c.list, only: c.only.clone(), explicit: c.explicit, rest: vec![] })
 }
 
 fn cmp_run(a: &Summary, b: &Summary) -> std::cmp::Ordering {

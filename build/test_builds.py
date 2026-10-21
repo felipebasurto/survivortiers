@@ -16,8 +16,9 @@ import static_ficha  # noqa: E402
 from i18n import EN, ES  # noqa: E402
 
 
-def _sample_dex(cls: str, n: int = 1) -> list[int]:
-    return [d for d, groups in builds.space().items() if builds.attacker_class(d) == cls and groups][:n]
+def _sample_dex(n: int = 1) -> list[int]:
+    """Especies que tienen build cuerpo a cuerpo y a distancia."""
+    return [d for d, groups in builds.space().items() if {"melee", "ranged"} <= set(groups.values())][:n]
 
 
 class Candidates(unittest.TestCase):
@@ -27,46 +28,25 @@ class Candidates(unittest.TestCase):
                 with self.subTest(dex=dex, group=group):
                     self.assertEqual(builds.violations(dex, build, group), [])
 
-    def test_no_filler_in_any_build(self) -> None:
-        for dex, groups in builds.space().items():
-            for group in groups:
-                attacks, _, _ = builds.picks.split_group(group)
-                self.assertFalse(set(attacks) & builds.FILLER, (dex, group))
+    def test_attack_buff_raises_an_attack_of_the_group(self) -> None:
+        self.assertEqual(builds.attack_buffs(["ember", "flamethrower"]), ["nasty-plot"])
+        self.assertEqual(builds.attack_buffs(["ember", "meteor-mash"], dragon_dance=False), ["nasty-plot", "swords-dance"])
 
-    def test_special_attackers_have_no_melee_build(self) -> None:
-        for dex in _sample_dex("special", 80):
-            self.assertNotIn("melee", set(builds.space()[dex].values()), dex)
-
-    def test_class_buff_follows_attacker_class(self) -> None:
-        for dex in sorted(builds.space())[:200]:
-            cls = builds.attacker_class(dex)
-            for group in builds.candidates(dex):
-                _, buff, _ = builds.picks.split_group(group)
-                self.assertEqual(buff, builds.CLASS_BUFF[cls], (dex, group))
-
-    def test_attacker_class_ties_go_to_special(self) -> None:
-        p = builds._pokedex()
-        tied = next((d for d, v in p.items() if float(v["pa"]) == float(v["sa"])), None)
-        if tied is not None:
-            self.assertEqual(builds.attacker_class(tied), "special")
+    def test_every_shape_fills_the_four_slots(self) -> None:
+        for group in builds.variants(["ember", "meteor-mash", "rock-throw"]) + builds.variants(["ember", "meteor-mash"]):
+            self.assertEqual(len(group.split("+")), builds.picks.BOND_SLOTS, group)
 
 
 class Violations(unittest.TestCase):
     def test_melee_build_without_melee_move_is_reported(self) -> None:
-        dex = _sample_dex("physical")[0]
+        dex = _sample_dex()[0]
         group = next(g for g, b in builds.candidates(dex).items() if b == "ranged")
         self.assertTrue(builds.violations(dex, "melee", group))
 
     def test_ranged_build_with_melee_move_is_reported(self) -> None:
-        dex = _sample_dex("physical")[0]
+        dex = _sample_dex()[0]
         group = next(g for g, b in builds.candidates(dex).items() if b == "melee")
         self.assertTrue(builds.violations(dex, "ranged", group))
-
-    def test_filler_is_reported(self) -> None:
-        dex = _sample_dex("physical")[0]
-        group = next(iter(builds.candidates(dex)))
-        bad = group.replace(builds.picks.split_group(group)[0][0], "tackle", 1)
-        self.assertTrue(any("relleno" in e for e in builds.violations(dex, "ranged", bad)))
 
 
 class Moves(unittest.TestCase):

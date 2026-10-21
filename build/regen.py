@@ -36,6 +36,7 @@ from __future__ import annotations
 import argparse
 import csv
 import filecmp
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -176,13 +177,14 @@ def start_rank() -> None:
 BUILD_CHUNK = 4000
 BUILD_SCREEN = FIXED / "builds" / "screen_new.csv"
 BUILD_REFINE = FIXED / "builds" / "refine_new.csv"
+BUILD_CHUNKS = FIXED / "builds" / "screen_chunks"
 
 
 def build_screen() -> None:
     """Melee and ranged builds (build/builds.py): the constrained groups that group_screen.csv lacks, 16 seeds.
     Chunks are written one by one, so an interrupted run resumes where it stopped."""
     keys = builds.missing_screen()
-    chunks = FIXED / "builds" / "screen_chunks"
+    chunks = BUILD_CHUNKS
     parts = []
     for i in range(0, len(keys), BUILD_CHUNK):
         n = i // BUILD_CHUNK
@@ -240,6 +242,9 @@ def run_sim(first: str | None, force: bool) -> None:
         started = started or name == first
         if started and (force or first is not None or not output.exists()):
             print(f"== {name}", flush=True)
+            # A rerun must not resume from chunks written by an older engine or older partners.
+            if name == "build_screen" and (force or first is not None):
+                shutil.rmtree(BUILD_CHUNKS, ignore_errors=True)
             fn()
         else:
             print(f"== {name}: skipped ({output.name} exists)", flush=True)

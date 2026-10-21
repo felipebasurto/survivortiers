@@ -1,15 +1,15 @@
 """Dos builds por Pokémon: la mejor cuerpo a cuerpo y la mejor a distancia.
 
-Reglas (Felipe):
-- Clase del atacante: físico si pa > sa, especial en otro caso (data/pokedex_export.json).
-- Cuerpo a cuerpo: el grupo tiene al menos un ataque de tipo `melee` (data/game_stats.json, los 11 son físicos).
-  A distancia: ningún ataque `melee`.
-- Físico lleva Danza Espada (swords-dance); especial lleva Maquinación (nasty-plot). Los dos.
-- Cada ataque es de la categoría de la clase (así el potenciador le sirve a todo el grupo). Un especial no tiene
-  cuerpo a cuerpo: todos los `melee` son físicos.
-- Sin relleno: Ataque Rápido, Placaje y Golpe Cuerpo no entran en ninguna build.
-- Un grupo tiene dos o tres ataques y los huecos del vínculo del simulador (`picks.BOND_SLOTS`). Con dos ataques
-  lleva el potenciador de ataque y Fortaleza o Agilidad; con tres, solo el de ataque.
+Cuerpo a cuerpo: el grupo tiene al menos un ataque de tipo `melee` (data/game_stats.json). A distancia: ninguno.
+
+El resto no se decide a mano: cualquier ataque que haga daño, de cualquier categoría, y todas las formas que llenan
+los cuatro huecos del vínculo (`picks.BOND_SLOTS`) y que el simulador admite (variants()):
+- dos ataques, un potenciador de ataque y uno de defensa (Fortaleza o Agilidad);
+- tres ataques y un potenciador de ataque, o tres ataques y uno de defensa.
+Un potenciador de ataque solo entra si sube al menos un ataque del grupo (Danza Espada y Danza Dragón los físicos,
+Maquinación los especiales; data/v3_data.json `stat`), y Danza Dragón solo si la especie la aprende. Límites del
+motor, no reglas: un solo potenciador de ataque y uno de defensa por grupo, cuatro ataques sin potenciador se leen
+como "sin grupo fijo", y Acua Aro no está modelado.
 
 El espacio de búsqueda es el mismo que la búsqueda de grupo (`simulator/results/fixed_group/`): las filas
 que ya existen y cumplen las reglas se reutilizan, y solo se simula lo que falta, con las mismas semillas
@@ -36,9 +36,7 @@ REFINE_CSV = FIXED / "group_search.csv"
 OUT_CSV = DATA / "builds.csv"
 
 BUILDS = ("melee", "ranged")
-FILLER = frozenset({"tackle", "quick-attack", "body-slam"})
-CLASS_BUFF = {"physical": "swords-dance", "special": "nasty-plot"}
-FOURTH = ("harden", "agility")
+DEF_BUFFS = ("harden", "agility")
 SCREEN_SEEDS = 16
 REFINE_SEEDS = 96
 REFINE_SEED0 = 1000
@@ -64,17 +62,9 @@ def _sim_pools() -> dict[int, dict]:
     return {int(m["dex"]): m for m in v3["dex"]}
 
 
-def attacker_class(dex: int) -> str:
-    """physical si pa > sa; special en cualquier otro caso (también en empate, como pide la regla)."""
-    p = _pokedex()[dex]
-    return "physical" if float(p["pa"]) > float(p["sa"]) else "special"
-
-
 def decent_attacks(dex: int) -> list[str]:
-    """Ataques del pool del simulador (y el inicial) que lanzan daño, de la categoría de la clase y sin relleno."""
-    cls = attacker_class(dex)
+    """Ataques del pool del simulador (y el inicial) que lanzan daño."""
     moves = picks._v3_moves()
-    game = _game_moves()
     mon = _sim_pools()[dex]
     out = []
     for mid in sorted(set(mon["pool"]) | {mon["start"]}):
@@ -84,8 +74,6 @@ def decent_attacks(dex: int) -> list[str]:
         level = move["levels"][0]
         if (level.get("buff") or 0) != 0 or not float(level.get("dmg") or 0) > 0:
             continue
-        if game[mid]["cat"] != cls or mid in FILLER:
-            continue
         out.append(mid)
     return out
 
@@ -94,25 +82,38 @@ def _is_melee(mid: str) -> bool:
     return _game_moves()[mid]["kind"] == "melee"
 
 
-def _group(attacks: list[str], buff: str, fourth: str | None) -> str:
-    return "+".join([*attacks, buff, *([fourth] if fourth else [])])
+def attack_buffs(attacks: list[str] | tuple[str, ...], dragon_dance: bool = True) -> list[str]:
+    """Potenciadores de ataque que suben al menos uno de estos ataques."""
+    cats = {_game_moves()[a]["cat"] for a in attacks}
+    return [b for b, side in sorted(picks.attack_buff_side().items())
+            if side in cats and (dragon_dance or b != "dragon-dance")]
+
+
+def variants(attacks: list[str] | tuple[str, ...], dragon_dance: bool = True) -> list[str]:
+    """Nombres de grupo de estos ataques (en este orden, el primero abre) con cada relleno de los huecos."""
+    attacks = list(attacks)
+    atk = attack_buffs(attacks, dragon_dance)
+    if len(attacks) == 2:
+        return ["+".join([*attacks, a, d]) for a in atk for d in DEF_BUFFS]
+    if len(attacks) == 3:
+        return ["+".join([*attacks, a]) for a in atk] + ["+".join([*attacks, d]) for d in DEF_BUFFS]
+    raise ValueError(f"un grupo tiene dos o tres ataques: {attacks}")
 
 
 def candidates(dex: int) -> dict[str, str]:
-    """group name -> build (melee | ranged) for every group of this species that meets the rules."""
-    cls = attacker_class(dex)
-    buff = CLASS_BUFF[cls]
+    """group name -> build (melee | ranged) for every group of this species."""
     atk = decent_attacks(dex)
+    dd = "dragon-dance" in _sim_pools()[dex]["pool"]
     out: dict[str, str] = {}
     if len(atk) < 2:
         return out
-    for a, b in itertools.permutations(atk, 2):
-        for fourth in FOURTH:
-            out[_group([a, b], buff, fourth)] = _kind([a, b])
+    for pair in itertools.permutations(atk, 2):
+        for g in variants(pair, dd):
+            out[g] = _kind(list(pair))
     for trio in itertools.combinations(atk, 3):
         for lead in trio:
-            comps = [x for x in trio if x != lead]
-            out[_group([lead, *comps], buff, None)] = _kind(list(trio))
+            for g in variants([lead, *(x for x in trio if x != lead)], dd):
+                out[g] = _kind(list(trio))
     return out
 
 
@@ -235,16 +236,11 @@ def build_moves(group: str) -> tuple[list[str], int]:
 
 
 def violations(dex: int, build: str, group: str) -> list[str]:
-    """Reglas de Felipe que una fila tiene que cumplir. Lista vacía si la fila es válida."""
+    """Lo que una fila tiene que cumplir: que su build cuadre con sus ataques. Lista vacía si es válida."""
     errs = []
     attacks, buff, fourth = picks.split_group(group)
-    cls = attacker_class(dex)
-    if buff != CLASS_BUFF[cls]:
-        errs.append(f"{dex} {group}: el potenciador de clase es {buff}, no {CLASS_BUFF[cls]}")
-    if any(a in FILLER for a in attacks):
-        errs.append(f"{dex} {group}: lleva relleno normal")
-    if any(_game_moves()[a]["cat"] != cls for a in attacks):
-        errs.append(f"{dex} {group}: ataque de otra categoría que la clase {cls}")
+    if buff is not None and buff not in attack_buffs(attacks):
+        errs.append(f"{dex} {group}: {buff} no sube ningún ataque del grupo")
     melee = any(_is_melee(a) for a in attacks)
     if build == "melee" and not melee:
         errs.append(f"{dex} {group}: build cuerpo a cuerpo sin ataque melee")

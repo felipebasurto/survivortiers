@@ -47,6 +47,12 @@ jobs:
       - run: pip install numpy pyarrow
       - name: ranking matches the committed sim CSVs
         run: python3 build/regen.py --check
+      - name: attack tier list matches the committed phase 1 output
+        run: python3 build/attack_tiers.py --check
+      - name: bond tier list matches the committed phase 2 output
+        run: python3 build/bond_tiers.py --check
+      - name: species builds and ranking match the committed phase 3 output
+        run: python3 build/species_builds.py --check
       - name: facts and summaries match the data
         run: |
           python3 build/facts_export.py --check

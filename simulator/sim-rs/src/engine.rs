@@ -112,6 +112,8 @@ pub struct Ext {
     pub xkinds: bool,
     /// bonds arrive with rift legendaries (rift.js), one group member per bond; false = whole group from t=0
     pub rift: bool,
+    /// whole group from t=0 on the ranking path (`--bonded`): no rifts, but the bot still closes in for melee companions
+    pub bonded: bool,
     /// the five bosses of enemies.js BOSS_SLOTS (spawner.js), with waves at 25 % and no surges while one is alive
     pub bosses: bool,
     /// second slot for the swap bot (player.js setActive). None keeps the fixed group.
@@ -4307,7 +4309,7 @@ impl<'a, M: MathFns> Match<'a, M> {
     /// Melee swing that is live in the bonded group. `None` off the ranking path, so parity is unchanged.
     /// `companions_only` is the ranged-lead case: the lead already keeps its own melee distance.
     fn bonded_melee_radius(&self, companions_only: bool) -> Option<f64> {
-        if !self.opts.ext.rift {
+        if !self.opts.ext.rift && !self.opts.ext.bonded {
             return None;
         }
         let mut rad = if !companions_only && self.current_move().kind == Kind::Melee {
