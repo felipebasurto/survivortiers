@@ -1,0 +1,95 @@
+{
+  "retrievedAt": "2026-10-21T19:08:24.155661+00:00",
+  "source": "https://api.runpod.io/graphql",
+  "query": "query { cpuFlavors { id displayName groupId minVcpu maxVcpu ramMultiplier securePricePerVcpu } gpuTypes { id displayName securePrice } }",
+  "publicCatalog": {
+    "cpuFlavors": [
+      {
+        "id": "cpu3c",
+        "displayName": "Compute-Optimized",
+        "groupId": "cpu3",
+        "minVcpu": 2,
+        "maxVcpu": 32,
+        "ramMultiplier": 2,
+        "securePricePerVcpu": 0.03
+      },
+      {
+        "id": "cpu3g",
+        "displayName": "General Purpose",
+        "groupId": "cpu3",
+        "minVcpu": 2,
+        "maxVcpu": 32,
+        "ramMultiplier": 4,
+        "securePricePerVcpu": 0.04
+      },
+      {
+        "id": "cpu3m",
+        "displayName": "Memory-Optimized",
+        "groupId": "cpu3",
+        "minVcpu": 2,
+        "maxVcpu": 32,
+        "ramMultiplier": 8,
+        "securePricePerVcpu": 0.055
+      },
+      {
+        "id": "cpu5c",
+        "displayName": "Compute-Optimized",
+        "groupId": "cpu5",
+        "minVcpu": 2,
+        "maxVcpu": 32,
+        "ramMultiplier": 2,
+        "securePricePerVcpu": 0.035
+      },
+      {
+        "id": "cpu5g",
+        "displayName": "General Purpose",
+        "groupId": "cpu5",
+        "minVcpu": 2,
+        "maxVcpu": 32,
+        "ramMultiplier": 4,
+        "securePricePerVcpu": 0.046
+      },
+      {
+        "id": "cpu5m",
+        "displayName": "Memory-Optimized",
+        "groupId": "cpu5",
+        "minVcpu": 2,
+        "maxVcpu": 32,
+        "ramMultiplier": 8,
+        "securePricePerVcpu": 0.065
+      }
+    ],
+    "gpuTypes": [
+      {
+        "id": "NVIDIA A100 80GB PCIe",
+        "displayName": "A100 PCIe",
+        "securePrice": 1.79
+      },
+      {
+        "id": "NVIDIA GeForce RTX 3090",
+        "displayName": "RTX 3090",
+        "securePrice": 0.5
+      },
+      {
+        "id": "NVIDIA GeForce RTX 4090",
+        "displayName": "RTX 4090",
+        "securePrice": 0.89
+      },
+      {
+        "id": "NVIDIA H100 PCIe",
+        "displayName": "H100 PCIe",
+        "securePrice": 2.89
+      }
+    ]
+  },
+  "availability": {
+    "checkedEndpoint": "https://api.runpod.io/v2/catalog/cpus?include=AVAILABILITY&product=POD",
+    "status": 401,
+    "detail": "missing bearer token; availability not established"
+  },
+  "notes": [
+    "CPU prices are USD per vCPU-hour.",
+    "No Runpod API key or config is installed; no cloud resources created.",
+    "GPU types carry only catalog price here; GPU stock was not read."
+  ]
+}

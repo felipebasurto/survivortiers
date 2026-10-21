@@ -29,7 +29,11 @@ fn row_seed(values: &[f64]) -> u32 {
         let bits = v.to_bits();
         h = h.wrapping_mul(0x0100_0193) ^ (bits as u32) ^ ((bits >> 32) as u32);
     }
-    if h == 0 { 1 } else { h }
+    if h == 0 {
+        1
+    } else {
+        h
+    }
 }
 
 /// Bootstrap 5–95 % interval of the median, with a seed that belongs to this row.
@@ -96,7 +100,16 @@ pub fn summarize(runs: &[RunResult]) -> Summary {
     let mut bosses: Vec<f64> = runs.iter().map(|r| r.bosses as f64).collect();
     let mut coins: Vec<f64> = runs.iter().map(|r| r.coins).collect();
     let mut dealt: Vec<f64> = runs.iter().map(|r| r.dealt).collect();
-    let mut kpm: Vec<f64> = runs.iter().map(|r| if r.time > 0.0 { r.kills as f64 * 60.0 / r.time } else { 0.0 }).collect();
+    let mut kpm: Vec<f64> = runs
+        .iter()
+        .map(|r| {
+            if r.time > 0.0 {
+                r.kills as f64 * 60.0 / r.time
+            } else {
+                0.0
+            }
+        })
+        .collect();
     let mut levels: Vec<f64> = runs.iter().map(|r| r.level as f64).collect();
     sort(&mut times);
     sort(&mut kills);
@@ -229,7 +242,7 @@ mod tests {
 
     fn run(time: f64, dealt: f64, kills: u32) -> RunResult {
         RunResult {
-            risk:Default::default(),
+            risk: Default::default(),
             time,
             kills,
             bosses: 0,

@@ -1,0 +1,1427 @@
+{
+  "schema": 1,
+  "source_commit": "ce5785313b0205af8b9477423f64b0a7b7039dcd",
+  "source_hashes": {
+    "official-oracle:js/entities/player.js": "sha256:fff9f133389d4f5887732e52ae50bb7ebe68b44ead08ba879cbefe403d06c660",
+    "official-oracle:js/systems/levelup.js": "sha256:b40e9d02b19c8f695818aea6f46417518d6d9e083aa210c02c2cb0ce9779dd63",
+    "official-oracle:js/data/ability-fx.js": "sha256:6ede86b7841cfad6096b380fea3f045e2ce61097d6f30456e7517a4dd3d50112",
+    "official-oracle:js/data/moves.js": "sha256:ecd20a27cfc9cf4e41abd73a278eee5c22b3d4157c7145ae34a7377365341c13",
+    "official-oracle:dev.html": "sha256:785591bd0f9c8b203fda72bc58d1b0338a6751ff0083f21c8a090c6ba663d6b3",
+    "js/data/shop.js": "sha256:742cea16fd046a059e607540fa86804d211a86c0fa90d3e8c840e5a6c47c06ff",
+    "js/data/starters.js": "sha256:b8183938277f916ae8289fd06e18021283fe29c334ff023ca7526f352e1b82be",
+    "js/data/upgrades.js": "sha256:c6b43cba5e1861903825e53c20352d6931f8a33d0b92c654b19cdc6123c93228",
+    "js/data/tms.js": "sha256:13e0cf22378490792d94a58627ae0d73f8bbb71161557d95e1a5d73d663897da",
+    "simulator/data/game.json": "sha256:695d4ed29af4f493073f2ab09e3e03f628e98b88073b1ca3e68e4ac4b667d306",
+    "simulator/tests/oracles/official-abilities-ce57853.json": "sha256:6303e094c3ba1fac248a165eb27a55eb3b4d24a480430d41d27e4fc3b3b2c2c8"
+  },
+  "ability_effects": {
+    "adaptability": {
+      "kind": "custom",
+      "effect": "+25 % de daño con los movimientos de sus tipos.",
+      "plus_type_fallback": false
+    },
+    "aftermath": {
+      "kind": "custom",
+      "effect": "Una vez por partida, al quedar con poca vida, explota y daña a los de alrededor.",
+      "plus_type_fallback": true
+    },
+    "air-lock": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "analytic": {
+      "kind": "custom",
+      "effect": "+15 % de daño a enemigos con menos de la mitad de vida.",
+      "plus_type_fallback": true
+    },
+    "anger-point": {
+      "kind": "custom",
+      "effect": "La primera vez que baja de la mitad de vida se enfurece: +25 % de daño el resto de la partida.",
+      "plus_type_fallback": false
+    },
+    "anticipation": {
+      "kind": "custom",
+      "effect": "Presiente el peligro: esquiva el 6 % de los golpes.",
+      "plus_type_fallback": true
+    },
+    "arena-trap": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "armor-tail": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "aroma-veil": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "aura-break": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "bad-dreams": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "ball-fetch": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "battery": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "battle-armor": {
+      "kind": "custom",
+      "effect": "Recibe un 8 % menos de daño.",
+      "plus_type_fallback": false
+    },
+    "beads-of-ruin": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "beast-boost": {
+      "kind": "custom",
+      "effect": "Cada enemigo derrotado le da +0,5 % de daño (hasta +15 %).",
+      "plus_type_fallback": false
+    },
+    "berserk": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "big-pecks": {
+      "kind": "custom",
+      "effect": "Recibe un 8 % menos de daño físico.",
+      "plus_type_fallback": true
+    },
+    "blaze": {
+      "kind": "custom",
+      "effect": "+35 % de daño de tipo Fuego con poca vida (menos de 1/3).",
+      "plus_type_fallback": false
+    },
+    "bulletproof": {
+      "kind": "custom",
+      "effect": "Recibe un 15 % menos de daño especial.",
+      "plus_type_fallback": true
+    },
+    "cheek-pouch": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "chilling-neigh": {
+      "kind": "custom",
+      "effect": "Cada enemigo derrotado le da +0,5 % de daño (hasta +15 %).",
+      "plus_type_fallback": false
+    },
+    "chlorophyll": {
+      "kind": "custom",
+      "effect": "+50 % de velocidad con sol.",
+      "plus_type_fallback": false
+    },
+    "clear-body": {
+      "kind": "custom",
+      "effect": "No le frenan las trampas pegajosas ni el terreno.",
+      "plus_type_fallback": false
+    },
+    "cloud-nine": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "color-change": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "comatose": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "commander": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "competitive": {
+      "kind": "custom",
+      "effect": "Si le frenan, se pica: +20 % de daño especial mientras dure.",
+      "plus_type_fallback": true
+    },
+    "compound-eyes": {
+      "kind": "custom",
+      "effect": "+6 % de probabilidad de golpe crítico.",
+      "plus_type_fallback": false
+    },
+    "contrary": {
+      "kind": "custom",
+      "effect": "Al revés: frenado, va más rápido.",
+      "plus_type_fallback": true
+    },
+    "corrosion": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "cotton-down": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "cud-chew": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "cursed-body": {
+      "kind": "custom",
+      "effect": "A veces frena a quien le golpea cuerpo a cuerpo.",
+      "plus_type_fallback": false
+    },
+    "cute-charm": {
+      "kind": "custom",
+      "effect": "Quien le golpea cuerpo a cuerpo se queda embobado (frenado).",
+      "plus_type_fallback": false
+    },
+    "damp": {
+      "kind": "custom",
+      "effect": "Las explosiones de los Pokémon kamikaze no le dañan.",
+      "plus_type_fallback": true
+    },
+    "dancer": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "dark-aura": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "dauntless-shield": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "dazzling": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "defeatist": {
+      "kind": "custom",
+      "effect": "Cañón de cristal: +15 % de daño con más de la mitad de vida; con menos, −25 %.",
+      "plus_type_fallback": false
+    },
+    "defiant": {
+      "kind": "custom",
+      "effect": "Si le frenan, se pica: +20 % de daño físico mientras dure.",
+      "plus_type_fallback": true
+    },
+    "disguise": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "download": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "dragons-maw": {
+      "kind": "custom",
+      "effect": "+20 % de daño con movimientos de tipo Dragón.",
+      "plus_type_fallback": false
+    },
+    "drizzle": {
+      "kind": "custom",
+      "effect": "Pone lluvia al empezar la partida y cada 3 minutos.",
+      "plus_type_fallback": false
+    },
+    "drought": {
+      "kind": "custom",
+      "effect": "Pone sol al empezar la partida y cada 3 minutos.",
+      "plus_type_fallback": false
+    },
+    "dry-skin": {
+      "kind": "custom",
+      "effect": "El Agua le cura y con lluvia recupera vida, pero el Fuego le hace un 25 % más.",
+      "plus_type_fallback": false
+    },
+    "early-bird": {
+      "kind": "custom",
+      "effect": "No le frenan las trampas pegajosas ni el terreno.",
+      "plus_type_fallback": true
+    },
+    "earth-eater": {
+      "kind": "custom",
+      "effect": "Los ataques de tipo Tierra no le hacen daño: le curan un poco.",
+      "plus_type_fallback": false
+    },
+    "effect-spore": {
+      "kind": "custom",
+      "effect": "Quien le golpea cuerpo a cuerpo se frena o se envenena.",
+      "plus_type_fallback": false
+    },
+    "electric-surge": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "electromorphosis": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "emergency-exit": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "fairy-aura": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "filter": {
+      "kind": "custom",
+      "effect": "Los ataques muy eficaces le hacen un 25 % menos.",
+      "plus_type_fallback": false
+    },
+    "flame-body": {
+      "kind": "custom",
+      "effect": "Quien le golpea cuerpo a cuerpo se quema.",
+      "plus_type_fallback": false
+    },
+    "flare-boost": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "flash-fire": {
+      "kind": "custom",
+      "effect": "Los ataques de tipo Fuego no le hacen daño: le curan un poco.",
+      "plus_type_fallback": false
+    },
+    "flower-gift": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "flower-veil": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "fluffy": {
+      "kind": "custom",
+      "effect": "Recibe un 30 % menos de daño físico.",
+      "plus_type_fallback": false
+    },
+    "forecast": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "forewarn": {
+      "kind": "custom",
+      "effect": "Presiente el peligro: esquiva el 6 % de los golpes.",
+      "plus_type_fallback": true
+    },
+    "friend-guard": {
+      "kind": "custom",
+      "effect": "Recibe un 6 % menos de daño.",
+      "plus_type_fallback": true
+    },
+    "frisk": {
+      "kind": "custom",
+      "effect": "Atrae los objetos desde más lejos (+20 % de imán).",
+      "plus_type_fallback": true
+    },
+    "full-metal-body": {
+      "kind": "custom",
+      "effect": "No le frenan las trampas pegajosas ni el terreno.",
+      "plus_type_fallback": false
+    },
+    "fur-coat": {
+      "kind": "custom",
+      "effect": "Recibe un 40 % menos de daño físico.",
+      "plus_type_fallback": false
+    },
+    "gale-wings": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "gluttony": {
+      "kind": "custom",
+      "effect": "Las curas le curan un 40 % más.",
+      "plus_type_fallback": true
+    },
+    "good-as-gold": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "gooey": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "grass-pelt": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "grassy-surge": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "grim-neigh": {
+      "kind": "custom",
+      "effect": "Cada enemigo derrotado le da +0,5 % de daño (hasta +15 %).",
+      "plus_type_fallback": false
+    },
+    "gulp-missile": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "guts": {
+      "kind": "custom",
+      "effect": "+30 % de daño físico con menos de la mitad de vida.",
+      "plus_type_fallback": false
+    },
+    "harvest": {
+      "kind": "custom",
+      "effect": "Las curas le curan un 30 % más.",
+      "plus_type_fallback": true
+    },
+    "healer": {
+      "kind": "custom",
+      "effect": "Recupera un 0,3 % de su vida por segundo.",
+      "plus_type_fallback": true
+    },
+    "heatproof": {
+      "kind": "custom",
+      "effect": "Recibe la mitad de daño de Fuego.",
+      "plus_type_fallback": false
+    },
+    "heavy-metal": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "honey-gather": {
+      "kind": "custom",
+      "effect": "+15 % de Pokémonedas en la partida.",
+      "plus_type_fallback": false
+    },
+    "hospitality": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "huge-power": {
+      "kind": "custom",
+      "effect": "+50 % de daño con movimientos físicos.",
+      "plus_type_fallback": false
+    },
+    "hunger-switch": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "hustle": {
+      "kind": "custom",
+      "effect": "+25 % de daño con movimientos físicos, pero 1 de cada 6 golpes físicos sale flojo.",
+      "plus_type_fallback": false
+    },
+    "hydration": {
+      "kind": "custom",
+      "effect": "Con lluvia recupera un 1 % de vida por segundo y nada le frena.",
+      "plus_type_fallback": true
+    },
+    "hyper-cutter": {
+      "kind": "custom",
+      "effect": "+6 % de daño con movimientos físicos.",
+      "plus_type_fallback": true
+    },
+    "ice-body": {
+      "kind": "custom",
+      "effect": "Con nieve recupera un 1,5 % de vida por segundo.",
+      "plus_type_fallback": false
+    },
+    "ice-face": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "ice-scales": {
+      "kind": "custom",
+      "effect": "Recibe un 40 % menos de daño especial.",
+      "plus_type_fallback": false
+    },
+    "illuminate": {
+      "kind": "custom",
+      "effect": "Atrae los objetos desde más lejos (+10 % de imán).",
+      "plus_type_fallback": true
+    },
+    "illusion": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "immunity": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "imposter": {
+      "kind": "custom",
+      "effect": "Se transforma: pega y aguanta como un Pokémon equilibrado.",
+      "plus_type_fallback": false
+    },
+    "infiltrator": {
+      "kind": "custom",
+      "effect": "Sus golpes rompen los escudos de los enemigos.",
+      "plus_type_fallback": true
+    },
+    "innards-out": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "inner-focus": {
+      "kind": "custom",
+      "effect": "No le frenan las trampas pegajosas ni el terreno.",
+      "plus_type_fallback": false
+    },
+    "insomnia": {
+      "kind": "custom",
+      "effect": "No le frenan las trampas pegajosas ni el terreno.",
+      "plus_type_fallback": false
+    },
+    "intimidate": {
+      "kind": "custom",
+      "effect": "Los enemigos le hacen un 12 % menos de daño físico.",
+      "plus_type_fallback": false
+    },
+    "intrepid-sword": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "iron-barbs": {
+      "kind": "custom",
+      "effect": "Quien le golpea cuerpo a cuerpo recibe daño.",
+      "plus_type_fallback": false
+    },
+    "iron-fist": {
+      "kind": "custom",
+      "effect": "+25 % de daño con los puñetazos.",
+      "plus_type_fallback": false
+    },
+    "justified": {
+      "kind": "custom",
+      "effect": "+15 % de daño a los Pokémon de tipo Siniestro.",
+      "plus_type_fallback": true
+    },
+    "keen-eye": {
+      "kind": "custom",
+      "effect": "+5 % de probabilidad de golpe crítico.",
+      "plus_type_fallback": true
+    },
+    "klutz": {
+      "kind": "custom",
+      "effect": "Sin objeto, +12 % de daño.",
+      "plus_type_fallback": true
+    },
+    "leaf-guard": {
+      "kind": "custom",
+      "effect": "Con sol no le frena nada y recibe un 15 % menos de daño.",
+      "plus_type_fallback": true
+    },
+    "levitate": {
+      "kind": "custom",
+      "effect": "Flota: no le afectan el agua, la lava ni las trampas, y la Tierra le hace muy poco.",
+      "plus_type_fallback": false
+    },
+    "libero": {
+      "kind": "custom",
+      "effect": "+12 % de daño con todos sus movimientos.",
+      "plus_type_fallback": false
+    },
+    "light-metal": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "lightning-rod": {
+      "kind": "custom",
+      "effect": "Los ataques de tipo Eléctrico no le hacen daño: le curan un poco.",
+      "plus_type_fallback": false
+    },
+    "limber": {
+      "kind": "custom",
+      "effect": "No le frenan las trampas pegajosas ni el terreno.",
+      "plus_type_fallback": false
+    },
+    "lingering-aroma": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "liquid-ooze": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "liquid-voice": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "long-reach": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "magic-bounce": {
+      "kind": "custom",
+      "effect": "Recibe un 15 % menos de daño especial y esquiva el 10 % de esos golpes.",
+      "plus_type_fallback": true
+    },
+    "magic-guard": {
+      "kind": "custom",
+      "effect": "Sólo le hacen daño los ataques: ni la lava ni las trampas.",
+      "plus_type_fallback": false
+    },
+    "magician": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "magma-armor": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "magnet-pull": {
+      "kind": "custom",
+      "effect": "Atrae los objetos desde más lejos (+20 % de imán).",
+      "plus_type_fallback": true
+    },
+    "marvel-scale": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "mega-launcher": {
+      "kind": "custom",
+      "effect": "+30 % de daño con los pulsos y esferas.",
+      "plus_type_fallback": false
+    },
+    "merciless": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "minus": {
+      "kind": "custom",
+      "effect": "+10 % de daño con movimientos especiales.",
+      "plus_type_fallback": false
+    },
+    "mirror-armor": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "misty-surge": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "mold-breaker": {
+      "kind": "custom",
+      "effect": "+12 % de daño a los jefes.",
+      "plus_type_fallback": true
+    },
+    "moody": {
+      "kind": "custom",
+      "effect": "Cada 10 s, +10 % a algo al azar: ataque, ataque especial, velocidad o defensa.",
+      "plus_type_fallback": true
+    },
+    "motor-drive": {
+      "kind": "custom",
+      "effect": "Los ataques de tipo Eléctrico no le hacen daño: le curan un poco.",
+      "plus_type_fallback": false
+    },
+    "moxie": {
+      "kind": "custom",
+      "effect": "Cada enemigo derrotado le da +0,5 % de daño (hasta +15 %).",
+      "plus_type_fallback": false
+    },
+    "multiscale": {
+      "kind": "custom",
+      "effect": "Con la vida casi llena recibe la mitad de daño.",
+      "plus_type_fallback": false
+    },
+    "multitype": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "mummy": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "natural-cure": {
+      "kind": "custom",
+      "effect": "Recupera un 0,3 % de su vida por segundo.",
+      "plus_type_fallback": true
+    },
+    "neutralizing-gas": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "no-guard": {
+      "kind": "custom",
+      "effect": "Todo acierta: +15 % de daño hecho, pero recibe un 10 % más.",
+      "plus_type_fallback": false
+    },
+    "normalize": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "oblivious": {
+      "kind": "custom",
+      "effect": "No le frenan las trampas pegajosas ni el terreno.",
+      "plus_type_fallback": false
+    },
+    "orichalcum-pulse": {
+      "kind": "custom",
+      "effect": "Pone sol al empezar la partida y cada 3 minutos.",
+      "plus_type_fallback": false
+    },
+    "overcoat": {
+      "kind": "custom",
+      "effect": "Recibe un 5 % menos de daño especial.",
+      "plus_type_fallback": true
+    },
+    "overgrow": {
+      "kind": "custom",
+      "effect": "+35 % de daño de tipo Planta con poca vida (menos de 1/3).",
+      "plus_type_fallback": false
+    },
+    "own-tempo": {
+      "kind": "custom",
+      "effect": "No le frenan las trampas pegajosas ni el terreno.",
+      "plus_type_fallback": false
+    },
+    "perish-body": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "pickpocket": {
+      "kind": "custom",
+      "effect": "Al recibir golpes, a veces les quita una moneda.",
+      "plus_type_fallback": true
+    },
+    "pickup": {
+      "kind": "custom",
+      "effect": "+15 % de Pokémonedas en la partida.",
+      "plus_type_fallback": false
+    },
+    "pixilate": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "plus": {
+      "kind": "custom",
+      "effect": "+10 % de daño con movimientos especiales.",
+      "plus_type_fallback": false
+    },
+    "poison-heal": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "poison-point": {
+      "kind": "custom",
+      "effect": "Quien le golpea cuerpo a cuerpo se envenena.",
+      "plus_type_fallback": false
+    },
+    "poison-touch": {
+      "kind": "custom",
+      "effect": "Sus ataques cuerpo a cuerpo y embestidas envenenan.",
+      "plus_type_fallback": false
+    },
+    "power-spot": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "prankster": {
+      "kind": "custom",
+      "effect": "Sus potenciadores se recargan un 30 % antes.",
+      "plus_type_fallback": true
+    },
+    "pressure": {
+      "kind": "custom",
+      "effect": "Recibe un 8 % menos de daño.",
+      "plus_type_fallback": false
+    },
+    "prism-armor": {
+      "kind": "custom",
+      "effect": "Los ataques muy eficaces le hacen un 25 % menos.",
+      "plus_type_fallback": false
+    },
+    "propeller-tail": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "protean": {
+      "kind": "custom",
+      "effect": "+12 % de daño con todos sus movimientos.",
+      "plus_type_fallback": false
+    },
+    "protosynthesis": {
+      "kind": "custom",
+      "effect": "Con sol, +20 % de daño.",
+      "plus_type_fallback": true
+    },
+    "psychic-surge": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "punk-rock": {
+      "kind": "custom",
+      "effect": "+30 % de daño con los sonidos.",
+      "plus_type_fallback": false
+    },
+    "pure-power": {
+      "kind": "custom",
+      "effect": "+50 % de daño con movimientos físicos.",
+      "plus_type_fallback": false
+    },
+    "purifying-salt": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "quark-drive": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "queenly-majesty": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "quick-feet": {
+      "kind": "custom",
+      "effect": "Frenado, va más rápido (en vez de más lento).",
+      "plus_type_fallback": true
+    },
+    "rain-dish": {
+      "kind": "custom",
+      "effect": "Con lluvia recupera un 1,5 % de vida por segundo.",
+      "plus_type_fallback": false
+    },
+    "rattled": {
+      "kind": "custom",
+      "effect": "Los golpes de Bicho, Fantasma o Siniestro le asustan: +25 % de velocidad un momento.",
+      "plus_type_fallback": true
+    },
+    "receiver": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "reckless": {
+      "kind": "custom",
+      "effect": "+25 % de daño con las embestidas.",
+      "plus_type_fallback": false
+    },
+    "refrigerate": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "regenerator": {
+      "kind": "custom",
+      "effect": "Recupera un 0,6 % de su vida por segundo.",
+      "plus_type_fallback": false
+    },
+    "ripen": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "rivalry": {
+      "kind": "custom",
+      "effect": "+15 % de daño a los enemigos que comparten un tipo con él.",
+      "plus_type_fallback": true
+    },
+    "rks-system": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "rock-head": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "rough-skin": {
+      "kind": "custom",
+      "effect": "Quien le golpea cuerpo a cuerpo recibe daño.",
+      "plus_type_fallback": false
+    },
+    "run-away": {
+      "kind": "custom",
+      "effect": "+8 % de velocidad.",
+      "plus_type_fallback": false
+    },
+    "sand-force": {
+      "kind": "custom",
+      "effect": "+30 % de daño Roca, Tierra y Acero con tormenta de arena.",
+      "plus_type_fallback": false
+    },
+    "sand-rush": {
+      "kind": "custom",
+      "effect": "+50 % de velocidad con tormenta de arena.",
+      "plus_type_fallback": false
+    },
+    "sand-spit": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "sand-stream": {
+      "kind": "custom",
+      "effect": "Pone una tormenta de arena al empezar la partida y cada 3 minutos.",
+      "plus_type_fallback": false
+    },
+    "sand-veil": {
+      "kind": "custom",
+      "effect": "Con tormenta de arena esquiva el 15 % de los golpes.",
+      "plus_type_fallback": true
+    },
+    "sap-sipper": {
+      "kind": "custom",
+      "effect": "Los ataques de tipo Planta no le hacen daño: le curan un poco.",
+      "plus_type_fallback": false
+    },
+    "schooling": {
+      "kind": "custom",
+      "effect": "Forma banco: +25 % de vida y, con más de 1/4 de vida, +50 % de daño.",
+      "plus_type_fallback": false
+    },
+    "scrappy": {
+      "kind": "custom",
+      "effect": "Sus movimientos Normal y Lucha dañan del todo a los Fantasma.",
+      "plus_type_fallback": false
+    },
+    "seed-sower": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "serene-grace": {
+      "kind": "custom",
+      "effect": "Las quemaduras, venenos y frenazos de sus movimientos son el doble de fuertes.",
+      "plus_type_fallback": false
+    },
+    "shadow-shield": {
+      "kind": "custom",
+      "effect": "Con la vida casi llena recibe la mitad de daño.",
+      "plus_type_fallback": false
+    },
+    "shadow-tag": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "sharpness": {
+      "kind": "custom",
+      "effect": "+30 % de daño con los cortes.",
+      "plus_type_fallback": false
+    },
+    "shed-skin": {
+      "kind": "custom",
+      "effect": "Cada 5 s muda: se quita los frenazos y recupera un 2 % de vida.",
+      "plus_type_fallback": true
+    },
+    "sheer-force": {
+      "kind": "custom",
+      "effect": "+25 % de daño con movimientos que queman, envenenan, frenan o empujan, pero pierden ese efecto.",
+      "plus_type_fallback": false
+    },
+    "shell-armor": {
+      "kind": "custom",
+      "effect": "Recibe un 8 % menos de daño.",
+      "plus_type_fallback": false
+    },
+    "shield-dust": {
+      "kind": "custom",
+      "effect": "No le frenan las trampas pegajosas ni el terreno.",
+      "plus_type_fallback": true
+    },
+    "shields-down": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "simple": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "skill-link": {
+      "kind": "custom",
+      "effect": "+25 % de daño con los movimientos de varios golpes.",
+      "plus_type_fallback": true
+    },
+    "slow-start": {
+      "kind": "custom",
+      "effect": "Arranca lento: el primer minuto hace −40 % de daño y va más despacio; después, a plena potencia.",
+      "plus_type_fallback": false
+    },
+    "slush-rush": {
+      "kind": "custom",
+      "effect": "+50 % de velocidad con nieve.",
+      "plus_type_fallback": false
+    },
+    "sniper": {
+      "kind": "custom",
+      "effect": "Sus golpes críticos hacen ×2 de daño (en vez de ×1,5).",
+      "plus_type_fallback": false
+    },
+    "snow-cloak": {
+      "kind": "custom",
+      "effect": "Con nieve esquiva el 15 % de los golpes.",
+      "plus_type_fallback": true
+    },
+    "snow-warning": {
+      "kind": "custom",
+      "effect": "Pone nieve al empezar la partida y cada 3 minutos.",
+      "plus_type_fallback": false
+    },
+    "solar-power": {
+      "kind": "custom",
+      "effect": "+40 % de daño especial con sol, pero el sol le quita algo de vida.",
+      "plus_type_fallback": false
+    },
+    "solid-rock": {
+      "kind": "custom",
+      "effect": "Los ataques muy eficaces le hacen un 25 % menos.",
+      "plus_type_fallback": false
+    },
+    "soul-heart": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "soundproof": {
+      "kind": "custom",
+      "effect": "Recibe un 10 % menos de daño especial.",
+      "plus_type_fallback": true
+    },
+    "speed-boost": {
+      "kind": "custom",
+      "effect": "Cada 10 segundos va un 1,5 % más rápido (hasta +30 %).",
+      "plus_type_fallback": false
+    },
+    "stakeout": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "stall": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "stalwart": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "stamina": {
+      "kind": "custom",
+      "effect": "Cada golpe cuerpo a cuerpo que recibe le sube un poco la defensa.",
+      "plus_type_fallback": false
+    },
+    "stance-change": {
+      "kind": "custom",
+      "effect": "Alterna cada 8 s entre filo (+20 % de daño) y escudo (−20 % de daño recibido).",
+      "plus_type_fallback": false
+    },
+    "static": {
+      "kind": "custom",
+      "effect": "Quien le golpea cuerpo a cuerpo se queda frenado (paralizado).",
+      "plus_type_fallback": false
+    },
+    "steadfast": {
+      "kind": "custom",
+      "effect": "Al recibir un golpe, +10 % de velocidad un momento (se acumula).",
+      "plus_type_fallback": true
+    },
+    "steelworker": {
+      "kind": "custom",
+      "effect": "+20 % de daño con movimientos de tipo Acero.",
+      "plus_type_fallback": false
+    },
+    "steely-spirit": {
+      "kind": "custom",
+      "effect": "+20 % de daño con movimientos de tipo Acero.",
+      "plus_type_fallback": false
+    },
+    "stench": {
+      "kind": "custom",
+      "effect": "Sus golpes a veces frenan (1 de cada 10).",
+      "plus_type_fallback": true
+    },
+    "sticky-hold": {
+      "kind": "custom",
+      "effect": "Atrae los objetos desde más lejos (+20 % de imán).",
+      "plus_type_fallback": true
+    },
+    "storm-drain": {
+      "kind": "custom",
+      "effect": "Los ataques de tipo Agua no le hacen daño: le curan un poco.",
+      "plus_type_fallback": false
+    },
+    "strong-jaw": {
+      "kind": "custom",
+      "effect": "+30 % de daño con los mordiscos.",
+      "plus_type_fallback": false
+    },
+    "sturdy": {
+      "kind": "custom",
+      "effect": "Un golpe que le dejaría KO le deja con 1 de vida (cada 90 s).",
+      "plus_type_fallback": false
+    },
+    "suction-cups": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "super-luck": {
+      "kind": "custom",
+      "effect": "+10 % de probabilidad de golpe crítico.",
+      "plus_type_fallback": false
+    },
+    "supersweet-syrup": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "supreme-overlord": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "swarm": {
+      "kind": "custom",
+      "effect": "+35 % de daño de tipo Bicho con poca vida (menos de 1/3).",
+      "plus_type_fallback": false
+    },
+    "sweet-veil": {
+      "kind": "custom",
+      "effect": "No le frenan las trampas pegajosas ni el terreno.",
+      "plus_type_fallback": true
+    },
+    "swift-swim": {
+      "kind": "custom",
+      "effect": "+50 % de velocidad con lluvia.",
+      "plus_type_fallback": false
+    },
+    "symbiosis": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "synchronize": {
+      "kind": "custom",
+      "effect": "Quien le golpea cuerpo a cuerpo recibe parte del golpe.",
+      "plus_type_fallback": true
+    },
+    "tangled-feet": {
+      "kind": "custom",
+      "effect": "Frenado, esquiva el 20 % de los golpes.",
+      "plus_type_fallback": true
+    },
+    "technician": {
+      "kind": "custom",
+      "effect": "+35 % de daño con los ataques de golpes flojos.",
+      "plus_type_fallback": false
+    },
+    "telepathy": {
+      "kind": "custom",
+      "effect": "Lee las intenciones: esquiva el 8 % de los golpes.",
+      "plus_type_fallback": true
+    },
+    "tera-shift": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "teravolt": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "thermal-exchange": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "thick-fat": {
+      "kind": "custom",
+      "effect": "Recibe un 40 % menos de daño de Fuego y Hielo.",
+      "plus_type_fallback": false
+    },
+    "tinted-lens": {
+      "kind": "custom",
+      "effect": "Sus movimientos poco eficaces hacen daño normal.",
+      "plus_type_fallback": false
+    },
+    "torrent": {
+      "kind": "custom",
+      "effect": "+35 % de daño de tipo Agua con poca vida (menos de 1/3).",
+      "plus_type_fallback": false
+    },
+    "tough-claws": {
+      "kind": "custom",
+      "effect": "+25 % de daño con ataques cuerpo a cuerpo y embestidas.",
+      "plus_type_fallback": false
+    },
+    "toxic-boost": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "toxic-chain": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "toxic-debris": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "trace": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "transistor": {
+      "kind": "custom",
+      "effect": "+20 % de daño con movimientos de tipo Eléctrico.",
+      "plus_type_fallback": false
+    },
+    "triage": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "truant": {
+      "kind": "custom",
+      "effect": "Golpes sueltos y fuertes: tarda un 60 % más en recargar, pero cada golpe hace +35 %.",
+      "plus_type_fallback": false
+    },
+    "turboblaze": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "unaware": {
+      "kind": "custom",
+      "effect": "No se deja impresionar: recibe un 8 % menos de daño.",
+      "plus_type_fallback": true
+    },
+    "unburden": {
+      "kind": "custom",
+      "effect": "Sin objeto va un 15 % más rápido.",
+      "plus_type_fallback": true
+    },
+    "unnerve": {
+      "kind": "custom",
+      "effect": "Pone nerviosos a los enemigos: le hacen un 6 % menos de daño.",
+      "plus_type_fallback": true
+    },
+    "unseen-fist": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "victory-star": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "vital-spirit": {
+      "kind": "custom",
+      "effect": "No le frenan las trampas pegajosas ni el terreno.",
+      "plus_type_fallback": false
+    },
+    "volt-absorb": {
+      "kind": "custom",
+      "effect": "Los ataques de tipo Eléctrico no le hacen daño: le curan un poco.",
+      "plus_type_fallback": false
+    },
+    "wandering-spirit": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "water-absorb": {
+      "kind": "custom",
+      "effect": "Los ataques de tipo Agua no le hacen daño: le curan un poco.",
+      "plus_type_fallback": false
+    },
+    "water-bubble": {
+      "kind": "custom",
+      "effect": "+40 % de daño de tipo Agua y recibe la mitad de daño de Fuego.",
+      "plus_type_fallback": false
+    },
+    "water-compaction": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "water-veil": {
+      "kind": "custom",
+      "effect": "La lava no le quema y recibe la mitad de daño de Fuego.",
+      "plus_type_fallback": true
+    },
+    "weak-armor": {
+      "kind": "custom",
+      "effect": "Al recibir un golpe físico se aligera: +20 % de velocidad un momento.",
+      "plus_type_fallback": true
+    },
+    "well-baked-body": {
+      "kind": "custom",
+      "effect": "Los ataques de tipo Fuego no le hacen daño: le curan un poco.",
+      "plus_type_fallback": false
+    },
+    "white-smoke": {
+      "kind": "custom",
+      "effect": "No le frenan las trampas pegajosas ni el terreno.",
+      "plus_type_fallback": false
+    },
+    "wimp-out": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "wind-power": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "wind-rider": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "wonder-guard": {
+      "kind": "custom",
+      "effect": "Lo que no es muy eficaz apenas le hace daño (35 %); lo muy eficaz, un 50 % más.",
+      "plus_type_fallback": false
+    },
+    "wonder-skin": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    },
+    "zen-mode": {
+      "kind": "custom",
+      "effect": "Con menos de la mitad de vida entra en Modo Daruma: +30 % de daño especial.",
+      "plus_type_fallback": true
+    },
+    "zero-to-hero": {
+      "kind": "primary_type_fallback",
+      "effect": null,
+      "plus_type_fallback": false
+    }
+  },
+  "shop_items": {
+    "mint": {
+      "name": "Menta",
+      "price": 1500,
+      "description": "Cambia la naturaleza de un Pokémon por la que tú elijas."
+    },
+    "cap": {
+      "name": "Cápsula Habilidad",
+      "price": 1500,
+      "description": "Cambia la habilidad de un Pokémon por otra de las suyas (no la oculta)."
+    },
+    "caph": {
+      "name": "Cápsula Habilidad Oculta",
+      "price": 5000,
+      "description": "Cambia la habilidad de un Pokémon por cualquiera de las suyas, también la oculta."
+    }
+  },
+  "upgrades": {
+    "moves": {
+      "name": "Repertorio",
+      "price": 1500,
+      "requires": null
+    },
+    "start": {
+      "name": "Movimiento inicial",
+      "price": 400,
+      "requires": null
+    },
+    "start2": {
+      "name": "Segundo movimiento inicial",
+      "price": 400,
+      "requires": "moves"
+    }
+  },
+  "nature_stat_rule": {
+    "raised": 1.1,
+    "lowered": 0.9,
+    "neutral": 1.0,
+    "source": "game.json#/natures"
+  },
+  "starting_choice_rule": "native non-buff pool plus stock move; native learned attacks may be owned type or same as stock; purchased TM starters legal if species TM compatible",
+  "sources": {
+    "starting_choices": "js/data/starters.js#G.startChoices",
+    "upgrades": "js/data/upgrades.js",
+    "shop": "js/data/shop.js",
+    "ability_effects": "js/data/ability-fx.js",
+    "tm_prices": "simulator/data/game.json#/tmPrices"
+  },
+  "ability_catalog_oracle": {
+    "path": "simulator/tests/oracles/official-abilities-ce57853.json",
+    "custom_effect_count": 165,
+    "source": "Actual G.AbilityFX.FX exported by the unmodified pinned dev.html in an isolated browser. No game source evaluated by the simulator."
+  }
+}

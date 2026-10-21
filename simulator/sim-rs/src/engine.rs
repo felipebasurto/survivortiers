@@ -4,6 +4,7 @@ mod abilities;
 use crate::math::{Libm, MathFns};
 use crate::rng::Rng;
 use crate::terrain::{steer, tile_of, Block, Liquid, Path, World, PATH_EVERY};
+pub use abilities::{ranking_prior, ranking_speed, PriorAttack};
 use abilities::{Ability, AbilityFrame};
 use std::cell::RefCell;
 use std::f64::consts::PI;
@@ -89,6 +90,9 @@ pub struct Opts {
 pub struct Ext {
     /// extra bonded attacks cast alongside the primary (each with its own cooldown)
     pub companions: Vec<usize>,
+    /// Up to two explicit buff move IDs for an assembled group. These replace the legacy
+    /// two-bit SD/Harden shorthand and may be any distinct stat buffs (including Aqua Ring).
+    pub planned_buffs: Option<Vec<usize>>,
     pub ability: Option<String>,
     pub initial_second: Option<usize>,
     /// bitmask of buffs held in the group from t=0: 1 = atk buff (Swords/Dragon Dance), 2 = Harden (or Agility);
@@ -124,6 +128,34 @@ pub struct Ext {
     /// Fraction of a combat hit ignored (contact and shots). 0 leaves `hurt` unchanged. Lava and weather
     /// (stat index, count): start the run with that many and do not take more. 7 = Aprendizaje.
     pub locks: Vec<(u8, u32)>,
+}
+impl Ext {
+    /// Canonical buff configuration for new callers. Planned buffs are present at level one
+    /// in fixed-group/assembled simulations; opening acquisition remains governed by cards.
+    pub fn with_planned_buffs(data: &Data, ids: Vec<usize>) -> Result<Self, String> {
+        if ids.len() > 2 {
+            return Err("at most two planned buffs are legal".into());
+        }
+        let mut seen = std::collections::HashSet::new();
+        for &id in &ids {
+            let Some(mv) = data.moves.get(id) else {
+                return Err(format!("planned buff move index {id} is out of range"));
+            };
+            let Some(lvl) = mv.levels.first() else {
+                return Err(format!("planned buff {} has no levels", mv.id));
+            };
+            if lvl.buff == 0 || mv.kind_name != "buff" {
+                return Err(format!("{} is not a stat buff", mv.id));
+            }
+            if !seen.insert(id) {
+                return Err(format!("planned buff {} is duplicated", mv.id));
+            }
+        }
+        Ok(Self {
+            planned_buffs: Some(ids),
+            ..Self::default()
+        })
+    }
 }
 #[derive(Clone, Copy)]
 pub struct Item {
@@ -240,6 +272,17 @@ pub struct RunResult {
     /// (combat.js adds the hit to `dmgDealt`, not the burn or poison ticks).
     pub dealt: f64,
     pub risk: Exposure,
+}
+/// Result and explicit fixture label for the bounded CPU benchmark scene. Its metrics are not
+/// ranking inputs: foes are scripted and no full-match spawn schedule is simulated.
+#[derive(Debug, Clone, Copy)]
+pub struct MatureSceneResult {
+    pub result: RunResult,
+    pub seconds: f64,
+    pub foes: u8,
+    pub level: u32,
+    pub mature_fixture: bool,
+    pub hostile_projectiles: usize,
 }
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Exposure {
@@ -473,6 +516,8 @@ enum Card {
     Hd,
     Up2(u8),
     Evo2(u8),
+    UpExtra(u8),
+    EvoExtra(u8),
     Stat(Stat),
     /// Aprendizaje, levelup.js:24. Only offered with `Ext::full_cards`.
     Xp,
@@ -503,6 +548,15 @@ struct State {
     hd_stacks: f64,
     hd_t: f64,
     hd_cd: f64,
+    /// Player.addBuff has one shared stack/timer/amount state per stat, even when two moves
+    /// (such as Swords Dance and Dragon Dance) write the same stat in one group.
+    buff_effects: [BuffEffect; 7],
+}
+#[derive(Clone, Copy, Default)]
+struct BuffEffect {
+    stacks: f64,
+    time: f64,
+    amount: f64,
 }
 /// ATK_POW / SPD_POW / CD_POW from rules.js. V8 evaluates `1.1 ** i` with
 /// integer exponents by repeated squaring, which no libm pow reproduces, so
@@ -598,6 +652,26 @@ struct Derived<'a> {
     /// 1 + stacks * amount for the physical and special buffs. 1 when that buff is down.
     patk: f64,
     satk: f64,
+}
+fn apply_buff_effect(
+    stat: u8,
+    bonus: f64,
+    atk: &mut f64,
+    spd: &mut f64,
+    def: &mut f64,
+    regen: &mut f64,
+    patk: &mut f64,
+    satk: &mut f64,
+) {
+    match stat {
+        1 => *atk += bonus,
+        2 => *spd += bonus,
+        3 => *def += bonus,
+        4 => *regen += bonus,
+        5 => *patk += bonus,
+        6 => *satk += bonus,
+        _ => {}
+    }
 }
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Phase {
@@ -1588,6 +1662,8 @@ struct Match<'a, M: MathFns> {
     orbs: Vec<Orb>,
     /// Learned attacks that were not in the planned group. (move index, cooldown).
     extras: Vec<(usize, f64)>,
+    extra_levels: Vec<usize>,
+    extra_evolved: Vec<bool>,
     /// One orbit that is not the lead move: (move index, level index).
     side_orbit: Option<(usize, usize)>,
     side_orbs: Vec<Orb>,
@@ -1811,6 +1887,26 @@ fn move_has_status(m: &Move, status_on: bool, xkinds: bool) -> bool {
             .is_some_and(|e| unmodelled(e, status_on, xkinds))
 }
 impl<'a, M: MathFns> Match<'a, M> {
+    /// Mirrors Player.slots.length: bonded group moves share one slot; unbonded partners and
+    /// acquired off-group moves each occupy a standalone slot.
+    fn slot_count(&self) -> usize {
+        let mut n = 1 + self.extras.len();
+        n += self
+            .learned
+            .iter()
+            .enumerate()
+            .filter(|(i, learned)| **learned && !self.bonded(*i as u8))
+            .count();
+        if let Some(second) = self.opts.ext.initial_second {
+            let represented = self.bond_order.iter().enumerate().any(|(i, &slot)| {
+                self.learned.get(i).copied().unwrap_or(false) && self.bond_move(slot) == second
+            });
+            if !represented {
+                n += 1;
+            }
+        }
+        n
+    }
     fn known_count(&self) -> usize {
         let second = self.opts.ext.initial_second.is_some_and(|ix| {
             !self.bond_order.iter().enumerate().any(|(i, &b)| {
@@ -1858,24 +1954,23 @@ impl<'a, M: MathFns> Match<'a, M> {
         let s = &self.state;
         let mut atk_buff = 0.0;
         let mut def_buff = 0.0;
+        let mut spd_buff = 1.0;
+        let mut regen_buff = 0.0;
         let mut patk = 1.0;
         let mut satk = 1.0;
-        if s.sd > 0 && s.sd_t > 0.0 {
-            let lvl = self.buff_level(self.atk_buff, s.sd);
-            let bonus = s.sd_stacks * lvl.amount;
-            match lvl.buff {
-                5 => patk = 1.0 + bonus,
-                6 => satk = 1.0 + bonus,
-                _ => atk_buff = bonus,
+        for (stat, effect) in s.buff_effects.iter().enumerate().skip(1) {
+            if effect.stacks > 0.0 && effect.time > 0.0 {
+                apply_buff_effect(
+                    stat as u8,
+                    effect.stacks * effect.amount,
+                    &mut atk_buff,
+                    &mut spd_buff,
+                    &mut def_buff,
+                    &mut regen_buff,
+                    &mut patk,
+                    &mut satk,
+                );
             }
-        }
-        if s.hd > 0 && s.hd_t > 0.0 {
-            def_buff = s.hd_stacks * self.buff_level(self.def_buff, s.hd).amount;
-        }
-        let mut spd_buff = 1.0;
-        if self.opts.ext.agi {
-            spd_buff = 1.0 + def_buff;
-            def_buff = 0.0;
         }
         let it = self.opts.ext.item;
         let judging = self.opts.ext.rift && self.t >= 1800.0;
@@ -1886,7 +1981,11 @@ impl<'a, M: MathFns> Match<'a, M> {
         let melee_cut = mv.kind == Kind::Melee || self.active_has_melee();
         let ability_frame = self.ability_frame();
         let st = &mut self.st;
-        st.max_hp = self.mon.hp + 20.0 * s.cards[Stat::Hp as usize] as f64;
+        st.max_hp = if self.ability.id == "schooling" {
+            js_round(self.mon.hp * 1.25) + 20.0 * s.cards[Stat::Hp as usize] as f64
+        } else {
+            self.mon.hp + 20.0 * s.cards[Stat::Hp as usize] as f64
+        };
         st.atk = self.mon.atk
             * self.tables.atk[s.cards[Stat::Pow as usize] as usize]
             * (1.0 + atk_buff)
@@ -1899,7 +1998,7 @@ impl<'a, M: MathFns> Match<'a, M> {
         st.red = jmin(0.8, stacked + extra + def_buff);
         st.cd_mul = self.tables.cd[s.cards[Stat::Cd as usize] as usize] * it.cd;
         let left = { it.regen * self.mon.hp };
-        st.regen = 0.9 * s.cards[Stat::Rgn as usize] as f64 + left;
+        st.regen = 0.9 * s.cards[Stat::Rgn as usize] as f64 + left + regen_buff;
         if self.regen_n > 0.0 && self.regen_t > 0.0 {
             st.regen += self.regen_n * self.regen_amt;
         }
@@ -1919,9 +2018,6 @@ impl<'a, M: MathFns> Match<'a, M> {
                 st.melee = if alt.kind == Kind::Melee { 0.75 } else { 1.0 };
                 st.mv = alt;
             }
-        }
-        if self.ability.id == "schooling" {
-            st.max_hp += self.mon.hp * 0.25;
         }
         st.spd *= if self.pl.slow_t > 0. && !self.ability.steady() {
             0.5
@@ -2278,10 +2374,39 @@ impl<'a, M: MathFns> Match<'a, M> {
                 }
             }
         }
-        if self.has_sd && s.sd < 5 && (self.opts.ext.buffs == 0 || self.bonded(100)) {
+        for (i, &(id, _)) in self.extras.iter().enumerate() {
+            if self.extra_evolved.get(i).copied().unwrap_or(false) {
+                continue;
+            }
+            let m = &self.data.moves[id];
+            let lvl = self.extra_levels.get(i).copied().unwrap_or(1);
+            if lvl < m.max_lvl {
+                out.push(Card::UpExtra(i as u8));
+            } else if m.evo.is_some() {
+                match m.needs {
+                    Some(n) if s.cards[n as usize] < 1 => {}
+                    _ => out.push(Card::EvoExtra(i as u8)),
+                }
+            }
+        }
+        if self.has_sd
+            && s.sd < 5
+            && (self.opts.ext.rift
+                && self.opts.ext.planned_buffs.is_none()
+                && self.opts.ext.buffs == 0
+                || !self.opts.ext.rift
+                || self.bonded(100))
+        {
             out.push(Card::Sd);
         }
-        if self.has_hd && s.hd < 5 && (self.opts.ext.buffs == 0 || self.bonded(101)) {
+        if self.has_hd
+            && s.hd < 5
+            && (self.opts.ext.rift
+                && self.opts.ext.planned_buffs.is_none()
+                && self.opts.ext.buffs == 0
+                || !self.opts.ext.rift
+                || self.bonded(101))
+        {
             out.push(Card::Hd);
         }
         for st in STATS {
@@ -2330,6 +2455,16 @@ impl<'a, M: MathFns> Match<'a, M> {
         for i in 0..self.comps.len() {
             if has(Card::Evo2(i as u8)) {
                 return Card::Evo2(i as u8);
+            }
+        }
+        for i in 0..self.extras.len() {
+            if has(Card::UpExtra(i as u8)) {
+                return Card::UpExtra(i as u8);
+            }
+        }
+        for i in 0..self.extras.len() {
+            if has(Card::EvoExtra(i as u8)) {
+                return Card::EvoExtra(i as u8);
             }
         }
         if self.opts.ext.heal_below > 0.0 && has(Card::Heal) {
@@ -2386,6 +2521,16 @@ impl<'a, M: MathFns> Match<'a, M> {
                 self.comp_evo[i as usize] = true;
                 if self.comp_lvl(i as usize).kind == Kind::Melee {
                     self.any_melee = true;
+                }
+            }
+            Card::UpExtra(i) => {
+                if let Some(lvl) = self.extra_levels.get_mut(i as usize) {
+                    *lvl += 1;
+                }
+            }
+            Card::EvoExtra(i) => {
+                if let Some(evo) = self.extra_evolved.get_mut(i as usize) {
+                    *evo = true;
                 }
             }
             Card::Stat(st) => {
@@ -2797,6 +2942,20 @@ impl<'a, M: MathFns> Match<'a, M> {
             self.comps[slot as usize].0
         }
     }
+    fn acquire_bond_slot(&mut self, index: usize) {
+        self.learned[index] = true;
+        match self.bond_order[index] {
+            100 => {
+                self.state.sd = 1;
+                self.state.sd_cd = 0.0;
+            }
+            101 => {
+                self.state.hd = 1;
+                self.state.hd_cd = 0.0;
+            }
+            _ => {}
+        }
+    }
     /// levelup.js:72-120. Weight of everything that is not a new-move card, and how many
     /// evolutions are ready. The first ready evolution is shown unconditionally (offer, line 131).
     fn level_offer_parts(&self) -> (f64, usize) {
@@ -2854,14 +3013,47 @@ impl<'a, M: MathFns> Match<'a, M> {
                 &self.state.cards,
             );
         }
-        if self.has_sd && self.state.sd < 5 && (self.opts.ext.buffs == 0 || self.bonded(100)) {
+        for (i, &(id, _)) in self.extras.iter().enumerate() {
+            if self.extra_evolved.get(i).copied().unwrap_or(false) {
+                continue;
+            }
+            let m = &self.data.moves[id];
+            let lvl = self.extra_levels.get(i).copied().unwrap_or(1);
+            if lvl < m.max_lvl {
+                ups += 8.0;
+            }
+            note_move(
+                &mut evos,
+                &mut waiting,
+                lvl,
+                m.max_lvl,
+                false,
+                m.evo.is_some(),
+                m.needs,
+                &self.state.cards,
+            );
+        }
+        if self.has_sd
+            && self.state.sd < 5
+            && (self.opts.ext.rift
+                && self.opts.ext.planned_buffs.is_none()
+                && self.opts.ext.buffs == 0
+                || !self.opts.ext.rift
+                || self.bonded(100))
+        {
             ups += 8.0;
         }
-        if self.has_hd && self.state.hd < 5 && (self.opts.ext.buffs == 0 || self.bonded(101)) {
+        if self.has_hd
+            && self.state.hd < 5
+            && (self.opts.ext.rift
+                && self.opts.ext.planned_buffs.is_none()
+                && self.opts.ext.buffs == 0
+                || !self.opts.ext.rift
+                || self.bonded(101))
+        {
             ups += 8.0;
         }
-        let known = self.known_count();
-        let slots_open = !self.opts.ext.rift || known < 4;
+        let slots_open = self.slot_count() < 4;
         let per = if slots_open { 4.0 } else { 7.0 };
         let mut room = 0usize;
         for st in STATS {
@@ -2890,8 +3082,8 @@ impl<'a, M: MathFns> Match<'a, M> {
         let mut stat: Vec<Card> = Vec::new();
         for c in legal {
             match c {
-                Card::Evo | Card::Evo2(_) => evo.push(c),
-                Card::Up | Card::Up2(_) | Card::Sd | Card::Hd => up.push(c),
+                Card::Evo | Card::Evo2(_) | Card::EvoExtra(_) => evo.push(c),
+                Card::Up | Card::Up2(_) | Card::UpExtra(_) | Card::Sd | Card::Hd => up.push(c),
                 _ => stat.push(c),
             }
         }
@@ -2900,17 +3092,7 @@ impl<'a, M: MathFns> Match<'a, M> {
             stat.swap(i, j);
         }
         stat.truncate(5);
-        let (_, evos) = self.level_offer_parts();
-        let per = if evos > 0 && self.known_count() >= 4 {
-            7.0
-        } else {
-            let known = self.known_count();
-            if !self.opts.ext.rift || known < 4 {
-                4.0
-            } else {
-                7.0
-            }
-        };
+        let per = if self.slot_count() < 4 { 4.0 } else { 7.0 };
         let mut pool: Vec<(Card, f64)> = Vec::new();
         let mut picked: Vec<Card> = Vec::new();
         if !evo.is_empty() {
@@ -2962,19 +3144,9 @@ impl<'a, M: MathFns> Match<'a, M> {
     /// New moves weigh 10 against the upgrade (8) and five stat cards (4 each) for the 3 shown.
     /// The bot takes a missing group member when one of those 3 is it, and spends the level on it.
     fn try_learn(&mut self) -> bool {
-        if !self.opts.ext.rift || self.learned.iter().all(|on| *on) {
+        if self.slot_count() >= 4 {
             return false;
         }
-        let known_n = self.known_count();
-        if known_n >= 4 {
-            return false;
-        }
-        let buffs_known = self
-            .learned
-            .iter()
-            .enumerate()
-            .filter(|(i, on)| **on && self.bond_order[*i] >= 100)
-            .count();
         let mut known = vec![self.data.move_ix[&self.start.id]];
         if let Some(ix) = self.opts.ext.initial_second {
             known.push(ix);
@@ -2984,6 +3156,10 @@ impl<'a, M: MathFns> Match<'a, M> {
                 known.push(self.bond_move(self.bond_order[i]));
             }
         }
+        for &(ix, _) in &self.extras {
+            known.push(ix);
+        }
+        let buffs_known = known.iter().filter(|&&ix| self.is_buff_move(ix)).count();
         let mut pool: Vec<(usize, f64)> = self
             .mon
             .pool
@@ -3040,12 +3216,14 @@ impl<'a, M: MathFns> Match<'a, M> {
             }
         }
         if let Some(i) = best {
-            self.learned[i] = true;
+            self.acquire_bond_slot(i);
             return true;
         }
         if self.extra_room() {
             if let Some(ix) = self.best_offered_attack(&offered) {
                 self.extras.push((ix, 0.0));
+                self.extra_levels.push(1);
+                self.extra_evolved.push(false);
                 return true;
             }
         }
@@ -3053,14 +3231,7 @@ impl<'a, M: MathFns> Match<'a, M> {
     }
     /// Slots left after the starter, learned bonds, extras, and unlearned attack partners.
     fn extra_room(&self) -> bool {
-        let known = self.known_count() + self.extras.len();
-        let reserved = self
-            .bond_order
-            .iter()
-            .enumerate()
-            .filter(|(i, b)| **b < 100 && !self.learned.get(*i).copied().unwrap_or(false))
-            .count();
-        known + reserved < 4
+        self.slot_count() < 4
     }
     fn best_offered_attack(&self, offered: &[usize]) -> Option<usize> {
         let mut best: Option<(usize, f64)> = None;
@@ -3106,24 +3277,6 @@ impl<'a, M: MathFns> Match<'a, M> {
             }
         }
         best.map(|(ix, _)| ix)
-    }
-    fn cast_extras(&mut self) {
-        let n = self.extras.len();
-        for i in 0..n {
-            if self.extras[i].1 > 0.0 {
-                self.extras[i].1 -= self.dt;
-                continue;
-            }
-            let ix = self.extras[i].0;
-            let mv = &self.data.moves[ix].levels[0];
-            let (cd, kind) = (mv.cd, mv.kind);
-            self.extras[i].1 = self.cooled(cd);
-            if kind == Kind::Orbit {
-                self.side_orbit = Some((ix, 0));
-            } else if !self.cast_player_move(mv) {
-                self.extras[i].1 = 0.05;
-            }
-        }
     }
     /// Melee companion in the group that is actually firing. `any_melee` covers an evolution into melee.
     fn active_has_melee(&self) -> bool {
@@ -5776,8 +5929,20 @@ impl<'a, M: MathFns> Match<'a, M> {
         }
     }
     fn tick_buffs(&mut self) {
+        for effect in &mut self.state.buff_effects {
+            if effect.time > 0.0 {
+                effect.time -= self.dt;
+                if effect.time <= 0.0 {
+                    effect.stacks = 0.0;
+                    self.stat_dirty = true;
+                }
+            }
+        }
         for which in 0..2 {
-            if self.opts.ext.rift && self.opts.ext.buffs != 0 && !self.bonded(100 + which as u8) {
+            if self.opts.ext.rift
+                && (self.opts.ext.planned_buffs.is_some() || self.opts.ext.buffs != 0)
+                && !self.bonded(100 + which as u8)
+            {
                 continue;
             }
             let (id, lvl) = if which == 0 {
@@ -5825,6 +5990,10 @@ impl<'a, M: MathFns> Match<'a, M> {
                         1.
                     })
                 .max(0.05);
+                let effect = &mut s.buff_effects[inst.buff as usize];
+                effect.stacks = jmin(inst.stacks, effect.stacks + 1.0);
+                effect.amount = inst.amount;
+                effect.time = inst.dur;
                 self.stat_dirty = true;
             }
         }
@@ -6309,6 +6478,36 @@ fn init_match<'a, M: MathFns>(
     let g_phys = guard(math, mon.df);
     let g_spec = guard(math, mon.sd);
     let start_move = &data.moves[start];
+    let explicit_buffs = opts.ext.planned_buffs.is_some();
+    let planned_buffs_active = explicit_buffs && (!opts.ext.rift || opts.ext.bonded);
+    let planned_atk = opts
+        .ext
+        .planned_buffs
+        .as_ref()
+        .and_then(|v| v.first())
+        .copied();
+    let planned_def = opts
+        .ext
+        .planned_buffs
+        .as_ref()
+        .and_then(|v| v.get(1))
+        .copied();
+    let atk_buff_id = planned_atk.unwrap_or_else(|| {
+        if opts.ext.np {
+            data.nasty_plot
+        } else if opts.ext.dd {
+            data.dragon_dance
+        } else {
+            data.swords_dance
+        }
+    });
+    let def_buff_id = planned_def.unwrap_or_else(|| {
+        if opts.ext.agi {
+            data.agility
+        } else {
+            data.harden
+        }
+    });
     let mut world = Rng::new(opts.seed);
     let card_roll = Rng::new(opts.seed.wrapping_add(0xA5A5));
     world.next();
@@ -6347,32 +6546,34 @@ fn init_match<'a, M: MathFns>(
         card_roll,
         state: State {
             move_lvl: 1,
-            sd: (opts.ext.buffs & 1) as usize,
-            hd: ((opts.ext.buffs >> 1) & 1) as usize,
+            sd: if explicit_buffs {
+                usize::from(planned_buffs_active && planned_atk.is_some())
+            } else {
+                (opts.ext.buffs & 1) as usize
+            },
+            hd: if explicit_buffs {
+                usize::from(planned_buffs_active && planned_def.is_some())
+            } else {
+                ((opts.ext.buffs >> 1) & 1) as usize
+            },
             ..State::default()
         },
-        has_sd: if opts.ext.buffs > 0 {
+        has_sd: if explicit_buffs {
+            planned_atk.is_some()
+        } else if opts.ext.buffs > 0 {
             opts.ext.buffs & 1 != 0
         } else {
             mon.pool.contains(&data.swords_dance)
         },
-        has_hd: if opts.ext.buffs > 0 {
+        has_hd: if explicit_buffs {
+            planned_def.is_some()
+        } else if opts.ext.buffs > 0 {
             opts.ext.buffs & 2 != 0
         } else {
             mon.pool.contains(&data.harden)
         },
-        def_buff: if opts.ext.agi {
-            data.agility
-        } else {
-            data.harden
-        },
-        atk_buff: if opts.ext.np {
-            data.nasty_plot
-        } else if opts.ext.dd {
-            data.dragon_dance
-        } else {
-            data.swords_dance
-        },
+        def_buff: def_buff_id,
+        atk_buff: atk_buff_id,
         comps: opts
             .ext
             .companions
@@ -6385,10 +6586,19 @@ fn init_match<'a, M: MathFns>(
         bonds: 0,
         bond_order: {
             let mut o: Vec<u8> = (0..opts.ext.companions.len() as u8).collect();
-            if opts.ext.buffs & 1 != 0 {
+            if explicit_buffs {
+                if planned_atk.is_some() {
+                    o.push(100);
+                }
+                if planned_def.is_some() {
+                    o.push(101);
+                }
+            } else if opts.ext.buffs & 1 != 0 {
                 o.push(100);
-            }
-            if opts.ext.buffs & 2 != 0 {
+                if opts.ext.buffs & 2 != 0 {
+                    o.push(101);
+                }
+            } else if opts.ext.buffs & 2 != 0 {
                 o.push(101);
             }
             o.truncate(3);
@@ -6427,6 +6637,8 @@ fn init_match<'a, M: MathFns>(
         booms: Vec::new(),
         orbs: Vec::new(),
         extras: Vec::new(),
+        extra_levels: Vec::new(),
+        extra_evolved: Vec::new(),
         side_orbit: None,
         side_orbs: Vec::new(),
         e_shots: Vec::new(),
@@ -6529,7 +6741,15 @@ fn init_match<'a, M: MathFns>(
             } else {
                 m.comps[slot as usize].0
             };
-            ix == start || opts.ext.initial_second == Some(ix)
+            ix == start
+                || opts.ext.initial_second == Some(ix)
+                || !opts.ext.rift
+                || (planned_buffs_active
+                    && opts
+                        .ext
+                        .planned_buffs
+                        .as_ref()
+                        .is_some_and(|ids| ids.contains(&ix)))
         })
         .collect();
     m.stats();
@@ -6543,6 +6763,156 @@ fn init_match<'a, M: MathFns>(
         m.roll_bosses();
     }
     m
+}
+/// Run a deterministic mature-scene throughput fixture without invoking the full match runner.
+/// It is explicitly capped to <=15 s and exactly 10/20/30 scripted foes. Foe geometry, HP and
+/// level configuration are held fixed so callers can compare engine revisions at bounded cost.
+pub fn benchmark_scene<M: MathFns>(
+    math: &M,
+    data: &Data,
+    tables: &Tables,
+    mon: &Mon,
+    start: usize,
+    opts: &Opts,
+    foes: u8,
+    mature: bool,
+) -> Result<MatureSceneResult, String> {
+    if !opts.seconds.is_finite() || opts.seconds <= 0.0 || opts.seconds > 15.0 {
+        return Err("benchmark scene duration must be in (0, 15] seconds".into());
+    }
+    if !matches!(foes, 10 | 20 | 30) {
+        return Err("benchmark scene requires 10, 20, or 30 foes".into());
+    }
+    if opts.ext.rift {
+        return Err("benchmark scene does not model rift progression".into());
+    }
+    let mut m = init_match(math, data, tables, mon, start, opts);
+    m.enemies.clear();
+    if mature {
+        // An explicit level-25 fixture: 25 stat cards, five levels on each attack, three on
+        // each buff. This is a stable CPU scene, not a claim about a naturally reached build.
+        m.level = 25;
+        m.state.cards = [8, 3, 5, 4, 3, 1, 1];
+        m.state.move_lvl = m.start.max_lvl.min(5);
+        m.state.sd = if m.has_sd {
+            m.data.moves[m.atk_buff].max_lvl.min(3)
+        } else {
+            0
+        };
+        m.state.hd = if m.has_hd {
+            m.data.moves[m.def_buff].max_lvl.min(3)
+        } else {
+            0
+        };
+        m.comps
+            .iter_mut()
+            .for_each(|c| c.1 = data.moves[c.0].max_lvl.min(5));
+        m.bonds = m.bond_order.len();
+        m.learned.fill(true);
+        m.stat_dirty = true;
+        m.stats();
+        m.pl.hp = m.st.max_hp;
+    }
+    for i in 0..foes {
+        let a = std::f64::consts::TAU * i as f64 / foes as f64;
+        let radius = 125.0 + (i % 3) as f64 * 82.0;
+        let mut e = blank_enemy(1.0e9, 0.0, mon.combo, 1, 1.0);
+        e.beh = Beh::Ranged;
+        e.def.beh = Beh::Ranged;
+        e.x = m.pl.x + a.cos() * radius;
+        e.y = m.pl.y + a.sin() * radius;
+        e.spd = 48.0 + (i % 4) as f64 * 13.0;
+        e.shot = 12.0 + (i % 3) as f64 * 3.0;
+        e.def.shot_dmg = e.shot;
+        e.def.shot_cd = 0.45;
+        e.def.range = 600.0;
+        e.shot_cd = 0.1 + (i % 5) as f64 * 0.03;
+        e.fuse = -1.0;
+        e.id = i as u32;
+        e.max = e.hp;
+        m.enemies.push(e);
+    }
+    let max_time = opts.seconds;
+    // Throughput fixture: a death must not end the scene early, or the timing
+    // measures spawn-in rather than the combat loop. This is not a survival run.
+    while m.t < max_time {
+        if m.pl.hp <= 0.0 {
+            m.pl.hp = m.st.max_hp.max(1.0);
+        }
+        let step = jmin(DT, max_time - m.t);
+        m.note_vel(step);
+        m.t += step;
+        m.ability_tick();
+        m.stats();
+        m.note_exposure(step);
+        if m.pl.hp > 0.0 && m.st.regen != 0.0 {
+            m.pl.hp = jmin(m.st.max_hp, m.pl.hp + m.st.regen * step);
+        }
+        if m.pl.inv > 0.0 {
+            m.pl.inv -= step;
+        }
+        m.decide();
+        let pspd = m.st.spd;
+        m.pl.x += m.pl.dirx * pspd * step;
+        m.pl.y += m.pl.diry * pspd * step;
+        if let Some(t) = &mut m.terrain {
+            t.world.collide(&mut m.pl.x, &mut m.pl.y, m.pl.r);
+        }
+        m.step_enemies();
+        m.tick_buffs();
+        m.stats();
+        m.maybe_swap();
+        m.stats();
+        if m.slot == 0 {
+            m.atk_cd -= step;
+            if m.atk_cd <= 0.0 {
+                m.atk_cd = if m.cast() { m.cooled(m.st.mv.cd) } else { 0.05 };
+            }
+            m.cast_comps();
+        } else {
+            m.alt_cd -= step;
+            if m.alt_cd <= 0.0 {
+                m.alt_cd = if m.cast() { m.cooled(m.st.mv.cd) } else { 0.05 };
+            }
+        }
+        m.step_shots();
+        m.resolve_enemy_shots();
+        m.resolve_contact();
+        if !m.fields.is_empty() {
+            m.step_fields();
+        }
+        m.reap();
+        m.stats();
+        m.tick_stragglers();
+        m.resolve_hazards();
+        m.tick_specials();
+        m.reap();
+    }
+    m.stats();
+    let capped = m.pl.hp > 0.0;
+    let time = if capped { max_time } else { m.t };
+    let result = RunResult {
+        time,
+        kills: m.kills,
+        bosses: m.bosses,
+        coins: js_round(run_coins(time, m.kills, m.bosses, m.picked)),
+        level: m.level,
+        capped,
+        status_ignored: m.status_ignored,
+        hp: m.pl.hp,
+        max_hp: m.st.max_hp,
+        hp_frac: if capped { m.pl.hp / m.st.max_hp } else { 0.0 },
+        dealt: m.dealt,
+        risk: m.risk,
+    };
+    Ok(MatureSceneResult {
+        result,
+        seconds: max_time,
+        foes,
+        level: m.level,
+        mature_fixture: mature,
+        hostile_projectiles: m.e_shots.len(),
+    })
 }
 pub fn run_match<M: MathFns>(
     math: &M,
@@ -6694,9 +7064,6 @@ pub fn run_match<M: MathFns>(
                 }
                 if !m.comps.is_empty() {
                     m.cast_comps();
-                }
-                if !m.extras.is_empty() {
-                    m.cast_extras();
                 }
             } else {
                 m.alt_cd -= step;

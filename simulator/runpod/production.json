@@ -1,0 +1,52 @@
+{
+  "schema": 1,
+  "gameCommit": "ce5785313b0205af8b9477423f64b0a7b7039dcd",
+  "engineFingerprint": "db6eebfcfce6eb1238e6258db05683fc32277ce1e5af33b5599f488c138c4865",
+  "policyVersion": "survivortiers-survival-safety-v1",
+  "dex": "all",
+  "screeningSeeds": [
+    1001,
+    1002,
+    1003,
+    1004
+  ],
+  "confirmationSeeds": [
+    2001,
+    2002,
+    2003,
+    2004,
+    2005,
+    2006,
+    2007,
+    2008,
+    2009,
+    2010,
+    2011,
+    2012,
+    2013,
+    2014,
+    2015,
+    2016
+  ],
+  "secondsPerMatch": 900,
+  "limits": {
+    "maxConfigurations": 20000,
+    "maxMatches": 400000,
+    "maxSimulatedSeconds": 360000000,
+    "maxWallSeconds": 900,
+    "maxFailedTasks": 200,
+    "threads": 32
+  },
+  "searchPolicy": {
+    "version": "survivortiers-survival-safety-v1",
+    "groupsPerStratum": 3,
+    "shortlistPerStratum": 1,
+    "confirmPerStratum": 1,
+    "exposureMargins": {
+      "contactDamagePerMinute": 0,
+      "contactFraction": 0,
+      "trappedFraction": 0
+    },
+    "survivalNoninferioritySeconds": 0
+  }
+}

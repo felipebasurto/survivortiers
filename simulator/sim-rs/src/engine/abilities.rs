@@ -614,3 +614,140 @@ impl<'a, M: MathFns> Match<'a, M> {
         }
     }
 }
+
+/// Attack view for the search prior. It uses move data only: no HP, weather, or RNG state.
+#[derive(Clone, Copy)]
+pub struct PriorAttack {
+    pub ty: u8,
+    pub cat: u8,
+    pub primary: u8,
+    pub own: bool,
+    pub melee: bool,
+    pub dash: bool,
+    pub base_dmg: f64,
+    pub count: f64,
+    pub bounce: bool,
+    pub has_effect: bool,
+    pub tags: u16,
+}
+
+/// Unconditional piece of `AbilityFrame::outgoing`, plus a few factors whose usual state is
+/// known without simulating: Schooling while above 25% HP, Stance Change's blade form,
+/// Hustle's expected hit, Slow Start averaged over a 900 s match, and Defeatist while healthy.
+/// Conditional thresholds (Blaze, weather, kills, low HP) stay at 1 so they do not pretend
+/// to be active for the whole fight. `plus` abilities still get the primary-type 1.08.
+pub fn ranking_prior(id: &str, hit: PriorAttack) -> (f64, f64) {
+    let phys = hit.cat == 1;
+    let spec = hit.cat == 2;
+    let mut offense = match id {
+        "steelworker" | "steely-spirit" if hit.ty == T_STEEL => 1.2,
+        "dragons-maw" if hit.ty == T_DRAGON => 1.2,
+        "transistor" if hit.ty == T_ELECTRIC => 1.2,
+        "water-bubble" if hit.ty == T_WATER => 1.4,
+        "technician" if hit.base_dmg <= 12. => 1.35,
+        "huge-power" | "pure-power" if phys => 1.5,
+        "hustle" if phys => (5. / 6.) * 1.25 + (1. / 6.) * 0.3,
+        "adaptability" if hit.own => 1.25,
+        "protean" | "libero" => 1.12,
+        "sheer-force" if hit.has_effect => 1.25,
+        "tough-claws" if hit.melee || hit.dash => 1.25,
+        "reckless" if hit.dash => 1.25,
+        "iron-fist" if hit.tags & 1 != 0 => 1.25,
+        "strong-jaw" if hit.tags & 2 != 0 => 1.3,
+        "mega-launcher" if hit.tags & 4 != 0 => 1.3,
+        "sharpness" if hit.tags & 8 != 0 => 1.3,
+        "punk-rock" if hit.tags & 16 != 0 => 1.3,
+        "truant" => 1.35,
+        "schooling" => 1.5,
+        "hyper-cutter" if phys => 1.06,
+        "plus" | "minus" if spec => 1.1,
+        "no-guard" => 1.15,
+        "skill-link" if hit.count > 2. || hit.bounce => 1.25,
+        "slow-start" => 0.97,
+        "defeatist" => 1.05,
+        "stance-change" => 1.2,
+        _ => 1.,
+    };
+    if Ability::of(id).generic() && hit.ty == hit.primary {
+        offense *= 1.08;
+    }
+    // Incoming factors that do not depend on the attacker's type. Physical contact is the
+    // swarm case the ranking is trying not to ignore; type-conditional resists stay out.
+    let incoming = match id {
+        "fur-coat" => 0.6,
+        "fluffy" => 0.7,
+        "shell-armor" | "battle-armor" | "pressure" | "unaware" => 0.92,
+        "intimidate" => 0.88,
+        "big-pecks" => 0.92,
+        "unnerve" | "friend-guard" => 0.94,
+        "no-guard" => 1.1,
+        _ => 1.,
+    };
+    (offense, incoming)
+}
+
+/// Always-on speed multiplier. Weather speed (Chlorophyll, Swift Swim) is not assumed.
+pub fn ranking_speed(id: &str) -> f64 {
+    match id {
+        "run-away" => 1.08,
+        "slow-start" => 0.99,
+        _ => 1.,
+    }
+}
+
+#[cfg(test)]
+mod oracle_tests {
+    use super::{ranking_prior, PriorAttack, PLUS, SPECIFIC};
+
+    fn hit(cat: u8) -> PriorAttack {
+        PriorAttack {
+            ty: 0,
+            cat,
+            primary: 0,
+            own: true,
+            melee: true,
+            dash: false,
+            base_dmg: 40.,
+            count: 1.,
+            bounce: false,
+            has_effect: false,
+            tags: 0,
+        }
+    }
+
+    #[test]
+    fn official_ability_catalog_matches_ported_effects() {
+        let oracle: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../tests/oracles/official-abilities-ce57853.json"
+        ))
+        .unwrap();
+        assert_eq!(
+            oracle["gameCommit"],
+            "ce5785313b0205af8b9477423f64b0a7b7039dcd"
+        );
+        let effects = oracle["effects"].as_object().unwrap();
+        assert_eq!(effects.len(), SPECIFIC.len());
+        for id in SPECIFIC {
+            let fx = effects.get(*id).unwrap_or_else(|| panic!("missing {id}"));
+            assert_eq!(fx["plus"].as_bool().unwrap(), PLUS.contains(id), "{id}");
+        }
+        for id in effects.keys() {
+            assert!(SPECIFIC.contains(&id.as_str()), "{id}");
+        }
+    }
+
+    #[test]
+    fn huge_power_outranks_an_alphabetical_alternative_on_physical_hits() {
+        let (huge, _) = ranking_prior("huge-power", hit(1));
+        let (thick, _) = ranking_prior("thick-fat", hit(1));
+        assert!(huge > thick);
+        assert!(huge > ranking_prior("sap-sipper", hit(1)).0);
+    }
+
+    #[test]
+    fn intimidate_is_a_base_survival_prior_not_an_aggro_damage_prior() {
+        let (_, inn) = ranking_prior("intimidate", hit(1));
+        assert!(inn < 1.);
+        assert_eq!(ranking_prior("intimidate", hit(1)).0, 1.);
+    }
+}

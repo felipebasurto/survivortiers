@@ -68,7 +68,7 @@ class SimResultsContractTests(unittest.TestCase):
     def test_rejects_missing_variant_in_cohort(self):
         data = fixture()
         data["results"].pop()
-        with self.assertRaisesRegex(sim_results.ResultContractError, "missing variants"):
+        with self.assertRaisesRegex(sim_results.ResultContractError, "lacks result/unavailable variants"):
             sim_results.validate_results(data)
 
     def test_rejects_missing_sources_and_tm_alternative(self):

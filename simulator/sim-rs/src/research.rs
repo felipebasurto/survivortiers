@@ -26,6 +26,7 @@ pub fn fingerprint() -> String {
         include_bytes!("selection.rs"),
         include_bytes!("selection_io.rs"),
         include_bytes!("batch.rs"),
+        include_bytes!("production.rs"),
         include_bytes!("../Cargo.toml"),
         include_bytes!("../Cargo.lock"),
         include_bytes!("../../data/game.json"),
@@ -333,32 +334,26 @@ pub(crate) fn prepare(data: &Data, path: &str) -> Vec<Task> {
                 || second == Some(stock),
             "off-pool stock attack requires the second starting slot"
         );
-        let mut ext = Ext {
-            ability: Some(ab.into()),
-            bonded: mode == "assembled",
-            rift: mode == "opening",
-            bosses: true,
-            full_cards: true,
-            initial_second: second,
-            alt: if mode == "opening" { second } else { None },
-            ..Ext::default()
-        };
+        let mut planned_buffs = Vec::new();
+        let mut companions = Vec::new();
         for &i in &group[1..] {
             if data.moves[i].is_attack() {
-                ext.companions.push(i);
-            } else if i == data.swords_dance || i == data.nasty_plot || i == data.dragon_dance {
-                assert!(ext.buffs & 1 == 0, "only one attack buff supported");
-                ext.buffs |= 1;
-                ext.np = i == data.nasty_plot;
-                ext.dd = i == data.dragon_dance;
-            } else if i == data.harden || i == data.agility {
-                assert!(ext.buffs & 2 == 0, "only one defense buff supported");
-                ext.buffs |= 2;
-                ext.agi = i == data.agility;
+                companions.push(i);
+            } else if data.moves[i].kind_name == "buff" && data.moves[i].levels[0].buff != 0 {
+                planned_buffs.push(i);
             } else {
                 panic!("unsupported buff: {}", data.moves[i].id);
             }
         }
+        let mut ext = Ext::with_planned_buffs(data, planned_buffs).expect("legal planned buffs");
+        ext.ability = Some(ab.into());
+        ext.companions = companions;
+        ext.bonded = mode == "assembled";
+        ext.rift = mode == "opening";
+        ext.bosses = true;
+        ext.full_cards = true;
+        ext.initial_second = second;
+        ext.alt = if mode == "opening" { second } else { None };
         tasks.push(Task {
             spec: row,
             mon,

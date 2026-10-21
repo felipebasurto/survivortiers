@@ -236,6 +236,275 @@ fn monotype_hits_20_percent_harder_with_its_own_type_only() {
 }
 
 #[test]
+fn planned_buff_ids_support_mixed_scaling_and_aqua_ring_regen() {
+    let sd = mv("swords-dance");
+    let np = mv("nasty-plot");
+    let aqua = mv("aqua-ring");
+    let mut ext = Ext::with_planned_buffs(dat(), vec![sd, np]).expect("two scaling buffs");
+    ext.item = Item::default();
+    let mut m = scene_with_ext(25, "tackle", ext);
+    m.tick_buffs();
+    m.stat_dirty = true;
+    m.stats();
+    let expected_p = 1.0 + m.state.buff_effects[5].stacks * m.state.buff_effects[5].amount;
+    let expected_s = 1.0 + m.state.buff_effects[6].stacks * m.state.buff_effects[6].amount;
+    assert!((m.st.patk - expected_p).abs() < 1e-12);
+    assert!((m.st.satk - expected_s).abs() < 1e-12);
+
+    let ext = Ext::with_planned_buffs(dat(), vec![aqua, sd]).expect("Aqua Ring plus attack buff");
+    let mut m = scene_with_ext(25, "tackle", ext);
+    m.tick_buffs();
+    m.stat_dirty = true;
+    m.stats();
+    assert!(m.st.regen >= lvl1("aqua-ring").amount);
+}
+
+#[test]
+fn buffs_writing_the_same_stat_share_the_game_stack_cap_and_last_amount() {
+    // player.js:addBuff writes one shared state per stat, so the later Dragon Dance
+    // overwrites amount, adds to the existing stack count and sets the shared timer.
+    let ext = Ext::with_planned_buffs(dat(), vec![mv("swords-dance"), mv("dragon-dance")])
+        .expect("same-stat pair");
+    let mut m = scene_with_ext(25, "tackle", ext);
+    m.state.buff_effects[5] = BuffEffect {
+        stacks: 4.0,
+        time: 2.0,
+        amount: lvl1("swords-dance").amount,
+    };
+    m.state.sd_cd = 10.0;
+    m.state.hd_cd = 0.0;
+    m.tick_buffs();
+    assert_eq!(m.state.buff_effects[5].stacks, 5.0);
+    assert_eq!(m.state.buff_effects[5].amount, lvl1("dragon-dance").amount);
+    assert_eq!(m.state.buff_effects[5].time, lvl1("dragon-dance").dur);
+    m.stat_dirty = true;
+    m.stats();
+    assert!((m.st.patk - (1.0 + 5.0 * lvl1("dragon-dance").amount)).abs() < 1e-12);
+}
+
+#[test]
+fn planned_buff_constructor_rejects_nonbuff_duplicate_and_third_move() {
+    let attack = mv("tackle");
+    let buff = mv("swords-dance");
+    assert!(Ext::with_planned_buffs(dat(), vec![attack]).is_err());
+    assert!(Ext::with_planned_buffs(dat(), vec![buff, buff]).is_err());
+    assert!(Ext::with_planned_buffs(dat(), vec![buff, mv("harden"), mv("aqua-ring")]).is_err());
+    for id in [
+        "swords-dance",
+        "dragon-dance",
+        "nasty-plot",
+        "harden",
+        "agility",
+        "aqua-ring",
+    ] {
+        assert!(Ext::with_planned_buffs(dat(), vec![mv(id)]).is_ok(), "{id}");
+    }
+    let no_buffs = Ext::with_planned_buffs(dat(), vec![]).expect("explicitly empty plan");
+    assert_eq!(no_buffs.planned_buffs, Some(vec![]));
+}
+
+#[test]
+fn planned_buffs_are_acquired_in_opening_but_present_in_assembled_state() {
+    let planned = vec![mv("swords-dance"), mv("aqua-ring")];
+    let opening_ext = Ext {
+        planned_buffs: Some(planned.clone()),
+        rift: true,
+        ..Ext::default()
+    };
+    let opts: &'static Opts = Box::leak(Box::new(Opts {
+        seed: 2,
+        seconds: 0.5,
+        cards: true,
+        bot: Bot::Kite,
+        terrain: false,
+        trace: false,
+        ext: opening_ext,
+    }));
+    let mut opening = init_match(&LIBM, dat(), tables(), mon(25), mv("tackle"), opts);
+    assert_eq!(opening.bond_order, vec![100, 101]);
+    assert_eq!(opening.learned, vec![false, false]);
+    assert_eq!((opening.state.sd, opening.state.hd), (0, 0));
+    for seed in 1..=512 {
+        opening.card_roll = crate::rng::Rng::new(seed);
+        opening.try_learn();
+        if opening.learned[0] {
+            break;
+        }
+    }
+    assert!(
+        opening.learned[0],
+        "level-up offer eventually learns the planned first buff"
+    );
+    assert_eq!(
+        opening.state.sd, 1,
+        "acquisition initializes its upgrade level"
+    );
+    opening.bonds = 1;
+    assert!(opening.bonded(100));
+    opening.tick_buffs();
+    assert!(opening.state.buff_effects[5].stacks > 0.0);
+
+    let assembled_ext = Ext::with_planned_buffs(dat(), planned).unwrap();
+    let assembled = scene_with_ext(25, "tackle", assembled_ext);
+    assert_eq!(assembled.learned, vec![true, true]);
+    assert_eq!((assembled.state.sd, assembled.state.hd), (1, 1));
+}
+
+#[test]
+fn official_inventory_oracle_and_bonded_slot_dilution() {
+    let oracle: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../tests/oracles/official-core-ce57853.json"
+    ))
+    .unwrap();
+    assert_eq!(
+        oracle["gameCommit"],
+        "ce5785313b0205af8b9477423f64b0a7b7039dcd"
+    );
+    assert_eq!(oracle["observations"]["inventory"]["before"]["slots"], 4);
+    assert_eq!(oracle["observations"]["inventory"]["after"]["slots"], 1);
+    assert_eq!(
+        oracle["observations"]["inventory"]["after"]["offers"][0]["w"],
+        10
+    );
+
+    // Four moves in one assembled group consume one slot, so levelup may still offer new moves.
+    let mut m = scene_with_ext(
+        7,
+        "water-gun",
+        Ext {
+            companions: vec![mv("whirlpool"), mv("nasty-plot"), mv("tackle")],
+            ..Ext::default()
+        },
+    );
+    assert_eq!(m.known_count(), 4);
+    assert_eq!(m.slot_count(), 1);
+    assert!(m.extra_room());
+    let mut offered_new_move = false;
+    for seed in 1..128 {
+        let mut candidate = scene_with_ext(
+            7,
+            "water-gun",
+            Ext {
+                companions: vec![mv("whirlpool"), mv("nasty-plot"), mv("tackle")],
+                ..Ext::default()
+            },
+        );
+        candidate.card_roll = Rng::new(seed);
+        if candidate.try_learn() && !candidate.extras.is_empty() {
+            offered_new_move = true;
+            break;
+        }
+    }
+    assert!(
+        offered_new_move,
+        "a bonded four-move group should still acquire an offered standalone move"
+    );
+
+    // A learned off-group attack occupies a standalone slot and gets upgrade cards,
+    // but it is inventory only: active-group casting never emits it autonomously.
+    let extra = mv("quick-attack");
+    m.extras.push((extra, 0.0));
+    m.extra_levels.push(1);
+    m.extra_evolved.push(false);
+    assert_eq!(m.slot_count(), 2);
+    let mut legal = Vec::new();
+    m.legal_cards(&mut legal);
+    assert!(legal.contains(&Card::UpExtra(0)));
+    let hit = foe(
+        &mut m,
+        dat().moves[extra].levels[0].ty,
+        1000.0,
+        1000.0,
+        false,
+        0.0,
+    );
+    m.atk_cd = 1.0;
+    tick(&mut m);
+    assert_eq!(m.enemies[hit].hp, 1e9);
+    m.apply_card(Card::UpExtra(0));
+    assert_eq!(m.extra_levels[0], 2);
+}
+
+#[test]
+fn schooling_rounds_the_transformed_max_hp_like_the_official_start_hook() {
+    let mon = dat()
+        .dex
+        .iter()
+        .find(|m| m.hp % 4.0 != 0.0)
+        .expect("non-quarter HP");
+    let mut m = scene(mon.dex, "tackle");
+    m.ability = Ability { id: "schooling" };
+    m.state.cards[Stat::Hp as usize] = 1;
+    m.stat_dirty = true;
+    m.stats();
+    assert_eq!(m.st.max_hp, js_round(mon.hp * 1.25) + 20.0);
+}
+
+#[test]
+fn mature_benchmark_fixture_is_labelled_and_enforces_short_scene_bounds() {
+    let opts: &'static Opts = Box::leak(Box::new(Opts {
+        seed: 7,
+        seconds: 0.1,
+        cards: false,
+        bot: Bot::Kite,
+        terrain: false,
+        trace: false,
+        ext: Ext::default(),
+    }));
+    let run = benchmark_scene(
+        &LIBM,
+        dat(),
+        tables(),
+        mon(150),
+        mv("psybeam"),
+        opts,
+        10,
+        true,
+    )
+    .expect("bounded mature fixture");
+    assert_eq!(
+        (run.seconds, run.foes, run.level, run.mature_fixture),
+        (0.1, 10, 25, true)
+    );
+    assert_eq!(run.result.time, 0.1);
+    assert!(
+        run.hostile_projectiles > 0,
+        "fixture should exercise ranged shot simulation"
+    );
+    assert!(benchmark_scene(
+        &LIBM,
+        dat(),
+        tables(),
+        mon(150),
+        mv("psybeam"),
+        opts,
+        9,
+        true
+    )
+    .is_err());
+    let too_long: &'static Opts = Box::leak(Box::new(Opts {
+        seed: 7,
+        seconds: 15.01,
+        cards: false,
+        bot: Bot::Kite,
+        terrain: false,
+        trace: false,
+        ext: Ext::default(),
+    }));
+    assert!(benchmark_scene(
+        &LIBM,
+        dat(),
+        tables(),
+        mon(150),
+        mv("psybeam"),
+        too_long,
+        10,
+        true
+    )
+    .is_err());
+}
+
+#[test]
 fn start_choices_keep_the_off_type_stock_attack() {
     let psyduck = mon(54);
     let confusion = mv("confusion");

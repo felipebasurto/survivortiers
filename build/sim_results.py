@@ -12,6 +12,10 @@ import re
 from typing import Any
 
 
+STAT_ES_LABELS = {"hp": "PS", "atk": "Ataque", "pa": "Ataque", "sa": "Ataque especial",
+                  "df": "Defensa", "sd": "Defensa especial", "spd": "Velocidad"}
+
+
 class ResultContractError(ValueError):
     """An export is incomplete, inconsistent, or not publishable."""
 
@@ -121,6 +125,13 @@ def validate_results(document: dict[str, Any], game_data: dict[str, Any] | None 
             errors.append(f"{at} is a placeholder or has an unconfirmed winner")
         if style in ("melee", "ranged") and availability in ("optimized", "no_tm"):
             _validate_build(build, at, errors, game_data, dex)
+            if document.get("export_mode") == "renderable_web":
+                _validate_render_metadata(build, at, errors, game_data, dex)
+                selection = row.get("selection")
+                if (not isinstance(selection, dict) or selection.get("outcome") not in ("best_observed", "tied_best")
+                        or selection.get("claim") != "best observed; no superiority claimed"
+                        or not isinstance(selection.get("confidence"), dict)):
+                    errors.append(f"{at}.selection must preserve a confirmed observed outcome and uncertainty")
         score = row.get("score")
         if not isinstance(score, dict) or score.get("version") != score_version:
             errors.append(f"{at}.score.version must match experiment.score_version")
@@ -132,11 +143,6 @@ def validate_results(document: dict[str, Any], game_data: dict[str, Any] | None 
             errors.append(f"{at}.confirmation_seed_set must match the declared confirmation seed set")
         confirmation_signatures.add((seeds.get("hash") if isinstance(seeds, dict) else None,
                                      score.get("version") if isinstance(score, dict) else None))
-    for cohort in groups:
-        actual = cohort_variants.get(cohort, set())
-        missing = {vid for vid, _, _ in expected} - actual
-        if missing:
-            errors.append(f"cohort {cohort} is missing variants: {', '.join(sorted(missing))}")
     if len(confirmation_signatures) > 1:
         errors.append("results mix confirmation seed sets or score versions")
 
@@ -154,18 +160,49 @@ def validate_results(document: dict[str, Any], game_data: dict[str, Any] | None 
                     errors.append(f"unavailable_cohorts[{i}] duplicates an available or unavailable cohort")
                 unavailable_keys.add(key)
 
+    unavailable_variants = document.get("unavailable_variants", [])
+    unavailable_variant_keys: set[tuple[int, str, str, str]] = set()
+    unavailable_variant_cohorts: set[tuple[int, str, str]] = set()
+    if not isinstance(unavailable_variants, list):
+        errors.append("unavailable_variants must be a list")
+    else:
+        for i, item in enumerate(unavailable_variants):
+            if (not isinstance(item, dict) or not isinstance(item.get("dex"), int)
+                    or item.get("style") not in ("melee", "ranged")
+                    or item.get("availability") not in ("optimized", "no_tm")
+                    or not isinstance(item.get("variant"), dict) or not _text(item["variant"].get("id"))
+                    or not _text(item.get("reason"))):
+                errors.append(f"unavailable_variants[{i}] needs dex, style, availability, variant, and reason")
+                continue
+            key = (item["dex"], item["style"], item["availability"], item["variant"]["id"])
+            if key in unavailable_variant_keys or key in result_index:
+                errors.append(f"unavailable_variants[{i}] duplicates an available/unavailable result")
+            unavailable_variant_keys.add(key)
+            unavailable_variant_cohorts.add(key[:3])
+            spec = next((x for x in expected if x[0] == key[3]), None)
+            if spec is None or item["variant"].get("aggro") != spec[1] or item["variant"].get("coverage") != spec[2]:
+                errors.append(f"unavailable_variants[{i}].variant is undeclared or disagrees with axes")
+
     dexes = experiment.get("pokemon_dexes")
     if not isinstance(dexes, list) or not dexes or any(not isinstance(d, int) for d in dexes) or len(set(dexes)) != len(dexes):
         errors.append("experiment.pokemon_dexes must be a nonempty unique list of included dex numbers")
     else:
+        extra_dexes = (groups | unavailable_keys | unavailable_variant_cohorts)
+        undeclared = {cohort[0] for cohort in extra_dexes if cohort[0] not in set(dexes)}
+        if undeclared:
+            errors.append(f"results contain dexes absent from experiment.pokemon_dexes: {sorted(undeclared)}")
         for dex in dexes:
             for style, availability in itertools.product(("melee", "ranged"), ("optimized", "no_tm")):
                 cohort = (dex, style, availability)
-                present = cohort in groups or cohort in unavailable_keys
+                present = cohort in groups or cohort in unavailable_keys or cohort in unavailable_variant_cohorts
                 if not present:
                     errors.append(f"cohort {cohort} must be available in results or declared unavailable")
-                if cohort in groups and cohort in unavailable_keys:
+                if (cohort in groups or cohort in unavailable_variant_cohorts) and cohort in unavailable_keys:
                     errors.append(f"cohort {cohort} cannot be both available and unavailable")
+                actual = cohort_variants.get(cohort, set()) | {v[3] for v in unavailable_variant_keys if v[:3] == cohort}
+                if present and actual != {v[0] for v in expected} and cohort not in unavailable_keys:
+                    missing = {v[0] for v in expected} - actual
+                    errors.append(f"cohort {cohort} lacks result/unavailable variants: {', '.join(sorted(missing))}")
 
     # Every optimized row's fallback must point at a measured no-TM outcome for
     # the same species, style, and control variant.
@@ -175,7 +212,10 @@ def validate_results(document: dict[str, Any], game_data: dict[str, Any] | None 
             continue
         fallback = row.get("build", {}).get("no_tm_alternative", {})
         target = result_index.get((dex, style, "no_tm", vid))
-        if not isinstance(fallback, dict) or target is None or target.get("build", {}).get("id") != fallback.get("build_id"):
+        if isinstance(fallback, dict) and fallback.get("available") is False:
+            if not _text(fallback.get("reason")) or target is not None:
+                errors.append(f"optimized result {key} has an invalid unavailable no-TM alternative")
+        elif not isinstance(fallback, dict) or target is None or target.get("build", {}).get("id") != fallback.get("build_id"):
             errors.append(f"optimized result {key} has no matching measured no-TM alternative")
         elif target.get("build", {}).get("tm_requirements") != []:
             errors.append(f"no-TM alternative for {key} has TM requirements")
@@ -276,7 +316,9 @@ def _validate_build(build: dict[str, Any], at: str, errors: list[str], game: dic
             if isinstance(ability, dict) and ability.get("id") not in legal_abilities:
                 errors.append(f"{at}.build.ability is not legal for this species")
     alt = build.get("no_tm_alternative")
-    if build.get("availability") == "optimized" and (not isinstance(alt, dict) or not _text(alt.get("build_id")) or not isinstance(alt.get("attacks"), list) or not alt["attacks"]):
+    if build.get("availability") == "optimized" and (not isinstance(alt, dict) or (
+            alt.get("available") is False and not _text(alt.get("reason"))) or (
+            alt.get("available") is not False and (not _text(alt.get("build_id")) or not isinstance(alt.get("attacks"), list) or not alt["attacks"]))):
         errors.append(f"{at}.build.no_tm_alternative must identify a measured no-TM build")
 
 
@@ -291,6 +333,81 @@ def _validate_seed_set(seeds: dict[str, Any], label: str, errors: list[str]) -> 
     digest = "sha256:" + hashlib.sha256(canonical).hexdigest()
     if seeds.get("hash") != digest:
         errors.append(f"{label}.hash must be SHA256 of the sorted compact JSON seed ID list")
+
+
+def _validate_render_metadata(build: dict[str, Any], at: str, errors: list[str], game: dict[str, Any] | None, dex: int) -> None:
+    ability, nature = build.get("ability"), build.get("nature")
+    if not isinstance(ability, dict) or not all(_text(ability.get(k)) for k in ("name", "effect", "effect_kind", "effect_source")):
+        errors.append(f"{at}.build.ability needs acquired name, effect, kind, and source")
+    if build.get("ability_slot") not in ("default", "normal", "hidden"):
+        errors.append(f"{at}.build.ability_slot must identify the selected slot")
+    capsule = build.get("ability_capsule")
+    if build.get("ability_slot") == "default" and capsule is not None:
+        errors.append(f"{at}.build default ability must not require a capsule")
+    if build.get("ability_slot") == "normal" and (not isinstance(capsule, dict) or capsule.get("id") != "cap" or not isinstance(capsule.get("price"), int) or not _text(capsule.get("source"))):
+        errors.append(f"{at}.build normal ability must include the normal capsule acquisition")
+    if build.get("ability_slot") == "hidden" and (not isinstance(capsule, dict) or capsule.get("id") != "caph" or not isinstance(capsule.get("price"), int) or not _text(capsule.get("source"))):
+        errors.append(f"{at}.build hidden ability must include the hidden capsule acquisition")
+    if not isinstance(nature, dict) or not _text(nature.get("name")) or any(not isinstance(nature.get(k), dict) or not _text(nature[k].get("name")) for k in ("up", "down")) or not isinstance(nature.get("resulting_stats"), dict):
+        errors.append(f"{at}.build.nature needs acquired name and up/down stat labels")
+    mint = nature.get("change_item") if isinstance(nature, dict) else None
+    if not isinstance(mint, dict) or mint.get("id") != "mint" or not isinstance(mint.get("price"), int) or not _text(mint.get("source")):
+        errors.append(f"{at}.build.nature needs a source-backed mint price")
+    if not isinstance(build.get("initial_attack_details"), list) or len(build["initial_attack_details"]) != len(build.get("initial_attacks", [])):
+        errors.append(f"{at}.build.initial_attack_details must describe each selected start attack")
+    else:
+        for item in build["initial_attack_details"]:
+            unlock = item.get("unlock") if isinstance(item, dict) else None
+            if not isinstance(unlock, dict) or not isinstance(unlock.get("price"), int) or not _text(unlock.get("source")):
+                errors.append(f"{at}.build.initial_attack_details needs upgrade price and source")
+    if game is not None and isinstance(build.get("initial_attack_details"), list):
+        upgrades = {u.get("id"): u for u in game.get("upgrades", []) if isinstance(u, dict)}
+        species = next((p for p in game.get("dex", []) if p.get("dex") == dex), None)
+        for index, item in enumerate(build["initial_attack_details"], 1):
+            unlock = item.get("unlock", {}) if isinstance(item, dict) else {}
+            expected_upgrade = "start" if index == 1 else "start2"
+            expected_price = 0 if index == 1 and species and item.get("id") == species.get("start") else upgrades.get(expected_upgrade, {}).get("base")
+            if unlock.get("upgrade_id") != expected_upgrade or unlock.get("price") != expected_price:
+                errors.append(f"{at}.build.initial_attack_details upgrade cost disagrees with game.json")
+            if index == 2 and unlock.get("requires") != [{"upgrade_id": "moves", "price": upgrades.get("moves", {}).get("base")}]:
+                errors.append(f"{at}.build.initial_attack_details second attack must include Repertorio cost")
+    tms = build.get("tm_requirements")
+    if isinstance(tms, list):
+        for tm in tms:
+            if not isinstance(tm, dict) or not isinstance(tm.get("price"), int) or not _text(tm.get("name")):
+                errors.append(f"{at}.build.tm_requirements needs acquired name and price")
+            elif game is not None and game.get("tmPrices", {}).get(tm.get("id")) != tm.get("price"):
+                errors.append(f"{at}.build.tm_requirements price disagrees with game.json")
+    natural = build.get("natural_pool")
+    sources = build.get("acquisition_sources")
+    if not isinstance(natural, list) or not natural or any(not isinstance(m, dict) or not _text(m.get("id")) or not _text(m.get("name")) for m in natural):
+        errors.append(f"{at}.build.natural_pool must contain named native moves")
+    if not isinstance(sources, dict) or any(not _text(sources.get(k)) for k in ("natural_pool", "starting_choices", "startup_upgrades", "nature_stats")):
+        errors.append(f"{at}.build.acquisition_sources is incomplete")
+    elif game is not None:
+        species = next((p for p in game.get("dex", []) if p.get("dex") == dex), None)
+        natural_ids = [m.get("id") for m in natural] if isinstance(natural, list) else []
+        if species is None or natural_ids != species.get("pool"):
+            errors.append(f"{at}.build.natural_pool disagrees with game.json")
+        if species is not None:
+            choices = species.get("abilities", [])
+            ability_id = build.get("ability", {}).get("id")
+            slot_index = choices.index(ability_id) if ability_id in choices else -1
+            expected_slot = "default" if slot_index == 0 else "normal" if slot_index == 1 else "hidden" if slot_index == 2 else None
+            if build.get("ability_slot") != expected_slot:
+                errors.append(f"{at}.build.ability_slot disagrees with species ability slots")
+        nature = build.get("nature") if isinstance(build.get("nature"), dict) else {}
+        source_nature = next((n for n in game.get("natures", []) if n.get("id") == nature.get("id")), {})
+        for side in ("up", "down"):
+            if nature.get(side, {}).get("id") != source_nature.get(side) or nature.get(side, {}).get("name") != STAT_ES_LABELS.get(source_nature.get(side), "Sin cambios"):
+                errors.append(f"{at}.build.nature {side} stat disagrees with game.json")
+        if species is not None and isinstance(nature.get("resulting_stats"), dict):
+            for stat, base_key in (("pa", "pa"), ("sa", "sa"), ("df", "df"), ("sd", "sd"), ("spd", "spd")):
+                expected_base = float(species.get(base_key, 0))
+                factor = 1.1 if source_nature.get("up") == stat else 0.9 if source_nature.get("down") == stat else 1.0
+                values = nature["resulting_stats"].get(stat, {})
+                if values.get("base") != expected_base or values.get("after_nature") != round(expected_base * factor, 4):
+                    errors.append(f"{at}.build.nature resulting {stat} disagrees with game.json")
 
 
 def _text(value: Any) -> bool:

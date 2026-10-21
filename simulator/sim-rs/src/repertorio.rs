@@ -50,10 +50,18 @@ fn round3(x: f64) -> f64 {
 
 /// Mean over the draws of the band of whichever move is played, rounded, with the
 /// interval clamped around the median.
-fn expectation(starter: &OpeningMove, pool: &[&OpeningMove], band: impl Fn(&OpeningMove) -> (f64, f64, f64)) -> (f64, f64, f64) {
+fn expectation(
+    starter: &OpeningMove,
+    pool: &[&OpeningMove],
+    band: impl Fn(&OpeningMove) -> (f64, f64, f64),
+) -> (f64, f64, f64) {
     let (mut sm, mut sl, mut sh) = (0.0, 0.0, 0.0);
     for c in pool {
-        let (m, l, h) = if value_of(c) > value_of(starter) { band(c) } else { band(starter) };
+        let (m, l, h) = if value_of(c) > value_of(starter) {
+            band(c)
+        } else {
+            band(starter)
+        };
         sm += m;
         sl += l;
         sh += h;
@@ -95,10 +103,18 @@ pub fn opening_value(starter: &OpeningMove, candidates: &[OpeningMove], bans: us
         (starter.median, starter.lo, starter.hi)
     };
     let rank = starter.rank.map(|r| {
-        let starter_band = (r, starter.rank_lo.unwrap_or(f64::NAN), starter.rank_hi.unwrap_or(f64::NAN));
+        let starter_band = (
+            r,
+            starter.rank_lo.unwrap_or(f64::NAN),
+            starter.rank_hi.unwrap_or(f64::NAN),
+        );
         if played {
             expectation(starter, &pool, |m| {
-                (m.rank.unwrap_or(f64::NAN), m.rank_lo.unwrap_or(f64::NAN), m.rank_hi.unwrap_or(f64::NAN))
+                (
+                    m.rank.unwrap_or(f64::NAN),
+                    m.rank_lo.unwrap_or(f64::NAN),
+                    m.rank_hi.unwrap_or(f64::NAN),
+                )
             })
         } else {
             starter_band
@@ -107,7 +123,9 @@ pub fn opening_value(starter: &OpeningMove, candidates: &[OpeningMove], bans: us
 
     // Stuck on melee when no remaining draw is a strictly better non-melee attack.
     let melee_locked = starter.kind == "melee"
-        && pool.iter().all(|c| !(c.kind != "melee" && value_of(c) > value_of(starter)));
+        && pool
+            .iter()
+            .all(|c| !(c.kind != "melee" && value_of(c) > value_of(starter)));
 
     Opening {
         median,
@@ -131,10 +149,15 @@ fn num(cell: Option<&&str>) -> f64 {
 
 /// dex -> move id -> row. A later row for the same move replaces an earlier one.
 fn load_sweep(text: &str) -> HashMap<u32, HashMap<String, OpeningMove>> {
-    let mut lines = text.lines().filter(|l| !l.is_empty() && !l.starts_with('#'));
+    let mut lines = text
+        .lines()
+        .filter(|l| !l.is_empty() && !l.starts_with('#'));
     let header = lines.next().expect("sweep has no header");
     let ix: HashMap<&str, usize> = header.split(',').enumerate().map(|(i, c)| (c, i)).collect();
-    let col = |name: &str| *ix.get(name).unwrap_or_else(|| panic!("sweep has no {name} column"));
+    let col = |name: &str| {
+        *ix.get(name)
+            .unwrap_or_else(|| panic!("sweep has no {name} column"))
+    };
     let (dex_c, start_c, kind_c) = (col("dex"), col("start"), col("kind"));
     let mut by_dex: HashMap<u32, HashMap<String, OpeningMove>> = HashMap::new();
     for line in lines.filter(|l| *l != header) {
@@ -151,7 +174,10 @@ fn load_sweep(text: &str) -> HashMap<u32, HashMap<String, OpeningMove>> {
             rank_lo: score.map(|_| num(at("score_lo"))),
             rank_hi: score.map(|_| num(at("score_hi"))),
         };
-        let dex: u32 = p[dex_c].trim().parse().unwrap_or_else(|_| panic!("bad dex in {line}"));
+        let dex: u32 = p[dex_c]
+            .trim()
+            .parse()
+            .unwrap_or_else(|_| panic!("bad dex in {line}"));
         by_dex.entry(dex).or_default().insert(row.id.clone(), row);
     }
     by_dex
@@ -167,7 +193,11 @@ fn openings(starts: &[(u32, String)], sweep_text: &str) -> Vec<(u32, Opening)> {
             let rows = sweep.get(dex).filter(|r| r.contains_key(start));
             let rows = rows.unwrap_or_else(|| panic!("sweep has no starter for {dex} {start}"));
             let starter = rows[start].clone();
-            let candidates: Vec<OpeningMove> = rows.values().filter(|r| r.id != *start && r.kind != "buff").cloned().collect();
+            let candidates: Vec<OpeningMove> = rows
+                .values()
+                .filter(|r| r.id != *start && r.kind != "buff")
+                .cloned()
+                .collect();
             (*dex, opening_value(&starter, &candidates, BANS))
         })
         .collect();
@@ -176,7 +206,11 @@ fn openings(starts: &[(u32, String)], sweep_text: &str) -> Vec<(u32, Opening)> {
 }
 
 pub fn openings_from_sweep(data: &Data, sweep_text: &str) -> Vec<(u32, Opening)> {
-    let starts: Vec<(u32, String)> = data.dex.iter().map(|mon| (mon.dex, data.moves[mon.start].id.clone())).collect();
+    let starts: Vec<(u32, String)> = data
+        .dex
+        .iter()
+        .map(|mon| (mon.dex, data.moves[mon.start].id.clone()))
+        .collect();
     openings(&starts, sweep_text)
 }
 
@@ -220,8 +254,14 @@ mod tests {
 
     fn row(id: &str, kind: &str, rank: f64) -> OpeningMove {
         OpeningMove {
-            id: id.into(), kind: kind.into(), median: 100.0, lo: 90.0, hi: 110.0,
-            rank: Some(rank), rank_lo: Some(rank - 10.0), rank_hi: Some(rank + 10.0),
+            id: id.into(),
+            kind: kind.into(),
+            median: 100.0,
+            lo: 90.0,
+            hi: 110.0,
+            rank: Some(rank),
+            rank_lo: Some(rank - 10.0),
+            rank_hi: Some(rank + 10.0),
         }
     }
 
@@ -232,16 +272,45 @@ mod tests {
         assert!(!cases.is_empty());
         for case in cases {
             let starter = mov(&case["starter"]);
-            let candidates: Vec<OpeningMove> = case["candidates"].as_array().unwrap().iter().map(mov).collect();
-            let got = opening_value(&starter, &candidates, case["bans"].as_u64().unwrap() as usize);
+            let candidates: Vec<OpeningMove> = case["candidates"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(mov)
+                .collect();
+            let got = opening_value(
+                &starter,
+                &candidates,
+                case["bans"].as_u64().unwrap() as usize,
+            );
             let expect = &case["expect"];
-            assert_eq!(got.median, expect["median"].as_f64().unwrap(), "{}", case["name"]);
+            assert_eq!(
+                got.median,
+                expect["median"].as_f64().unwrap(),
+                "{}",
+                case["name"]
+            );
             assert_eq!(got.lo, expect["lo"].as_f64().unwrap(), "{}", case["name"]);
             assert_eq!(got.hi, expect["hi"].as_f64().unwrap(), "{}", case["name"]);
-            let banned: Vec<String> = expect["banned"].as_array().unwrap().iter().map(|v| v.as_str().unwrap().to_string()).collect();
+            let banned: Vec<String> = expect["banned"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|v| v.as_str().unwrap().to_string())
+                .collect();
             assert_eq!(got.banned, banned, "{}", case["name"]);
-            assert_eq!(got.draws, expect["draws"].as_u64().unwrap() as usize, "{}", case["name"]);
-            assert_eq!(got.melee_locked, expect["meleeLocked"].as_bool().unwrap(), "{}", case["name"]);
+            assert_eq!(
+                got.draws,
+                expect["draws"].as_u64().unwrap() as usize,
+                "{}",
+                case["name"]
+            );
+            assert_eq!(
+                got.melee_locked,
+                expect["meleeLocked"].as_bool().unwrap(),
+                "{}",
+                case["name"]
+            );
         }
     }
 
@@ -251,7 +320,10 @@ mod tests {
     // (105.936 + 145.938 + 4 * 72.799) / 6 = 90.512.
     #[test]
     fn marshadow_bans_the_three_worst_and_expects_the_mean_of_the_rest() {
-        let got = openings(&[(802, "karate-chop".into())], include_str!("repertorio_marshadow.csv"));
+        let got = openings(
+            &[(802, "karate-chop".into())],
+            include_str!("repertorio_marshadow.csv"),
+        );
         let (dex, o) = &got[0];
         assert_eq!(*dex, 802);
         assert_eq!(o.banned, ["aura-sphere", "body-slam", "hyper-voice"]);
@@ -263,7 +335,14 @@ mod tests {
     #[test]
     fn rank_follows_the_played_move() {
         let starter = row("tackle", "melee", 50.0);
-        let got = opening_value(&starter, &[row("ember", "projectile", 80.0), row("growl", "projectile", 10.0)], 0);
+        let got = opening_value(
+            &starter,
+            &[
+                row("ember", "projectile", 80.0),
+                row("growl", "projectile", 10.0),
+            ],
+            0,
+        );
         assert_eq!(got.rank, Some((65.0, 55.0, 75.0)));
         assert!(!got.melee_locked);
     }

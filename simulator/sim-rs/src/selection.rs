@@ -40,7 +40,11 @@ pub struct Configuration {
 /// Nature equivalence is based only on configured combat stats. Ability equivalence is
 /// deliberately not inferred: abilities can have effects beyond the Mon stat record.
 pub fn nature_equivalence(data: &Data, base: &Mon, nature: &str) -> Result<String, String> {
-    let mon = data.configure(base, nature, None, &[])?;
+    // Strip abilities before applying nature so the Imposter fallback cannot make different
+    // natures appear equivalent only for that one ability's transformed stats.
+    let mut neutral_base = base.clone();
+    neutral_base.abilities.clear();
+    let mon = data.configure(&neutral_base, nature, None, &[])?;
     let signature = [mon.hp, mon.spd, mon.atk, mon.pa, mon.sa, mon.df, mon.sd]
         .iter()
         .map(|v| format!("{:016x}", v.to_bits()))

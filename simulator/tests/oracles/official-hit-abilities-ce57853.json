@@ -1,0 +1,85 @@
+{
+  "schema": 1,
+  "gameCommit": "ce5785313b0205af8b9477423f64b0a7b7039dcd",
+  "source": "Unmodified pinned dev.html in isolated incognito browser; actual G.Player/G.Stats/G.Moves methods. No replacement mechanics.",
+  "sourceHashes": {
+    "js/entities/player.js": "fff9f133389d4f5887732e52ae50bb7ebe68b44ead08ba879cbefe403d06c660",
+    "js/systems/levelup.js": "b40e9d02b19c8f695818aea6f46417518d6d9e083aa210c02c2cb0ce9779dd63",
+    "js/data/ability-fx.js": "6ede86b7841cfad6096b380fea3f045e2ce61097d6f30456e7517a4dd3d50112",
+    "js/data/moves.js": "ecd20a27cfc9cf4e41abd73a278eee5c22b3d4157c7145ae34a7377365341c13",
+    "dev.html": "785591bd0f9c8b203fda72bc58d1b0338a6751ff0083f21c8a090c6ba663d6b3"
+  },
+  "observations": {
+    "contact": {
+      "amount": 10,
+      "cat": "physical",
+      "dex": 25,
+      "hpAfterAttempts": [
+        73.53907031932867,
+        73.53907031932867,
+        73.53907031932867,
+        73.53907031932867,
+        73.53907031932867,
+        73.53907031932867,
+        73.53907031932867,
+        73.53907031932867,
+        73.53907031932867,
+        73.53907031932867,
+        73.53907031932867,
+        73.53907031932867,
+        73.53907031932867,
+        73.53907031932867,
+        73.53907031932867,
+        73.53907031932867,
+        73.53907031932867,
+        73.53907031932867,
+        73.53907031932867,
+        73.53907031932867,
+        73.53907031932867,
+        73.53907031932867,
+        73.53907031932867,
+        73.53907031932867,
+        73.53907031932867,
+        73.53907031932867,
+        73.53907031932867,
+        73.53907031932867,
+        73.53907031932867,
+        73.53907031932867
+      ],
+      "invuln": 0.45,
+      "maxHp": 86,
+      "note": "Thirty calls at invuln=.3, then thirty at initial invuln=0; no frame time advances.",
+      "protectedHp": 86,
+      "type": "normal"
+    },
+    "lifeOrbBlaze": {
+      "after": {
+        "hp": 34.650000000000006,
+        "multiplier": 1.35
+      },
+      "before": {
+        "hp": 35.7,
+        "multiplier": 1
+      },
+      "dex": 6,
+      "maxHp": 105
+    },
+    "monotypeRatios": [
+      {
+        "dex": 54,
+        "move": "water-gun",
+        "ratio": 1.2
+      },
+      {
+        "dex": 54,
+        "move": "hyper-voice",
+        "ratio": 1
+      },
+      {
+        "dex": 6,
+        "move": "flamethrower",
+        "ratio": 1
+      }
+    ]
+  }
+}

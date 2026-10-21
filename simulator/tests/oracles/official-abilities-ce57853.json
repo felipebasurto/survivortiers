@@ -1,0 +1,1120 @@
+{
+  "schema": 1,
+  "gameCommit": "ce5785313b0205af8b9477423f64b0a7b7039dcd",
+  "source": "Actual G.AbilityFX.FX exported by the unmodified pinned dev.html in an isolated browser. No game source evaluated by the simulator.",
+  "sourceHashes": {
+    "js/entities/player.js": "fff9f133389d4f5887732e52ae50bb7ebe68b44ead08ba879cbefe403d06c660",
+    "js/systems/levelup.js": "b40e9d02b19c8f695818aea6f46417518d6d9e083aa210c02c2cb0ce9779dd63",
+    "js/data/ability-fx.js": "6ede86b7841cfad6096b380fea3f045e2ce61097d6f30456e7517a4dd3d50112",
+    "js/data/moves.js": "ecd20a27cfc9cf4e41abd73a278eee5c22b3d4157c7145ae34a7377365341c13",
+    "dev.html": "785591bd0f9c8b203fda72bc58d1b0338a6751ff0083f21c8a090c6ba663d6b3"
+  },
+  "effects": {
+    "adaptability": {
+      "description": "+25 % de daño con los movimientos de sus tipos.",
+      "hooks": [
+        "out"
+      ],
+      "plus": false
+    },
+    "aftermath": {
+      "description": "Una vez por partida, al quedar con poca vida, explota y daña a los de alrededor.",
+      "hooks": [
+        "tick"
+      ],
+      "plus": true
+    },
+    "analytic": {
+      "description": "+15 % de daño a enemigos con menos de la mitad de vida.",
+      "hooks": [
+        "out"
+      ],
+      "plus": true
+    },
+    "anger-point": {
+      "description": "La primera vez que baja de la mitad de vida se enfurece: +25 % de daño el resto de la partida.",
+      "hooks": [
+        "tick",
+        "out"
+      ],
+      "plus": false
+    },
+    "anticipation": {
+      "description": "Presiente el peligro: esquiva el 6 % de los golpes.",
+      "hooks": [
+        "dodge"
+      ],
+      "plus": true
+    },
+    "battle-armor": {
+      "description": "Recibe un 8 % menos de daño.",
+      "hooks": [
+        "inMul"
+      ],
+      "plus": false
+    },
+    "beast-boost": {
+      "description": "Cada enemigo derrotado le da +0,5 % de daño (hasta +15 %).",
+      "hooks": [
+        "kill",
+        "out"
+      ],
+      "plus": false
+    },
+    "big-pecks": {
+      "description": "Recibe un 8 % menos de daño físico.",
+      "hooks": [
+        "inMul"
+      ],
+      "plus": true
+    },
+    "blaze": {
+      "description": "+35 % de daño de tipo Fuego con poca vida (menos de 1/3).",
+      "hooks": [
+        "out"
+      ],
+      "plus": false
+    },
+    "bulletproof": {
+      "description": "Recibe un 15 % menos de daño especial.",
+      "hooks": [
+        "inMul"
+      ],
+      "plus": true
+    },
+    "chilling-neigh": {
+      "description": "Cada enemigo derrotado le da +0,5 % de daño (hasta +15 %).",
+      "hooks": [
+        "kill",
+        "out"
+      ],
+      "plus": false
+    },
+    "chlorophyll": {
+      "description": "+50 % de velocidad con sol.",
+      "hooks": [
+        "speed"
+      ],
+      "plus": false
+    },
+    "clear-body": {
+      "description": "No le frenan las trampas pegajosas ni el terreno.",
+      "hooks": [],
+      "plus": false
+    },
+    "competitive": {
+      "description": "Si le frenan, se pica: +20 % de daño especial mientras dure.",
+      "hooks": [
+        "out"
+      ],
+      "plus": true
+    },
+    "compound-eyes": {
+      "description": "+6 % de probabilidad de golpe crítico.",
+      "hooks": [
+        "start"
+      ],
+      "plus": false
+    },
+    "contrary": {
+      "description": "Al revés: frenado, va más rápido.",
+      "hooks": [
+        "speed"
+      ],
+      "plus": true
+    },
+    "cursed-body": {
+      "description": "A veces frena a quien le golpea cuerpo a cuerpo.",
+      "hooks": [
+        "contact"
+      ],
+      "plus": false
+    },
+    "cute-charm": {
+      "description": "Quien le golpea cuerpo a cuerpo se queda embobado (frenado).",
+      "hooks": [
+        "contact"
+      ],
+      "plus": false
+    },
+    "damp": {
+      "description": "Las explosiones de los Pokémon kamikaze no le dañan.",
+      "hooks": [],
+      "plus": true
+    },
+    "defeatist": {
+      "description": "Cañón de cristal: +15 % de daño con más de la mitad de vida; con menos, −25 %.",
+      "hooks": [
+        "out"
+      ],
+      "plus": false
+    },
+    "defiant": {
+      "description": "Si le frenan, se pica: +20 % de daño físico mientras dure.",
+      "hooks": [
+        "out"
+      ],
+      "plus": true
+    },
+    "dragons-maw": {
+      "description": "+20 % de daño con movimientos de tipo Dragón.",
+      "hooks": [
+        "out"
+      ],
+      "plus": false
+    },
+    "drizzle": {
+      "description": "Pone lluvia al empezar la partida y cada 3 minutos.",
+      "hooks": [],
+      "plus": false
+    },
+    "drought": {
+      "description": "Pone sol al empezar la partida y cada 3 minutos.",
+      "hooks": [],
+      "plus": false
+    },
+    "dry-skin": {
+      "description": "El Agua le cura y con lluvia recupera vida, pero el Fuego le hace un 25 % más.",
+      "hooks": [
+        "inMul",
+        "tick"
+      ],
+      "plus": false
+    },
+    "early-bird": {
+      "description": "No le frenan las trampas pegajosas ni el terreno.",
+      "hooks": [],
+      "plus": true
+    },
+    "earth-eater": {
+      "description": "Los ataques de tipo Tierra no le hacen daño: le curan un poco.",
+      "hooks": [],
+      "plus": false
+    },
+    "effect-spore": {
+      "description": "Quien le golpea cuerpo a cuerpo se frena o se envenena.",
+      "hooks": [
+        "contact"
+      ],
+      "plus": false
+    },
+    "filter": {
+      "description": "Los ataques muy eficaces le hacen un 25 % menos.",
+      "hooks": [
+        "inMul"
+      ],
+      "plus": false
+    },
+    "flame-body": {
+      "description": "Quien le golpea cuerpo a cuerpo se quema.",
+      "hooks": [
+        "contact"
+      ],
+      "plus": false
+    },
+    "flash-fire": {
+      "description": "Los ataques de tipo Fuego no le hacen daño: le curan un poco.",
+      "hooks": [],
+      "plus": false
+    },
+    "fluffy": {
+      "description": "Recibe un 30 % menos de daño físico.",
+      "hooks": [
+        "inMul"
+      ],
+      "plus": false
+    },
+    "forewarn": {
+      "description": "Presiente el peligro: esquiva el 6 % de los golpes.",
+      "hooks": [
+        "dodge"
+      ],
+      "plus": true
+    },
+    "friend-guard": {
+      "description": "Recibe un 6 % menos de daño.",
+      "hooks": [
+        "inMul"
+      ],
+      "plus": true
+    },
+    "frisk": {
+      "description": "Atrae los objetos desde más lejos (+20 % de imán).",
+      "hooks": [
+        "start"
+      ],
+      "plus": true
+    },
+    "full-metal-body": {
+      "description": "No le frenan las trampas pegajosas ni el terreno.",
+      "hooks": [],
+      "plus": false
+    },
+    "fur-coat": {
+      "description": "Recibe un 40 % menos de daño físico.",
+      "hooks": [
+        "inMul"
+      ],
+      "plus": false
+    },
+    "gluttony": {
+      "description": "Las curas le curan un 40 % más.",
+      "hooks": [],
+      "plus": true
+    },
+    "grim-neigh": {
+      "description": "Cada enemigo derrotado le da +0,5 % de daño (hasta +15 %).",
+      "hooks": [
+        "kill",
+        "out"
+      ],
+      "plus": false
+    },
+    "guts": {
+      "description": "+30 % de daño físico con menos de la mitad de vida.",
+      "hooks": [
+        "out"
+      ],
+      "plus": false
+    },
+    "harvest": {
+      "description": "Las curas le curan un 30 % más.",
+      "hooks": [],
+      "plus": true
+    },
+    "healer": {
+      "description": "Recupera un 0,3 % de su vida por segundo.",
+      "hooks": [
+        "start"
+      ],
+      "plus": true
+    },
+    "heatproof": {
+      "description": "Recibe la mitad de daño de Fuego.",
+      "hooks": [
+        "inMul"
+      ],
+      "plus": false
+    },
+    "honey-gather": {
+      "description": "+15 % de Pokémonedas en la partida.",
+      "hooks": [
+        "start"
+      ],
+      "plus": false
+    },
+    "huge-power": {
+      "description": "+50 % de daño con movimientos físicos.",
+      "hooks": [
+        "out"
+      ],
+      "plus": false
+    },
+    "hustle": {
+      "description": "+25 % de daño con movimientos físicos, pero 1 de cada 6 golpes físicos sale flojo.",
+      "hooks": [
+        "out"
+      ],
+      "plus": false
+    },
+    "hydration": {
+      "description": "Con lluvia recupera un 1 % de vida por segundo y nada le frena.",
+      "hooks": [
+        "tick"
+      ],
+      "plus": true
+    },
+    "hyper-cutter": {
+      "description": "+6 % de daño con movimientos físicos.",
+      "hooks": [
+        "out"
+      ],
+      "plus": true
+    },
+    "ice-body": {
+      "description": "Con nieve recupera un 1,5 % de vida por segundo.",
+      "hooks": [
+        "tick"
+      ],
+      "plus": false
+    },
+    "ice-scales": {
+      "description": "Recibe un 40 % menos de daño especial.",
+      "hooks": [
+        "inMul"
+      ],
+      "plus": false
+    },
+    "illuminate": {
+      "description": "Atrae los objetos desde más lejos (+10 % de imán).",
+      "hooks": [
+        "start"
+      ],
+      "plus": true
+    },
+    "imposter": {
+      "description": "Se transforma: pega y aguanta como un Pokémon equilibrado.",
+      "hooks": [
+        "start"
+      ],
+      "plus": false
+    },
+    "infiltrator": {
+      "description": "Sus golpes rompen los escudos de los enemigos.",
+      "hooks": [
+        "hit"
+      ],
+      "plus": true
+    },
+    "inner-focus": {
+      "description": "No le frenan las trampas pegajosas ni el terreno.",
+      "hooks": [],
+      "plus": false
+    },
+    "insomnia": {
+      "description": "No le frenan las trampas pegajosas ni el terreno.",
+      "hooks": [],
+      "plus": false
+    },
+    "intimidate": {
+      "description": "Los enemigos le hacen un 12 % menos de daño físico.",
+      "hooks": [
+        "inMul"
+      ],
+      "plus": false
+    },
+    "iron-barbs": {
+      "description": "Quien le golpea cuerpo a cuerpo recibe daño.",
+      "hooks": [
+        "contact"
+      ],
+      "plus": false
+    },
+    "iron-fist": {
+      "description": "+25 % de daño con los puñetazos.",
+      "hooks": [
+        "out"
+      ],
+      "plus": false
+    },
+    "justified": {
+      "description": "+15 % de daño a los Pokémon de tipo Siniestro.",
+      "hooks": [
+        "out"
+      ],
+      "plus": true
+    },
+    "keen-eye": {
+      "description": "+5 % de probabilidad de golpe crítico.",
+      "hooks": [
+        "start"
+      ],
+      "plus": true
+    },
+    "klutz": {
+      "description": "Sin objeto, +12 % de daño.",
+      "hooks": [
+        "out"
+      ],
+      "plus": true
+    },
+    "leaf-guard": {
+      "description": "Con sol no le frena nada y recibe un 15 % menos de daño.",
+      "hooks": [
+        "tick",
+        "inMul"
+      ],
+      "plus": true
+    },
+    "levitate": {
+      "description": "Flota: no le afectan el agua, la lava ni las trampas, y la Tierra le hace muy poco.",
+      "hooks": [
+        "inMul"
+      ],
+      "plus": false
+    },
+    "libero": {
+      "description": "+12 % de daño con todos sus movimientos.",
+      "hooks": [
+        "out"
+      ],
+      "plus": false
+    },
+    "lightning-rod": {
+      "description": "Los ataques de tipo Eléctrico no le hacen daño: le curan un poco.",
+      "hooks": [],
+      "plus": false
+    },
+    "limber": {
+      "description": "No le frenan las trampas pegajosas ni el terreno.",
+      "hooks": [],
+      "plus": false
+    },
+    "magic-bounce": {
+      "description": "Recibe un 15 % menos de daño especial y esquiva el 10 % de esos golpes.",
+      "hooks": [
+        "inMul",
+        "dodge"
+      ],
+      "plus": true
+    },
+    "magic-guard": {
+      "description": "Sólo le hacen daño los ataques: ni la lava ni las trampas.",
+      "hooks": [],
+      "plus": false
+    },
+    "magnet-pull": {
+      "description": "Atrae los objetos desde más lejos (+20 % de imán).",
+      "hooks": [
+        "start"
+      ],
+      "plus": true
+    },
+    "mega-launcher": {
+      "description": "+30 % de daño con los pulsos y esferas.",
+      "hooks": [
+        "out"
+      ],
+      "plus": false
+    },
+    "minus": {
+      "description": "+10 % de daño con movimientos especiales.",
+      "hooks": [
+        "out"
+      ],
+      "plus": false
+    },
+    "mold-breaker": {
+      "description": "+12 % de daño a los jefes.",
+      "hooks": [
+        "out"
+      ],
+      "plus": true
+    },
+    "moody": {
+      "description": "Cada 10 s, +10 % a algo al azar: ataque, ataque especial, velocidad o defensa.",
+      "hooks": [
+        "tick",
+        "out",
+        "speed",
+        "inMul"
+      ],
+      "plus": true
+    },
+    "motor-drive": {
+      "description": "Los ataques de tipo Eléctrico no le hacen daño: le curan un poco.",
+      "hooks": [],
+      "plus": false
+    },
+    "moxie": {
+      "description": "Cada enemigo derrotado le da +0,5 % de daño (hasta +15 %).",
+      "hooks": [
+        "kill",
+        "out"
+      ],
+      "plus": false
+    },
+    "multiscale": {
+      "description": "Con la vida casi llena recibe la mitad de daño.",
+      "hooks": [
+        "inMul"
+      ],
+      "plus": false
+    },
+    "natural-cure": {
+      "description": "Recupera un 0,3 % de su vida por segundo.",
+      "hooks": [
+        "start"
+      ],
+      "plus": true
+    },
+    "no-guard": {
+      "description": "Todo acierta: +15 % de daño hecho, pero recibe un 10 % más.",
+      "hooks": [
+        "out",
+        "inMul"
+      ],
+      "plus": false
+    },
+    "oblivious": {
+      "description": "No le frenan las trampas pegajosas ni el terreno.",
+      "hooks": [],
+      "plus": false
+    },
+    "orichalcum-pulse": {
+      "description": "Pone sol al empezar la partida y cada 3 minutos.",
+      "hooks": [],
+      "plus": false
+    },
+    "overcoat": {
+      "description": "Recibe un 5 % menos de daño especial.",
+      "hooks": [
+        "inMul"
+      ],
+      "plus": true
+    },
+    "overgrow": {
+      "description": "+35 % de daño de tipo Planta con poca vida (menos de 1/3).",
+      "hooks": [
+        "out"
+      ],
+      "plus": false
+    },
+    "own-tempo": {
+      "description": "No le frenan las trampas pegajosas ni el terreno.",
+      "hooks": [],
+      "plus": false
+    },
+    "pickpocket": {
+      "description": "Al recibir golpes, a veces les quita una moneda.",
+      "hooks": [
+        "hurt"
+      ],
+      "plus": true
+    },
+    "pickup": {
+      "description": "+15 % de Pokémonedas en la partida.",
+      "hooks": [
+        "start"
+      ],
+      "plus": false
+    },
+    "plus": {
+      "description": "+10 % de daño con movimientos especiales.",
+      "hooks": [
+        "out"
+      ],
+      "plus": false
+    },
+    "poison-point": {
+      "description": "Quien le golpea cuerpo a cuerpo se envenena.",
+      "hooks": [
+        "contact"
+      ],
+      "plus": false
+    },
+    "poison-touch": {
+      "description": "Sus ataques cuerpo a cuerpo y embestidas envenenan.",
+      "hooks": [],
+      "plus": false
+    },
+    "prankster": {
+      "description": "Sus potenciadores se recargan un 30 % antes.",
+      "hooks": [],
+      "plus": true
+    },
+    "pressure": {
+      "description": "Recibe un 8 % menos de daño.",
+      "hooks": [
+        "inMul"
+      ],
+      "plus": false
+    },
+    "prism-armor": {
+      "description": "Los ataques muy eficaces le hacen un 25 % menos.",
+      "hooks": [
+        "inMul"
+      ],
+      "plus": false
+    },
+    "protean": {
+      "description": "+12 % de daño con todos sus movimientos.",
+      "hooks": [
+        "out"
+      ],
+      "plus": false
+    },
+    "protosynthesis": {
+      "description": "Con sol, +20 % de daño.",
+      "hooks": [
+        "out"
+      ],
+      "plus": true
+    },
+    "punk-rock": {
+      "description": "+30 % de daño con los sonidos.",
+      "hooks": [
+        "out"
+      ],
+      "plus": false
+    },
+    "pure-power": {
+      "description": "+50 % de daño con movimientos físicos.",
+      "hooks": [
+        "out"
+      ],
+      "plus": false
+    },
+    "quick-feet": {
+      "description": "Frenado, va más rápido (en vez de más lento).",
+      "hooks": [
+        "speed"
+      ],
+      "plus": true
+    },
+    "rain-dish": {
+      "description": "Con lluvia recupera un 1,5 % de vida por segundo.",
+      "hooks": [
+        "tick"
+      ],
+      "plus": false
+    },
+    "rattled": {
+      "description": "Los golpes de Bicho, Fantasma o Siniestro le asustan: +25 % de velocidad un momento.",
+      "hooks": [
+        "hurt"
+      ],
+      "plus": true
+    },
+    "reckless": {
+      "description": "+25 % de daño con las embestidas.",
+      "hooks": [
+        "out"
+      ],
+      "plus": false
+    },
+    "regenerator": {
+      "description": "Recupera un 0,6 % de su vida por segundo.",
+      "hooks": [
+        "start"
+      ],
+      "plus": false
+    },
+    "rivalry": {
+      "description": "+15 % de daño a los enemigos que comparten un tipo con él.",
+      "hooks": [
+        "out"
+      ],
+      "plus": true
+    },
+    "rough-skin": {
+      "description": "Quien le golpea cuerpo a cuerpo recibe daño.",
+      "hooks": [
+        "contact"
+      ],
+      "plus": false
+    },
+    "run-away": {
+      "description": "+8 % de velocidad.",
+      "hooks": [
+        "speed"
+      ],
+      "plus": false
+    },
+    "sand-force": {
+      "description": "+30 % de daño Roca, Tierra y Acero con tormenta de arena.",
+      "hooks": [
+        "out"
+      ],
+      "plus": false
+    },
+    "sand-rush": {
+      "description": "+50 % de velocidad con tormenta de arena.",
+      "hooks": [
+        "speed"
+      ],
+      "plus": false
+    },
+    "sand-stream": {
+      "description": "Pone una tormenta de arena al empezar la partida y cada 3 minutos.",
+      "hooks": [],
+      "plus": false
+    },
+    "sand-veil": {
+      "description": "Con tormenta de arena esquiva el 15 % de los golpes.",
+      "hooks": [
+        "dodge"
+      ],
+      "plus": true
+    },
+    "sap-sipper": {
+      "description": "Los ataques de tipo Planta no le hacen daño: le curan un poco.",
+      "hooks": [],
+      "plus": false
+    },
+    "schooling": {
+      "description": "Forma banco: +25 % de vida y, con más de 1/4 de vida, +50 % de daño.",
+      "hooks": [
+        "start",
+        "out"
+      ],
+      "plus": false
+    },
+    "scrappy": {
+      "description": "Sus movimientos Normal y Lucha dañan del todo a los Fantasma.",
+      "hooks": [
+        "out"
+      ],
+      "plus": false
+    },
+    "serene-grace": {
+      "description": "Las quemaduras, venenos y frenazos de sus movimientos son el doble de fuertes.",
+      "hooks": [],
+      "plus": false
+    },
+    "shadow-shield": {
+      "description": "Con la vida casi llena recibe la mitad de daño.",
+      "hooks": [
+        "inMul"
+      ],
+      "plus": false
+    },
+    "sharpness": {
+      "description": "+30 % de daño con los cortes.",
+      "hooks": [
+        "out"
+      ],
+      "plus": false
+    },
+    "shed-skin": {
+      "description": "Cada 5 s muda: se quita los frenazos y recupera un 2 % de vida.",
+      "hooks": [
+        "tick"
+      ],
+      "plus": true
+    },
+    "sheer-force": {
+      "description": "+25 % de daño con movimientos que queman, envenenan, frenan o empujan, pero pierden ese efecto.",
+      "hooks": [
+        "out"
+      ],
+      "plus": false
+    },
+    "shell-armor": {
+      "description": "Recibe un 8 % menos de daño.",
+      "hooks": [
+        "inMul"
+      ],
+      "plus": false
+    },
+    "shield-dust": {
+      "description": "No le frenan las trampas pegajosas ni el terreno.",
+      "hooks": [],
+      "plus": true
+    },
+    "skill-link": {
+      "description": "+25 % de daño con los movimientos de varios golpes.",
+      "hooks": [
+        "out"
+      ],
+      "plus": true
+    },
+    "slow-start": {
+      "description": "Arranca lento: el primer minuto hace −40 % de daño y va más despacio; después, a plena potencia.",
+      "hooks": [
+        "tick",
+        "out",
+        "speed"
+      ],
+      "plus": false
+    },
+    "slush-rush": {
+      "description": "+50 % de velocidad con nieve.",
+      "hooks": [
+        "speed"
+      ],
+      "plus": false
+    },
+    "sniper": {
+      "description": "Sus golpes críticos hacen ×2 de daño (en vez de ×1,5).",
+      "hooks": [],
+      "plus": false
+    },
+    "snow-cloak": {
+      "description": "Con nieve esquiva el 15 % de los golpes.",
+      "hooks": [
+        "dodge"
+      ],
+      "plus": true
+    },
+    "snow-warning": {
+      "description": "Pone nieve al empezar la partida y cada 3 minutos.",
+      "hooks": [],
+      "plus": false
+    },
+    "solar-power": {
+      "description": "+40 % de daño especial con sol, pero el sol le quita algo de vida.",
+      "hooks": [
+        "out",
+        "tick"
+      ],
+      "plus": false
+    },
+    "solid-rock": {
+      "description": "Los ataques muy eficaces le hacen un 25 % menos.",
+      "hooks": [
+        "inMul"
+      ],
+      "plus": false
+    },
+    "soundproof": {
+      "description": "Recibe un 10 % menos de daño especial.",
+      "hooks": [
+        "inMul"
+      ],
+      "plus": true
+    },
+    "speed-boost": {
+      "description": "Cada 10 segundos va un 1,5 % más rápido (hasta +30 %).",
+      "hooks": [
+        "tick",
+        "speed"
+      ],
+      "plus": false
+    },
+    "stamina": {
+      "description": "Cada golpe cuerpo a cuerpo que recibe le sube un poco la defensa.",
+      "hooks": [
+        "contact"
+      ],
+      "plus": false
+    },
+    "stance-change": {
+      "description": "Alterna cada 8 s entre filo (+20 % de daño) y escudo (−20 % de daño recibido).",
+      "hooks": [
+        "tick",
+        "out",
+        "inMul"
+      ],
+      "plus": false
+    },
+    "static": {
+      "description": "Quien le golpea cuerpo a cuerpo se queda frenado (paralizado).",
+      "hooks": [
+        "contact"
+      ],
+      "plus": false
+    },
+    "steadfast": {
+      "description": "Al recibir un golpe, +10 % de velocidad un momento (se acumula).",
+      "hooks": [
+        "hurt"
+      ],
+      "plus": true
+    },
+    "steelworker": {
+      "description": "+20 % de daño con movimientos de tipo Acero.",
+      "hooks": [
+        "out"
+      ],
+      "plus": false
+    },
+    "steely-spirit": {
+      "description": "+20 % de daño con movimientos de tipo Acero.",
+      "hooks": [
+        "out"
+      ],
+      "plus": false
+    },
+    "stench": {
+      "description": "Sus golpes a veces frenan (1 de cada 10).",
+      "hooks": [
+        "hit"
+      ],
+      "plus": true
+    },
+    "sticky-hold": {
+      "description": "Atrae los objetos desde más lejos (+20 % de imán).",
+      "hooks": [
+        "start"
+      ],
+      "plus": true
+    },
+    "storm-drain": {
+      "description": "Los ataques de tipo Agua no le hacen daño: le curan un poco.",
+      "hooks": [],
+      "plus": false
+    },
+    "strong-jaw": {
+      "description": "+30 % de daño con los mordiscos.",
+      "hooks": [
+        "out"
+      ],
+      "plus": false
+    },
+    "sturdy": {
+      "description": "Un golpe que le dejaría KO le deja con 1 de vida (cada 90 s).",
+      "hooks": [],
+      "plus": false
+    },
+    "super-luck": {
+      "description": "+10 % de probabilidad de golpe crítico.",
+      "hooks": [
+        "start"
+      ],
+      "plus": false
+    },
+    "swarm": {
+      "description": "+35 % de daño de tipo Bicho con poca vida (menos de 1/3).",
+      "hooks": [
+        "out"
+      ],
+      "plus": false
+    },
+    "sweet-veil": {
+      "description": "No le frenan las trampas pegajosas ni el terreno.",
+      "hooks": [],
+      "plus": true
+    },
+    "swift-swim": {
+      "description": "+50 % de velocidad con lluvia.",
+      "hooks": [
+        "speed"
+      ],
+      "plus": false
+    },
+    "synchronize": {
+      "description": "Quien le golpea cuerpo a cuerpo recibe parte del golpe.",
+      "hooks": [
+        "contact"
+      ],
+      "plus": true
+    },
+    "tangled-feet": {
+      "description": "Frenado, esquiva el 20 % de los golpes.",
+      "hooks": [
+        "dodge"
+      ],
+      "plus": true
+    },
+    "technician": {
+      "description": "+35 % de daño con los ataques de golpes flojos.",
+      "hooks": [
+        "out"
+      ],
+      "plus": false
+    },
+    "telepathy": {
+      "description": "Lee las intenciones: esquiva el 8 % de los golpes.",
+      "hooks": [
+        "dodge"
+      ],
+      "plus": true
+    },
+    "thick-fat": {
+      "description": "Recibe un 40 % menos de daño de Fuego y Hielo.",
+      "hooks": [
+        "inMul"
+      ],
+      "plus": false
+    },
+    "tinted-lens": {
+      "description": "Sus movimientos poco eficaces hacen daño normal.",
+      "hooks": [
+        "out"
+      ],
+      "plus": false
+    },
+    "torrent": {
+      "description": "+35 % de daño de tipo Agua con poca vida (menos de 1/3).",
+      "hooks": [
+        "out"
+      ],
+      "plus": false
+    },
+    "tough-claws": {
+      "description": "+25 % de daño con ataques cuerpo a cuerpo y embestidas.",
+      "hooks": [
+        "out"
+      ],
+      "plus": false
+    },
+    "transistor": {
+      "description": "+20 % de daño con movimientos de tipo Eléctrico.",
+      "hooks": [
+        "out"
+      ],
+      "plus": false
+    },
+    "truant": {
+      "description": "Golpes sueltos y fuertes: tarda un 60 % más en recargar, pero cada golpe hace +35 %.",
+      "hooks": [
+        "out"
+      ],
+      "plus": false
+    },
+    "unaware": {
+      "description": "No se deja impresionar: recibe un 8 % menos de daño.",
+      "hooks": [
+        "inMul"
+      ],
+      "plus": true
+    },
+    "unburden": {
+      "description": "Sin objeto va un 15 % más rápido.",
+      "hooks": [
+        "speed"
+      ],
+      "plus": true
+    },
+    "unnerve": {
+      "description": "Pone nerviosos a los enemigos: le hacen un 6 % menos de daño.",
+      "hooks": [
+        "inMul"
+      ],
+      "plus": true
+    },
+    "vital-spirit": {
+      "description": "No le frenan las trampas pegajosas ni el terreno.",
+      "hooks": [],
+      "plus": false
+    },
+    "volt-absorb": {
+      "description": "Los ataques de tipo Eléctrico no le hacen daño: le curan un poco.",
+      "hooks": [],
+      "plus": false
+    },
+    "water-absorb": {
+      "description": "Los ataques de tipo Agua no le hacen daño: le curan un poco.",
+      "hooks": [],
+      "plus": false
+    },
+    "water-bubble": {
+      "description": "+40 % de daño de tipo Agua y recibe la mitad de daño de Fuego.",
+      "hooks": [
+        "out",
+        "inMul"
+      ],
+      "plus": false
+    },
+    "water-veil": {
+      "description": "La lava no le quema y recibe la mitad de daño de Fuego.",
+      "hooks": [
+        "inMul"
+      ],
+      "plus": true
+    },
+    "weak-armor": {
+      "description": "Al recibir un golpe físico se aligera: +20 % de velocidad un momento.",
+      "hooks": [
+        "hurt"
+      ],
+      "plus": true
+    },
+    "well-baked-body": {
+      "description": "Los ataques de tipo Fuego no le hacen daño: le curan un poco.",
+      "hooks": [],
+      "plus": false
+    },
+    "white-smoke": {
+      "description": "No le frenan las trampas pegajosas ni el terreno.",
+      "hooks": [],
+      "plus": false
+    },
+    "wonder-guard": {
+      "description": "Lo que no es muy eficaz apenas le hace daño (35 %); lo muy eficaz, un 50 % más.",
+      "hooks": [
+        "inMul"
+      ],
+      "plus": false
+    },
+    "zen-mode": {
+      "description": "Con menos de la mitad de vida entra en Modo Daruma: +30 % de daño especial.",
+      "hooks": [
+        "out"
+      ],
+      "plus": true
+    }
+  },
+  "language": "en"
+}

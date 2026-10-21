@@ -21,7 +21,9 @@ pub(crate) fn js_hash(x: i32, y: i32, seed: i32) -> f64 {
 
 /// util.js hash(): 32-bit Math.imul arithmetic.
 fn hash(x: i32, y: i32, seed: i32) -> f64 {
-    let mut h = x.wrapping_mul(374761393) ^ y.wrapping_mul(668265263) ^ seed.wrapping_mul(2246822519u32 as i32);
+    let mut h = x.wrapping_mul(374761393)
+        ^ y.wrapping_mul(668265263)
+        ^ seed.wrapping_mul(2246822519u32 as i32);
     h = (h ^ ((h as u32 >> 13) as i32)).wrapping_mul(1274126177);
     h ^= (h as u32 >> 16) as i32;
     (h as u32) as f64 / 4294967296.0
@@ -78,7 +80,7 @@ struct Base {
     /// solid prop per tile (index into `props`), -1 if none
     prop_at: [i16; (N * N) as usize],
     props: Vec<Prop>,
-    specials:Vec<(i32,i32,u8,u8)>,
+    specials: Vec<(i32, i32, u8, u8)>,
     /// one bit per tile column, one u16 per tile row: tile is not a wall / not a wall or liquid
     /// and has no solid prop at generation time (`fill_walkable` fast path)
     open_water: [u16; N as usize],
@@ -99,7 +101,8 @@ impl Chunk {
 }
 
 type ChunkKey = (i32, i32, i32);
-static SHARED: OnceLock<RwLock<HashMap<ChunkKey, Arc<Base>, BuildHasherDefault<KeyHasher>>>> = OnceLock::new();
+static SHARED: OnceLock<RwLock<HashMap<ChunkKey, Arc<Base>, BuildHasherDefault<KeyHasher>>>> =
+    OnceLock::new();
 
 fn shared_chunk(seed: i32, cx: i32, cy: i32) -> Arc<Base> {
     let map = SHARED.get_or_init(|| RwLock::new(HashMap::default()));
@@ -107,7 +110,11 @@ fn shared_chunk(seed: i32, cx: i32, cy: i32) -> Arc<Base> {
         return b.clone();
     }
     let b = Arc::new(gen_chunk(seed, cx, cy));
-    map.write().unwrap().entry((seed, cx, cy)).or_insert(b).clone()
+    map.write()
+        .unwrap()
+        .entry((seed, cx, cy))
+        .or_insert(b)
+        .clone()
 }
 
 fn gen_chunk(seed: i32, cx: i32, cy: i32) -> Base {
@@ -119,7 +126,14 @@ fn gen_chunk(seed: i32, cx: i32, cy: i32) -> Base {
             ring[(j * B + i) as usize] = terrain_raw(cx * N + i - 1, cy * N + j - 1, seed);
         }
     }
-    let mut c = Base { terr: [FLOOR; (N * N) as usize], prop_at: [-1; (N * N) as usize], props: Vec::new(), specials:Vec::new(), open_water: [0; N as usize], open_lava: [0; N as usize] };
+    let mut c = Base {
+        terr: [FLOOR; (N * N) as usize],
+        prop_at: [-1; (N * N) as usize],
+        props: Vec::new(),
+        specials: Vec::new(),
+        open_water: [0; N as usize],
+        open_lava: [0; N as usize],
+    };
     for j in 0..N {
         for i in 0..N {
             c.terr[(j * N + i) as usize] = ring[((j + 1) * B + i + 1) as usize];
@@ -136,11 +150,19 @@ fn gen_chunk(seed: i32, cx: i32, cy: i32) -> Base {
             if d0 < 7.0 {
                 continue;
             }
-            let open = (0..3).all(|b| (0..3).all(|a| ring[((j + b) * B + i + a) as usize] == FLOOR));
+            let open =
+                (0..3).all(|b| (0..3).all(|a| ring[((j + b) * B + i + a) as usize] == FLOOR));
             let h = hash(tx, ty, seed.wrapping_add(404));
             let grove = fbm(tx as f64 / 10.0, ty as f64 / 10.0, seed.wrapping_add(505)) > 0.6;
             let hs = hash(tx, ty, seed.wrapping_add(909));
-            if open && d0>12. && hs<0.0032 && (hs>=0.0011 || (0.0004..0.0008).contains(&hs)){c.specials.push((tx,ty,if hs>=0.0011{1}else{0},(hash(tx,ty,seed.wrapping_add(910))*3.).floor() as u8));}
+            if open && d0 > 12. && hs < 0.0032 && (hs >= 0.0011 || (0.0004..0.0008).contains(&hs)) {
+                c.specials.push((
+                    tx,
+                    ty,
+                    if hs >= 0.0011 { 1 } else { 0 },
+                    (hash(tx, ty, seed.wrapping_add(910)) * 3.).floor() as u8,
+                ));
+            }
             // (r, hp): tree 13/inf, rock 12/34, chest 12/22, altar 9/inf, bigchest 14/inf
             let prop = if open && d0 > 12.0 && hs < 0.0032 {
                 if hs < 0.0004 {
@@ -156,14 +178,21 @@ fn gen_chunk(seed: i32, cx: i32, cy: i32) -> Base {
                 Some((13.0, f64::INFINITY))
             } else if open && h > 0.992 {
                 Some((12.0, 34.0))
-            } else if open && h > 0.985 && h <= 0.992 && hash(tx, ty, seed.wrapping_add(606)) < 0.07 {
+            } else if open && h > 0.985 && h <= 0.992 && hash(tx, ty, seed.wrapping_add(606)) < 0.07
+            {
                 Some((12.0, 22.0))
             } else {
                 None
             };
             if let Some((r, hp)) = prop {
                 c.prop_at[(j * N + i) as usize] = c.props.len() as i16;
-                c.props.push(Prop { x: tx as f64 * TS + TS / 2.0, y: ty as f64 * TS + TS - 4.0, r, hp, solid: true });
+                c.props.push(Prop {
+                    x: tx as f64 * TS + TS / 2.0,
+                    y: ty as f64 * TS + TS - 4.0,
+                    r,
+                    hp,
+                    solid: true,
+                });
             }
         }
     }
@@ -204,7 +233,11 @@ pub enum Liquid {
 #[derive(Clone, Copy)]
 pub enum Block {
     Wall,
-    Prop { chunk: u32, ix: u16, destructible: bool },
+    Prop {
+        chunk: u32,
+        ix: u16,
+        destructible: bool,
+    },
 }
 
 pub struct World {
@@ -220,7 +253,14 @@ pub struct World {
 
 impl World {
     pub fn new(seed: i32) -> World {
-        let mut w = World { seed, chunks: Vec::new(), index: HashMap::default(), recent: [(i32::MIN, 0, 0); 64], liquid: Liquid::Water, version: 0 };
+        let mut w = World {
+            seed,
+            chunks: Vec::new(),
+            index: HashMap::default(),
+            recent: [(i32::MIN, 0, 0); 64],
+            liquid: Liquid::Water,
+            version: 0,
+        };
         w.chunk(0, 0);
         w
     }
@@ -242,7 +282,10 @@ impl World {
             Some(&ix) => ix,
             None => {
                 let ix = self.chunks.len() as u32;
-                self.chunks.push(Chunk { base: shared_chunk(self.seed, cx, cy), hp: Vec::new() });
+                self.chunks.push(Chunk {
+                    base: shared_chunk(self.seed, cx, cy),
+                    hp: Vec::new(),
+                });
                 self.index.insert((cx, cy), ix);
                 ix
             }
@@ -259,7 +302,11 @@ impl World {
         let c = &self.chunks[ix];
         let k = ((ty - cy * N) * N + (tx - cx * N)) as usize;
         let p = c.base.prop_at[k];
-        let prop = if p >= 0 && c.solid(p as usize) { Some(c.base.props[p as usize]) } else { None };
+        let prop = if p >= 0 && c.solid(p as usize) {
+            Some(c.base.props[p as usize])
+        } else {
+            None
+        };
         (c.base.terr[k], prop)
     }
 
@@ -280,7 +327,8 @@ impl World {
     }
 
     pub fn solid_prop(&mut self, tx: i32, ty: i32) -> Option<Prop> {
-        self.prop_ref(tx, ty).map(|(c, ix)| self.chunks[c as usize].base.props[ix as usize])
+        self.prop_ref(tx, ty)
+            .map(|(c, ix)| self.chunks[c as usize].base.props[ix as usize])
     }
 
     /// An altar on this tile (world.js placeProps: r=9, hp inf, hs<0.0004). Kind is
@@ -294,13 +342,20 @@ impl World {
         Some((prop.x, prop.y, prop.r, kind))
     }
 
-    pub fn specials_near(&mut self,x:f64,y:f64,r:f64)->Vec<(i32,i32,u8,u8)>{
-        let mut out=Vec::new();
-        for cy in tile_of(y-r).div_euclid(N)..=tile_of(y+r).div_euclid(N){
-            for cx in tile_of(x-r).div_euclid(N)..=tile_of(x+r).div_euclid(N){
-                let i=self.chunk(cx,cy) as usize;out.extend(self.chunks[i].base.specials.iter().copied().filter(|&(tx,ty,_,_)|(tx as f64*TS+TS/2.-x).abs()<=r&&(ty as f64*TS+TS-4.-y).abs()<=r));
+    pub fn specials_near(&mut self, x: f64, y: f64, r: f64) -> Vec<(i32, i32, u8, u8)> {
+        let mut out = Vec::new();
+        for cy in tile_of(y - r).div_euclid(N)..=tile_of(y + r).div_euclid(N) {
+            for cx in tile_of(x - r).div_euclid(N)..=tile_of(x + r).div_euclid(N) {
+                let i = self.chunk(cx, cy) as usize;
+                out.extend(self.chunks[i].base.specials.iter().copied().filter(
+                    |&(tx, ty, _, _)| {
+                        (tx as f64 * TS + TS / 2. - x).abs() <= r
+                            && (ty as f64 * TS + TS - 4. - y).abs() <= r
+                    },
+                ));
             }
-        }out
+        }
+        out
     }
     pub fn is_liquid(&mut self, x: f64, y: f64) -> bool {
         self.terrain_at(tile_of(x), tile_of(y)) == LIQUID
@@ -320,7 +375,11 @@ impl World {
                 let (y0, y1) = ((cy * N).max(oy), (cy * N + N).min(oy + h));
                 if c.hp.is_empty() {
                     // No prop has been damaged in this chunk: the precomputed rows are exact.
-                    let src = if lava { &c.base.open_lava } else { &c.base.open_water };
+                    let src = if lava {
+                        &c.base.open_lava
+                    } else {
+                        &c.base.open_water
+                    };
                     let width = (x1 - x0) as u32;
                     let mask: u64 = (1u64 << width) - 1;
                     for ty in y0..y1 {
@@ -334,7 +393,8 @@ impl World {
                         let k = ((ty - cy * N) * N + (tx - cx * N)) as usize;
                         let t = c.base.terr[k];
                         let p = c.base.prop_at[k];
-                        let open = t != WALL && !(t == LIQUID && lava) && (p < 0 || !c.solid(p as usize));
+                        let open =
+                            t != WALL && !(t == LIQUID && lava) && (p < 0 || !c.solid(p as usize));
                         rows[(ty - oy + 1) as usize] |= (open as u64) << (tx - ox);
                     }
                 }
@@ -345,7 +405,12 @@ impl World {
     /// Does a circle of radius r fit here? Exact circle tests (unlike the game's
     /// tile-box isFree), so the bot can slide along a wall it is touching.
     pub fn fits(&mut self, x: f64, y: f64, r: f64, avoid_liquid: bool) -> bool {
-        let (t0x, t1x, t0y, t1y) = (tile_of(x - r), tile_of(x + r), tile_of(y - r), tile_of(y + r));
+        let (t0x, t1x, t0y, t1y) = (
+            tile_of(x - r),
+            tile_of(x + r),
+            tile_of(y - r),
+            tile_of(y + r),
+        );
         for ty in t0y..=t1y {
             for tx in t0x..=t1x {
                 let (t, prop) = self.tile(tx, ty);
@@ -376,7 +441,12 @@ impl World {
     /// world.js isFree(x, y, r, allowLiquid). Dash passes allowLiquid so it can cross water
     /// (systems/combat.js dash, the fourth argument `true`).
     pub fn is_free_ex(&mut self, x: f64, y: f64, r: f64, allow_liquid: bool) -> bool {
-        let (t0x, t1x, t0y, t1y) = (tile_of(x - r), tile_of(x + r), tile_of(y - r), tile_of(y + r));
+        let (t0x, t1x, t0y, t1y) = (
+            tile_of(x - r),
+            tile_of(x + r),
+            tile_of(y - r),
+            tile_of(y + r),
+        );
         for ty in t0y..=t1y {
             for tx in t0x..=t1x {
                 let (t, prop) = self.tile(tx, ty);
@@ -401,7 +471,12 @@ impl World {
             // A pass that moves nothing is followed by an identical pass: stop.
             let hit_before = hit;
             let (px0, py0) = (*x, *y);
-            let (t0x, t1x, t0y, t1y) = (tile_of(*x - r), tile_of(*x + r), tile_of(*y - r), tile_of(*y + r));
+            let (t0x, t1x, t0y, t1y) = (
+                tile_of(*x - r),
+                tile_of(*x + r),
+                tile_of(*y - r),
+                tile_of(*y + r),
+            );
             for ty in t0y..=t1y {
                 for tx in t0x..=t1x {
                     let (t, prop) = self.tile(tx, ty);
@@ -470,7 +545,11 @@ impl World {
                     let p = self.chunks[c as usize].base.props[ix as usize];
                     let min = r + p.r;
                     if (x - p.x) * (x - p.x) + (y - p.y) * (y - p.y) < min * min {
-                        return Some(Block::Prop { chunk: c, ix, destructible: p.hp.is_finite() });
+                        return Some(Block::Prop {
+                            chunk: c,
+                            ix,
+                            destructible: p.hp.is_finite(),
+                        });
                     }
                 }
             }
@@ -503,7 +582,16 @@ fn pix(x: i32, y: i32) -> usize {
     ((y + 1) * PW + x + 1) as usize
 }
 const UNSEEN: i16 = 0x7fff;
-const D8: [(i32, i32); 8] = [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)];
+const D8: [(i32, i32); 8] = [
+    (1, 0),
+    (-1, 0),
+    (0, 1),
+    (0, -1),
+    (1, 1),
+    (1, -1),
+    (-1, 1),
+    (-1, -1),
+];
 pub const PATH_EVERY: f64 = 0.35;
 pub const LOS_EVERY: f64 = 0.2;
 
@@ -523,7 +611,15 @@ pub struct Path {
 impl Path {
     pub fn new() -> Path {
         let n = (PW * PW) as usize;
-        Path { ox: 0, oy: 0, dist: vec![UNSEEN; n], ob: [0; PW as usize], timer: 0.0, built: false, key: (0, 0, false, u32::MAX) }
+        Path {
+            ox: 0,
+            oy: 0,
+            dist: vec![UNSEEN; n],
+            ob: [0; PW as usize],
+            timer: 0.0,
+            built: false,
+            key: (0, 0, false, u32::MAX),
+        }
     }
 
     pub fn build(&mut self, world: &mut World, plx: f64, ply: f64) {
@@ -591,7 +687,16 @@ impl Path {
 
     /// pathing.js dirFor(). `los` is the enemy's cached line-of-sight state
     /// (checked at most every LOS_EVERY seconds).
-    pub fn dir_for(&self, ex: f64, ey: f64, er: f64, plx: f64, ply: f64, now: f64, los: &mut (f64, bool)) -> Option<(f64, f64)> {
+    pub fn dir_for(
+        &self,
+        ex: f64,
+        ey: f64,
+        er: f64,
+        plx: f64,
+        ply: f64,
+        now: f64,
+        los: &mut (f64, bool),
+    ) -> Option<(f64, f64)> {
         if !self.built {
             return None;
         }
@@ -673,7 +778,14 @@ impl Path {
 /// Steering for the bot: the free direction closest to `want`, scored by
 /// alignment plus how far the body can travel that way before touching a
 /// wall, prop or (when `avoid_liquid`) liquid.
-pub fn steer(world: &mut World, x: f64, y: f64, r: f64, want: (f64, f64), avoid_liquid: bool) -> (f64, f64) {
+pub fn steer(
+    world: &mut World,
+    x: f64,
+    y: f64,
+    r: f64,
+    want: (f64, f64),
+    avoid_liquid: bool,
+) -> (f64, f64) {
     const LOOK: f64 = 128.0;
     const STEP: f64 = 8.0;
     const CLEAR_W: f64 = 1.2;
@@ -750,5 +862,8 @@ pub fn digest(seed: i32, half: i32) -> String {
             }
         }
     }
-    format!("floor={} wall={} liquid={} solid_props={} sum={}", counts[0], counts[1], counts[2], props, sum)
+    format!(
+        "floor={} wall={} liquid={} solid_props={} sum={}",
+        counts[0], counts[1], counts[2], props, sum
+    )
 }

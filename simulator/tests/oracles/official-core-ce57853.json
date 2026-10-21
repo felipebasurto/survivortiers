@@ -1,0 +1,121 @@
+{
+  "schema": 1,
+  "gameCommit": "ce5785313b0205af8b9477423f64b0a7b7039dcd",
+  "source": "Unmodified official dev.html served locally in an isolated incognito browser; actual G.Player/G.LevelUp/G.Moves methods, no replacement game logic.",
+  "randomness": "Math.random temporarily replaced with constant zero only during before/after LevelUp.offer calls, then restored.",
+  "sourceHashes": {
+    "js/entities/player.js": "fff9f133389d4f5887732e52ae50bb7ebe68b44ead08ba879cbefe403d06c660",
+    "js/systems/levelup.js": "b40e9d02b19c8f695818aea6f46417518d6d9e083aa210c02c2cb0ce9779dd63",
+    "js/data/ability-fx.js": "6ede86b7841cfad6096b380fea3f045e2ce61097d6f30456e7517a4dd3d50112",
+    "js/data/moves.js": "ecd20a27cfc9cf4e41abd73a278eee5c22b3d4157c7145ae34a7377365341c13",
+    "dev.html": "785591bd0f9c8b203fda72bc58d1b0338a6751ff0083f21c8a090c6ba663d6b3"
+  },
+  "observations": {
+    "inventory": {
+      "after": {
+        "moves": 4,
+        "offers": [
+          {
+            "key": "new:tackle",
+            "type": "new",
+            "w": 10
+          },
+          {
+            "key": "new:quick-attack",
+            "type": "new",
+            "w": 10
+          },
+          {
+            "key": "new:body-slam",
+            "type": "new",
+            "w": 10
+          }
+        ],
+        "slots": 1
+      },
+      "before": {
+        "moves": 4,
+        "offers": [
+          {
+            "key": "up:water-gun",
+            "type": "up",
+            "w": 8
+          },
+          {
+            "key": "up:whirlpool",
+            "type": "up",
+            "w": 8
+          },
+          {
+            "key": "up:nasty-plot",
+            "type": "up",
+            "w": 8
+          }
+        ],
+        "slots": 4
+      }
+    },
+    "schooling": {
+      "afterAbility": {
+        "hp": 113,
+        "maxHp": 113
+      },
+      "afterHpCard": {
+        "hp": 133,
+        "maxHp": 133
+      },
+      "baseHp": 90,
+      "dex": 746
+    },
+    "sharedBuff": {
+      "moves": [
+        {
+          "amount": 0.13,
+          "dur": 7,
+          "id": "swords-dance",
+          "stacks": 5,
+          "stat": "patk"
+        },
+        {
+          "amount": 0.11,
+          "dur": 7,
+          "id": "dragon-dance",
+          "stacks": 5,
+          "stat": "patk"
+        }
+      ],
+      "steps": [
+        {
+          "amount": 0.13,
+          "n": 1,
+          "t": 7
+        },
+        {
+          "amount": 0.11,
+          "n": 2,
+          "t": 7
+        },
+        {
+          "amount": 0.13,
+          "n": 3,
+          "t": 7
+        },
+        {
+          "amount": 0.11,
+          "n": 4,
+          "t": 7
+        },
+        {
+          "amount": 0.13,
+          "n": 5,
+          "t": 7
+        },
+        {
+          "amount": 0.11,
+          "n": 5,
+          "t": 7
+        }
+      ]
+    }
+  }
+}

@@ -5,6 +5,7 @@ mod batch;
 mod data;
 mod engine;
 mod math;
+mod production;
 mod radii;
 mod repertorio;
 mod research;
@@ -417,6 +418,7 @@ fn ext_for(data: &Data, mon: &Mon, start: usize, cfg: &Cfg) -> Ext {
         }
     });
     Ext {
+        planned_buffs: None,
         initial_second: cfg.second.as_ref().map(|id| data.move_ix[id]),
         ability: cfg.ability.clone(),
         companions,
@@ -1909,6 +1911,7 @@ fn main() {
     }
     let t0 = Instant::now();
     match cfg.rest.first().map(String::as_str) {
+        Some("production") => production::command(&data, &cfg.rest[1..]),
         Some("fingerprint") => println!("{}", research::fingerprint()),
         Some("candidates") => {
             research::candidates(&data, cfg.rest[1].parse().expect("dex"), cfg.list, false)
@@ -2046,7 +2049,7 @@ fn main() {
             );
         }
         _ => {
-            eprintln!("usage: pokesim sweep|rank|synergy|tasks|repertorio|run [--seeds N] [--seconds S] [--bot repulse|line] [--lvl1] [--terrain] [--status] [--group 2+2] [--no-synergy] [--out P]");
+            eprintln!("usage: pokesim production plan|run|resume|benchmark ... | sweep|rank|synergy|tasks|repertorio|run [--seeds N] [--seconds S] [--bot repulse|line] [--lvl1] [--terrain] [--status] [--group 2+2] [--no-synergy] [--out P]");
             std::process::exit(2);
         }
     }
