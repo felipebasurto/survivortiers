@@ -1,0 +1,40 @@
+{
+  "gameCommit": "ce5785313b0205af8b9477423f64b0a7b7039dcd",
+  "frames": 3600,
+  "seed1": {
+    "screenshotSha256": "eaa4c0fbecadb86bc24bd504b734780a3c71672ff4b402c5b860f015f88640b8",
+    "pageErrors": [],
+    "camera": [
+      39.281434178838424,
+      433.7291426749015
+    ],
+    "randomDraws": 205205,
+    "clock": 59999.999999996995,
+    "pixels": "5f53ad56"
+  },
+  "seed1Repeat": {
+    "screenshotSha256": "b55168c5263da552e11f9975a07de66a5f5015a06a8a1d66ae8761ee2ce19275",
+    "pageErrors": [],
+    "camera": [
+      39.281434178838424,
+      433.7291426749015
+    ],
+    "randomDraws": 205205,
+    "clock": 59999.999999996995,
+    "pixels": "5f53ad56"
+  },
+  "seed2": {
+    "screenshotSha256": "a101cff76da7b413e31f61136858288ba24c075dcfe2dcbd303d21c0517b43be",
+    "pageErrors": [],
+    "camera": [
+      39.281434178838424,
+      433.7291426749015
+    ],
+    "randomDraws": 205109,
+    "clock": 59999.999999996995,
+    "pixels": "18f5fb25"
+  },
+  "sameSeedMatches": true,
+  "differentSeedDiffers": true,
+  "screenshotStable": false
+}
