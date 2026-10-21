@@ -1,4 +1,4 @@
-//! Loads v3/v3_data.json into flat structs. Missing numeric fields become NaN,
+//! Loads the pinned schema-4 game dataset into typed combat data. Missing optional numbers become NaN,
 //! which is how `undefined` behaves in the JS arithmetic it replaces.
 
 use serde_json::Value;
@@ -24,6 +24,7 @@ pub const T_GHOST: u8 = 13;
 pub const T_DRAGON: u8 = 14;
 pub const T_STEEL: u8 = 16;
 pub const T_FAIRY: u8 = 17;
+pub const T_DARK: u8 = 15;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Kind {
@@ -35,7 +36,7 @@ pub enum Kind {
     Boomerang,
     /// buff, dash, cone, aura, chain, trail, mine, meteor, turret, and the 5a23d49 kinds
     /// (homing, bounce, charge, spin, quake, vortex, shove, stun): never fired on the parity path.
-    Inert,
+    Effect,
 }
 
 impl Kind {
@@ -47,12 +48,12 @@ impl Kind {
             "nova" => Kind::Nova,
             "projectile" => Kind::Projectile,
             "boomerang" => Kind::Boomerang,
-            _ => Kind::Inert,
+            _ => Kind::Effect,
         }
     }
 
     pub fn simulated(self) -> bool {
-        self != Kind::Inert
+        self != Kind::Effect
     }
 }
 
@@ -67,11 +68,21 @@ pub enum Stat {
     Mag = 6,
 }
 
-pub const STATS: [Stat; 7] = [Stat::Pow, Stat::Run, Stat::Hp, Stat::Cor, Stat::Cd, Stat::Rgn, Stat::Mag];
+pub const STATS: [Stat; 7] = [
+    Stat::Pow,
+    Stat::Run,
+    Stat::Hp,
+    Stat::Cor,
+    Stat::Cd,
+    Stat::Rgn,
+    Stat::Mag,
+];
 pub const CAPS: [u32; 7] = [40, 8, 99, 12, 10, 10, 6];
 
 #[derive(Clone, Debug)]
 pub struct MoveLvl {
+    pub tags: u16,
+    pub base_dmg: f64,
     pub kind: Kind,
     pub ty: u8,
     pub cd: f64,
@@ -97,7 +108,7 @@ pub struct MoveLvl {
     pub poison: f64,
     /// slow factor of the move (NaN when absent): enemy speed x (1 - slow) for 1.2 s after a hit.
     pub slow: f64,
-    /// game kind the parity engine never fires (Kind::Inert), for the fixed-group mode:
+    /// game kind the parity engine never fires (Kind::Effect), for the fixed-group mode:
     /// 0 none/buff, 1 cone, 2 meteor, 3 chain, 4 aura, 5 dash, 6 mine, 7 trail, 8 turret,
     /// 9 homing, 10 bounce, 11 charge, 12 spin, 13 quake, 14 vortex, 15 shove, 16 stun
     pub xk: u8,
@@ -182,7 +193,13 @@ impl Beh {
     pub fn keeps(self) -> bool {
         matches!(
             self,
-            Beh::Ranged | Beh::Fan | Beh::Beamer | Beh::Zoner | Beh::Healer | Beh::Summoner | Beh::Shielder
+            Beh::Ranged
+                | Beh::Fan
+                | Beh::Beamer
+                | Beh::Zoner
+                | Beh::Healer
+                | Beh::Summoner
+                | Beh::Shielder
         )
     }
 
@@ -253,6 +270,8 @@ pub struct Mon {
     pub sd: f64,
     pub start: usize,
     pub pool: Vec<usize>,
+    pub tms: Vec<usize>,
+    pub abilities: Vec<Option<String>>,
     /// legendary or mythical (rift.js only spawns these in arenas)
     pub leg: bool,
     /// base stat total (enemies.js boss bands)
@@ -263,7 +282,12 @@ impl Mon {
     /// starters.js startChoices: the pool without buffs, plus the stock start even when it is off-type
     /// (Confusión on Psyduck) so the player can always go back to it.
     pub fn start_choices(&self, moves: &[Move]) -> Vec<usize> {
-        let mut ids: Vec<usize> = self.pool.iter().copied().filter(|&ix| moves[ix].kind_name != "buff").collect();
+        let mut ids: Vec<usize> = self
+            .pool
+            .iter()
+            .copied()
+            .filter(|&ix| moves[ix].kind_name != "buff")
+            .collect();
         if !ids.contains(&self.start) {
             ids.push(self.start);
         }
@@ -272,6 +296,9 @@ impl Mon {
 }
 
 pub struct Data {
+    pub commit: String,
+    pub natures: Value,
+    pub combos: Vec<Vec<u8>>,
     pub moves: Vec<Move>,
     pub move_ix: HashMap<String, usize>,
     pub dex: Vec<Mon>,
@@ -290,11 +317,33 @@ fn num(v: &Value, k: &str) -> f64 {
 }
 
 fn type_ix(s: &str) -> u8 {
-    TYPES.iter().position(|t| *t == s).unwrap_or_else(|| panic!("unknown type {s}")) as u8
+    TYPES
+        .iter()
+        .position(|t| *t == s)
+        .unwrap_or_else(|| panic!("unknown type {s}")) as u8
 }
 
 fn move_lvl(v: &Value) -> MoveLvl {
+    let id = v["id"].as_str().unwrap_or("");
+    let groups: &[&[&str]] = &[
+        &["punch"],
+        &["bite", "fang", "crunch", "jaw"],
+        &["pulse", "aura-sphere"],
+        &["cut", "slash", "blade", "razor", "scissor", "sword"],
+        &[
+            "voice", "buzz", "boom", "noise", "sing", "echo", "uproar", "snarl",
+        ],
+    ];
+    let tags = groups.iter().enumerate().fold(0, |n, (i, g)| {
+        n | if g.iter().any(|s| id.contains(s)) {
+            1 << i
+        } else {
+            0
+        }
+    });
     MoveLvl {
+        tags,
+        base_dmg: v["baseDmg"].as_f64().unwrap_or_else(|| num(v, "dmg")),
         kind: Kind::parse(v["kind"].as_str().unwrap()),
         ty: type_ix(v["type"].as_str().unwrap()),
         cd: num(v, "cd"),
@@ -312,7 +361,9 @@ fn move_lvl(v: &Value) -> MoveLvl {
         amount: num(v, "amount"),
         dur: num(v, "dur"),
         stacks: num(v, "stacks"),
-        status: ["burn", "poison", "slow"].iter().any(|k| v.get(*k).is_some_and(|x| !x.is_null())),
+        status: ["burn", "poison", "slow"]
+            .iter()
+            .any(|k| v.get(*k).is_some_and(|x| !x.is_null())),
         burn: num(v, "burn"),
         poison: num(v, "poison"),
         slow: num(v, "slow"),
@@ -376,24 +427,51 @@ fn stat_of(s: &str) -> Option<Stat> {
 
 impl Data {
     pub fn load(path: &str) -> Data {
-        let raw: Value = serde_json::from_str(&std::fs::read_to_string(path).expect("read v3_data.json"))
-            .expect("parse v3_data.json");
+        let raw: Value =
+            serde_json::from_str(&std::fs::read_to_string(path).expect("read v3_data.json"))
+                .expect("parse v3_data.json");
 
+        assert_eq!(
+            raw["schema"], 4,
+            "engine requires the current schema-4 dataset"
+        );
+        assert_eq!(
+            raw["gameCommit"],
+            crate::research::GAME_COMMIT,
+            "unexpected game version"
+        );
         let tm = raw["tmult"].as_object().unwrap();
         let combo_names: Vec<String> = tm["normal"].as_object().unwrap().keys().cloned().collect();
-        let combo_ix: HashMap<String, u16> =
-            combo_names.iter().enumerate().map(|(i, c)| (c.clone(), i as u16)).collect();
+        assert!(
+            combo_names.len() <= 256,
+            "combo bitsets require <=256 combinations"
+        );
+        let combo_ix: HashMap<String, u16> = combo_names
+            .iter()
+            .enumerate()
+            .map(|(i, c)| (c.clone(), i as u16))
+            .collect();
         let tmult: Vec<Vec<f64>> = TYPES
             .iter()
             .map(|t| {
                 let row = tm[*t].as_object().unwrap();
-                combo_names.iter().map(|c| row[c].as_f64().unwrap()).collect()
+                combo_names
+                    .iter()
+                    .map(|c| row[c].as_f64().unwrap())
+                    .collect()
             })
             .collect();
         let combo_of = |types: &Value| -> u16 {
-            let key: Vec<&str> = types.as_array().unwrap().iter().map(|t| t.as_str().unwrap()).collect();
+            let key: Vec<&str> = types
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|t| t.as_str().unwrap())
+                .collect();
             let key = key.join("/");
-            *combo_ix.get(&key).unwrap_or_else(|| panic!("missing type combo {key}"))
+            *combo_ix
+                .get(&key)
+                .unwrap_or_else(|| panic!("missing type combo {key}"))
         };
 
         let mut moves = Vec::new();
@@ -402,8 +480,17 @@ impl Data {
         ids.sort();
         for id in ids {
             let m = &raw["moves"][id];
-            let levels: Vec<MoveLvl> = m["levels"].as_array().unwrap().iter().map(move_lvl).collect();
-            let evo = if m["evo"].is_null() { None } else { Some(move_lvl(&m["evo"])) };
+            let levels: Vec<MoveLvl> = m["levels"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(move_lvl)
+                .collect();
+            let evo = if m["evo"].is_null() {
+                None
+            } else {
+                Some(move_lvl(&m["evo"]))
+            };
             move_ix.insert(id.clone(), moves.len());
             let kind_name = m["kind"].as_str().unwrap().to_string();
             moves.push(Move {
@@ -424,7 +511,12 @@ impl Data {
             .map(|p| Mon {
                 dex: p["dex"].as_u64().unwrap() as u32,
                 name: p["name"].as_str().unwrap().to_string(),
-                types: p["types"].as_array().unwrap().iter().map(|t| type_ix(t.as_str().unwrap())).collect(),
+                types: p["types"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|t| type_ix(t.as_str().unwrap()))
+                    .collect(),
                 combo: combo_of(&p["types"]),
                 hp: num(p, "hp"),
                 spd: num(p, "spd"),
@@ -435,7 +527,20 @@ impl Data {
                 df: num(p, "df"),
                 sd: num(p, "sd"),
                 start: move_ix[p["start"].as_str().unwrap()],
-                pool: p["pool"].as_array().unwrap().iter().map(|x| move_ix[x.as_str().unwrap()]).collect(),
+                abilities: p["abilities"]
+                    .as_array()
+                    .map(|a| a.iter().map(|x| x.as_str().map(String::from)).collect())
+                    .unwrap_or_default(),
+                tms: p["tms"]
+                    .as_array()
+                    .map(|a| a.iter().map(|x| move_ix[x.as_str().unwrap()]).collect())
+                    .unwrap_or_default(),
+                pool: p["pool"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|x| move_ix[x.as_str().unwrap()])
+                    .collect(),
                 leg: p["leg"].as_bool().unwrap_or(false),
                 bst: num(p, "bst"),
             })
@@ -494,6 +599,81 @@ impl Data {
         let dragon_dance = move_ix["dragon-dance"];
         let agility = move_ix["agility"];
         let nasty_plot = move_ix["nasty-plot"];
-        Data { moves, move_ix, dex, tiers, tmult, swords_dance, harden, dragon_dance, agility, nasty_plot }
+        Data {
+            commit: raw["gameCommit"].as_str().unwrap_or("5a23d49").into(),
+            natures: raw["natures"].clone(),
+            combos: combo_names
+                .iter()
+                .map(|s| s.split('/').map(type_ix).collect())
+                .collect(),
+            moves,
+            move_ix,
+            dex,
+            tiers,
+            tmult,
+            swords_dance,
+            harden,
+            dragon_dance,
+            agility,
+            nasty_plot,
+        }
+    }
+}
+
+impl Data {
+    pub fn configure(
+        &self,
+        base: &Mon,
+        nature: &str,
+        ability: Option<&str>,
+        tms: &[String],
+    ) -> Result<Mon, String> {
+        let mut mon = base.clone();
+        if let Some(id) = ability {
+            if !mon.abilities.iter().flatten().any(|s| s == id) {
+                return Err(format!("{} cannot have ability {id}", mon.name));
+            }
+        }
+        let n = self
+            .natures
+            .as_array()
+            .and_then(|a| a.iter().find(|n| n["id"] == nature))
+            .ok_or_else(|| format!("unknown nature {nature}"))?;
+        for (key, k) in [("up", 1.1), ("down", 0.9)] {
+            match n[key].as_str().unwrap() {
+                "pa" => mon.pa *= k,
+                "sa" => mon.sa *= k,
+                "df" => mon.df *= k,
+                "sd" => mon.sd *= k,
+                "spd" => mon.spd *= k,
+                "" => {}
+                x => return Err(format!("unknown nature stat {x}")),
+            }
+        }
+        mon.atk = mon.pa.max(mon.sa);
+        for id in tms {
+            let ix = *self
+                .move_ix
+                .get(id)
+                .ok_or_else(|| format!("unknown TM {id}"))?;
+            if !mon.tms.contains(&ix) {
+                return Err(format!("{} cannot learn TM {id}", mon.name));
+            }
+            if !mon.pool.contains(&ix) {
+                mon.pool.push(ix);
+            }
+        }
+        if ability == Some("imposter")
+            || ability.is_none()
+                && mon.abilities.first().and_then(|s| s.as_deref()) == Some("imposter")
+        {
+            let atk = mon.atk.max(1.12);
+            mon.pa = atk;
+            mon.sa = atk;
+            mon.atk = atk;
+            mon.df = mon.df.max(72.);
+            mon.sd = mon.sd.max(72.);
+        }
+        Ok(mon)
     }
 }

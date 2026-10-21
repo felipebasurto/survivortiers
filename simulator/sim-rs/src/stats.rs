@@ -229,6 +229,7 @@ mod tests {
 
     fn run(time: f64, dealt: f64, kills: u32) -> RunResult {
         RunResult {
+            risk:Default::default(),
             time,
             kills,
             bosses: 0,

@@ -20,9 +20,10 @@
 
 mod data;
 mod engine;
-mod radii;
 mod math;
+mod radii;
 mod repertorio;
+mod research;
 mod rng;
 mod stats;
 mod terrain;
@@ -42,6 +43,10 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
 
 struct Cfg {
+    ability: Option<String>,
+    nature: String,
+    tms: Vec<String>,
+    second: Option<String>,
     seeds: u32,
     seconds: f64,
     bot: Bot,
@@ -95,10 +100,66 @@ struct Cfg {
 }
 
 fn parse(args: &[String]) -> Cfg {
-    let mut c = Cfg { seeds: 200, seconds: 900.0, bot: Bot::Repulse, cards: true, terrain: false, status: false, out: None, group: 0, dd: false, np: false, agi: false, xkinds: false, legacy: false, bonded: false, item: "none".into(), fill: vec![], buffs: None, atk_buff: None, comps: None, swap: false, crit: 0.0, full_cards: false, stop: 0, heal_below: 0.0, dodge: 0.0, locks: vec![], synergy: false, no_synergy: false, bot_set: false, seed0: 0, count: false, list: false, only: None, explicit: false, rest: vec![] };
+    let mut c = Cfg {
+        ability: None,
+        nature: "hardy".into(),
+        tms: Vec::new(),
+        second: None,
+        seeds: 200,
+        seconds: 900.0,
+        bot: Bot::Repulse,
+        cards: true,
+        terrain: false,
+        status: true,
+        out: None,
+        group: 0,
+        dd: false,
+        np: false,
+        agi: false,
+        xkinds: true,
+        legacy: false,
+        bonded: false,
+        item: "none".into(),
+        fill: vec![],
+        buffs: None,
+        atk_buff: None,
+        comps: None,
+        swap: false,
+        crit: 0.0,
+        full_cards: false,
+        stop: 0,
+        heal_below: 0.0,
+        dodge: 0.0,
+        locks: vec![],
+        synergy: false,
+        no_synergy: false,
+        bot_set: false,
+        seed0: 0,
+        count: false,
+        list: false,
+        only: None,
+        explicit: false,
+        rest: vec![],
+    };
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
+            "--ability" => {
+                i += 1;
+                c.ability = Some(args[i].clone());
+            }
+            "--nature" => {
+                i += 1;
+                c.nature = args[i].clone();
+            }
+            "--tms" => {
+                i += 1;
+                c.tms = args[i].split(',').map(String::from).collect();
+            }
+            "--second" => {
+                i += 1;
+                c.second = Some(args[i].clone());
+            }
             "--seeds" => {
                 i += 1;
                 c.seeds = args[i].parse().expect("--seeds");
@@ -113,7 +174,13 @@ fn parse(args: &[String]) -> Cfg {
             "--only" => {
                 i += 1;
                 let text = std::fs::read_to_string(&args[i]).expect("--only file");
-                c.only = Some(text.lines().map(str::trim).filter(|l| !l.is_empty() && !l.starts_with('#')).map(String::from).collect());
+                c.only = Some(
+                    text.lines()
+                        .map(str::trim)
+                        .filter(|l| !l.is_empty() && !l.starts_with('#'))
+                        .map(String::from)
+                        .collect(),
+                );
             }
             "--seconds" => {
                 i += 1;
@@ -137,7 +204,12 @@ fn parse(args: &[String]) -> Cfg {
             "--no-synergy" => c.no_synergy = true,
             "--group" => {
                 i += 1;
-                c.group = match args[i].as_str() { "2+2" => 2, "3+1" => 3, "off" => 0, x => panic!("--group {x}") };
+                c.group = match args[i].as_str() {
+                    "2+2" => 2,
+                    "3+1" => 3,
+                    "off" => 0,
+                    x => panic!("--group {x}"),
+                };
             }
             "--partners" => {
                 i += 1;
@@ -152,7 +224,7 @@ fn parse(args: &[String]) -> Cfg {
                 i += 1;
                 c.crit = args[i].parse::<f64>().expect("--crit") * 0.03;
             }
-            "--legacy-group" => c.legacy = true,
+            "--legacy-group" => panic!("legacy rules were removed"),
             "--bonded" => c.bonded = true,
             "--buffs" => {
                 i += 1;
@@ -176,8 +248,7 @@ fn parse(args: &[String]) -> Cfg {
                 c.heal_below = args[i].parse().expect("--heal-below");
             }
             "--dodge" => {
-                i += 1;
-                c.dodge = args[i].parse().expect("--dodge");
+                panic!("--dodge was removed: use real movement and ability dodge rolls");
             }
             "--lock" => {
                 i += 1;
@@ -210,7 +281,10 @@ fn parse_locks(s: &str) -> Vec<(u8, u32)> {
 fn read_partners(path: &str) -> HashMap<u32, Vec<String>> {
     let text = std::fs::read_to_string(path).expect("partners");
     let mut rows: Vec<(u32, String, String, f64)> = Vec::new();
-    for l in text.lines().filter(|l| !l.starts_with('#') && !l.starts_with("dex,")) {
+    for l in text
+        .lines()
+        .filter(|l| !l.starts_with('#') && !l.starts_with("dex,"))
+    {
         let c: Vec<&str> = l.split(',').collect();
         let n = c.len();
         // dex,name,start,kind,n,median_s,... (name may hold no commas in this data)
@@ -221,10 +295,19 @@ fn read_partners(path: &str) -> HashMap<u32, Vec<String>> {
         if dealt <= 0.0 || c[3] == "buff" {
             continue;
         }
-        rows.push((c[0].parse().unwrap(), c[2].to_string(), c[3].to_string(), score));
+        rows.push((
+            c[0].parse().unwrap(),
+            c[2].to_string(),
+            c[3].to_string(),
+            score,
+        ));
         let _ = n;
     }
-    rows.sort_by(|a, b| a.0.cmp(&b.0).then(b.3.partial_cmp(&a.3).unwrap()).then(a.1.cmp(&b.1)));
+    rows.sort_by(|a, b| {
+        a.0.cmp(&b.0)
+            .then(b.3.partial_cmp(&a.3).unwrap())
+            .then(a.1.cmp(&b.1))
+    });
     let mut m: HashMap<u32, Vec<String>> = HashMap::new();
     for (d, mv, _kind, _) in rows {
         m.entry(d).or_default().push(mv);
@@ -238,7 +321,9 @@ fn pairs_with(data: &Data, a: usize, b: usize) -> bool {
     let la = &data.moves[a].levels[0];
     let lb = &data.moves[b].levels[0];
     let statusy = |burn: f64, poison: f64, slow: f64| {
-        (burn.is_finite() && burn > 0.0) || (poison.is_finite() && poison > 0.0) || (slow.is_finite() && slow > 0.0)
+        (burn.is_finite() && burn > 0.0)
+            || (poison.is_finite() && poison > 0.0)
+            || (slow.is_finite() && slow > 0.0)
     };
     let hex = |h: f64| h.is_finite() && h > 1.0;
     (hex(la.hex) && statusy(lb.burn, lb.poison, lb.slow))
@@ -252,7 +337,11 @@ fn partner_pool(data: &Data, mon: &Mon, start: usize) -> Vec<usize> {
     let solo: Vec<usize> = PARTNERS
         .get()
         .and_then(|p| p.get(&mon.dex))
-        .map(|list| list.iter().filter_map(|id| data.move_ix.get(id.as_str()).copied()).collect())
+        .map(|list| {
+            list.iter()
+                .filter_map(|id| data.move_ix.get(id.as_str()).copied())
+                .collect()
+        })
         .unwrap_or_default();
     let mut ids: Vec<usize> = mon
         .pool
@@ -273,7 +362,10 @@ fn partner_pool(data: &Data, mon: &Mon, start: usize) -> Vec<usize> {
     ids.sort_by(|&a, &b| {
         let syn = |ix| if pairs_with(data, start, ix) { 0u8 } else { 1 };
         let rank = |ix| solo.iter().position(|&p| p == ix).unwrap_or(10_000);
-        syn(a).cmp(&syn(b)).then(rank(a).cmp(&rank(b))).then(data.moves[a].id.cmp(&data.moves[b].id))
+        syn(a)
+            .cmp(&syn(b))
+            .then(rank(a).cmp(&rank(b)))
+            .then(data.moves[a].id.cmp(&data.moves[b].id))
     });
     ids
 }
@@ -307,13 +399,24 @@ fn ext_for(data: &Data, mon: &Mon, start: usize, cfg: &Cfg) -> Ext {
         // The buff is the start move's category buff, so a companion of the other category
         // would be left without one.
         let cat = cat_of(data, start);
-        pool.iter().copied().filter(|&ix| cat_of(data, ix) == cat).take(want).collect()
+        pool.iter()
+            .copied()
+            .filter(|&ix| cat_of(data, ix) == cat)
+            .take(want)
+            .collect()
     } else {
         Vec::new()
     };
     let item = Item::by_id(&cfg.item);
     // Slot 1 is the next leftover attack at level 1. Choice Band (player.js:141) cannot swap.
-    let alt = if cfg.swap && !item.lock {
+    let alt = if let Some(id) = &cfg.second {
+        let ix = *data.move_ix.get(id).expect("unknown second move");
+        assert!(
+            ix != start && mon.start_choices(&data.moves).contains(&ix),
+            "illegal second starting move"
+        );
+        Some(ix)
+    } else if cfg.swap && !item.lock {
         pool.iter().copied().find(|&ix| !companions.contains(&ix))
     } else {
         None
@@ -328,14 +431,19 @@ fn ext_for(data: &Data, mon: &Mon, start: usize, cfg: &Cfg) -> Ext {
         }
     });
     Ext {
+        initial_second: cfg.second.as_ref().map(|id| data.move_ix[id]),
+        ability: cfg.ability.clone(),
         companions,
-        buffs: cfg.buffs.unwrap_or(match cfg.group { 2 => 3, 3 => 1, _ => 0 }),
+        buffs: cfg.buffs.unwrap_or(match cfg.group {
+            2 => 3,
+            3 => 1,
+            _ => 0,
+        }),
         dd: atk == AtkBuff::Dd,
         np: atk == AtkBuff::Np,
         agi: cfg.agi,
         item,
         fill: cfg.fill.clone(),
-        xkinds: cfg.xkinds || (cfg.group > 0 && !cfg.legacy),
         rift: cfg.group > 0 && !cfg.legacy && !cfg.bonded,
         bonded: cfg.bonded,
         bosses: cfg.group > 0 && !cfg.legacy,
@@ -344,7 +452,6 @@ fn ext_for(data: &Data, mon: &Mon, start: usize, cfg: &Cfg) -> Ext {
         full_cards: cfg.full_cards,
         stop: cfg.stop,
         heal_below: cfg.heal_below,
-        dodge: cfg.dodge,
         locks: cfg.locks.clone(),
     }
 }
@@ -363,18 +470,37 @@ fn bot_name(b: Bot) -> &'static str {
 }
 
 fn run_species(data: &Data, tables: &Tables, mon: &Mon, start: usize, cfg: &Cfg) -> Summary {
+    let configured = data
+        .configure(mon, &cfg.nature, cfg.ability.as_deref(), &cfg.tms)
+        .expect("run configuration");
+    let mon = &configured;
     let ext = ext_for(data, mon, start, cfg);
     let runs: Vec<RunResult> = (1..=cfg.seeds)
         .map(|i| {
             let seed = cfg.seed0 + i;
-            let opts = Opts { seed, seconds: cfg.seconds, cards: cfg.cards, bot: cfg.bot, terrain: cfg.terrain, trace: false, status: cfg.status, ext: ext.clone() };
+            let opts = Opts {
+                seed,
+                seconds: cfg.seconds,
+                cards: cfg.cards,
+                bot: cfg.bot,
+                terrain: cfg.terrain,
+                trace: false,
+                ext: ext.clone(),
+            };
             run_match(&Libm, data, tables, mon, start, &opts)
         })
         .collect();
     if log_level() >= 2 {
         let label = run_label(data, mon, start, cfg);
         for (i, r) in runs.iter().enumerate() {
-            eprintln!("  run {label} seed {} t={:.1}s kills={} lvl={} capped={}", cfg.seed0 as usize + i + 1, r.time, r.kills, r.level, r.capped);
+            eprintln!(
+                "  run {label} seed {} t={:.1}s kills={} lvl={} capped={}",
+                cfg.seed0 as usize + i + 1,
+                r.time,
+                r.kills,
+                r.level,
+                r.capped
+            );
         }
     }
     summarize(&runs)
@@ -399,7 +525,12 @@ struct Job<'a> {
 fn run_tasks<'a>(data: &'a Data, tasks: Vec<(&'a Mon, usize)>, cfg: &Cfg) -> Vec<Row<'a>> {
     let jobs = tasks
         .into_iter()
-        .map(|(mon, start)| Job { mon, start, comps: None, kit: None })
+        .map(|(mon, start)| Job {
+            mon,
+            start,
+            comps: None,
+            kit: None,
+        })
         .collect();
     run_jobs(data, jobs, cfg)
 }
@@ -438,6 +569,18 @@ fn run_jobs<'a>(data: &'a Data, jobs: Vec<Job<'a>>, cfg: &Cfg) -> Vec<Row<'a>> {
     let tables = Tables::new();
     let done = AtomicUsize::new(0);
     let total = jobs.len();
+    if matches!(
+        cfg.rest.first().map(String::as_str),
+        Some("rank" | "sweep" | "synergy" | "tasks" | "repertorio")
+    ) {
+        panic!("historical ranking commands are retired; use candidates/evaluate. Current diagnostics do not validate a ranking");
+    }
+    if cfg.rest.first().map(String::as_str) == Some("run") {
+        assert!(
+            cfg.seconds > 0. && cfg.seconds <= 15.,
+            "diagnostic runs are limited to 15 simulated seconds"
+        );
+    }
     let t0 = Instant::now();
     let left: Mutex<HashMap<u32, (usize, usize)>> = Mutex::new(HashMap::new());
     if log_level() > 0 {
@@ -507,8 +650,12 @@ fn run_jobs<'a>(data: &'a Data, jobs: Vec<Job<'a>>, cfg: &Cfg) -> Vec<Row<'a>> {
 
 fn read_old_rank(path: &str) -> HashMap<u32, usize> {
     let mut m = HashMap::new();
-    let Ok(text) = std::fs::read_to_string(path) else { return m };
-    let lines = text.lines().filter(|l| !l.is_empty() && !l.starts_with('#') && !l.starts_with("dex,"));
+    let Ok(text) = std::fs::read_to_string(path) else {
+        return m;
+    };
+    let lines = text
+        .lines()
+        .filter(|l| !l.is_empty() && !l.starts_with('#') && !l.starts_with("dex,"));
     for (i, l) in lines.enumerate() {
         m.insert(l.split(',').next().unwrap().parse().unwrap(), i + 1);
     }
@@ -537,8 +684,16 @@ fn castable(m: &data::Move) -> bool {
 }
 
 fn level_dps(l: &data::MoveLvl) -> f64 {
-    let cd = if l.cd.is_finite() && l.cd > 0.0 { l.cd } else { 1.0 };
-    let n = if l.count.is_finite() && l.count > 0.0 { l.count } else { 1.0 };
+    let cd = if l.cd.is_finite() && l.cd > 0.0 {
+        l.cd
+    } else {
+        1.0
+    };
+    let n = if l.count.is_finite() && l.count > 0.0 {
+        l.count
+    } else {
+        1.0
+    };
     let dmg = if l.dmg.is_finite() { l.dmg } else { 0.0 };
     dmg * n / cd
 }
@@ -592,7 +747,10 @@ fn ensure_partners() {
     if PARTNERS.get().is_some() {
         return;
     }
-    for p in ["results/fixed_group/solo_sweep.csv", "simulator/results/fixed_group/solo_sweep.csv"] {
+    for p in [
+        "results/fixed_group/solo_sweep.csv",
+        "simulator/results/fixed_group/solo_sweep.csv",
+    ] {
         if std::path::Path::new(p).exists() {
             let _ = PARTNERS.set(read_partners(p));
             return;
@@ -606,8 +764,13 @@ fn tier_scores() -> &'static HashMap<String, f64> {
     SCORES.get_or_init(|| {
         let mut m = HashMap::new();
         for p in ["../data/move_tierlist_v4.csv", "data/move_tierlist_v4.csv"] {
-            let Ok(text) = std::fs::read_to_string(p) else { continue };
-            for line in text.lines().filter(|l| !l.is_empty() && !l.starts_with("category,")) {
+            let Ok(text) = std::fs::read_to_string(p) else {
+                continue;
+            };
+            for line in text
+                .lines()
+                .filter(|l| !l.is_empty() && !l.starts_with("category,"))
+            {
                 let cols = csv_fields(line);
                 // category,tier,rank,move_id,name,type,kind,score_rel,...
                 if cols.len() > 7 {
@@ -645,20 +808,35 @@ fn ranked_attacks(data: &Data, mon: &Mon, atk: &[usize]) -> Vec<usize> {
     let solo: Vec<usize> = PARTNERS
         .get()
         .and_then(|p| p.get(&mon.dex))
-        .map(|list| list.iter().filter_map(|id| data.move_ix.get(id.as_str()).copied()).collect())
+        .map(|list| {
+            list.iter()
+                .filter_map(|id| data.move_ix.get(id.as_str()).copied())
+                .collect()
+        })
         .unwrap_or_default();
     let scores = tier_scores();
     let mut by_tier = atk.to_vec();
     by_tier.sort_by(|&a, &b| {
-        let sa = scores.get(&data.moves[a].id).copied().unwrap_or(f64::NEG_INFINITY);
-        let sb = scores.get(&data.moves[b].id).copied().unwrap_or(f64::NEG_INFINITY);
-        sb.partial_cmp(&sa).unwrap_or(std::cmp::Ordering::Equal).then(data.moves[a].id.cmp(&data.moves[b].id))
+        let sa = scores
+            .get(&data.moves[a].id)
+            .copied()
+            .unwrap_or(f64::NEG_INFINITY);
+        let sb = scores
+            .get(&data.moves[b].id)
+            .copied()
+            .unwrap_or(f64::NEG_INFINITY);
+        sb.partial_cmp(&sa)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then(data.moves[a].id.cmp(&data.moves[b].id))
     });
     let solo_pos = |ix: usize| solo.iter().position(|&p| p == ix).unwrap_or(10_000);
     let tier_pos = |ix: usize| by_tier.iter().position(|&p| p == ix).unwrap_or(10_000);
     let mut ranked = atk.to_vec();
     ranked.sort_by(|&a, &b| {
-        solo_pos(a).min(tier_pos(a)).cmp(&solo_pos(b).min(tier_pos(b))).then(data.moves[a].id.cmp(&data.moves[b].id))
+        solo_pos(a)
+            .min(tier_pos(a))
+            .cmp(&solo_pos(b).min(tier_pos(b)))
+            .then(data.moves[a].id.cmp(&data.moves[b].id))
     });
     ranked
 }
@@ -689,16 +867,28 @@ fn kits(data: &Data, mon: &Mon, attacks: &[usize]) -> Vec<Kit> {
         2 => {
             for &a in &atk {
                 for agi in [false, true] {
-                    out.push(Kit { buffs: 3, atk: a, agi });
+                    out.push(Kit {
+                        buffs: 3,
+                        atk: a,
+                        agi,
+                    });
                 }
             }
         }
         3 => {
             for &a in &atk {
-                out.push(Kit { buffs: 1, atk: a, agi: false });
+                out.push(Kit {
+                    buffs: 1,
+                    atk: a,
+                    agi: false,
+                });
             }
             for agi in [false, true] {
-                out.push(Kit { buffs: 2, atk: AtkBuff::Sd, agi });
+                out.push(Kit {
+                    buffs: 2,
+                    atk: AtkBuff::Sd,
+                    agi,
+                });
             }
         }
         _ => {}
@@ -727,8 +917,16 @@ fn synergy_specs(data: &Data, mon: &Mon) -> Vec<Spec> {
     if atk.len() < 2 {
         return vec![];
     }
-    let pay: Vec<usize> = atk.iter().copied().filter(|&ix| is_payoff(&data.moves[ix].levels[0])).collect();
-    let mut app: Vec<usize> = atk.iter().copied().filter(|&ix| is_applier(&data.moves[ix].levels[0])).collect();
+    let pay: Vec<usize> = atk
+        .iter()
+        .copied()
+        .filter(|&ix| is_payoff(&data.moves[ix].levels[0]))
+        .collect();
+    let mut app: Vec<usize> = atk
+        .iter()
+        .copied()
+        .filter(|&ix| is_applier(&data.moves[ix].levels[0]))
+        .collect();
     app.sort_by(|&a, &b| {
         level_dps(&data.moves[b].levels[0])
             .partial_cmp(&level_dps(&data.moves[a].levels[0]))
@@ -774,7 +972,11 @@ fn synergy_specs(data: &Data, mon: &Mon) -> Vec<Spec> {
     }
     // Dash invuln is its own relation. Score every ordered dash pair, not only the
     // ones that also land in the top list (Jumpluff, Honchkrow, Rowlet, Dartrix).
-    let dashes: Vec<usize> = atk.iter().copied().filter(|&ix| data.moves[ix].levels[0].xk == 5).collect();
+    let dashes: Vec<usize> = atk
+        .iter()
+        .copied()
+        .filter(|&ix| data.moves[ix].levels[0].xk == 5)
+        .collect();
     for &a in &dashes {
         for &b in &dashes {
             if a != b {
@@ -784,9 +986,15 @@ fn synergy_specs(data: &Data, mon: &Mon) -> Vec<Spec> {
     }
     let mut out = Vec::new();
     for (start, comps) in sets {
-        let members: Vec<usize> = std::iter::once(start).chain(comps.iter().copied()).collect();
+        let members: Vec<usize> = std::iter::once(start)
+            .chain(comps.iter().copied())
+            .collect();
         for kit in kits(data, mon, &members) {
-            out.push(Spec { start, comps: comps.clone(), kit });
+            out.push(Spec {
+                start,
+                comps: comps.clone(),
+                kit,
+            });
         }
     }
     dedup_specs(out)
@@ -795,7 +1003,14 @@ fn synergy_specs(data: &Data, mon: &Mon) -> Vec<Spec> {
 /// The fourth slot as a third attack. Every other member of the top list takes it
 /// (companions in rank order), and so does the strongest status partner of either
 /// member (Sludge + Hex).
-fn push_thirds(data: &Data, pool: &[usize], atk: &[usize], a: usize, b: usize, out: &mut Vec<(usize, Vec<usize>)>) {
+fn push_thirds(
+    data: &Data,
+    pool: &[usize],
+    atk: &[usize],
+    a: usize,
+    b: usize,
+    out: &mut Vec<(usize, Vec<usize>)>,
+) {
     let rank = |ix: usize| pool.iter().position(|&p| p == ix).unwrap_or(usize::MAX);
     let mut thirds: Vec<usize> = pool.iter().copied().filter(|&c| c != a && c != b).collect();
     // The same trio is reached from every order of its companions; keep the rank order.
@@ -843,7 +1058,11 @@ fn ext_kit(ext: &Ext) -> Kit {
     } else {
         AtkBuff::Sd
     };
-    Kit { buffs: ext.buffs, atk, agi: ext.agi }
+    Kit {
+        buffs: ext.buffs,
+        atk,
+        agi: ext.agi,
+    }
 }
 
 fn row_group(data: &Data, row: &Row, cfg: &Cfg) -> String {
@@ -868,7 +1087,8 @@ fn sweep(data: &Data, cfg: &Cfg) {
             }
         }
         for id in ids {
-            let extra = (cfg.xkinds || (cfg.group > 0 && !cfg.legacy)) && data.moves[id].levels[0].xk != 0;
+            let extra =
+                (cfg.xkinds || (cfg.group > 0 && !cfg.legacy)) && data.moves[id].levels[0].xk != 0;
             if let Some(only) = &cfg.only {
                 if !only.contains(&format!("{}|{}", mon.dex, data.moves[id].id)) {
                     continue;
@@ -879,24 +1099,43 @@ fn sweep(data: &Data, cfg: &Cfg) {
                     let ext = ext_for(data, mon, id, cfg);
                     seen.insert((mon.dex, id, ext.companions.clone(), ext_kit(&ext)));
                 }
-                jobs.push(Job { mon, start: id, comps: None, kit: None });
+                jobs.push(Job {
+                    mon,
+                    start: id,
+                    comps: None,
+                    kit: None,
+                });
             }
         }
         if cfg.synergy && cfg.group > 0 {
             for spec in synergy_specs(data, mon) {
                 let key = (mon.dex, spec.start, spec.comps.clone(), spec.kit);
                 if let Some(only) = &cfg.only {
-                    if !only.contains(&format!("{}|{}", mon.dex, group_name(data, spec.start, &spec.comps, spec.kit))) {
+                    if !only.contains(&format!(
+                        "{}|{}",
+                        mon.dex,
+                        group_name(data, spec.start, &spec.comps, spec.kit)
+                    )) {
                         continue;
                     }
                 }
                 if seen.insert(key) {
-                    jobs.push(Job { mon, start: spec.start, comps: Some(spec.comps), kit: Some(spec.kit) });
+                    jobs.push(Job {
+                        mon,
+                        start: spec.start,
+                        comps: Some(spec.comps),
+                        kit: Some(spec.kit),
+                    });
                 }
             }
         }
     }
-    eprintln!("sweep: {} candidates x {} seeds, {} threads", jobs.len(), cfg.seeds, rayon::current_num_threads());
+    eprintln!(
+        "sweep: {} candidates x {} seeds, {} threads",
+        jobs.len(),
+        cfg.seeds,
+        rayon::current_num_threads()
+    );
     let mut rows = run_jobs(data, jobs, cfg);
     let mv = |r: &Row| data.moves[r.start].id.as_str();
     rows.sort_by(|a, b| a.mon.dex.cmp(&b.mon.dex).then_with(|| mv(a).cmp(mv(b))));
@@ -952,7 +1191,11 @@ fn sweep(data: &Data, cfg: &Cfg) {
                 .filter(|&r| data.moves[r.start].is_attack() && r.s.median_dealt > 0.0)
                 .collect();
             if picked.is_empty() {
-                picked = g.iter().copied().filter(|&r| data.moves[r.start].is_attack()).collect();
+                picked = g
+                    .iter()
+                    .copied()
+                    .filter(|&r| data.moves[r.start].is_attack())
+                    .collect();
             }
             if picked.is_empty() {
                 picked = g.clone();
@@ -992,7 +1235,9 @@ fn sweep(data: &Data, cfg: &Cfg) {
             n,
             alt.map(mv).unwrap_or(""),
             alt.map(|a| num(a.s.median_s)).unwrap_or_default(),
-            old.get(&r.mon.dex).map(|x| x.to_string()).unwrap_or_default(),
+            old.get(&r.mon.dex)
+                .map(|x| x.to_string())
+                .unwrap_or_default(),
             row_group(data, r, cfg),
             score_tail(&s)
         )
@@ -1000,7 +1245,11 @@ fn sweep(data: &Data, cfg: &Cfg) {
     }
     let best_path = format!("{out_dir}/rank_best_starter.csv");
     std::fs::write(&best_path, text).unwrap();
-    eprintln!("wrote {long_path} ({} runs)\nwrote {best_path} ({} species)", rows.len(), best.len());
+    eprintln!(
+        "wrote {long_path} ({} runs)\nwrote {best_path} ({} species)",
+        rows.len(),
+        best.len()
+    );
 }
 
 /// tasks <file>: each line "dex,move,item,fill[,buffs][,stop][,heal_below][,lock][,mods]".
@@ -1009,7 +1258,11 @@ fn sweep(data: &Data, cfg: &Cfg) {
 /// Writes the input columns plus median, mean, bootstrap, p75, p90 and how many runs reached 3/5/10 min.
 fn tasks_cmd(data: &Data, cfg: &Cfg) {
     let text = std::fs::read_to_string(&cfg.rest[1]).expect("tasks file");
-    let lines: Vec<Vec<String>> = text.lines().filter(|l| !l.is_empty()).map(|l| l.split(',').map(String::from).collect()).collect();
+    let lines: Vec<Vec<String>> = text
+        .lines()
+        .filter(|l| !l.is_empty())
+        .map(|l| l.split(',').map(String::from).collect())
+        .collect();
     let tables = Tables::new();
     let done = AtomicUsize::new(0);
     let total = lines.len();
@@ -1121,7 +1374,47 @@ fn with_mods(mon: &Mon, mods: &str) -> Mon {
 }
 
 fn cfg_clone(c: &Cfg) -> Box<Cfg> {
-    Box::new(Cfg { seeds: c.seeds, seconds: c.seconds, bot: c.bot, cards: c.cards, terrain: c.terrain, status: c.status, out: None, group: c.group, dd: c.dd, np: c.np, agi: c.agi, xkinds: c.xkinds, legacy: c.legacy, bonded: c.bonded, item: c.item.clone(), fill: c.fill.clone(), buffs: c.buffs, atk_buff: c.atk_buff, comps: c.comps.clone(), swap: c.swap, crit: c.crit, full_cards: c.full_cards, stop: c.stop, heal_below: c.heal_below, dodge: c.dodge, locks: c.locks.clone(), synergy: c.synergy, no_synergy: c.no_synergy, bot_set: c.bot_set, seed0: c.seed0, count: c.count, list: c.list, only: c.only.clone(), explicit: c.explicit, rest: vec![] })
+    Box::new(Cfg {
+        ability: c.ability.clone(),
+        nature: c.nature.clone(),
+        tms: c.tms.clone(),
+        second: c.second.clone(),
+        seeds: c.seeds,
+        seconds: c.seconds,
+        bot: c.bot,
+        cards: c.cards,
+        terrain: c.terrain,
+        status: c.status,
+        out: None,
+        group: c.group,
+        dd: c.dd,
+        np: c.np,
+        agi: c.agi,
+        xkinds: c.xkinds,
+        legacy: c.legacy,
+        bonded: c.bonded,
+        item: c.item.clone(),
+        fill: c.fill.clone(),
+        buffs: c.buffs,
+        atk_buff: c.atk_buff,
+        comps: c.comps.clone(),
+        swap: c.swap,
+        crit: c.crit,
+        full_cards: c.full_cards,
+        stop: c.stop,
+        heal_below: c.heal_below,
+        dodge: c.dodge,
+        locks: c.locks.clone(),
+        synergy: c.synergy,
+        no_synergy: c.no_synergy,
+        bot_set: c.bot_set,
+        seed0: c.seed0,
+        count: c.count,
+        list: c.list,
+        only: c.only.clone(),
+        explicit: c.explicit,
+        rest: vec![],
+    })
 }
 
 fn cmp_run(a: &Summary, b: &Summary) -> std::cmp::Ordering {
@@ -1183,7 +1476,11 @@ fn parse_group(data: &Data, group: &str) -> Option<(usize, Vec<usize>, Kit)> {
         }
     }
     let start = *atoms.first()?;
-    let kit = Kit { buffs, atk: atk.unwrap_or(AtkBuff::Sd), agi };
+    let kit = Kit {
+        buffs,
+        atk: atk.unwrap_or(AtkBuff::Sd),
+        agi,
+    };
     Some((start, atoms[1..].to_vec(), kit))
 }
 
@@ -1194,11 +1491,23 @@ fn explicit_jobs<'a>(data: &'a Data, cfg: &Cfg) -> Vec<Job<'a>> {
     lines
         .into_iter()
         .map(|line| {
-            let (dex, group) = line.split_once('|').unwrap_or_else(|| panic!("--explicit line {line}"));
+            let (dex, group) = line
+                .split_once('|')
+                .unwrap_or_else(|| panic!("--explicit line {line}"));
             let dex: u32 = dex.parse().expect("dex");
-            let mon = data.dex.iter().find(|m| m.dex == dex).unwrap_or_else(|| panic!("no dex {dex}"));
-            let (start, comps, kit) = parse_group(data, group).unwrap_or_else(|| panic!("bad group {line}"));
-            Job { mon, start, comps: Some(comps), kit: Some(kit) }
+            let mon = data
+                .dex
+                .iter()
+                .find(|m| m.dex == dex)
+                .unwrap_or_else(|| panic!("no dex {dex}"));
+            let (start, comps, kit) =
+                parse_group(data, group).unwrap_or_else(|| panic!("bad group {line}"));
+            Job {
+                mon,
+                start,
+                comps: Some(comps),
+                kit: Some(kit),
+            }
         })
         .collect()
 }
@@ -1209,25 +1518,30 @@ fn synergy_cmd(data: &Data, cfg: &Cfg) {
     if cfg.explicit {
         jobs = explicit_jobs(data, cfg);
     } else {
-    for mon in &data.dex {
-        let specs = synergy_specs(data, mon);
-        if !specs.is_empty() {
-            covered += 1;
-        }
-        for spec in specs {
-            let name = group_name(data, spec.start, &spec.comps, spec.kit);
-            if let Some(only) = &cfg.only {
-                if !only.contains(&format!("{}|{}", mon.dex, name)) {
+        for mon in &data.dex {
+            let specs = synergy_specs(data, mon);
+            if !specs.is_empty() {
+                covered += 1;
+            }
+            for spec in specs {
+                let name = group_name(data, spec.start, &spec.comps, spec.kit);
+                if let Some(only) = &cfg.only {
+                    if !only.contains(&format!("{}|{}", mon.dex, name)) {
+                        continue;
+                    }
+                }
+                if cfg.list {
+                    println!("{}|{}", mon.dex, name);
                     continue;
                 }
+                jobs.push(Job {
+                    mon,
+                    start: spec.start,
+                    comps: Some(spec.comps),
+                    kit: Some(spec.kit),
+                });
             }
-            if cfg.list {
-                println!("{}|{}", mon.dex, name);
-                continue;
-            }
-            jobs.push(Job { mon, start: spec.start, comps: Some(spec.comps), kit: Some(spec.kit) });
         }
-    }
     }
     if cfg.list {
         return;
@@ -1281,15 +1595,31 @@ fn synergy_cmd(data: &Data, cfg: &Cfg) {
 
 fn rank(data: &Data, cfg: &Cfg) {
     let tasks: Vec<(&Mon, usize)> = data.dex.iter().map(|m| (m, m.start)).collect();
-    eprintln!("rank: {} species x {} seeds, {} threads", tasks.len(), cfg.seeds, rayon::current_num_threads());
+    eprintln!(
+        "rank: {} species x {} seeds, {} threads",
+        tasks.len(),
+        cfg.seeds,
+        rayon::current_num_threads()
+    );
     let mut rows = run_tasks(data, tasks, cfg);
     rows.sort_by(|a, b| {
         cmp_run(&a.s, &b.s)
-            .then(cmp_desc(a.s.mean_hp_frac.unwrap_or(0.0), b.s.mean_hp_frac.unwrap_or(0.0)))
+            .then(cmp_desc(
+                a.s.mean_hp_frac.unwrap_or(0.0),
+                b.s.mean_hp_frac.unwrap_or(0.0),
+            ))
             .then(a.mon.dex.cmp(&b.mon.dex))
     });
-    let note = if cfg.status { ", ralentización, quemadura y veneno modelados" } else { "" };
-    let note = if cfg.swap { format!("{note}, cambio de hueco al 35% de la recarga") } else { note.to_string() };
+    let note = if cfg.status {
+        ", ralentización, quemadura y veneno modelados"
+    } else {
+        ""
+    };
+    let note = if cfg.swap {
+        format!("{note}, cambio de hueco al 35% de la recarga")
+    } else {
+        note.to_string()
+    };
     let mut text = format!(
         "# step={} seeds=1-{} seconds={} bot={} sin mejoras permanentes, {}, controlador compartido{}\n\
          dex,name,n,median_s,mean_s,boot_lo,boot_hi,p10_s,p90_s,median_kills,median_lvl,n_cap,mean_hp_frac,status_ignored,median_dealt,median_score,mean_score,score_lo,score_hi,score_a,score_b\n",
@@ -1318,7 +1648,10 @@ fn rank(data: &Data, cfg: &Cfg) {
         )
         .unwrap();
     }
-    let path = cfg.out.clone().unwrap_or_else(|| "out/rank_fresh.csv".into());
+    let path = cfg
+        .out
+        .clone()
+        .unwrap_or_else(|| "out/rank_fresh.csv".into());
     if let Some(dir) = std::path::Path::new(&path).parent() {
         std::fs::create_dir_all(dir).unwrap();
     }
@@ -1350,17 +1683,77 @@ fn formulas_cmd(data: &Data) {
     let num = |v: f64| format!("{:.10}", v);
     let mut hits = Vec::new();
     let cases = [
-        ("ghost", &["psychic"][..], 40.0, 1.2, 80.0, 40.0, 30.0, 10.0, 2u8),
-        ("fire", &["grass", "steel"][..], 55.0, 1.0, 75.0, 75.0, 20.0, 0.0, 1u8),
-        ("water", &["fire"][..], 12.0, 2.5, 200.0, 40.0, 100.0, 50.0, 2u8),
-        ("normal", &["ghost"][..], 80.0, 1.0, 50.0, 50.0, 5.0, 0.0, 1u8),
-        ("dragon", &["fairy"][..], 90.0, 0.8, 10.0, 120.0, 8.0, 4.0, 1u8),
+        (
+            "ghost",
+            &["psychic"][..],
+            40.0,
+            1.2,
+            80.0,
+            40.0,
+            30.0,
+            10.0,
+            2u8,
+        ),
+        (
+            "fire",
+            &["grass", "steel"][..],
+            55.0,
+            1.0,
+            75.0,
+            75.0,
+            20.0,
+            0.0,
+            1u8,
+        ),
+        (
+            "water",
+            &["fire"][..],
+            12.0,
+            2.5,
+            200.0,
+            40.0,
+            100.0,
+            50.0,
+            2u8,
+        ),
+        (
+            "normal",
+            &["ghost"][..],
+            80.0,
+            1.0,
+            50.0,
+            50.0,
+            5.0,
+            0.0,
+            1u8,
+        ),
+        (
+            "dragon",
+            &["fairy"][..],
+            90.0,
+            0.8,
+            10.0,
+            120.0,
+            8.0,
+            4.0,
+            1u8,
+        ),
     ];
     for (atk, defs, dmg, atk_mul, df, sd, hp, shield, cat) in cases {
         let def = if cat == 2 { sd } else { df };
         let taken = engine::defense_guard(def);
         let combo = combo_for(data, defs);
-        let dealt = engine::faithful_hit_dealt(hp, shield, dmg, atk_mul, ty(atk), combo, &data.tmult, taken, cat);
+        let dealt = engine::faithful_hit_dealt(
+            hp,
+            shield,
+            dmg,
+            atk_mul,
+            ty(atk),
+            combo,
+            &data.tmult,
+            taken,
+            cat,
+        );
         let mult = data.tmult[ty(atk) as usize][combo as usize];
         hits.push(format!(
             "{{\"atk\":\"{atk}\",\"def\":\"{}\",\"mult\":{},\"taken\":{},\"dealt\":{}}}",
@@ -1372,11 +1765,23 @@ fn formulas_cmd(data: &Data) {
     }
     let guards: Vec<String> = [0.0, 5.0, 75.0, 150.0, 400.0]
         .into_iter()
-        .map(|d| format!("{{\"def\":{},\"v\":{}}}", num(d), num(engine::defense_guard(d))))
+        .map(|d| {
+            format!(
+                "{{\"def\":{},\"v\":{}}}",
+                num(d),
+                num(engine::defense_guard(d))
+            )
+        })
         .collect();
     let spawns: Vec<String> = [0.0, 32.0, 60.0, 105.0, 180.0, 600.0]
         .into_iter()
-        .map(|t| format!("{{\"t\":{},\"rate\":{}}}", num(t), num(engine::spawn_per_second(t))))
+        .map(|t| {
+            format!(
+                "{{\"t\":{},\"rate\":{}}}",
+                num(t),
+                num(engine::spawn_per_second(t))
+            )
+        })
         .collect();
     let caps: Vec<String> = [100.0, 130.0, 180.0, 260.0]
         .into_iter()
@@ -1384,11 +1789,23 @@ fn formulas_cmd(data: &Data) {
         .collect();
     let touch: Vec<String> = [0.0, 420.0, 600.0, 900.0]
         .into_iter()
-        .map(|t| format!("{{\"arena\":{},\"v\":{}}}", num(t), num(engine::judgment_touch_pct(t))))
+        .map(|t| {
+            format!(
+                "{{\"arena\":{},\"v\":{}}}",
+                num(t),
+                num(engine::judgment_touch_pct(t))
+            )
+        })
         .collect();
     let chase: Vec<String> = [0.0, 100.0, 300.0, 600.0]
         .into_iter()
-        .map(|t| format!("{{\"arena\":{},\"v\":{}}}", num(t), num(engine::judgment_chase_k(t))))
+        .map(|t| {
+            format!(
+                "{{\"arena\":{},\"v\":{}}}",
+                num(t),
+                num(engine::judgment_chase_k(t))
+            )
+        })
         .collect();
     let mono: Vec<String> = [
         (&["psychic"][..], "psychic"),
@@ -1399,13 +1816,30 @@ fn formulas_cmd(data: &Data) {
     .into_iter()
     .map(|(own, atk)| {
         let types: Vec<u8> = own.iter().map(|n| ty(n)).collect();
-        format!("{{\"own\":\"{}\",\"atk\":\"{atk}\",\"v\":{}}}", own.join("/"), num(engine::mono_factor(&types, ty(atk))))
+        format!(
+            "{{\"own\":\"{}\",\"atk\":\"{atk}\",\"v\":{}}}",
+            own.join("/"),
+            num(engine::mono_factor(&types, ty(atk)))
+        )
     })
     .collect();
-    let damps: Vec<String> = [(0.0, 100.0, 6.0, 0.05), (10.0, -4.0, 3.5, 0.2), (1.0, 1.0, 5.0, 1.0)]
-        .into_iter()
-        .map(|(a, b, r, dt)| format!("{{\"a\":{},\"b\":{},\"rate\":{},\"dt\":{},\"v\":{}}}", num(a), num(b), num(r), num(dt), num(engine::damp(a, b, r, dt))))
-        .collect();
+    let damps: Vec<String> = [
+        (0.0, 100.0, 6.0, 0.05),
+        (10.0, -4.0, 3.5, 0.2),
+        (1.0, 1.0, 5.0, 1.0),
+    ]
+    .into_iter()
+    .map(|(a, b, r, dt)| {
+        format!(
+            "{{\"a\":{},\"b\":{},\"rate\":{},\"dt\":{},\"v\":{}}}",
+            num(a),
+            num(b),
+            num(r),
+            num(dt),
+            num(engine::damp(a, b, r, dt))
+        )
+    })
+    .collect();
     println!(
         "{{\"guard\":[{}],\"spawn\":[{}],\"capSpd\":[{}],\"touch\":[{}],\"chase\":[{}],\"hit\":[{}],\"mono\":[{}],\"damp\":[{}]}}",
         guards.join(","),
@@ -1421,14 +1855,25 @@ fn formulas_cmd(data: &Data) {
 
 fn find<'a>(data: &'a Data, dex: &str, mv: &str) -> (&'a Mon, usize) {
     let dex: u32 = dex.parse().expect("dex");
-    let mon = data.dex.iter().find(|m| m.dex == dex).expect("dex not found");
+    let mon = data
+        .dex
+        .iter()
+        .find(|m| m.dex == dex)
+        .expect("dex not found");
     (mon, *data.move_ix.get(mv).expect("move not found"))
 }
 
 fn print_result(r: &RunResult) {
+    assert!(
+        [r.time, r.hp, r.max_hp, r.dealt, r.risk.damage]
+            .iter()
+            .all(|x| x.is_finite()),
+        "non-finite run result"
+    );
     println!(
-        "{{\"time\":{:?},\"kills\":{},\"bosses\":{},\"coins\":{:?},\"level\":{},\"capped\":{},\"statusIgnored\":{},\"hp\":{:?},\"maxHp\":{:?},\"hpFrac\":{:?}}}",
-        r.time, r.kills, r.bosses, r.coins, r.level, r.capped, r.status_ignored, r.hp, r.max_hp, r.hp_frac
+        "{}",
+        serde_json::json!({"time":r.time,"kills":r.kills,"bosses":r.bosses,"coins":r.coins,"level":r.level,"capped":r.capped,"hp":r.hp,"maxHp":r.max_hp,"dealt":r.dealt,
+      "risk":{"contactAttempts":r.risk.contact_attempts,"hits":r.risk.hits,"damage":r.risk.damage,"contactSeconds":r.risk.contact_seconds,"surroundedSeconds":r.risk.surrounded_seconds,"maxSurrounded":r.risk.max_surrounded,"invulnerableSeconds":r.risk.invulnerable_seconds,"dashCasts":r.risk.dash_casts,"dashHitsAfter":r.risk.dash_hits_after}})
     );
 }
 
@@ -1455,23 +1900,70 @@ fn main() {
     if !cfg.bot_set && (cfg.status || cfg.xkinds || cfg.group > 0) {
         cfg.bot = Bot::Play;
     }
-    let data = Data::load("v3/v3_data.json");
+    let data = Data::load("data/game.json");
+    eprintln!(
+        "game={} engine=4 nature={} ability={} tms={} second={}",
+        data.commit,
+        cfg.nature,
+        cfg.ability.as_deref().unwrap_or("slot-1"),
+        cfg.tms.join(","),
+        cfg.second.as_deref().unwrap_or("none")
+    );
+    if matches!(
+        cfg.rest.first().map(String::as_str),
+        Some("rank" | "sweep" | "synergy" | "tasks" | "repertorio")
+    ) {
+        panic!("historical ranking commands are retired; use candidates/evaluate. Current diagnostics do not validate a ranking");
+    }
+    if cfg.rest.first().map(String::as_str) == Some("run") {
+        assert!(
+            cfg.seconds > 0. && cfg.seconds <= 15.,
+            "diagnostic runs are limited to 15 simulated seconds"
+        );
+    }
     let t0 = Instant::now();
     match cfg.rest.first().map(String::as_str) {
+        Some("fingerprint") => println!("{}", research::fingerprint()),
+        Some("candidates") => {
+            research::candidates(&data, cfg.rest[1].parse().expect("dex"), cfg.list)
+        }
+        Some("evaluate") => research::evaluate(&data, &cfg.rest[1]),
         Some("sweep") => sweep(&data, &cfg),
         Some("formulas") => formulas_cmd(&data),
         Some("rank") => rank(&data, &cfg),
         Some("synergy") => synergy_cmd(&data, &cfg),
         Some("tasks") => tasks_cmd(&data, &cfg),
         Some("repertorio") => {
-            let path = cfg.rest.get(1).expect("usage: pokesim repertorio <starter_sweep.csv>");
+            let path = cfg
+                .rest
+                .get(1)
+                .expect("usage: pokesim repertorio <starter_sweep.csv>");
             let text = std::fs::read_to_string(path).unwrap_or_else(|e| panic!("read {path}: {e}"));
-            println!("{}", repertorio::to_json(&repertorio::openings_from_sweep(&data, &text)));
+            println!(
+                "{}",
+                repertorio::to_json(&repertorio::openings_from_sweep(&data, &text))
+            );
         }
         Some("run") => {
             let (mon, start) = find(&data, &cfg.rest[1], &cfg.rest[2]);
+            let configured = data
+                .configure(mon, &cfg.nature, cfg.ability.as_deref(), &cfg.tms)
+                .expect("run configuration");
+            let mon = &configured;
+            assert!(
+                mon.start_choices(&data.moves).contains(&start),
+                "illegal starting attack; teach the required TM first"
+            );
             let ext = ext_for(&data, mon, start, &cfg);
-            let opts = Opts { seed: cfg.rest[3].parse().unwrap(), seconds: cfg.seconds, cards: cfg.cards, bot: cfg.bot, terrain: cfg.terrain, trace: cfg.out.is_some(), status: cfg.status, ext };
+            let opts = Opts {
+                seed: cfg.rest[3].parse().unwrap(),
+                seconds: cfg.seconds,
+                cards: cfg.cards,
+                bot: cfg.bot,
+                terrain: cfg.terrain,
+                trace: cfg.out.is_some(),
+                ext,
+            };
             print_result(&run_match(&Libm, &data, &Tables::new(), mon, start, &opts));
             if let Some(path) = cfg.out.as_ref().filter(|p| p.ends_with(".json")) {
                 // Compact trace for a browser replay: [t, hp, x, y, enemies, shots, enemy shots],
@@ -1480,27 +1972,87 @@ fn main() {
                 let frames: Vec<String> = take_trace()
                     .iter()
                     .map(|f| {
-                        let es: Vec<String> = f.enemies.iter().zip(&f.ids).map(|(e, id)| format!("{},{},{},{},{}", id.0, id.1, r(e.0), r(e.1), e.3 as u8)).collect();
-                        let ss: Vec<String> = f.shots.iter().map(|s| format!("{},{},{},{}", r(s.0), r(s.1), r(s.2), r(s.3))).collect();
-                        let xs: Vec<String> = f.e_shots.iter().map(|s| format!("{},{},{},{},\"{}\"", r(s.0), r(s.1), r(s.2), r(s.3), data::TYPES[s.4 as usize])).collect();
-                        format!("[{:.2},{:.1},{},{},[{}],[{}],[{}]]", f.t, f.hp, r(f.x), r(f.y), es.join(","), ss.join(","), xs.join(","))
+                        let es: Vec<String> = f
+                            .enemies
+                            .iter()
+                            .zip(&f.ids)
+                            .map(|(e, id)| {
+                                format!("{},{},{},{},{}", id.0, id.1, r(e.0), r(e.1), e.3 as u8)
+                            })
+                            .collect();
+                        let ss: Vec<String> = f
+                            .shots
+                            .iter()
+                            .map(|s| format!("{},{},{},{}", r(s.0), r(s.1), r(s.2), r(s.3)))
+                            .collect();
+                        let xs: Vec<String> = f
+                            .e_shots
+                            .iter()
+                            .map(|s| {
+                                format!(
+                                    "{},{},{},{},\"{}\"",
+                                    r(s.0),
+                                    r(s.1),
+                                    r(s.2),
+                                    r(s.3),
+                                    data::TYPES[s.4 as usize]
+                                )
+                            })
+                            .collect();
+                        format!(
+                            "[{:.2},{:.1},{},{},[{}],[{}],[{}]]",
+                            f.t,
+                            f.hp,
+                            r(f.x),
+                            r(f.y),
+                            es.join(","),
+                            ss.join(","),
+                            xs.join(",")
+                        )
                     })
                     .collect();
-                std::fs::write(path, format!("{{\"frames\":[\n{}\n]}}\n", frames.join(",\n"))).expect("write trace");
+                std::fs::write(
+                    path,
+                    format!("{{\"frames\":[\n{}\n]}}\n", frames.join(",\n")),
+                )
+                .expect("write trace");
             } else if let Some(path) = &cfg.out {
                 let mut csv = String::from("t,x,y,hp,enemies\n");
                 for f in take_trace() {
-                    let es: Vec<String> = f.enemies.iter().map(|e| format!("{:.0}:{:.0}:{:.0}:{}", e.0, e.1, e.2, e.3 as u8)).collect();
-                    csv += &format!("{:.2},{:.1},{:.1},{:.1},{}\n", f.t, f.x, f.y, f.hp, es.join(" "));
+                    let es: Vec<String> = f
+                        .enemies
+                        .iter()
+                        .map(|e| format!("{:.0}:{:.0}:{:.0}:{}", e.0, e.1, e.2, e.3 as u8))
+                        .collect();
+                    csv += &format!(
+                        "{:.2},{:.1},{:.1},{:.1},{}\n",
+                        f.t,
+                        f.x,
+                        f.y,
+                        f.hp,
+                        es.join(" ")
+                    );
                 }
                 std::fs::write(path, csv).expect("write trace");
             }
         }
         Some("mapdump") => {
-            print!("{}", terrain::dump(cfg.rest[1].parse().unwrap(), cfg.rest.get(2).map_or(80, |h| h.parse().unwrap())));
+            print!(
+                "{}",
+                terrain::dump(
+                    cfg.rest[1].parse().unwrap(),
+                    cfg.rest.get(2).map_or(80, |h| h.parse().unwrap())
+                )
+            );
         }
         Some("mapcheck") => {
-            println!("{}", terrain::digest(cfg.rest[1].parse().unwrap(), cfg.rest.get(2).map_or(80, |h| h.parse().unwrap())));
+            println!(
+                "{}",
+                terrain::digest(
+                    cfg.rest[1].parse().unwrap(),
+                    cfg.rest.get(2).map_or(80, |h| h.parse().unwrap())
+                )
+            );
         }
         _ => {
             eprintln!("usage: pokesim sweep|rank|synergy|tasks|repertorio|run [--seeds N] [--seconds S] [--bot repulse|line] [--lvl1] [--terrain] [--status] [--group 2+2] [--no-synergy] [--out P]");

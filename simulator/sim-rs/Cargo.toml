@@ -6,6 +6,9 @@ edition = "2021"
 [dependencies]
 libm = "0.2"
 rayon = "1"
+regex = "1"
+json5 = "0.4"
+sha2 = "0.10"
 serde_json = { version = "1", features = ["float_roundtrip"] }
 
 [profile.release]

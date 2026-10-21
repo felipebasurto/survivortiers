@@ -79,14 +79,13 @@ El sitio es estático y no tiene API: los datos son JSON y CSV en `/data/`, sin 
 
 ## Actualizar el ranking
 
-1. Si cambia el juego: sube `GAME_COMMIT` en `build/legal.py` y `GAME_REF` en `build/game_moves.py`, y regenera `data/pokedex_export.json` (`build/import_game_combat.py`), `data/game_stats.json` (`node build/export_game_stats.js /ruta/al/juego`), `data/move_pool.json`, `data/move_mechanics.json` y `data/move_icons.json`.
-2. `python3 build/attack_tiers.py --sim` (fase 1, ~2 min), `python3 build/bond_tiers.py --sim` (fase 2, ~30 min) y `python3 build/species_builds.py --sim` (fase 3, ~2 h; después `--variants`, ~25 min). Cada fase lee la anterior.
-3. `python3 build/why.py` rehace el porqué de cada Pokémon (necesita numpy).
-4. `python3 build/catalog.py && python3 build/render.py && python3 build/check_site.py …`. Las cuatro órdenes con `--check` y los tests corren también en GitHub Actions (`.github/workflows/tests.yml`).
+El motor Rust ya se ha migrado al parche `ce57853` (21 de octubre), pero **todavía no hay un ranking nuevo validado**. El sitio conserva los datos publicados de `5a23d49`. Las órdenes históricas `--sim` están retiradas para impedir que se mezclen resultados de versiones distintas; `--check` sigue comprobando los CSV publicados.
 
-Todas las partidas se puntúan igual (`run_score` en `simulator/sim-rs/src/stats.rs`): tiempo que aguanta × √(dps/(dps+80) × kpm/(kpm+40)); sin daño, 0. El bot no lleva objeto y coge las cartas de nivel por una prioridad fija, así que el sitio no ordena objetos ni cartas.
+La importación del juego, los escenarios y las pruebas de ejecución son ahora Rust, sin JavaScript. Véase [simulator/README.md](simulator/README.md) para importar el parche, listar candidatos y ejecutar manifiestos de diagnóstico (máximo 20 partidas de 15 segundos). El informe de esta migración está en [docs/simulator/2026-10-21.md](docs/simulator/2026-10-21.md).
 
-Los cortes de tier están en `data/tiers.json`; no los repitas en otro sitio.
+Antes de recalcular hace falta calibrar las nuevas métricas de exposición contra juego real y cerrar la selección de perfiles de naturaleza/habilidad. Las pruebas cortas verifican ejecución y escenarios concretos; no validan tiers ni balance. No se han cambiado los resultados publicados ni su fórmula histórica: supervivencia × √(dps/(dps+80) × kpm/(kpm+40)).
+
+Los cortes de tier siguen en `data/tiers.json`.
 
 ## Páginas de consulta
 

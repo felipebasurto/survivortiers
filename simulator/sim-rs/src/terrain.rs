@@ -78,6 +78,7 @@ struct Base {
     /// solid prop per tile (index into `props`), -1 if none
     prop_at: [i16; (N * N) as usize],
     props: Vec<Prop>,
+    specials:Vec<(i32,i32,u8,u8)>,
     /// one bit per tile column, one u16 per tile row: tile is not a wall / not a wall or liquid
     /// and has no solid prop at generation time (`fill_walkable` fast path)
     open_water: [u16; N as usize],
@@ -118,7 +119,7 @@ fn gen_chunk(seed: i32, cx: i32, cy: i32) -> Base {
             ring[(j * B + i) as usize] = terrain_raw(cx * N + i - 1, cy * N + j - 1, seed);
         }
     }
-    let mut c = Base { terr: [FLOOR; (N * N) as usize], prop_at: [-1; (N * N) as usize], props: Vec::new(), open_water: [0; N as usize], open_lava: [0; N as usize] };
+    let mut c = Base { terr: [FLOOR; (N * N) as usize], prop_at: [-1; (N * N) as usize], props: Vec::new(), specials:Vec::new(), open_water: [0; N as usize], open_lava: [0; N as usize] };
     for j in 0..N {
         for i in 0..N {
             c.terr[(j * N + i) as usize] = ring[((j + 1) * B + i + 1) as usize];
@@ -139,6 +140,7 @@ fn gen_chunk(seed: i32, cx: i32, cy: i32) -> Base {
             let h = hash(tx, ty, seed.wrapping_add(404));
             let grove = fbm(tx as f64 / 10.0, ty as f64 / 10.0, seed.wrapping_add(505)) > 0.6;
             let hs = hash(tx, ty, seed.wrapping_add(909));
+            if open && d0>12. && hs<0.0032 && (hs>=0.0011 || (0.0004..0.0008).contains(&hs)){c.specials.push((tx,ty,if hs>=0.0011{1}else{0},(hash(tx,ty,seed.wrapping_add(910))*3.).floor() as u8));}
             // (r, hp): tree 13/inf, rock 12/34, chest 12/22, altar 9/inf, bigchest 14/inf
             let prop = if open && d0 > 12.0 && hs < 0.0032 {
                 if hs < 0.0004 {
@@ -292,6 +294,14 @@ impl World {
         Some((prop.x, prop.y, prop.r, kind))
     }
 
+    pub fn specials_near(&mut self,x:f64,y:f64,r:f64)->Vec<(i32,i32,u8,u8)>{
+        let mut out=Vec::new();
+        for cy in tile_of(y-r).div_euclid(N)..=tile_of(y+r).div_euclid(N){
+            for cx in tile_of(x-r).div_euclid(N)..=tile_of(x+r).div_euclid(N){
+                let i=self.chunk(cx,cy) as usize;out.extend(self.chunks[i].base.specials.iter().copied().filter(|&(tx,ty,_,_)|(tx as f64*TS+TS/2.-x).abs()<=r&&(ty as f64*TS+TS-4.-y).abs()<=r));
+            }
+        }out
+    }
     pub fn is_liquid(&mut self, x: f64, y: f64) -> bool {
         self.terrain_at(tile_of(x), tile_of(y)) == LIQUID
     }

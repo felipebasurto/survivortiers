@@ -108,15 +108,7 @@ def attacks(v3: dict) -> dict[str, list[str]]:
 
 
 def run_sim(v3: dict) -> None:
-    refs = pick_refs(v3["dex"])
-    lines = [f"{m['dex']},{mid},none," for cls, mids in attacks(v3).items() for mid in mids for m in refs[cls]]
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
-    TASKS.write_text("\n".join(lines) + "\n", encoding="utf8")
-    if not BIN.exists():
-        subprocess.run(["cargo", "build", "--release", "--manifest-path", str(SIM / "sim-rs" / "Cargo.toml")], check=True)
-    print(f"fase 1: {len(lines)} tareas x {SEEDS} semillas = {len(lines) * SEEDS} partidas", flush=True)
-    subprocess.run([str(BIN), "tasks", str(TASKS), *FLAGS, "--seeds", str(SEEDS), "--seed0", str(SEED0),
-                    "--out", str(RAW)], cwd=SIM, check=True)
+    raise RuntimeError("Ranking 5a23d49 archived. Use the Rust candidates/evaluate diagnostics for ce57853; do not mix historical outputs with the new engine.")
 
 
 def rel_scores(rows: list[dict], col: str, key: str = "move") -> dict[str, list[float]]:

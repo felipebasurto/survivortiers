@@ -196,7 +196,7 @@ def advance(rows: dict[tuple[int, str], dict], keys: dict[tuple[int, str], list[
 def fingerprint(k: int) -> str:
     """Huella de lo que decide el resultado de un grupo: el motor, los datos del juego y las semillas de la ronda."""
     h = hashlib.sha256(repr((SEEDS[k], SECONDS)).encode())
-    for path in sorted((SIM / "sim-rs" / "src").rglob("*")) + [SIM / "v3" / "v3_data.json"]:
+    for path in sorted((SIM / "sim-rs" / "src").rglob("*")) + [SIM / "data" / "game.json", SIM / "sim-rs" / "Cargo.toml", SIM / "sim-rs" / "Cargo.lock"]:
         if path.is_file():
             h.update(str(path.relative_to(SIM)).encode())
             h.update(path.read_bytes())
@@ -204,40 +204,11 @@ def fingerprint(k: int) -> str:
 
 
 def run_round(k: int, keys: dict[tuple[int, str], list[str]], tag: str = "r") -> None:
-    """Simula los grupos de la ronda k que faltan. Un grupo con el mismo motor, datos y semillas da la misma fila,
-    así que las filas guardadas con la misma huella se reutilizan (las variantes, también las de la búsqueda
-    principal); si la huella cambia, la ronda se hace entera."""
-    seeds, seed0 = SEEDS[k]
-    need = {(dex, g) for (dex, _), gs in keys.items() for g in gs}
-    have: dict[tuple[int, str], dict] = {}
-    for t in dict.fromkeys((tag, "r", "v")):
-        stamp = raw_path(k, t).with_suffix(".fingerprint")
-        if raw_path(k, t).exists() and stamp.exists() and stamp.read_text().strip() == fingerprint(k):
-            have.update({key: r for key, r in load(raw_path(k, t)).items() if key in need and key not in have})
-    todo = sorted(need - set(have))
-    print(f"ronda {tag}{'ABCD'[k]}: {len(need)} grupos, {len(have)} ya jugados, {len(todo)} x {seeds} semillas = "
-          f"{len(todo) * seeds} partidas", flush=True)
-    if todo:
-        only_path(k, tag).write_text("".join(f"{dex}|{g}\n" for dex, g in todo), encoding="utf8")
-        fresh = OUT_DIR / f"{tag}{'ABCD'[k]}_new.csv"
-        bt.synergy(only_path(k, tag), fresh, seeds, seed0)
-        have.update(load(fresh))
-        fresh.unlink()
-    with raw_path(k, tag).open("w", encoding="utf8", newline="") as f:
-        rows = [have[key] for key in sorted(need)]
-        w = csv.DictWriter(f, fieldnames=list(rows[0]), lineterminator="\n")
-        w.writeheader()
-        w.writerows(rows)
-    raw_path(k, tag).with_suffix(".fingerprint").write_text(fingerprint(k) + "\n", encoding="utf8")
+    raise RuntimeError("Ranking 5a23d49 archived. Use the Rust candidates/evaluate diagnostics for ce57853; do not mix historical outputs with the new engine.")
 
 
 def run_sim() -> None:
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
-    keys = shortlist()
-    for k in range(len(ROUNDS)):
-        run_round(k, keys)
-        if k + 1 < len(ROUNDS):
-            keys = advance(load(raw_path(k)), keys, TOP_B if k == 0 else 1)
+    raise RuntimeError("Ranking 5a23d49 archived. Use the Rust candidates/evaluate diagnostics for ce57853; do not mix historical outputs with the new engine.")
 
 
 PAIRS = OUT_DIR / "rD_pairs.csv"
@@ -320,47 +291,11 @@ def main_rows() -> dict[tuple[int, str], tuple[str, dict]]:
 
 
 def run_rule() -> None:
-    """Las builds que no cumplen la regla de tipos eligen entre los grupos que la cumplen (rondas B y C)."""
-    if RULE_PICKS.exists():
-        sys.exit(f"{RULE_PICKS.relative_to(ROOT)} ya existe: bórralo para volver a elegir")
-    rows_a = {**load(raw_path(0)), **load(raw_path(0, "v"))}
-    played: dict[int, list[str]] = {}
-    for dex, g in rows_a:
-        played.setdefault(dex, []).append(g)
-    keys_a = {}
-    for (dex, build), main in sorted(main_keys().items()):
-        if rule_ok(dex, main):
-            continue
-        gs = sorted(g for g in played.get(dex, []) if builds._kind(picks.split_group(g)[0]) == build and rule_ok(dex, g))
-        if gs:
-            keys_a[(dex, build)] = gs
-    keys_b = advance(rows_a, keys_a, TOP_B)
-    run_round(1, keys_b, "q")
-    keys_c = advance(load(raw_path(1, "q")), keys_b, 1)
-    run_round(2, keys_c, "q")
-    with RULE_PICKS.open("w", encoding="utf8", newline="") as f:
-        w = csv.writer(f, lineterminator="\n")
-        w.writerow(["dex", "build", "group"])
-        w.writerows([dex, b, gs[0]] for (dex, b), gs in sorted(keys_c.items()))
+    raise RuntimeError("Ranking 5a23d49 archived. Use the Rust candidates/evaluate diagnostics for ce57853; do not mix historical outputs with the new engine.")
 
 
 def run_promote() -> None:
-    """Fija las parejas (variante que supera a su build en la ronda C) y juega su desempate."""
-    if PAIRS.exists():
-        sys.exit(f"{PAIRS.relative_to(ROOT)} ya existe: bórralo para volver a elegir las parejas")
-    c, vc = load(raw_path(2)), load(raw_path(2, "v"))
-    found: dict[tuple[int, str], tuple[str, str]] = {}
-    for row in variant_rows():
-        key, main = (row["dex"], row["build"]), row["main"]
-        if order(vc[(key[0], row["group"])]) < order(c[(key[0], main)]):
-            cur = found.get(key)
-            if cur is None or order(vc[(key[0], row["group"])]) < order(vc[(key[0], cur[1])]):
-                found[key] = (main, row["group"])
-    with PAIRS.open("w", encoding="utf8", newline="") as f:
-        w = csv.writer(f, lineterminator="\n")
-        w.writerow(["dex", "build", "main", "challenger"])
-        w.writerows([dex, b, m, a] for (dex, b), (m, a) in sorted(found.items()))
-    run_round(3, {key: [m, a] for key, (m, a) in found.items()})
+    raise RuntimeError("Ranking 5a23d49 archived. Use the Rust candidates/evaluate diagnostics for ce57853; do not mix historical outputs with the new engine.")
 
 
 def resist(group: str) -> int:
@@ -405,24 +340,7 @@ def variant_pools(extra: dict[tuple[int, str], dict] | None = None) -> dict[tupl
 
 
 def run_variants() -> None:
-    ms = models()
-    v3 = {m["dex"]: m for m in at.load_v3()["dex"]}
-    played = load(raw_path(0))
-    keys: dict[tuple[int, str], list[str]] = {}
-    for (dex, build), main in sorted(main_keys().items()):
-        model = ms[at.attacker_class(v3[dex])]
-        cands = [g for g, b in builds.candidates(dex).items() if b == build and g != main]
-        for v in VARIANTS:
-            if wants(v, main):
-                new = sorted((-model.predict(g), g) for g in cands if (dex, g) not in played and fits(v, main, g, dex))
-                keys[(dex, f"{build}:{v}")] = [g for _, g in new[:TOP_V]]
-    run_round(0, keys, "v")
-    pools = variant_pools(load(raw_path(0, "v")))
-    rows_a = {**load(raw_path(0)), **load(raw_path(0, "v"))}
-    keys = advance(rows_a, pools, TOP_B)
-    run_round(1, keys, "v")
-    keys = advance(load(raw_path(1, "v")), keys, 1)
-    run_round(2, keys, "v")
+    raise RuntimeError("Ranking 5a23d49 archived. Use the Rust candidates/evaluate diagnostics for ce57853; do not mix historical outputs with the new engine.")
 
 
 def variant_rows() -> list[dict]:

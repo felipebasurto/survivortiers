@@ -165,20 +165,7 @@ class Rounds:
 
 
 def run_sim() -> None:
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
-    if not at.BIN.exists():
-        subprocess.run(["cargo", "build", "--release", "--manifest-path", str(SIM / "sim-rs" / "Cargo.toml")], check=True)
-    rounds = Rounds()
-    todo = {cls: sorted(rounds.gs) for cls in at.CLASSES}
-    for k, (seeds, seed0) in enumerate(ROUNDS):
-        lines = sorted(f"{dex}|{g}" for cls, gs in todo.items() for g in gs for dex in rounds.refs[cls])
-        only_path(k + 1).write_text("\n".join(lines) + "\n", encoding="utf8")
-        print(f"ronda {k + 1}: {len(lines) // 6} grupos-clase x 6 referencias x {seeds} semillas = "
-              f"{len(lines) * seeds} partidas", flush=True)
-        synergy(only_path(k + 1), raw_path(k + 1), seeds, seed0)
-        rounds.add(load(raw_path(k + 1)))
-        if k + 1 < len(ROUNDS):
-            todo = rounds.next_set(k)
+    raise RuntimeError("Ranking 5a23d49 archived. Use the Rust candidates/evaluate diagnostics for ce57853; do not mix historical outputs with the new engine.")
 
 
 def load_rounds() -> Rounds:

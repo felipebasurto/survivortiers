@@ -18,16 +18,6 @@ jobs:
         working-directory: simulator/sim-rs
         run: cargo test --release
 
-  game-data:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - name: v3_data.json against the vendored game
-        run: node --test simulator/v3/game_update.test.js
-
   python:
     runs-on: ubuntu-latest
     steps:
@@ -39,8 +29,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: simulator/sim-rs
-      - name: build pokesim (test_game_js.py runs it against the game's JavaScript)
-        run: cargo build --release --manifest-path simulator/sim-rs/Cargo.toml
+      - name: build Rust simulator
+        run: cargo build --release --manifest-path simulator/sim-rs/Cargo.toml --bin pokesim
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
