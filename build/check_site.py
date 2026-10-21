@@ -34,6 +34,7 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener
 import agents  # noqa: E402
 import combos  # noqa: E402
 import indexnow  # noqa: E402
+import picks  # noqa: E402
 import landing  # noqa: E402
 import legal  # noqa: E402
 import toolpages  # noqa: E402
@@ -625,6 +626,8 @@ def main() -> int:
         attacks = entry[9][2][: len(entry[9][2]) - n_boost]
         picked = search_picks.get(dex)
         if picked is None:
+            if entry[4] in picks.BANNED_MOVES:
+                return bool(attacks) and attacks[0] not in picks.BANNED_MOVES
             return bool(attacks) and attacks[0] == entry[4]
         return attacks == picked[0]
 

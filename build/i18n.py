@@ -228,11 +228,12 @@ STR: dict[str, tuple[str, str]] = {
                      "Each is picked by the simulation's median score, from the fixed-group search. The build's first attack "
                      "is the one the simulated run starts with, and the one to pick with the Starting Move upgrade."),
     "met_builds_2": ("Un atacante físico (ataque físico mayor que el especial) lleva Danza Espada; uno especial, Maquinación. "
-                     "Empatan en especial. Los ataques son de su categoría, y Ataque Rápido, Placaje y Golpe Cuerpo no entran. "
+                     "Empatan en especial. Los ataques son de su categoría, y Ataque Rápido, Placaje y Golpe Cuerpo no entran "
+                     "en ninguna build, ni como candidatos ni como primer ataque. "
                      "Como todos los ataques cuerpo a cuerpo son físicos, un atacante especial solo tiene build a distancia, "
                      "y la ficha enseña solo esa.",
                      "A physical attacker (physical attack above special) carries Swords Dance; a special one carries Nasty Plot. "
-                     "Ties count as special. Moves match its category, and Quick Attack, Tackle and Body Slam are left out. "
+                     "Ties count as special. Moves match its category, and Quick Attack, Tackle and Body Slam are left out of every build, as candidates and as the lead. "
                      "Since every melee attack is physical, a special attacker only has a ranged build, and the sheet shows only that one."),
     "met_builds_3": ("Las puntuaciones salen del mismo simulador. Mientras un ataque cuerpo a cuerpo está activo, el juego reduce "
                      "un 25\u00a0% el daño que recibes, y eso ya cuenta en la puntuación de la build cuerpo a cuerpo.",
@@ -664,14 +665,16 @@ STR: dict[str, tuple[str, str]] = {
     "pipe_6": ("Tier", "Tier"),
     "pipe_alt": ("Pasos del cálculo: ", "Calculation steps: "),
     "met_rules_h": ("Reglas de build", "Build rules"),
-    "met_rules": ("No hay reglas a mano: ningún Pokémon tiene ataques prohibidos ni un factor contra el cuerpo a cuerpo. Un grupo "
-                  "ocupa como máximo cuatro huecos y lleva al menos dos ataques; Sustituto cuenta como ataque. Los grupos pueden "
-                  "mezclar ataques físicos y especiales con cualquier potenciador (Danza Espada, Danza Dragón, Maquinación, "
-                  "Fortaleza, Agilidad). Gana el grupo con la nota más alta del simulador.",
-                  "There are no hand-made rules: no Pokémon has banned moves or a factor against melee. A group takes at most "
-                  "four slots and holds at least two attacks; Substitute counts as an attack. Groups can mix physical and "
-                  "special attacks with any boost (Swords Dance, Dragon Dance, Nasty Plot, Harden, Agility). The group with "
-                  "the highest simulator score wins."),
+    "met_rules": ("Una sola regla a mano: Placaje, Ataque Rápido y Golpe Cuerpo nunca entran en una build, ni como candidatos "
+                  "ni como ataque. Fuera de eso, ningún Pokémon tiene un factor contra el cuerpo a cuerpo. Un grupo ocupa como "
+                  "máximo cuatro huecos y lleva al menos dos ataques; Sustituto cuenta como ataque. Los grupos pueden mezclar "
+                  "ataques físicos y especiales con cualquier potenciador (Danza Espada, Danza Dragón, Maquinación, Fortaleza, "
+                  "Agilidad). Gana el grupo con la nota más alta del simulador, sin contar los que llevan esos tres ataques.",
+                  "One hand-made rule: Tackle, Quick Attack and Body Slam never go into a build, neither as candidates nor as "
+                  "an attack. Otherwise no Pokémon has a factor against melee. A group takes at most four slots and holds at "
+                  "least two attacks; Substitute counts as an attack. Groups can mix physical and special attacks with any boost "
+                  "(Swords Dance, Dragon Dance, Nasty Plot, Harden, Agility). The group with the highest simulator score wins, "
+                  "not counting groups that carry those three moves."),
     "met_check_h": ("Cómo se comprueba", "How it is checked"),
     "met_check": ("El motor está escrito dos veces, en JavaScript y en Rust, y en su modo básico un test comprueba que dan el mismo "
                   "resultado paso a paso. Las fórmulas de daño, el modo de tipo único y otras reglas se comparan con las "
