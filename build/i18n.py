@@ -555,6 +555,22 @@ STR: dict[str, tuple[str, str]] = {
                   "The bot holds no item, there is no terrain or status conditions, and it takes level-up cards in a fixed "
                   "order. That is why the site does not recommend cards or items: for those it only shows what the game "
                   "code says."),
+    "steel_note": ("{steel} de los {n} son de tipo Acero, y {meteor} llevan en su build {name}, el mejor ataque físico de la "
+                   "fase 1. Solo lo aprenden los de tipo Acero.",
+                   "{steel} of the {n} are Steel type, and {meteor} have {name}, the best physical move in phase 1, in "
+                   "their build. Only Steel types can learn it."),
+    "steel_link": ("Por qué, en el método", "Why, in the method"),
+    "steel_q": ("¿Por qué hay tantos de tipo Acero en tier S?", "Why are so many tier S Pokémon Steel type?"),
+    "steel_a": ("En PokéSurvivor cada Pokémon solo recibe ataques de sus propios tipos y de tipo Normal. {name} es de tipo "
+                "Acero: {count} meteoros de {dmg} de daño base, de radio {radius} px, cada {cd} s, que caen sobre enemigos "
+                "al azar a hasta {reach} px del Pokémon y los empujan. Es el ataque físico número 1 de la fase 1, y "
+                "{meteor} de los {n} de tier S lo llevan en su build. Como solo lo aprenden los de tipo Acero, {steel} de "
+                "los {n} de tier S son de ese tipo.",
+                "In PokéSurvivor each Pokémon only gets moves of its own types and of Normal type. {name} is Steel type: "
+                "{count} meteors of {dmg} base damage each, {radius} px radius, every {cd} s. They fall on random enemies "
+                "up to {reach} px from the Pokémon and knock them back. It is the #1 physical move in phase 1, and "
+                "{meteor} of the {n} tier S Pokémon have it in their build. Since only Steel types can learn it, {steel} "
+                "of the {n} tier S Pokémon are Steel type."),
     "met_h1": ("Método del ranking de {game}", "Ranking method for {game}"),
     "met_check": ("El motor está escrito dos veces, en JavaScript y en Rust, y en su modo básico un test comprueba que dan el mismo "
                   "resultado paso a paso. Las fórmulas de daño, el modo de tipo único y otras reglas se comparan con las "

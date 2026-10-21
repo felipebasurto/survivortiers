@@ -271,6 +271,41 @@ def seo_check(base: str, body_by_url: dict[str, str], index: list[dict], err, no
     notes.append(f"SEO: {len(pages)} páginas con título, descripción, canónica, hreflang, texto y actualización")
 
 
+STEEL_NOTE_RE = re.compile(r'<p class="tier-note" data-steel="(\d+)" data-n="(\d+)" data-meteor="(\d+)"')
+
+
+def steel_note_check(base: str, body_by_url: dict[str, str], index: list[dict], meta: dict, pairs: dict, err,
+                     notes: list[str]) -> None:
+    """La nota de tier S y la pregunta de Método (build/tier_s_note.py) dicen las cifras que enseña la tier list: los
+    Acero y las builds con Puño Meteoro se recuentan aquí desde pokemon-index.json y species.json, y sin la condición
+    de la nota no aparece ni la nota ni la pregunta."""
+    ts = meta["tierS"]
+    top = [p for p in index if p["r"][1] == "S"]
+    steel = sum("steel" in p["types"] for p in top)
+    meteor = 0
+    for p in top:
+        pair = pairs[str(p["dex"])]
+        meteor += "meteor-mash" in pair[pair["best"]]["moves"]
+    want = (steel, len(top), meteor)
+    if want != (ts["steel"], ts["n"], ts["meteor"]):
+        err(f"meta.json tierS {(ts['steel'], ts['n'], ts['meteor'])} ≠ recuento de la tier list {want}")
+    for lang in ("", "en/"):
+        html = body_by_url.get(f"{base}{lang}", "")
+        found = [tuple(map(int, m)) for m in STEEL_NOTE_RE.findall(html)]
+        if not ts["show"]:
+            if found:
+                err(f"{base}{lang}: sale la nota de tier S y la condición no se cumple")
+            continue
+        if found != [want, want]:
+            err(f"{base}{lang}: la nota de tier S dice {found}, la tier list {want} (sección y plantilla)")
+        method = body_by_url.get(f"{base}{lang}metodo.html", "")
+        if method.count('<h3 id="acero">') != 1:
+            err(f"{base}{lang}metodo.html: falta la pregunta sobre el Acero")
+    if not ts["show"]:
+        return
+    notes.append(f"tier S: {steel} de {len(top)} Acero, {meteor} con Puño Meteoro (nota y método de acuerdo)")
+
+
 def landing_check(base: str, body_by_url: dict[str, str], err, notes: list[str]) -> None:
     """Páginas de consulta: la lista visible es la del JSON-LD (mismos nombres y orden), la respuesta va antes de la
     lista, la línea de datos está, y cada ficha enlaza la tier list y sus listas de consulta."""
@@ -829,6 +864,7 @@ def main() -> int:
     agent_check(base, body_by_url, err, notes, len(index))
     landing_check(base, body_by_url, err, notes)
     seo_check(base, body_by_url, index, err, notes)
+    steel_note_check(base, body_by_url, index, meta, pairs, err, notes)
     landing_browser_check(base, err, notes)
     browser_check(base, index, args, err, notes)
     theme_check(base, err, notes)

@@ -258,9 +258,29 @@ def write(rel: str, text: str) -> None:
 
 
 # ---------------------------------------------------------------- páginas
+def steel_note_html(c: Ctx, ts: dict) -> str:
+    """La nota de tier S (build/tier_s_note.py), con las cifras en data-* para que check_site.py las compare con los datos."""
+    L = c.L
+    text = L.t("steel_note", steel=ts["steel"], n=ts["n"], meteor=ts["meteor"],
+               name=ts["move"]["name"]["en" if L.en else "es"])
+    return (f'<p class="tier-note" data-steel="{ts["steel"]}" data-n="{ts["n"]}" data-meteor="{ts["meteor"]}">'
+            f'{esc(text)} <a href="{c.home}metodo.html#acero">{esc(L.t("steel_link"))}</a></p>')
+
+
+def steel_faq_html(L: Lang, ts: dict) -> str:
+    s = ts["stats"]
+    text = L.t("steel_a", name=ts["move"]["name"]["en" if L.en else "es"], count=s["count"], dmg=L.dec(s["dmg"], 0),
+               radius=L.dec(s["radius"], 0), cd=L.dec(s["cd"], 1), reach=s["reach"], meteor=ts["meteor"], n=ts["n"],
+               steel=ts["steel"])
+    return (f'<h2>{esc(L.t("sheet_faq_h"))}</h2><h3 id="acero">{esc(L.t("steel_q"))}</h3>'
+            f'<p class="met-text">{esc(text)}</p>')
+
+
 def render_index(c: Ctx, pokemon: list[dict], meta: dict) -> str:
     """Tier list: buscador, orden y agrupación. Sin JavaScript queda la lista por tiers; app.js la vuelve a agrupar."""
     L = c.L
+    ts = meta.get("tierS") or {}
+    note = steel_note_html(c, ts) if ts.get("show") else ""
     sections = []
     for t in TIERS:
         mons = sorted((p for p in pokemon if p["r"][1] == t), key=lambda p: p["r"][0])
@@ -268,7 +288,7 @@ def render_index(c: Ctx, pokemon: list[dict], meta: dict) -> str:
         sections.append(
             f'<section class="tier tier-{t}" id="tier-{t}" aria-label="{esc(L.t("tier", t=t))}">'
             f'<header class="tier-head"><b>{t}</b>{icon("crown") if t == "S" else ""}<span class="n">{len(mons)}</span></header>'
-            f'<div class="grid">{cards}</div></section>')
+            f'{note if t == "S" else ""}<div class="grid">{cards}</div></section>')
     options = "".join(f'<option value="{k}">{esc(L.t("sort_" + k))}</option>' for k in SORT_KEYS)
     # Nombres y colores para las cabeceras de los grupos (tipo, rareza), que app.js dibuja.
     names = TYPE_NAMES["en" if L.en else "es"]
@@ -331,6 +351,7 @@ def render_index(c: Ctx, pokemon: list[dict], meta: dict) -> str:
 <div id="tierlist">
 {"".join(sections)}
 </div>
+{f'<template id="tier-s-note">{note}</template>' if note else ""}
 <script type="application/json" id="labels">{labels_json}</script>
 <noscript><p class="muted">{esc(L.t("noscript"))}</p></noscript>
 {landing.guides_nav(L, c.home)}
@@ -719,6 +740,8 @@ def render_metodo(c: Ctx, meta: dict) -> str:
         ("m3_limits_h", L.t("m3_limits")),
     )
     body = "".join(f'<h2>{esc(L.t(h))}</h2><p class="met-text">{esc(t)}</p>' for h, t in steps)
+    ts = meta.get("tierS") or {}
+    faq = steel_faq_html(L, ts) if ts.get("show") else ""
     content = f"""
 <h1>{esc(L.t("met_h1"))}</h1>
 {improved_notice(c, link=False)}
@@ -727,6 +750,7 @@ def render_metodo(c: Ctx, meta: dict) -> str:
 <dl class="kpis">{kpi_html}</dl>
 {body}
 <p class="met-text">{esc(L.t("met_check", sha=legal.UPDATED_COMMIT))}</p>
+{faq}
 """
     return page(c, "metodo", L.t("met_title", site=legal.SITE_NAME, game=legal.GAME_NAME),
                 L.t("m3_desc", game=legal.GAME_NAME, games=L.num(m["games"])), content, meta)
