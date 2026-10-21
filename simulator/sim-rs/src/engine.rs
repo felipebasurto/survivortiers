@@ -391,6 +391,10 @@ fn keep_distance(m: &MoveLvl) -> f64 {
     }
 }
 
+/// Owner rule: these never appear in builds. build/builds.py FILLER and build/combos.py mirror this list.
+/// The open-slot pick is excluded too, otherwise a simulated group gains a move no build can carry.
+const BUILD_EXCLUDED: [&str; 3] = ["tackle", "quick-attack", "body-slam"];
+
 fn in_melee<M: MathFns>(
     math: &M,
     px: f64,
@@ -2841,6 +2845,9 @@ impl<'a, M: MathFns> Match<'a, M> {
         let mut best: Option<(usize, f64)> = None;
         for &ix in offered {
             if self.extras.iter().any(|(e, _)| *e == ix) {
+                continue;
+            }
+            if BUILD_EXCLUDED.contains(&self.data.moves[ix].id.as_str()) {
                 continue;
             }
             let l = &self.data.moves[ix].levels[0];
