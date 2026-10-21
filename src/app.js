@@ -1665,3 +1665,9 @@
     });
   }
 })();
+
+// En escritorio los filtros se muestran abiertos; el usuario puede plegarlos
+(function () {
+  const f = document.querySelector('details.filters');
+  if (f && window.matchMedia && window.matchMedia('(min-width: 900px)').matches) f.open = true;
+})();

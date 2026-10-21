@@ -1758,3 +1758,20 @@ li.it-card { display: flex; align-items: flex-start; gap: 14px; padding: 12px 14
 .tp-wx { display: inline-flex; align-items: center; gap: 6px; margin: 2px 14px 2px 0; }
 .tp-wx b { font: 700 .875rem var(--ui); font-variant-numeric: tabular-nums; }
 .tp-table td b { font-weight: 700; }
+
+/* Escritorio: buscador, filtros y aviso a todo el ancho de la columna */
+.finder > .search { grid-column: 1 / -1; }
+.filters > summary { min-height: 44px; padding: 0 14px; box-shadow: var(--notch-soft); }
+@media (min-width: 900px) {
+  .finder { grid-template-columns: minmax(0, 1fr); }
+  .search-field, .search-field.mv-finder { max-width: none; }
+  .search-field input[type="search"] { padding: 18px 52px 18px 52px; font-size: 1.3rem; }
+  .search-icon { left: 18px; width: 22px; height: 22px; }
+  .clear { right: 12px; width: 36px; height: 36px; }
+  .notice { max-width: none; padding: 16px 20px; font-size: 1rem; }
+  .filters { padding: 6px 20px 18px; box-shadow: var(--notch-soft); }
+  .filters > summary { box-shadow: none; padding: 0; font-size: .95rem; color: var(--ink); }
+  .filters .frow { grid-template-columns: 10rem 1fr; align-items: center; gap: 16px; }
+  .filters .seg { min-height: 44px; padding: 10px 16px; font-size: .875rem; }
+  .filters .sortline select { min-height: 44px; font-size: 1.05rem; }
+}
