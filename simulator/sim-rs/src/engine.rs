@@ -3253,42 +3253,9 @@ impl<'a, M: MathFns> Match<'a, M> {
                 if !self.enemies.iter().any(|e| e.hp > 0.0 && len(e.x - px, e.y - py) < mv.radius + 60.0) {
                     return false;
                 }
-                // A lunge at the nearest body lands inside the pack. Prefer the heading
-                // whose landing spot is not already crowded; the hit test is unchanged.
-                let open = self.open_heading(px, py);
-                let mut best_a = aim;
-                let mut best_s = f64::NEG_INFINITY;
-                let options = [aim, open.1.atan2(open.0), self.pl.diry.atan2(self.pl.dirx)];
-                for &a in &options {
-                    if !a.is_finite() {
-                        continue;
-                    }
-                    let (c, s) = (a.cos(), a.sin());
-                    let lx = px + c * mv.radius;
-                    let ly = py + s * mv.radius;
-                    let mut crowd = 0.0;
-                    let mut hits = 0.0;
-                    for e in &self.enemies {
-                        if e.hp <= 0.0 {
-                            continue;
-                        }
-                        if len(e.x - lx, e.y - ly) < 64.0 {
-                            crowd += 1.0;
-                        }
-                        let ex = e.x - px;
-                        let ey = e.y - py;
-                        let along = ex * c + ey * s;
-                        if along > 0.0 && along < mv.radius + e.r && (-ex * s + ey * c).abs() < or(mv.width, 34.0) * 0.5 + e.r {
-                            hits += 1.0;
-                        }
-                    }
-                    let score = hits * 2.0 - crowd * 3.5;
-                    if score > best_s {
-                        best_s = score;
-                        best_a = a;
-                    }
-                }
-                let (ca, sa) = (best_a.cos(), best_a.sin());
+                // combat.js dash() lunges along pl.aim only (combat.js:314-316). Do not pick
+                // another heading here: that choice is sim-only and rewards dashing into open ground.
+                let (ca, sa) = (aim.cos(), aim.sin());
                 let mut l = 0.0;
                 let mut d = 8.0;
                 let pr = self.pl.r;
@@ -4560,44 +4527,6 @@ impl<'a, M: MathFns> Match<'a, M> {
 
     /// Heading with the fewest bodies in front. Hysteresis on the current direction
     /// stops the choice flipping every reaction tick.
-    fn open_heading(&self, px: f64, py: f64) -> (f64, f64) {
-        let math = self.math;
-        let (dx0, dy0) = (self.pl.dirx, self.pl.diry);
-        let mut best_s = f64::NEG_INFINITY;
-        let mut best = if dx0 == 0.0 && dy0 == 0.0 { (1.0, 0.0) } else { (dx0, dy0) };
-        for k in 0..16 {
-            let a = k as f64 * (PI / 8.0);
-            let c = math.cos(a);
-            let s = math.sin(a);
-            let mut score = (dx0 * c + dy0 * s) * 1.6;
-            for e in &self.enemies {
-                if e.hp <= 0.0 {
-                    continue;
-                }
-                let dx = e.x - px;
-                let dy = e.y - py;
-                let d = len(dx, dy);
-                if d < 1.0 || d > 340.0 {
-                    continue;
-                }
-                let dot = (dx * c + dy * s) / d;
-                if dot <= 0.15 {
-                    continue;
-                }
-                let near = 1.0 - d / 340.0;
-                score -= near * near * (0.3 + dot) * 4.2;
-                if d - e.r - self.pl.r < 90.0 && dot > 0.4 {
-                    score -= 4.0;
-                }
-            }
-            if score > best_s {
-                best_s = score;
-                best = (c, s);
-            }
-        }
-        best
-    }
-
     /// Published bot. Orbits the pack at magnet range (pickup.js, 78px) so shots,
     /// melee and XP orbs all connect. A straight flee runs into the spawn ring
     /// (spawner.js) and into stragglers placed ahead of that velocity (enemy.js).
