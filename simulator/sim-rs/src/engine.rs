@@ -330,7 +330,11 @@ const BIOMES: [&[(Wx, f64)]; 3] = [
     &[(Wx::Sun, 3.0), (Wx::Sand, 3.0), (Wx::Fog, 1.0)],
 ];
 fn wx_mult(kind: Wx, ty: u8) -> f64 {
-    let t = TYPES[ty as usize];
+    // 255 is the untyped sentinel (e.g. trap damage in `hurt(.., 255, 0)`). The game's
+    // weather mult(null) returns 1, so untyped damage takes no weather modifier.
+    let Some(t) = TYPES.get(ty as usize).copied() else {
+        return 1.0;
+    };
     match (kind, t) {
         (Wx::Sun, "fire") => 1.5,
         (Wx::Sun, "water") => 0.5,
@@ -7150,6 +7154,16 @@ pub fn run_match<M: MathFns>(
         hp_frac: if capped { m.pl.hp / m.st.max_hp } else { 0.0 },
         dealt: m.dealt,
         risk: m.risk,
+    }
+}
+#[cfg(test)]
+mod weather_tests {
+    use super::{weather_factor, Weather, Wx};
+    #[test]
+    fn untyped_damage_takes_no_weather_modifier() {
+        let rain = Some(Weather { kind: Wx::Rain, elapsed: 30.0, dur: 60.0 });
+        assert_eq!(weather_factor(&rain, 255), 1.0);
+        assert_eq!(weather_factor(&rain, 2), 1.0 + (1.5 - 1.0) * 1.0);
     }
 }
 #[cfg(test)]
