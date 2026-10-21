@@ -1,5 +1,5 @@
 """Empaqueta los recursos de src/ en site/: un style.css (con los iconos dentro, minificado), un app.js (share.js +
-collection.js + app.js + ficha.js, sin comentarios ni sangrías), la letra, los JSON del navegador y _headers. Solo biblioteca estándar.
+collection.js + app.js + ficha.js, sin comentarios ni sangrías), la letra, los JSON del navegador, _headers y _redirects. Solo biblioteca estándar.
 
 Los minificadores son conservadores a propósito: solo quitan lo que no puede cambiar el significado. El CSS se puede
 comparar con el original regla a regla (cssText en el navegador) y el JS se comprueba con node --check."""
@@ -67,6 +67,7 @@ def build(src: Path, site: Path, public: Path) -> str:
     for name in BRAND_FILES:
         shutil.copy2(src / "brand" / name, site / name)
     shutil.copy2(src / "_headers", site / "_headers")
+    shutil.copy2(src / "_redirects", site / "_redirects")
     for key in sorted(src.glob("*.txt")):
         if re.fullmatch(r"[0-9a-f]{32}", key.stem):
             shutil.copy2(key, site / key.name)

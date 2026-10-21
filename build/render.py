@@ -6,6 +6,7 @@ pokemon/index.html sigue siendo la plantilla de ?id=, que redirige a esa URL. Lo
 """
 from __future__ import annotations
 
+import csv
 import json
 import shutil
 import sys
@@ -20,7 +21,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import agents  # noqa: E402
 import balls  # noqa: E402
-import charts  # noqa: E402
 import finder  # noqa: E402
 import game_moves  # noqa: E402
 import gamestats  # noqa: E402
@@ -32,7 +32,6 @@ import pasivas  # noqa: E402
 import pack  # noqa: E402
 import planner  # noqa: E402
 import regions  # noqa: E402
-import repertorio  # noqa: E402
 import seo  # noqa: E402
 import share_image  # noqa: E402
 import static_ficha  # noqa: E402
@@ -59,10 +58,7 @@ NAV_GROUPS = [
                   ("metodo", "metodo.html", "nav_metodo"), ("acerca", "acerca.html", "nav_acerca")]),
 ]
 NAV = NAV_TOP + [item for _, items in NAV_GROUPS for item in items]
-SORT_KEYS = ("rank", "name", "dex", "atk", "pa", "sa", "hp", "spd", "df", "sd", "ehp", "rad", "td", "mv", "st",
-             "rar")  # orden de la lista
-REPEAT_RANKS = (2, 40, 150, 350, 650)  # puestos de los Pokémon que salen en la ilustración de repeticiones
-ARENA_DEX = 25
+SORT_KEYS = ("rank", "name", "dex", "s", "pa", "sa", "hp", "spd", "df", "sd", "rad", "rar")  # orden de la lista
 BANNER_NAMES = {1: "Kanto", 2: "Johto", 3: "Hoenn", 4: "Sinnoh", 5: "Teselia", 6: "Kalos", 7: "Alola", 8: "Galar", 9: "Paldea"}
 
 
@@ -298,6 +294,7 @@ def render_index(c: Ctx, pokemon: list[dict], meta: dict) -> str:
     content = f"""
 
 <h1>{esc(L.t("index_h1", game=legal.GAME_NAME))}</h1>
+{improved_notice(c)}
 <p class="fresh">{esc(legal.freshness_text(L, meta))}</p>
 <div class="finder">
   <div class="search">
@@ -343,48 +340,10 @@ def render_index(c: Ctx, pokemon: list[dict], meta: dict) -> str:
     return page(c, "index", title, desc, content, meta, extra_head=ld + "\n" + agents.dataset_jsonld(L, meta))
 
 
-FICHA_KEYS = (
-    "crumb_home", "legendary", "stars_alt", "sprite_alt", "ficha_title", "ficha_desc", "flag_status", "flag_melee",
-    "pager_aria", "dex_no", "tier", "f_missing", "t_band", "t_pillars", "t_methods", "t_sim",
-    "band_rank", "band_range", "band_alt", "t_learn", "learn_boosts", "t_build", "build_items", "build_cards", "build_card_once", "build_card_more",
-    "build_share", "build_copied", "build_brand", "bd_start_with", "build_default_start", "build_super", "build_neutral",
-    "t_rank", "rank_how", "ficha_rank", "pill_stats", "pill_moves", "pill_typedef", "pill_size", "pillars_alt_item",
-    "median", "m_sheet", "m_simStart", "m_simBest", "m_lateMax", "m_lateFresh", "methods_final", "methods_alt",
-    "methods_alt_item", "sim_start", "sim_best", "sim_median", "sim_alt", "sim_gain", "sim_noshop",
-    "rar_1", "rar_2", "rar_3", "rar_4", "rar_5", "t_base", "bs_hp", "bs_atk", "bs_def", "bs_spa", "bs_spd", "bs_spe",
-    "bs_total", "bs_alt_item", "bs_s_hp", "bs_s_atk", "bs_s_def", "bs_s_spa", "bs_s_spd", "bs_s_spe",
-    "sheet_title", "sheet_desc", "fresh", "t_combat", "cb_pa", "cb_sa", "cb_df", "cb_sd", "cb_kind_phys",
-    "cb_kind_spec", "cb_kind_mix", "cb_note",
-    "bd_melee", "bd_ranged", "bd_time", "bd_dealt", "bd_kills", "bd_score", "bd_best", "bd_tie",
-    "bd_gap_small", "bd_gap", "bd_other_melee", "bd_other_ranged", "bd_melee_note",
-    "dmg_physical", "dmg_special", "dmg_status", "dmg_mix", "dmg_tip_physical", "dmg_tip_special", "dmg_tip_status",
-    "rng_tip_melee", "rng_tip_ranged",
-    "mv_new") + tuple(k for k in STR if k.startswith("mv_kind_"))
-
-
-def ficha_chrome(L: Lang, meta: dict) -> tuple[str, str]:
-    """Piezas que la ficha interactiva necesita y que no dependen del Pokémon: símbolos, plantillas e i18n."""
-    strings = {k: L.t_raw(k).replace("{site}", legal.SITE_NAME).replace("{game}", legal.GAME_NAME)
-               .replace("{total}", str(charts.TOTAL)).replace("{sha}", meta["gameCommit"][:7])
-               .replace("{combat}", legal.COMBAT_COMMIT)
-               .replace("{date}", meta["generatedAt"][:10]) for k in FICHA_KEYS}
-    blob = json.dumps({"en": L.en, "s": strings}, ensure_ascii=False).replace("</", "<\\/")
-    pills = "".join(f'<span data-t="{t}">{type_pill(L, t)}</span>' for t in typedata.TYPE_COLOR)
-    badges = "".join(
-        f'<span data-gen="{gen}">{regions.badge(L, SPRITES, gen, L.banner(name), {}, small=True)}</span>'
-        for gen, name in BANNER_NAMES.items())
-    before = balls.defs()
-    after = (f'<template id="tpl-types">{pills}</template>'
-             f'<template id="tpl-regions">{badges}</template>'
-             f'<script type="application/json" id="i18n">{blob}</script>')
-    return before, after
-
-
 def render_ficha(c: Ctx, index: list[dict], meta: dict) -> str:
-    """Plantilla de /pokemon/?id=. Pages no puede redirigir por la query: ficha.js manda a la página estática; sin JS queda
-    el texto y la lista de las 966 fichas. Su canónica es la portada, para que ?id=N no compita con las fichas."""
+    """Plantilla de /pokemon/?id=. El hosting no puede redirigir por la query: ficha.js manda a la página estática; sin JS
+    queda el texto y la lista de las 966 fichas. Su canónica es la portada, para que ?id=N no compita con las fichas."""
     L = c.L
-    before, after = ficha_chrome(L, meta)
     slugs = {str(p["dex"]): species_path(p["dex"], p["nameEn"]) for p in index}
     blob = json.dumps(slugs, separators=(",", ":")).replace("</", "<\\/")
     items = "".join(
@@ -398,8 +357,6 @@ def render_ficha(c: Ctx, index: list[dict], meta: dict) -> str:
 <p><a href="{c.home}index.html">{esc(L.t("crumb_home"))}</a></p>
 <ol class="slug-list">{items}</ol>
 </article>
-{before}
-{after}
 <script type="application/json" id="slugs">{blob}</script>
 """
     home = f"{legal.SITE_URL}/{'en/' if L.en else ''}"
@@ -407,15 +364,14 @@ def render_ficha(c: Ctx, index: list[dict], meta: dict) -> str:
                 L.t("tpl_desc", game=legal.GAME_NAME, n=meta["total"]), content, meta, canonical=home)
 
 
-def render_species(c: Ctx, entry: dict, detail: list, pair: dict, moves: dict, prev: dict | None, nxt: dict | None,
-                   odds: tuple[float, int], cards: dict, before: str, after: str, meta: dict, summary: str) -> str:
+def render_species(c: Ctx, entry: dict, moves: dict, prev: dict | None, nxt: dict | None, odds: tuple[float, int],
+                   meta: dict) -> str:
     L = c.L
-    title, desc = static_ficha.head_texts(L, entry, pair, moves, charts.TOTAL)
-    html, ld = static_ficha.build(L, c.home, SPRITES, EXT, entry, detail, pair, moves, cards, prev, nxt, odds,
-                                  summary=summary,
-                                  guides=landing.guides_nav(L, c.home, types=entry["types"]),
-                                  updated=meta["generatedAt"][:10], url=page_url(c), title=title)
-    return page(c, "ficha", title, desc, html + before + after, meta, extra_head=ld,
+    title, desc = static_ficha.head_texts(L, entry, moves)
+    html, ld = static_ficha.build(L, c.home, SPRITES, EXT, entry, moves, meta, entry["start"], prev, nxt, odds,
+                                  guides=landing.guides_nav(L, c.home, types=entry["types"]), url=page_url(c),
+                                  title=title)
+    return page(c, "ficha", title, desc, html + balls.defs(), meta, extra_head=ld,
                 head_links=static_ficha.alternates(species_path(entry["dex"], entry["nameEn"])), og_type="article")
 
 
@@ -466,10 +422,10 @@ def move_card(L: Lang, m: dict) -> str:
     name = m["en"]["name"] if L.en else m["name"]
     # Teledirigido y perforante se nombran aparte del proyectil normal: cambian cómo se usa el ataque.
     kind = L.t("mv_kind_" + game_moves.shape_key(m))
+    meter = ""
     if "score" in m:
-        meter = f'<div class="mv-meter">{charts.move_bars(L, m["score"])}</div>'
-    else:
-        meter = f'<p class="mv-pending">{esc(L.t("mv_unranked"))}</p>'
+        bar = _rel_row(L.t("mv_value"), m["score"], f"{L.dec(m['score'], 2)}×", m["score"] >= 1)
+        meter = f'<div class="mv-meter"><div class="mb">{bar}</div></div>'
     note = m.get("note")
     note_html = f'<p class="mv-desc">{esc(note["en"] if L.en else note["es"])}</p>' if note else ""
     types = TYPE_NAMES["en" if L.en else "es"]
@@ -478,7 +434,7 @@ def move_card(L: Lang, m: dict) -> str:
     shape_html = "" if m["kind"] == "melee" else f'<span class="mv-kind">{esc(kind)}</span>'
     return (f'<li class="mv-card" data-q="{esc(search)}">'
             f'<div class="mv-top">{move_icon_svg(m["icon"])}<div class="mv-title"><h4>{esc(name)}</h4>'
-            f'<div class="mv-tags">{type_pill(L, m["type"])}{static_ficha.range_html(L, m)}'
+            f'<div class="mv-tags">{type_pill(L, m["type"])}{"" if m["kind"] == "buff" else static_ficha.range_html(L, m)}'
             f'{static_ficha.damage_badge(L, m["damage"])}{shape_html}'
             f'</div></div></div>{note_html}'
             f'{meter}{move_facts(L, m)}</li>')
@@ -496,31 +452,78 @@ def range_legend(L: Lang) -> str:
     return f'<ul class="cat-legend" aria-label="{esc(L.t("mv_range_h"))}">{items}</ul>'
 
 
+REL_MAX = 2.0  # fin de la escala de las barras de ataques, en múltiplos de un ataque normal de su clase (el más alto es 1,69×)
+GROUP_TOP = 5  # grupos por clase y build en la página de ataques
+
+
+def _rel_row(label: str, rel: float, value: str, good: bool) -> str:
+    x = min(rel, REL_MAX) / REL_MAX * 100
+    return (f'<div class="mb-row"><span class="mb-name">{esc(label)}</span>'
+            f'<span class="mb-track" aria-hidden="true"><i class="mb-med" style="left:{100 / REL_MAX:.1f}%"></i>'
+            f'<i class="mb-fill{" hot" if good else ""}" style="width:{x:.1f}%"></i></span>'
+            f'<em class="mb-val">{esc(value)}</em></div>')
+
+
+def move_scale(L: Lang) -> str:
+    """Leyenda de las barras: rojo por encima de lo normal, gris por debajo y la raya vertical es lo normal (×1)."""
+    return (f'<div class="mv-key" aria-hidden="true"><span><i class="k-bar hot"></i>{esc(L.t("mv_better"))}</span>'
+            f'<span><i class="k-bar"></i>{esc(L.t("mv_worse"))}</span>'
+            f'<span><i class="k-tick"></i>{esc(L.t("mv_typical"))}</span></div>')
+
+
+def best_groups(L: Lang, moves_by: dict[str, dict]) -> str:
+    """Los mejores grupos de la fase 2 (data/bond_tiers.csv, ronda final) por clase de atacante y build."""
+    with (ROOT / "data" / "bond_tiers.csv").open(encoding="utf8") as f:
+        rows = list(csv.DictReader(line for line in f if not line.startswith("#")))
+    final = max(int(r["seeds"]) for r in rows)
+    cards = []
+    for cls, cls_key in (("physical", "cb_kind_phys"), ("special", "cb_kind_spec")):
+        for build in ("melee", "ranged"):
+            top = sorted((r for r in rows if r["class"] == cls and r["build"] == build and int(r["seeds"]) == final),
+                         key=lambda r: int(r["rank"]))[:GROUP_TOP]
+            items = []
+            for r in top:
+                names = []
+                for mid in r["group"].split("+"):
+                    m = moves_by[mid]
+                    badge = (f'<span class="tier-badge mini {m["tier"]}">{m["tier"]}</span>' if "tier" in m else "")
+                    names.append(f'<span class="bg-mv{" is-buff" if "tier" not in m else ""}">{badge}'
+                                 f'{esc(m["en"]["name"] if L.en else m["name"])}</span>')
+                items.append(f'<li><span class="bg-moves">{"".join(names)}</span>'
+                             f'<em class="bg-val">{esc(L.dec(float(r["score_rel"]), 2))}×</em></li>')
+            cards.append(f'<article class="bg"><h3>{esc(L.t(cls_key))} · {esc(L.t("bd_" + build))}</h3>'
+                         f'<ol>{"".join(items)}</ol></article>')
+    return (f'<section id="grupos" class="bg-section"><h2>{icon("ball")}{esc(L.t("cat_groups"))}</h2>'
+            f'<p class="lede">{esc(L.t("mv_groups_lede", n=GROUP_TOP))}</p><div class="bg-grid">{"".join(cards)}</div></section>')
+
+
 def render_ataques(c: Ctx, moves: list[dict], meta: dict, unranked: list[dict]) -> str:
     L = c.L
+    moves_by = {m["id"]: m for m in moves + unranked}
     blocks, toc = [], []
-    for cat_id, cat_csv in CATEGORIES:
+    for cat_id, icon_name in (("physical", "sword"), ("special", "sparkle"), ("stat", "bow")):
         inner = []
-        for t in TIERS:
-            ms = sorted((m for m in moves if m["category"] == cat_csv and m["tier"] == t), key=lambda m: m["rank"])
+        if cat_id == "stat":
+            items = "".join(move_card(L, m) for m in unranked)
+            inner.append(f'<p class="lede">{esc(L.t("mv_unranked"))}</p><ul class="mv-grid">{items}</ul>')
+        for t in TIERS if cat_id != "stat" else ():
+            ms = sorted((m for m in moves if m["category"] == cat_id and m["tier"] == t), key=lambda m: m["rank"])
             if not ms:
                 continue
             items = "".join(move_card(L, m) for m in ms)
             inner.append(f'<div class="mv-tier"><h3>{tier_badge(L, t)} <small>{len(ms)}</small></h3>'
                          f'<ul class="mv-grid">{items}</ul></div>')
-        if cat_id == "stat" and unranked:
-            items = "".join(move_card(L, m) for m in unranked)
-            inner.append(f'<div class="mv-tier mv-unranked"><h3>{esc(L.t("mv_unranked_h"))} <small>{len(unranked)}</small></h3>'
-                         f'<ul class="mv-grid">{items}</ul></div>')
-        icon_name = {"melee": "sword", "ranged": "bow", "stat": "sparkle"}[cat_id]
         blocks.append(f'<section id="{cat_id}" class="mv-section"><h2>{icon(icon_name)}{esc(L.t("cat_" + cat_id))}</h2>'
                       f'{"".join(inner)}</section>')
         toc.append(f'<li><a href="#{cat_id}">{icon(icon_name)}{esc(L.t("cat_" + cat_id))}</a></li>')
+    toc.append(f'<li><a href="#grupos">{icon("ball")}{esc(L.t("cat_groups"))}</a></li>')
+    p1 = meta["method"]["p1"]
     search_icon = ('<svg class="search-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><circle cx="7" cy="7" '
                    'r="4.6" fill="none" stroke="currentColor" stroke-width="2"/><path d="M10.6 10.6 14.5 14.5" '
                    'stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>')
     content = f"""
 <h1>{esc(L.t("ataques_h1"))}</h1>
+<p class="lede">{esc(L.t("mv_lede", refs=p1["refs"], seeds=p1["seeds"]))}</p>
 <div class="search-field mv-finder">{search_icon}<input id="mv-q" type="search" autocomplete="off" placeholder="{esc(L.t("mv_search"))}" aria-label="{esc(L.t("mv_search"))}"></div>
 <p id="mv-none" class="mv-none" hidden>{esc(L.t("mv_none"))}</p>
 <ul class="toc">{"".join(toc)}</ul>
@@ -528,9 +531,10 @@ def render_ataques(c: Ctx, moves: list[dict], meta: dict, unranked: list[dict]) 
 <summary>{esc(L.t("mv_read_h"))}</summary>
 {damage_legend(L)}
 {range_legend(L)}
-{charts.move_scale(L)}
+{move_scale(L)}
 </details>
 {"".join(blocks)}
+{best_groups(L, moves_by)}
 """
     return page(c, "ataques", L.t("ataques_title", site=legal.SITE_NAME),
                 L.t("ataques_desc", n=len(moves) + len(unranked), game=legal.GAME_NAME), content, meta)
@@ -550,7 +554,7 @@ def render_planner(c: Ctx, meta: dict) -> str:
 
 def render_objetos(c: Ctx, meta: dict) -> str:
     L = c.L
-    content = objetos.items_content(L, L.t("obj_h1"), L.t("obj_lede"), L.t("obj_phases_h"), L.t("obj_table_h"))
+    content = objetos.items_content(L, L.t("obj_h1"), L.t("obj_lede"))
     return page(c, "objetos", L.t("obj_title", site=legal.SITE_NAME),
                 L.t("obj_desc", game=legal.GAME_NAME), content, meta)
 
@@ -670,68 +674,44 @@ def render_landing(c: Ctx, built: landing.Built, meta: dict) -> str:
                 head_links=built.alternates)
 
 
-def render_metodo(c: Ctx, index: list[dict], meta: dict) -> str:
+def improved_notice(c: Ctx, link: bool = True) -> str:
+    """Aviso del método nuevo: sale en la portada (con enlace a Método) y en Método."""
+    L = c.L
+    more = f' <a href="{c.home}metodo.html">{esc(L.t("m3_notice_link"))}</a>' if link else ""
+    return f'<aside class="notice" role="note"><b>{esc(L.t("m3_notice_h"))}</b> {esc(L.t("m3_notice"))}{more}</aside>'
+
+
+def render_metodo(c: Ctx, meta: dict) -> str:
     L = c.L
     m = meta["method"]
-    counts = legal.method_counts(L, meta)
-    reps = [(L.mon(p), p) for p in (min(index, key=lambda p: abs(p["r"][0] - n)) for n in REPEAT_RANKS)]
-    limits = "".join(f'<li>{esc(L.t(f"met_lim_{i}", sims=counts["sims"]))}</li>' for i in range(1, 5))
-    arena_src = f"{SPRITES}{ARENA_DEX}{EXT}"
-    st = meta["methodStats"]
-    stages = {s["id"]: s for s in st["stages"]}
-    ex = st["example"]
-    ex_name = next(L.mon(p) for p in index if p["dex"] == ex["dex"])
-    sizes = " · ".join(f'{c["tier"]} {L.num(c["to"] - c["from"] + 1)}' for c in meta["tierCuts"])
-    texts = [
-        L.t("met_step_1", sims=counts["sims"], cap=L.num(m["score"]["capSeconds"])),
-        L.t("met_step_2", dps=L.num(m["score"]["dpsRef"]), kpm=L.num(m["score"]["kpmRef"])),
-        L.t("met_step_3"),
-        L.t("met_step_4"),
-        L.t("met_step_5"),
-        L.t("met_step_6", sizes=sizes),
-    ]
-
-    def step(i: int) -> str:
-        return f'<h2 id="paso-{i}">{i}. {esc(L.t(f"met_step_{i}_h", reps=counts["reps"]))}</h2>\n<p class="met-text">{esc(texts[i - 1])}</p>'
-
+    p1, p2, p3 = m["p1"], m["p2"], m["p3"]
+    sizes = " · ".join(f'{t["tier"]} {t["from"]}–{t["to"]}' for t in meta["tierCuts"])
+    kpis = (("m3_k_games", L.num(m["games"])), ("m3_k_attacks", L.num(p1["attacks"])),
+            ("m3_k_groups", L.num(p2["groups"] + p3["groups"][0])), ("m3_k_mons", L.num(meta["total"])))
+    kpi_html = "".join(f'<div><dt>{esc(L.t(k))}</dt><dd>{esc(v)}</dd></div>' for k, v in kpis)
+    steps = (
+        ("m3_p1_h", L.t("m3_p1", attacks=p1["attacks"], refs=p1["refs"], seeds=p1["seeds"], games=L.num(p1["games"]))),
+        ("m3_p2_h", L.t("m3_p2", groups=L.num(p2["groups"]), s1=p2["seeds"][0], s2=p2["seeds"][1], s3=p2["seeds"][2],
+                        games=L.num(p2["games"]))),
+        ("m3_p3_h", L.t("m3_p3", g1=L.num(p3["groups"][0]), g2=L.num(p3["groups"][1]), g3=L.num(p3["groups"][2]),
+                        s1=p3["seeds"][0], s2=p3["seeds"][1], s3=p3["seeds"][2], games=L.num(p3["games"]))),
+        ("m3_rank_h", L.t("m3_rank", seeds=meta["seeds"], sizes=sizes, dps=L.num(m["score"]["dpsRef"]),
+                          kpm=L.num(m["score"]["kpmRef"]))),
+        ("m3_why_h", L.t("m3_why", r2=L.pcts(meta["why"]["r2"] * 100))),
+        ("m3_limits_h", L.t("m3_limits")),
+    )
+    body = "".join(f'<h2>{esc(L.t(h))}</h2><p class="met-text">{esc(t)}</p>' for h, t in steps)
     content = f"""
 <h1>{esc(L.t("met_h1"))}</h1>
-<p class="lede">{esc(L.t("met_lede", reps=counts["reps"]))}</p>
+{improved_notice(c, link=False)}
+<p class="lede">{esc(L.t("m3_lede", games=L.num(m["games"]), minutes=m["seconds"] // 60))}</p>
 <p class="fresh">{esc(legal.freshness_text(L, meta))}</p>
-{charts.kpis(L, st, m)}
-{charts.pipeline(L, m)}
-{step(1)}
-{charts.stage_games(L, st["stages"])}
-{charts.start_hist(L, st["start"])}
-{repertorio.note(L)}
-{charts.arena(L, arena_src)}
-{step(2)}
-{charts.score_curves(L, m["score"], ex, ex_name)}
-{step(3)}
-{charts.funnels(L, stages)}
-{step(4)}
-{charts.repeats_demo(L, reps)}
-{charts.width_hist(L, st["width"])}
-{charts.tier_width(L, st["tierWidth"])}
-{step(5)}
-{charts.ribbon(L, index)}
-{step(6)}
-{charts.tier_strip(L, meta["tierCuts"])}
-{charts.frontier(L, st)}
-{charts.stability(L, meta["stability"])}
-<h2>{esc(L.t("met_rules_h"))}</h2>
-<p class="met-text">{esc(L.t("met_rules"))}</p>
-<h2>{esc(L.t("met_check_h"))}</h2>
+<dl class="kpis">{kpi_html}</dl>
+{body}
 <p class="met-text">{esc(L.t("met_check", sha=legal.UPDATED_COMMIT))}</p>
-<h2>{esc(L.t("met_builds_h"))}</h2>
-<p>{esc(L.t("met_builds_1"))}</p>
-<p>{esc(L.t("met_builds_2"))}</p>
-<p>{esc(L.t("met_builds_3"))}</p>
-<h2>{esc(L.t("met_limits_h"))}</h2>
-<ul class="plain limits">{limits}</ul>
 """
     return page(c, "metodo", L.t("met_title", site=legal.SITE_NAME, game=legal.GAME_NAME),
-                L.t("met_desc", game=legal.GAME_NAME, **counts), content, meta)
+                L.t("m3_desc", game=legal.GAME_NAME, games=L.num(m["games"])), content, meta)
 
 
 def render_novedades(c: Ctx, meta: dict) -> str:
@@ -788,7 +768,6 @@ def main() -> int:
         unranked = load("moves_unranked.json")
         species = load("public/species.json")
         gachas = load("gachas.json")
-        summaries = {L.code: load(f"public/summaries-{L.code}.json") for L in LANGS}
     except RenderError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
@@ -821,9 +800,8 @@ def main() -> int:
         for page_def in landing.pages():
             rel = landing.rel(L, page_def)
             c = Ctx.of(L, rel, twin=landing.folder(other, page_def))
-            built = landing.build(L, page_def, index, by_dex, species["d"], moves_by, meta, c.home)
+            built = landing.build(L, page_def, index, meta, c.home)
             write(f"{L.prefix}{rel}", render_landing(c, built, meta))
-        before, after = ficha_chrome(L, meta)
         put("index.html", lambda c: render_index(c, index, meta))
         put("novedades.html", lambda c: render_novedades(c, meta))
         put("ataques.html", lambda c: render_ataques(c, moves, meta, unranked))
@@ -831,7 +809,7 @@ def main() -> int:
         put("pasivas.html", lambda c: render_pasivas(c, meta))
         put("gachas.html", lambda c: render_gachas(c, gachas, index, meta))
         put("coleccion.html", lambda c: render_coleccion(c, gachas, index, meta))
-        put("metodo.html", lambda c: render_metodo(c, index, meta))
+        put("metodo.html", lambda c: render_metodo(c, meta))
         for key, render_tool in (("finder", render_finder), ("planner", render_planner)):
             rel = toolpages.rel(L, key)
             c = Ctx.of(L, rel, twin=toolpages.twin(L, key))
@@ -841,12 +819,8 @@ def main() -> int:
         for i, entry in enumerate(ordered):
             prev = ordered[i - 1] if i else None
             nxt = ordered[i + 1] if i + 1 < len(ordered) else None
-            detail = species["d"][str(entry["dex"])]
-            pair = species["builds"][str(entry["dex"])]
             rel = f"pokemon/{species_path(entry['dex'], entry['nameEn'])}/index.html"
-            summary = static_ficha.summary_plain(summaries[L.code][str(entry["dex"])])
-            put(rel, lambda c, e=entry, dt=detail, d=pair, pv=prev, nx=nxt, b=before, a=after, s=summary:
-                render_species(c, e, dt, d, moves_by, pv, nx, odds[e["dex"]], species["cards"], b, a, meta, s))
+            put(rel, lambda c, e=entry, pv=prev, nx=nxt: render_species(c, e, moves_by, pv, nx, odds[e["dex"]], meta))
     write("data/game-stats.json", json.dumps(gamestats.site_json(), ensure_ascii=False, separators=(",", ":")) + "\n")
     write("404.html", render_404(meta))
     share_image.save(SITE / "og.png")

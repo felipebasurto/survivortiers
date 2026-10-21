@@ -14,7 +14,7 @@ import brand_mark
 
 ROOT = Path(__file__).resolve().parent.parent
 FONT = ROOT / "src" / "fonts" / "PixelifySans.ttf"
-RANKING = ROOT / "data" / "ranking_definitive.csv"
+RANKING = ROOT / "data" / "ranking_fase3.csv"
 SPRITES = ROOT / "sprites"
 OUT = ROOT / "build" / "assets" / "og.png"
 

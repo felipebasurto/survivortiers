@@ -20,14 +20,12 @@ import sitefixture  # noqa: E402
 import dupcheck  # noqa: E402
 import landing  # noqa: E402
 import legal  # noqa: E402
-import static_ficha  # noqa: E402
 from i18n import EN, ES  # noqa: E402
 from slugs import species_path  # noqa: E402
 
 SITE = ROOT / "site"
 LD_RE = re.compile(r'<script type="application/ld\+json">\s*(.*?)\s*</script>', re.S)
 NAME_RE = re.compile(r'<span class="nm">(.*?)</span>')
-PASSIVE_RE = re.compile(r'<span class="ql-name">(.*?)</span>')
 
 
 def _read(rel: str) -> str:
@@ -57,22 +55,13 @@ class LandingPages(unittest.TestCase):
             for lang in (ES, EN):
                 self.assertTrue((SITE / _page_rel(lang, page)).is_file(), _page_rel(lang, page))
 
-    def test_repertorio_note_only_on_starters_page(self) -> None:
-        for page in landing.pages():
-            for lang in (ES, EN):
-                html = _read(_page_rel(lang, page))
-                if page.key == "starters":
-                    self.assertEqual(html.count('class="rep-note"'), 1, _page_rel(lang, page))
-                else:
-                    self.assertNotIn("rep-note", html, _page_rel(lang, page))
-
     def test_itemlist_matches_visible_list_in_order(self) -> None:
         for page in landing.pages():
             for lang in (ES, EN):
                 text = _read(_page_rel(lang, page))
                 items = _ld(text)["mainEntity"]["itemListElement"]
                 self.assertEqual(_ld(text)["mainEntity"]["numberOfItems"], len(items))
-                found = PASSIVE_RE.findall(text) if page.key == "passives" else NAME_RE.findall(text)
+                found = NAME_RE.findall(text)
                 self.assertEqual([html_lib.unescape(n) for n in found], [i["name"] for i in items], _page_rel(lang, page))
 
     def test_answer_comes_before_the_list(self) -> None:
@@ -86,8 +75,6 @@ class LandingPages(unittest.TestCase):
 
     def test_lede_names_the_first_rows(self) -> None:
         for page in landing.pages():
-            if page.key == "passives":
-                continue
             for lang in (ES, EN):
                 text = _read(_page_rel(lang, page))
                 lede = html_lib.unescape(re.search(r'<p class="ql-lede">(.*?)</p>', text, re.S).group(1))
@@ -160,23 +147,6 @@ class LinksAndFreshness(unittest.TestCase):
         for page in landing.pages():
             self.assertIn(f"<loc>{legal.SITE_URL}/{page.es}</loc>", sitemap, page.key)
             self.assertIn(f"<loc>{legal.SITE_URL}/en/{page.en}</loc>", sitemap, page.key)
-
-
-class Summaries(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls) -> None:
-        sitefixture.ensure_site()
-
-    def test_marks_are_stripped_and_text_kept(self) -> None:
-        raw = "Rápido, [hp-|poca vida] y [m.start:vine-whip|Látigo Cepa]. Lo sube [up:best_move|Residuos]."
-        self.assertEqual(static_ficha.summary_plain(raw), "Rápido, poca vida y Látigo Cepa. Lo sube Residuos.")
-
-    def test_ficha_shows_the_plain_summary(self) -> None:
-        summaries = json.loads((ROOT / "build" / "out" / "public" / "summaries-es.json").read_text(encoding="utf8"))
-        plain = static_ficha.summary_plain(summaries["150"])
-        text = _read("pokemon/150-mewtwo/index.html")
-        self.assertIn(html_lib.escape(plain), text)
-        self.assertNotIn("[m.", text)
 
 
 class Similarity(unittest.TestCase):

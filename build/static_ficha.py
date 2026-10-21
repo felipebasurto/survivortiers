@@ -1,28 +1,23 @@
-"""HTML estático de una ficha: lo que un buscador lee sin ejecutar JavaScript.
+"""HTML de la ficha de cada Pokémon: puesto, por qué está ahí, cuánto aguanta, sus dos builds y sus estadísticas.
 
-Los números salen de los datos ya generados (ranking, species.json, moves.json) y de la misma
-regla de tirada que build/catalog.py (RATES y el pool de rareza más cercano). No hay cifras nuevas.
-No hay aparición salvaje en los datos: solo el banner de gacha.
+Los números salen de los datos ya generados (build/catalog.py: ranking y builds de la fase 3, data/species_why.csv,
+moves.json) y de la misma regla de tirada que build/catalog.py (RATES y el pool de rareza más cercano). No hay cifras
+nuevas. No hay aparición salvaje en los datos: solo el banner de gacha.
 """
 from __future__ import annotations
 
 import json
 import math
-import re
 import unicodedata
 from html import escape
 
 import catalog
-import charts
 import game_moves
 import legal
 import regions
 import typedata
 from i18n import Lang
 from slugs import species_path
-
-STAT_KEYS = ("bs_hp", "bs_atk", "bs_def", "bs_spa", "bs_spd", "bs_spe")
-SUMMARY_MARK = re.compile(r"\[([^\[\]|]+)\|([^\[\]]+)\]")  # [clave|texto] en data/summaries-<idioma>.json
 
 
 def esc(x) -> str:
@@ -50,7 +45,9 @@ def shape_html(L: Lang, move: dict) -> str:
 
 
 def move_tags(L: Lang, move: dict) -> str:
-    return f'<span class="bd-tags">{range_html(L, move)}{damage_badge(L, move["damage"])}{shape_html(L, move)}</span>'
+    """Rango, tipo de daño y forma. Un potenciador no tiene rango: no ataca."""
+    rng = "" if move["kind"] == "buff" else range_html(L, move)
+    return f'<span class="bd-tags">{rng}{damage_badge(L, move["damage"])}{shape_html(L, move)}</span>'
 
 
 def js_round(x: float) -> int:
@@ -110,7 +107,6 @@ def _join(L: Lang, names: list[str]) -> str:
     return ", ".join(names[:-1]) + conj + names[-1]
 
 
-
 def _move_name(L: Lang, moves: dict[str, dict], mid: str) -> str:
     m = moves.get(mid)
     if not m:
@@ -133,16 +129,10 @@ def alternates(slug: str) -> str:
     ))
 
 
-def _card_name(L: Lang, card: dict) -> str:
-    return card["en"]["name"] if L.en else card["name"]
-
-
-def card_answer(L: Lang, names: list[str], once: str | None) -> str:
-    """La misma frase en la FAQ y en el JSON-LD. `once` es la carta que hace falta una vez para evolucionar el ataque."""
-    cards = _join(L, names)
-    if once:
-        return L.t("faq_a_cards_gate", cards=cards, once=once)
-    return L.t("faq_a_cards", cards=cards)
+def mmss(seconds: float) -> str:
+    """Segundos de partida como minutos y segundos: 407,8 -> 6:48."""
+    s = round(seconds)
+    return f"{s // 60}:{s % 60:02d}"
 
 
 BUILD_NAME = {"melee": "bd_melee", "ranged": "bd_ranged"}
@@ -152,20 +142,12 @@ BUILD_OTHER_KIND = {"melee": "ranged", "ranged": "melee"}
 GAP_SMALL_PCT = 5
 
 
-def _faqs(L: Lang, tier: str, rank: int, build_text: str, card_text: str, banner: str, legendary: bool,
+def _faqs(L: Lang, tier: str, rank: int, build_text: str, banner: str, legendary: bool,
           pct: str, pulls: int) -> list[tuple[str, str]]:
-    worth = (L.t("faq_q_worth"), L.t(f"faq_a_{tier}", rank=rank, total=charts.TOTAL))
-    out = [worth, (L.t("faq_q_moves"), build_text)]
-    if card_text:
-        out.append((L.t("faq_q_cards"), card_text))
+    worth = (L.t("faq_q_worth"), L.t(f"faq_a_{tier}", rank=rank, total=catalog.TOTAL))
     where = L.t("faq_get_where_leg" if legendary else "faq_get_where", banner=banner)
-    out.append((L.t("faq_q_get"), f"{where} {L.t('faq_get_odds', pct=pct, n=L.num(pulls))}"))
-    return out
-
-
-def summary_plain(text: str) -> str:
-    """El resumen de la ficha (data/summaries-<idioma>.json) sin las marcas: el texto que se ve."""
-    return SUMMARY_MARK.sub(lambda m: m.group(2), text)
+    return [worth, (L.t("faq_q_moves"), build_text),
+            (L.t("faq_q_get"), f"{where} {L.t('faq_get_odds', pct=pct, n=L.num(pulls))}")]
 
 
 def jsonld(faqs: list[tuple[str, str]], updated: str, url: str, name: str, lang: str) -> str:
@@ -196,76 +178,96 @@ def _neighbor(L: Lang, home: str, sprites: str, ext: str, entry: dict | None, di
             f'<span>{esc(name)}<small>{esc(L.t("dex_no", dex=entry["dex"]))}</small></span></a>')
 
 
-# Ataque y defensa del juego (js/systems/stats.js:17-43): el daño que recibe es ×clamp((75/defensa)^0.35, 0,78, 1,25).
-COMBAT_REF_DEF = 75
-COMBAT_LO, COMBAT_HI = 0.78, 1.25
-ATK_BAR_MAX, DEF_BAR_MAX = 1.8, 255  # escala de las barras: ×1,00 es el neutro de ataque; 255 como las estadísticas base
-KIND_KEY = {"phys": "cb_kind_phys", "spec": "cb_kind_spec", "mix": "cb_kind_mix"}
-# Mismo sistema de etiquetas que los ataques (cat-tag): físico, especial y mixto tienen icono y color propios.
-KIND_CLASS = {"phys": "physical", "spec": "special", "mix": "mix"}
+# ---------------------------------------------------------------- por qué
+WHY_MIN = 0.02  # un factor que mueve la puntuación menos de un 2 % no se nombra
+WHY_ROWS = 3
+MIX_KEY = {"physical": "why_atk_phys", "special": "why_atk_spec", "mixed": "why_atk_mix"}
 
 
-def _bar(cls: str, label: str, shown: str, fill: float, mark: float) -> str:
-    return (f'<div class="cb-row {cls}"><span class="cb-name">{esc(label)}</span>'
-            f'<span class="cb-track"><i class="cb-fill" style="width:{fill * 100:.2f}%"></i>'
-            f'<b class="cb-mark" style="left:{mark * 100:.2f}%"></b></span>'
-            f'<output class="cb-val">{esc(shown)}</output></div>')
+def why_label(L: Lang, entry: dict, w: dict, moves: dict[str, dict]) -> str:
+    """El factor con su valor, en una línea: «Ataque físico ×1,36», «PS 115», «Sus ataques: Puño Meteoro y …»."""
+    f, v = w["f"], w["value"]
+    best = entry["builds"][entry["r"]["best"]]
+    if f == "atk":
+        return L.t(MIX_KEY[best["mix"]], v=L.dec(v, 2))
+    if f == "group":
+        ids = best["moves"][:len(best["moves"]) - best["nBoost"]]
+        return L.t("why_group", moves=_join(L, [_move_name(L, moves, m) for m in ids]))
+    if f in ("size", "types"):
+        return L.t(f"why_{f}", v=L.dec(v, 1 if f == "size" else 2))
+    return L.t(f"why_{f}", v=round(v))
 
 
-def combat(L: Lang, entry: dict) -> str:
-    """Ataque y defensa del juego: lado fuerte, las cuatro cifras con su barra y una línea sobre la defensa."""
-    b = entry["base"]
-    kind = catalog.attack_kind(b["pa"], b["sa"])
-    atk = (_bar("cb-atk-phys", L.t("cb_pa"), "×" + L.dec(b["pa"], 2), b["pa"] / ATK_BAR_MAX, 1 / ATK_BAR_MAX)
-           + _bar("cb-atk-spec", L.t("cb_sa"), "×" + L.dec(b["sa"], 2), b["sa"] / ATK_BAR_MAX, 1 / ATK_BAR_MAX))
-    dfn = (_bar("cb-def", L.t("cb_df"), str(b["df"]), b["df"] / DEF_BAR_MAX, COMBAT_REF_DEF / DEF_BAR_MAX)
-           + _bar("cb-def", L.t("cb_sd"), str(b["sd"]), b["sd"] / DEF_BAR_MAX, COMBAT_REF_DEF / DEF_BAR_MAX))
-    note = L.t("cb_note", less=round((1 - COMBAT_LO) * 100), more=round((COMBAT_HI - 1) * 100))
-    return (f'<section class="combat" id="combate" aria-labelledby="cb-h" data-kind="{kind}">'
-            f'<header class="cb-head"><h3 id="cb-h">{esc(L.t("t_combat"))}</h3>'
-            f'<span class="cat-tag is-{KIND_CLASS[kind]}">{esc(L.t(KIND_KEY[kind]))}</span></header>'
-            f'<div class="cb-list">{atk}</div><div class="cb-list">{dfn}</div>'
-            f'<p class="cb-note">{esc(note)}</p></section>')
+def why_rows(entry: dict) -> list[dict]:
+    """Los factores que se nombran: en la mitad de arriba del ranking los dos que más suman y el que más resta; en la de
+    abajo, el que más suma y los dos que más restan. Solo los que mueven la puntuación al menos un WHY_MIN."""
+    top_half = entry["r"]["rank"] <= catalog.TOTAL // 2
+    ups = sorted((w for w in entry["why"] if w["effect"] >= WHY_MIN), key=lambda w: -w["effect"])
+    downs = sorted((w for w in entry["why"] if w["effect"] <= -WHY_MIN), key=lambda w: w["effect"])
+    n_up = min(len(ups), 2 if top_half else 1)
+    n_down = min(len(downs), WHY_ROWS - n_up)
+    n_up = min(len(ups), WHY_ROWS - n_down)
+    return ups[:n_up] + downs[:n_down]
 
 
+def _pct_bar(pct: int, label: str) -> str:
+    return (f'<i class="pct-bar" role="img" aria-label="{esc(label)}"><b style="width:{max(2, pct)}%"></b></i>')
+
+
+def why(L: Lang, entry: dict, moves: dict[str, dict]) -> str:
+    rows = []
+    for w in why_rows(entry):
+        eff = round(w["effect"] * 100)
+        sign = "+" if eff > 0 else "−"
+        cls = "is-up" if eff > 0 else "is-down"
+        rows.append(f'<li class="why-row {cls}"><span class="why-eff">{sign}{abs(eff)}{"%" if L.en else "&nbsp;%"}</span>'
+                    f'<span class="why-txt">{esc(why_label(L, entry, w, moves))}</span>'
+                    f'{_pct_bar(w["pct"], L.t("pct_alt", pct=w["pct"]))}</li>')
+    body = f'<ul class="why-list">{"".join(rows)}</ul>' if rows else f'<p>{esc(L.t("why_flat"))}</p>'
+    return (f'<section class="why" id="porque" aria-labelledby="why-h">'
+            f'<h2 id="why-h">{esc(L.t("why_h", rank=entry["r"]["rank"]))}</h2>{body}'
+            f'<p class="why-note">{esc(L.t("why_note"))}</p></section>')
+
+
+# ---------------------------------------------------------------- supervivencia
+def survival(L: Lang, entry: dict, meta: dict) -> str:
+    r, t = entry["r"], meta["time"]
+    top = t["max"]
+    fill = r["time"] / top * 100
+    med = t["median"] / top * 100
+    return (f'<section class="surv" id="supervivencia" aria-labelledby="surv-h">'
+            f'<h2 id="surv-h">{esc(L.t("surv_h"))}</h2>'
+            f'<p class="surv-big"><strong>{mmss(r["time"])}</strong>'
+            f'<span>{esc(L.t("surv_cap", kind=L.t(BUILD_LOWER[r["best"]])))}</span></p>'
+            f'<div class="surv-bar" role="img" aria-label="{esc(L.t("surv_alt", t=mmss(r["time"]), med=mmss(t["median"]), max=mmss(top)))}">'
+            f'<b style="width:{fill:.2f}%"></b><i style="left:{med:.2f}%"></i></div>'
+            f'<p class="surv-scale"><span style="left:{med:.2f}%">{esc(L.t("surv_median", t=mmss(t["median"])))}</span>'
+            f'<span class="end">{esc(L.t("surv_best", t=mmss(top)))}</span></p>'
+            f'<dl class="surv-stats">'
+            f'<div><dt>{esc(L.t("bd_kills"))}</dt><dd>{esc(L.num(r["kills"]))}</dd></div>'
+            f'<div><dt>{esc(L.t("bd_dealt"))}</dt><dd>{esc(L.num(r["dealt"]))}</dd></div></dl></section>')
+
+
+# ---------------------------------------------------------------- builds
 def _gap_pct(high: float, low: float) -> int:
     return round((high - low) / high * 100) if high > 0 else 0
 
 
-def _winner(pair: dict[str, dict | None]) -> str | None:
-    """La build de mayor puntuación. Con empate, ninguna; si solo hay una, esa."""
-    have = {k: b for k, b in pair.items() if b}
-    if len(have) < 2:
-        return next(iter(have), None)
-    if have["melee"]["score"] == have["ranged"]["score"]:
+def _winner(pair: dict[str, dict]) -> str | None:
+    """La build de mayor puntuación; con empate, ninguna."""
+    if pair["melee"]["score"] == pair["ranged"]["score"]:
         return None
-    return max(have, key=lambda k: have[k]["score"])
+    return max(BUILD_NAME, key=lambda k: pair[k]["score"])
 
 
-DMG_KEY = {"physical": "dmg_physical", "special": "dmg_special", "mix": "dmg_mix"}
+DMG_KEY = {"physical": "dmg_physical", "special": "dmg_special", "mixed": "dmg_mix"}
+DMG_CLASS = {"physical": "physical", "special": "special", "mixed": "mix"}
 
 
-def build_damage(moves: dict[str, dict], ids: list[str]) -> str | None:
-    """Tipo de daño de una build: físico o especial si todos sus ataques de daño lo son, mixto si mezcla los dos.
-    Los potenciadores no cuentan. None si la build no tiene ataques de daño."""
-    kinds = {moves[m]["damage"] for m in ids if m in moves and moves[m]["damage"] in ("physical", "special")}
-    if not kinds:
-        return None
-    if len(kinds) == 2:
-        return "mix"
-    return kinds.pop()
-
-
-def combo_html(L: Lang, dmg: str | None, rng: str) -> str:
+def combo_html(L: Lang, mix: str, rng: str) -> str:
     """Tipo de daño y rango de una build, con las mismas etiquetas que los ataques: por ejemplo Físico · Cuerpo a cuerpo."""
-    dmg_chip = f'<span class="cat-tag is-{dmg}">{esc(L.t(DMG_KEY[dmg]))}</span>' if dmg else ""
-    return (dmg_chip + f'<span class="rng-tag is-{rng}" title="{esc(L.t("rng_tip_" + rng))}">'
-            f'{esc(L.t(BUILD_NAME[rng]))}</span>')
-
-
-def _lead(pair: dict[str, dict | None]) -> str:
-    """La build que encabeza la descripción: la ganadora o, con empate o una sola, la cuerpo a cuerpo si existe."""
-    return _winner(pair) or ("melee" if pair.get("melee") else "ranged")
+    return (f'<span class="cat-tag is-{DMG_CLASS[mix]}">{esc(L.t(DMG_KEY[mix]))}</span>'
+            f'<span class="rng-tag is-{rng}" title="{esc(L.t("rng_tip_" + rng))}">{esc(L.t(BUILD_NAME[rng]))}</span>')
 
 
 def build_names(L: Lang, moves: dict[str, dict], b: dict) -> tuple[str, str]:
@@ -275,111 +277,108 @@ def build_names(L: Lang, moves: dict[str, dict], b: dict) -> tuple[str, str]:
             _join(L, [_move_name(L, moves, m) for m in ids[len(ids) - nb:]]))
 
 
-def _build_answer(L: Lang, moves: dict[str, dict], pair: dict[str, dict | None]) -> str:
+def _build_answer(L: Lang, moves: dict[str, dict], pair: dict[str, dict], best: str) -> str:
     parts = []
-    for kind in BUILD_NAME:
-        b = pair.get(kind)
-        if not b:
-            continue
-        attacks, boosts = build_names(L, moves, b)
+    for kind in (best, BUILD_OTHER_KIND[best]):
+        attacks, boosts = build_names(L, moves, pair[kind])
         parts.append(L.t("faq_a_build", kind=L.t(BUILD_NAME[kind]), attacks=attacks, buffs=boosts,
-                         start=_move_name(L, moves, b["moves"][0])))
-    win = _winner(pair)
-    if win and len(pair) == 2 and all(pair.values()):
-        parts.append(L.t("faq_a_build_best", kind=L.t(BUILD_LOWER[win])))
+                         start=_move_name(L, moves, pair[kind]["moves"][0])))
+    parts.append(L.t("faq_a_build_best", kind=L.t(BUILD_LOWER[best])))
     return " ".join(parts)
 
 
-def _verdict(L: Lang, kind: str, b: dict, other: dict | None, win: str | None) -> str:
-    if other is None:
-        return ""
+def _verdict(L: Lang, kind: str, b: dict, other: dict, win: str | None) -> str:
     if win == kind:
         return f'<p class="bd-verdict is-best">{esc(L.t("bd_best"))}</p>'
-    if win is None:
-        return f'<p class="bd-verdict">{esc(L.t("bd_tie"))}</p>'
     gap = _gap_pct(other["score"], b["score"])
-    if gap == 0:
+    if win is None or gap == 0:
         return f'<p class="bd-verdict">{esc(L.t("bd_tie"))}</p>'
     key = "bd_gap_small" if gap < GAP_SMALL_PCT else "bd_gap"
     return f'<p class="bd-verdict">{esc(L.t(key, pct=L.pcts(gap), other=L.t(BUILD_OTHER[kind])))}</p>'
 
 
-def _move_row(L: Lang, moves: dict[str, dict], mid: str, n: str = "", boost: bool = False, start: bool = False) -> str:
-    """Una fila de la build: número, nombre y etiquetas de daño y forma. Los potenciadores van marcados, y el
-    ataque con el que conviene empezar lleva la marca dorada."""
+def _move_row(L: Lang, moves: dict[str, dict], mid: str, n: str, boost: bool, start: bool) -> str:
+    """Una fila de la build: número, nombre, etiquetas y el tier del ataque en la fase 1. Los potenciadores van
+    marcados, y el ataque con el que empieza lleva la marca dorada."""
+    m = moves[mid]
     cls = "bd-row" + (" is-buff" if boost else "") + (" is-start" if start else "")
     pill = f'<span class="bd-pill is-gold">{esc(L.t("bd_start_with"))}</span>' if start else ""
+    tier = (f'<span class="tier-badge mini {m["tier"]}" title="{esc(L.t("mv_tier_tip", t=m["tier"]))}">{m["tier"]}</span>'
+            if "tier" in m else "")
     return (f'<li class="{cls}"><span class="bd-n">{n}</span><span class="bd-info"><span class="bd-nm">'
-            f'{esc(_move_name(L, moves, mid))}</span>{move_tags(L, moves[mid])}</span>{pill}</li>')
+            f'{esc(_move_name(L, moves, mid))}</span>{move_tags(L, m)}</span>{pill}{tier}</li>')
 
 
-def _meter(label: str, v: int, cls: str) -> str:
-    return (f'<div class="bd-meter {cls}"><span>{esc(label)}</span>'
-            f'<i class="bd-track" role="img" aria-label="{v} %"><b style="width:{v}%"></b></i>'
-            f'<strong>{v}&nbsp;%</strong></div>')
-
-
-def _build_option(L: Lang, moves: dict[str, dict], cards: dict, kind: str, b: dict | None, other: dict | None,
-                  win: str | None) -> str:
-    """Una de las dos builds: veredicto, ataques en filas, estadísticas y las cartas en orden, todo a la vista."""
-    if not b:
-        return ""
-    dmg = build_damage(moves, b["moves"])
-    head = f'<h3 class="bd-kind">{combo_html(L, dmg, kind)}</h3>'
+def _build_option(L: Lang, moves: dict[str, dict], kind: str, b: dict, other: dict, win: str | None) -> str:
+    """Una de las dos builds: veredicto, ataques en filas y lo que hace en partida."""
+    head = f'<h3 class="bd-kind">{combo_html(L, b["mix"], kind)}</h3>'
     ids, nb = b["moves"], int(b["nBoost"])
     rows = "".join(_move_row(L, moves, mid, str(i + 1), i >= len(ids) - nb, i == 0) for i, mid in enumerate(ids))
     stats = (f'<dl class="bd-stats">'
-             f'<div><dt>{esc(L.t("bd_time"))}</dt><dd>{esc(L.dec(b["time"], 1))} s</dd></div>'
+             f'<div><dt>{esc(L.t("bd_time"))}</dt><dd>{mmss(b["time"])}</dd></div>'
+             f'<div><dt>{esc(L.t("bd_kills"))}</dt><dd>{esc(L.num(b["kills"]))}</dd></div>'
              f'<div><dt>{esc(L.t("bd_dealt"))}</dt><dd>{esc(L.num(b["dealt"]))}</dd></div>'
-             f'<div><dt>{esc(L.t("bd_kills"))}</dt><dd>{esc(L.dec(b["kills"], 1))}</dd></div>'
              f'<div><dt>{esc(L.t("bd_score"))}</dt><dd>{esc(L.dec(b["score"], 1))}</dd></div></dl>')
-    card_ids, gate = b["cards"]
-    items = []
-    for i, cid in enumerate(card_ids, 1):
-        once = f' <small class="bd-gate" title="{esc(L.t("build_card_once"))}">1×</small>' if cid == gate else ""
-        items.append(f'<li class="{"is-gate" if cid == gate else ""}"><span class="bd-n">{i}</span>'
-                     f'<span class="bd-nm">{esc(_card_name(L, cards[cid]))}</span>{once}</li>')
-    cards_html = (f'<p class="bd-cap">{esc(L.t("build_cards"))}</p>'
-                  f'<ol class="bd-cardlist">{"".join(items)}</ol>')
-    note = f'<p class="bd-note">{esc(L.t("bd_melee_note"))}</p>' if kind == "melee" else ""
-    best = " is-best" if win == kind and other else ""
+    best = " is-best" if win == kind else ""
     return (f'<article class="bd-opt{best}" data-build="{kind}">{head}'
-            f'{_verdict(L, kind, b, other, win)}<ol class="bd-rows">{rows}</ol>{stats}{cards_html}{note}</article>')
+            f'{_verdict(L, kind, b, other, win)}<ol class="bd-rows">{rows}</ol>{stats}</article>')
 
 
+def builds(L: Lang, entry: dict, moves: dict[str, dict], start_move: str) -> str:
+    pair = entry["builds"]
+    win = _winner(pair)
+    order = (entry["r"]["best"], BUILD_OTHER_KIND[entry["r"]["best"]])
+    options = "".join(_build_option(L, moves, k, pair[k], pair[BUILD_OTHER_KIND[k]], win) for k in order)
+    t = entry["types"]
+    tint = f'--p1:{typedata.TYPE_COLOR[t[0]]};--p2:{typedata.TYPE_COLOR[t[-1]]}'
+    return (f'<section class="fig fig-build" id="build" aria-labelledby="bd-h">'
+            f'<div class="bd-card" style="{tint}"><header class="bd-head"><h2 id="bd-h">{esc(L.t("t_builds"))}</h2></header>'
+            f'<div class="bd-pair">{options}</div>'
+            f'<p class="bd-default">{esc(L.t("build_default_start", move=_move_name(L, moves, start_move)))}</p>'
+            f'</div></section>')
 
-def head_texts(L: Lang, entry: dict, pair: dict[str, dict | None], moves: dict[str, dict], total: int) -> tuple[str, str]:
-    """<title> y meta description de la ficha, con el tier, el puesto y la build que encabeza."""
+
+# ---------------------------------------------------------------- estadísticas
+STAT_ROWS = (("pa", "cb_pa", 2, "×"), ("sa", "cb_sa", 2, "×"), ("hp", "st_hp", 0, ""), ("df", "cb_df", 0, ""),
+             ("sd", "cb_sd", 0, ""), ("spd", "st_spd", 0, ""), ("size", "st_size", 1, ""), ("types", "st_types", 2, "×"))
+
+
+def stats(L: Lang, entry: dict) -> str:
+    rows = []
+    for key, label, digits, pre in STAT_ROWS:
+        v, pct = entry["game"][key], entry["pct"][key]
+        shown = pre + (L.dec(v, digits) if digits else str(round(v)))
+        rows.append(f'<li><span class="st-name">{esc(L.t(label))}</span><output>{esc(shown)}</output>'
+                    f'{_pct_bar(pct, L.t("pct_alt", pct=pct))}</li>')
+    return (f'<section class="sheet stats" id="stats" aria-labelledby="stats-h">'
+            f'<h2 id="stats-h">{esc(L.t("st_h"))}</h2><ul class="st-list">{"".join(rows)}</ul>'
+            f'<p class="why-note">{esc(L.t("st_note", n=catalog.TOTAL))}</p></section>')
+
+
+# ---------------------------------------------------------------- página
+def head_texts(L: Lang, entry: dict, moves: dict[str, dict]) -> tuple[str, str]:
+    """<title> y meta description de la ficha, con el tier, el puesto y la mejor build."""
     name, (rank, tier) = L.mon(entry), (entry["r"]["rank"], entry["r"]["tier"])
-    attacks, buffs = build_names(L, moves, pair[_lead(pair)])
+    attacks, buffs = build_names(L, moves, entry["builds"][entry["r"]["best"]])
     title = L.t("fh_title", name=name, tier=tier)
-    desc = L.t("fh_desc_buffs" if buffs else "fh_desc", name=name, tier=tier, rank=rank, total=total,
-               attacks=attacks, buffs=buffs, banner=L.banner(entry["banner"]))
+    desc = L.t("fh_desc_buffs", name=name, tier=tier, rank=rank, total=catalog.TOTAL, attacks=attacks, buffs=buffs,
+               time=mmss(entry["r"]["time"]), banner=L.banner(entry["banner"]))
     return title, desc
 
 
-def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, detail: list, pair: dict[str, dict | None],
-          moves: dict[str, dict], cards: dict, prev: dict | None, nxt: dict | None, odds: tuple[float, int], *,
-          summary: str, guides: str, updated: str, url: str, title: str) -> tuple[str, str]:
-    """Devuelve el HTML visible (sin <head>) y el JSON-LD de las preguntas. detail es la fila de la simulación (inicio,
-    mejor ataque y cobertura); pair son las dos builds ({melee, ranged}; falta la clave si no hay build). summary es el
-    resumen ya en texto plano; guides, el bloque de enlaces a las listas."""
+def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, moves: dict[str, dict], meta: dict,
+          start_move: str, prev: dict | None, nxt: dict | None, odds: tuple[float, int], *,
+          guides: str, url: str, title: str) -> tuple[str, str]:
+    """Devuelve el HTML visible (sin <head>) y el JSON-LD de las preguntas. start_move es el ataque con el que empieza de
+    serie en el juego; guides, el bloque de enlaces a las listas."""
     name = L.mon(entry)
     rank, tier = entry["r"]["rank"], entry["r"]["tier"]
-    methods = entry["r"]["methods"]
-    stats = list(entry["stats"])
-    if len(stats) != 6:
-        raise ValueError(f"{entry['dex']}: se esperaban 6 estadísticas base")
     p_pull, pulls = odds
     if not p_pull or not pulls:
         raise ValueError(f"{entry['dex']}: la tirada no tiene probabilidad")
     pct = L.dec(p_pull * 100, _digits(p_pull * 100))
     banner = L.banner(entry["banner"])
-    win = _winner(pair)
-    lead = pair[_lead(pair)]
-    card_ids, gate = lead["cards"]
-    card_text = card_answer(L, [_card_name(L, cards[c]) for c in card_ids], _card_name(L, cards[gate]) if gate else None)
-    faqs = _faqs(L, tier, rank, _build_answer(L, moves, pair), card_text, banner,
+    faqs = _faqs(L, tier, rank, _build_answer(L, moves, entry["builds"], entry["r"]["best"]), banner,
                  bool(entry["legendary"]), pct, pulls)
     w, h = entry["sprite"]["w"], entry["sprite"]["h"]
     scale = max(1, min(5, 170 // max(w, h)))
@@ -394,19 +393,6 @@ def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, detail: list,
     rarity_name = esc(L.t(f"rar_{rarity}"))
     legendary = f'<span class="chip">{esc(L.t("legendary"))}</span>' if entry["legendary"] else ""
     region = regions.badge(L, sprites, entry["bannerId"], banner, {}, small=True)
-    default_start = f'<p class="bd-default">{esc(L.t("build_default_start", move=_move_name(L, moves, detail[2])))}</p>'
-    super_pct, neutral_pct = detail[9][0], detail[9][1]
-    options = [
-        _build_option(L, moves, cards, kind, pair.get(kind), pair.get(BUILD_OTHER_KIND[kind]), win)
-        for kind in BUILD_NAME]
-    options = [o for o in options if o]
-    legend = (f'<p class="bd-legend">{esc(L.t("build_card_once"))}</p>'
-              if any(b and b["cards"][1] for b in pair.values()) else "")
-    pair_cls = "bd-pair" if len(options) > 1 else "bd-pair is-single"
-    stat_rows = "".join(
-        f'<tr><th scope="row">{esc(L.t(key))}</th><td class="num">{n}</td></tr>'
-        for key, n in zip(STAT_KEYS, stats))
-    stat_rows += f'<tr><th scope="row">{esc(L.t("bs_total"))}</th><td class="num">{sum(stats)}</td></tr>'
     faq_html = "".join(f"<dt>{esc(q)}</dt><dd>{esc(a)}</dd>" for q, a in faqs)
     pager = (_neighbor(L, home, sprites, ext, prev, "prev") + _neighbor(L, home, sprites, ext, nxt, "next"))
     html = f"""
@@ -422,32 +408,18 @@ def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, detail: list,
 <div class="facts"><span class="types">{pills}</span>
 <span class="rarity r{rarity}" role="img" aria-label="{rarity_name}" title="{rarity_name}"><svg class="rball" viewBox="0 0 12 12" aria-hidden="true"><use href="#rball-{rarity}"/></svg></span>
 {legendary}{region}</div>
-<p class="rankline"><i class="ico ico-trophy" aria-hidden="true"></i><strong>{rank}</strong><span>/ {charts.TOTAL}</span></p>
-<p class="simline">{esc(L.t("sheet_sim_line", rank=methods["simBest"]))}</p>
-<p class="simline">{esc(L.t("sheet_open_line", rank=methods["simStart"]))}</p>
-<p class="resumen">{esc(summary)}</p>
+<p class="rankline"><i class="ico ico-trophy" aria-hidden="true"></i><strong>{rank}</strong><span>/ {catalog.TOTAL}</span></p>
 </div>
 </header>
-<section class="fig fig-build" id="build" aria-labelledby="bd-h">
-<div class="bd-card" style="--p1:{tc};--p2:{tc2}">
-<header class="bd-head"><div><h2 id="bd-h">{esc(L.t("t_build"))}</h2><span class="bd-who">{esc(name)}</span></div></header>
-<div class="{pair_cls}">{"".join(options)}</div>
-{legend}
-{default_start}
-<div class="bd-cover">{_meter(L.t("build_super"), int(super_pct), "bd-super")}{_meter(L.t("build_neutral"), int(neutral_pct), "bd-neutral")}</div>
-<p class="bd-brand">{esc(L.t("build_brand", site=legal.SITE_NAME))}</p>
-</div>
-</section>
-{combat(L, entry)}
-<section class="sheet" id="stats" aria-labelledby="stats-h">
-<h2 id="stats-h">{esc(L.t("t_base"))}</h2>
-<table><tbody>{stat_rows}</tbody></table>
-</section>
+{why(L, entry, moves)}
+{survival(L, entry, meta)}
+{builds(L, entry, moves, start_move)}
+{stats(L, entry)}
 <nav class="pager" aria-label="{esc(L.t("pager_aria"))}">{pager}</nav>
 </article>
 <section class="sheet" id="obtain" aria-labelledby="obtain-h">
 <h2 id="obtain-h">{esc(L.t("sheet_obtain_h"))}</h2>
-<p><a href="{home}gachas.html">{esc(L.t("nav_gachas"))}</a></p>
+<p>{esc(faqs[-1][1])} <a href="{home}gachas.html">{esc(L.t("nav_gachas"))}</a></p>
 </section>
 <section class="sheet faq" id="faq" aria-labelledby="faq-h">
 <h2 id="faq-h">{esc(L.t("sheet_faq_h"))}</h2>
@@ -455,4 +427,4 @@ def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, detail: list,
 </section>
 {guides}
 """
-    return html, jsonld(faqs, updated, url, title, "en" if L.en else "es")
+    return html, jsonld(faqs, meta["generatedAt"][:10], url, title, "en" if L.en else "es")

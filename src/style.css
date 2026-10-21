@@ -1695,3 +1695,70 @@ p.fresh { font: .8125rem/1.4 var(--sans); color: var(--ink-2); margin: 0 0 14px;
 }
 .top30 td.num { text-align: left; padding-left: 0; }
 .top30 td:first-child { width: 4.5rem; font-weight: 600; }
+
+/* ---------- ficha: por qué, cuánto aguanta y estadísticas ---------- */
+.why, .surv, .stats { margin: 0 0 28px; }
+.why h2, .surv h2, .stats h2 { margin: 0 0 12px; font-size: 1.25rem; }
+.why-list, .st-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.why-row { display: grid; grid-template-columns: 5.2ch minmax(0, 1fr) minmax(70px, 28%); align-items: center; gap: 12px;
+  padding: 10px 14px; background: var(--bg); box-shadow: var(--notch-soft); }
+.why-eff { font: 700 1.05rem var(--ui); font-variant-numeric: tabular-nums lining-nums; text-align: right; }
+.why-row.is-up .why-eff { color: var(--up); }
+.why-row.is-down .why-eff { color: var(--down); }
+.why-txt { font: 600 .9375rem/1.3 var(--ui); overflow-wrap: anywhere; }
+.why-note { margin: 8px 0 0; font: .78rem/1.45 var(--sans); color: var(--ink-2); }
+.pct-bar { display: block; height: 8px; background: var(--rule-soft); overflow: hidden; }
+.pct-bar b { display: block; height: 100%; background: var(--accent); }
+.surv-big { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 0 0 12px; }
+.surv-big strong { font: 700 2.4rem/1 var(--ui); font-variant-numeric: tabular-nums lining-nums; }
+.surv-big span { color: var(--ink-2); font: .95rem var(--sans); }
+.surv-bar { position: relative; height: 14px; background: var(--rule-soft); box-shadow: var(--notch-soft); }
+.surv-bar b { display: block; height: 100%; background: var(--tier-C); }
+.surv-bar i { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; background: var(--ink); }
+.surv-scale { position: relative; height: 1.4em; margin: 6px 0 14px; font: .75rem var(--sans); color: var(--ink-2); }
+.surv-scale span { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; }
+.surv-scale .end { right: 0; transform: none; }
+.surv-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 0; }
+.surv-stats div { padding: 10px 12px; background: var(--bg); box-shadow: var(--notch-soft); }
+.surv-stats dt { font: .72rem var(--ui); text-transform: uppercase; letter-spacing: .05em; color: var(--ink-2); }
+.surv-stats dd { margin: 2px 0 0; font: 700 1.05rem var(--ui); font-variant-numeric: tabular-nums lining-nums; }
+.st-list li { display: grid; grid-template-columns: minmax(0, 13rem) 6ch minmax(60px, 1fr); align-items: center; gap: 12px;
+  padding: 4px 0; font: .9rem var(--ui); }
+.st-list .st-name { color: var(--ink-2); }
+.st-list output { font-weight: 700; text-align: right; font-variant-numeric: tabular-nums lining-nums; }
+.tier-badge.mini { width: 1.6em; height: 1.6em; font-size: .75rem; flex: none; }
+@media (max-width: 560px) {
+  .why-row { grid-template-columns: 5ch minmax(0, 1fr); }
+  .why-row .pct-bar { grid-column: 2; }
+  .st-list li { grid-template-columns: minmax(0, 1fr) 6ch; }
+  .st-list .pct-bar { grid-column: 1 / -1; }
+  .surv-stats { grid-template-columns: 1fr; }
+}
+
+/* aviso del método nuevo (portada y Método) */
+.notice { max-width: 72ch; margin: 0 0 20px; padding: 12px 16px; background: color-mix(in srgb, var(--gold) 22%, var(--bg));
+  box-shadow: inset 4px 0 0 var(--gold), var(--notch-soft); font: .9rem/1.5 var(--sans); }
+.notice b { font-family: var(--ui); }
+
+/* método: cifras de arriba */
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin: 0 0 8px; }
+.kpis div { padding: 12px 14px; background: var(--bg); box-shadow: var(--notch-soft); }
+.kpis dt { font: .75rem var(--ui); text-transform: uppercase; letter-spacing: .05em; color: var(--ink-2); }
+.kpis dd { margin: 4px 0 0; font: 700 1.4rem var(--ui); font-variant-numeric: tabular-nums lining-nums; }
+
+/* ataques: mejores grupos de la fase 2 */
+.bg-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 16px; }
+.bg { padding: 14px 16px; background: var(--bg); box-shadow: var(--notch); }
+.bg h3 { margin: 0 0 10px; font: 700 1rem var(--ui); }
+.bg ol { margin: 0; padding: 0 0 0 1.4em; display: grid; gap: 8px; }
+.bg li { padding-left: 4px; }
+.bg li::marker { color: var(--ink-2); font: 600 .8rem var(--ui); }
+.bg-moves { display: inline-flex; flex-wrap: wrap; gap: 4px 10px; font: .85rem/1.4 var(--ui); }
+.bg-mv { display: inline-flex; align-items: center; gap: 4px; }
+.bg-mv.is-buff { color: var(--ink-2); }
+.bg-val { margin-left: 8px; font: 700 .85rem var(--ui); font-style: normal; font-variant-numeric: tabular-nums; }
+
+/* objetos: tarjetas fijas por tipo de efecto */
+.it-group h2 { margin-top: 32px; }
+li.it-card { display: flex; align-items: flex-start; gap: 14px; padding: 12px 14px; }
+.it-card .it-fact { margin: 4px 0 0; padding: 0; font: .8125rem/1.45 var(--sans); color: var(--ink); }

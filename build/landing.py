@@ -1,7 +1,6 @@
-"""Páginas de consulta: mejores Pokémon, mejores iniciales, legendarios, uno por tipo y mejores pasivas.
+"""Páginas de consulta: mejores Pokémon, legendarios y uno por tipo.
 
-Todo sale de los datos del build (pokemon.json, species.json, moves.json, meta.json) y de la tabla de pasivas de
-pasivas.py. No hay textos escritos a mano por Pokémon: cada página responde en sus dos primeras líneas con la lista
+Todo sale de los datos del build (pokemon-index.json y meta.json). No hay textos escritos a mano por Pokémon: cada página responde en sus dos primeras líneas con la lista
 que muestra debajo, y el JSON-LD (CollectionPage con ItemList) repite exactamente esa lista.
 """
 from __future__ import annotations
@@ -11,14 +10,11 @@ from dataclasses import dataclass
 from html import escape
 
 import legal
-import pasivas
-import repertorio
 import static_ficha
 from i18n import EN, ES, TYPE_NAMES, Lang
 from slugs import slugify, species_path
 
 TOP_BEST = 30  # el tier S entero
-TOP_STARTERS = 20
 TOP_TYPE = 20
 CARD_SCALE = 2  # la misma escala de sprite que la tier list
 LEDE_NAMES = 3  # nombres que nombra la primera línea
@@ -28,7 +24,7 @@ TYPE_KEYS = tuple(TYPE_NAMES["es"])
 
 @dataclass(frozen=True)
 class Page:
-    key: str  # "best", "starters", "legendary", "passives" o "type:<clave del tipo>"
+    key: str  # "best", "legendary" o "type:<clave del tipo>"
     es: str   # carpeta en español, con barra final
     en: str   # carpeta en inglés, con barra final
 
@@ -46,12 +42,10 @@ class Built:
 def pages() -> list[Page]:
     out = [
         Page("best", "mejores-pokemon/", "best-pokemon/"),
-        Page("starters", "mejores-iniciales/", "best-starters/"),
         Page("legendary", "mejores-legendarios/", "best-legendaries/"),
     ]
     out += [Page(f"type:{t}", f"mejores-tipo/{slugify(TYPE_NAMES['es'][t])}/",
                  f"best-type/{slugify(TYPE_NAMES['en'][t])}/") for t in TYPE_KEYS]
-    out.append(Page("passives", "mejores-pasivas/", "best-passives/"))
     return out
 
 
@@ -89,10 +83,6 @@ def _ficha_url(L: Lang, p: dict) -> str:
     return f"{legal.SITE_URL}/{'en/' if L.en else ''}pokemon/{species_path(p['dex'], p['nameEn'])}/"
 
 
-def _move_name(L: Lang, moves: dict[str, dict], mid: str) -> str:
-    return moves[mid]["en"]["name"] if L.en else moves[mid]["name"]
-
-
 def _members(page: Page, index: list[dict]) -> list[dict]:
     if page.key == "legendary":
         return [p for p in index if p["legendary"]]
@@ -102,42 +92,24 @@ def _members(page: Page, index: list[dict]) -> list[dict]:
     return index
 
 
-def _select(page: Page, index: list[dict], by_dex: dict[int, dict], details: dict[str, list], moves: dict[str, dict],
-            L: Lang) -> list[tuple[dict, str, str]]:
-    """Filas (Pokémon, puesto que se muestra, ataque inicial en este idioma) en el orden de la página."""
+def _select(page: Page, index: list[dict]) -> list[dict]:
+    """Los Pokémon de la página, por puesto."""
+    mons = sorted(_members(page, index), key=lambda p: p["r"][0])
     if page.key == "best":
-        return [(p, str(p["r"][0]), "") for p in sorted(index, key=lambda p: p["r"][0])[:TOP_BEST]]
-    if page.key == "starters":
-        mons = sorted(index, key=lambda p: by_dex[p["dex"]]["r"]["methods"]["simStart"])[:TOP_STARTERS]
-        return [(p, str(by_dex[p["dex"]]["r"]["methods"]["simStart"]),
-                 _move_name(L, moves, details[str(p["dex"])][2])) for p in mons]
-    if page.key == "legendary":
-        return [(p, str(p["r"][0]), "") for p in sorted(_members(page, index), key=lambda p: p["r"][0])]
-    if page.key == "passives":
-        return []
-    mons = sorted(_members(page, index), key=lambda p: p["r"][0])[:TOP_TYPE]
-    return [(p, str(p["r"][0]), "") for p in mons]
+        return mons[:TOP_BEST]
+    return mons if page.key == "legendary" else mons[:TOP_TYPE]
 
 
-def _card(L: Lang, home: str, p: dict, right: str, sub: str) -> str:
+def _card(L: Lang, home: str, p: dict) -> str:
     w, h = p["w"] * CARD_SCALE, p["h"] * CARD_SCALE
-    subline = f'<span class="ql-sub">{escape(L.t("lp_start_move", move=sub))}</span>' if sub else ""
     return (f'<li><a class="mon" href="{home}pokemon/{species_path(p["dex"], p["nameEn"])}/" data-dex="{p["dex"]}">'
             f'<span class="sp"><img class="px" src="{legal.SPRITE_BASE}{p["dex"]}{legal.SPRITE_EXT}" width="{w}" '
             f'height="{h}" alt="" loading="lazy" decoding="async"></span>'
-            f'<span class="nm">{escape(L.mon(p))}</span>{subline}<span class="rk">{escape(right)}</span></a></li>')
+            f'<span class="nm">{escape(L.mon(p))}</span><span class="rk">{p["r"][0]}</span></a></li>')
 
 
-def _passives_html(L: Lang) -> str:
-    items = "".join(
-        f'<li><span class="ql-val">{escape(pasivas._pct(c["coin"], L, 0))}</span>'
-        f'<span class="ql-name">{escape(pasivas._t(c["name"], L))}</span></li>'
-        for c in pasivas.CARDS)
-    return f'<ol class="ql-rows">{items}</ol>'
-
-
-def _list_html(L: Lang, home: str, rows: list[tuple[dict, str, str]]) -> str:
-    return f'<ol class="ql-grid">{"".join(_card(L, home, p, right, sub) for p, right, sub in rows)}</ol>'
+def _list_html(L: Lang, home: str, rows: list[dict]) -> str:
+    return f'<ol class="ql-grid">{"".join(_card(L, home, p) for p in rows)}</ol>'
 
 
 def guides_nav(L: Lang, home: str, types: list[str] | None = None, skip: str | None = None) -> str:
@@ -145,9 +117,7 @@ def guides_nav(L: Lang, home: str, types: list[str] | None = None, skip: str | N
     chips = [
         ("tierlist", f"{home}index.html", "guide_tierlist"),
         ("best", f"{home}{folder(L, page_for('best'))}", "guide_best"),
-        ("starters", f"{home}{folder(L, page_for('starters'))}", "guide_starters"),
         ("legendary", f"{home}{folder(L, page_for('legendary'))}", "guide_legendary"),
-        ("passives", f"{home}{folder(L, page_for('passives'))}", "guide_passives"),
     ]
     items = [f'<li><a href="{href}">{escape(L.t(key))}</a></li>' for k, href, key in chips if k != skip]
     wanted = TYPE_KEYS if types is None else types
@@ -159,13 +129,9 @@ def guides_nav(L: Lang, home: str, types: list[str] | None = None, skip: str | N
             f'<ul class="toc">{"".join(items)}</ul></nav>')
 
 
-def _jsonld(L: Lang, page: Page, title: str, desc: str, rows: list[tuple[dict, str, str]], meta: dict) -> str:
-    if page.key == "passives":
-        elements = [{"@type": "ListItem", "position": i + 1, "name": pasivas._t(c["name"], L)}
-                    for i, c in enumerate(pasivas.CARDS)]
-    else:
-        elements = [{"@type": "ListItem", "position": i + 1, "name": L.mon(p), "url": _ficha_url(L, p)}
-                    for i, (p, _, _) in enumerate(rows)]
+def _jsonld(L: Lang, page: Page, title: str, desc: str, rows: list[dict], meta: dict) -> str:
+    elements = [{"@type": "ListItem", "position": i + 1, "name": L.mon(p), "url": _ficha_url(L, p)}
+                for i, p in enumerate(rows)]
     doc = {
         "@context": "https://schema.org",
         "@type": "CollectionPage",
@@ -180,54 +146,29 @@ def _jsonld(L: Lang, page: Page, title: str, desc: str, rows: list[tuple[dict, s
     return f'<script type="application/ld+json">\n{text}\n</script>'
 
 
-def build(L: Lang, page: Page, index: list[dict], by_dex: dict[int, dict], details: dict[str, list],
-          moves: dict[str, dict], meta: dict, home: str) -> Built:
+def build(L: Lang, page: Page, index: list[dict], meta: dict, home: str) -> Built:
     members = _members(page, index)
-    rows = _select(page, index, by_dex, details, moves, L)
-    note = ""
+    rows = _select(page, index)
     s = sum(1 for p in members if p["r"][1] == TIER_S)
-    top_h = L.t("lp_top_h")
     types = None
-    if page.key == "passives":
-        cards = pasivas.CARDS
-        best, nxt = cards[0], cards[1]
-        title, h1 = L.t("lp_pas_title"), L.t("lp_pas_h1")
-        tied = best["coin"] == nxt["coin"] == 0
-        if tied:
-            lede = L.t("lp_pas_lede_tie")
-            desc = L.t("lp_pas_desc_tie")
-        else:
-            lede = L.t("lp_pas_lede", best=f"{pasivas._t(best['name'], L)} ({pasivas._pct(best['coin'], L, 0)})",
-                       next=f"{pasivas._t(nxt['name'], L)} ({pasivas._pct(nxt['coin'], L, 0)})")
-            desc = L.t("lp_pas_desc", top=static_ficha._join(L, [pasivas._t(c["name"], L) for c in cards[:2]]))
-        note = L.t("lp_pas_note")
-        body = (f'<section class="ql-list"><h2>{escape(top_h)}</h2>{_passives_html(L)}'
-                f'<p><a href="{home}pasivas.html">{escape(L.t("lp_pas_link"))}</a></p></section>')
+    top = static_ficha._join(L, [L.mon(p) for p in rows[:LEDE_NAMES]])
+    if page.key == "best":
+        title, h1 = L.t("lp_best_title"), L.t("lp_best_h1")
+        lede = L.t("lp_best_lede", top=top, n=TOP_BEST)
+        desc = L.t("lp_best_desc", n=TOP_BEST, top=top)
+    elif page.key == "legendary":
+        title, h1 = L.t("lp_leg_title"), L.t("lp_leg_h1")
+        lede = L.t("lp_leg_lede", top=top, n=len(members), s=s)
+        desc = L.t("lp_leg_desc", n=len(members), top=top)
     else:
-        top = static_ficha._join(L, [L.mon(p) for p, _, _ in rows[:LEDE_NAMES]])
-        if page.key == "best":
-            title, h1 = L.t("lp_best_title"), L.t("lp_best_h1")
-            lede = L.t("lp_best_lede", top=top, n=TOP_BEST)
-            desc = L.t("lp_best_desc", n=TOP_BEST, top=top)
-        elif page.key == "starters":
-            title, h1 = L.t("lp_start_title"), L.t("lp_start_h1")
-            lede = L.t("lp_start_lede", top=top)
-            note = L.t("lp_start_note")
-            desc = L.t("lp_start_desc", top=top)
-        elif page.key == "legendary":
-            title, h1 = L.t("lp_leg_title"), L.t("lp_leg_h1")
-            lede = L.t("lp_leg_lede", top=top, n=len(members), s=s)
-            desc = L.t("lp_leg_desc", n=len(members), top=top)
-        else:
-            tname = L.type_name(_type_key(page))
-            types = [_type_key(page)]
-            title, h1 = L.t("lp_type_title", type=tname), L.t("lp_type_h1", type=tname)
-            lede = L.t("lp_type_lede", type=tname, top=top, n=len(members), s=s)
-            desc = L.t("lp_type_desc", type=tname, top=top)
-        body = f'<section class="ql-list"><h2>{escape(top_h)}</h2>{_list_html(L, home, rows)}</section>'
-    rep = repertorio.note(L) if page.key == "starters" else ""
+        tname = L.type_name(_type_key(page))
+        types = [_type_key(page)]
+        title, h1 = L.t("lp_type_title", type=tname), L.t("lp_type_h1", type=tname)
+        lede = L.t("lp_type_lede", type=tname, top=top, n=len(members), s=s)
+        desc = L.t("lp_type_desc", type=tname, top=top)
+    body = f'<section class="ql-list"><h2>{escape(L.t("lp_top_h"))}</h2>{_list_html(L, home, rows)}</section>'
     content = (f'<div class="ql"><h1>{escape(h1)}</h1>'
-               f'<p class="ql-lede">{escape(lede)}</p>{f'<p class="ql-note">{escape(note)}</p>' if note else ""}{rep}'
+               f'<p class="ql-lede">{escape(lede)}</p>'
                f'<p class="fresh">{escape(legal.freshness_text(L, meta))}</p>'
                f'{body}{guides_nav(L, home, types=types, skip=page.key)}</div>')
     return Built(title=title, desc=desc, h1=h1, content=content, jsonld=_jsonld(L, page, title, desc, rows, meta),

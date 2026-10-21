@@ -74,25 +74,20 @@ class Home(unittest.TestCase):
 
 class Method(unittest.TestCase):
     def test_method_describes_the_current_pipeline(self) -> None:
-        es, en = _read("metodo.html"), _read("en/metodo.html")
-        for html in (es, en):
+        meta = json.loads(_read("data/meta.json"))
+        for html, L in ((_read("metodo.html"), ES), (_read("en/metodo.html"), EN)):
             self.assertIn(legal.UPDATED_COMMIT, html)
-            self.assertNotIn("ficha pesa", html)
-            self.assertNotIn("sheet weighs", html)
-            self.assertNotIn("2.000 ordenaciones", html)
-        self.assertIn("raíz de dos cosas", es)
-        self.assertIn("square root of two things", en)
-        self.assertIn("Una partida sin daño vale 0", es)
-        self.assertIn("A game with no damage is worth 0", en)
+            self.assertIn('class="notice"', html)
+            self.assertIn(L.num(meta["method"]["games"]), html)
+        self.assertIn("la raíz de su ritmo de daño por su ritmo de bajas", _read("metodo.html"))
+        self.assertIn("Sin daño vale 0", _read("metodo.html"))
+        self.assertIn("No damage is worth 0", _read("en/metodo.html"))
 
-    def test_method_numbers_come_from_the_code(self) -> None:
-        from catalog import METHOD
-        self.assertEqual(METHOD["score"], {"dpsRef": 80, "kpmRef": 40, "capSeconds": 900})
+    def test_score_refs_come_from_the_sim(self) -> None:
+        import catalog
+        self.assertEqual(catalog.score_refs(), {"dpsRef": 80, "kpmRef": 40})
         stats_rs = (ROOT / "simulator" / "sim-rs" / "src" / "stats.rs").read_text(encoding="utf8")
-        self.assertIn("const DPS_REF: f64 = 80.0;", stats_rs)
-        self.assertIn("const KPM_REF: f64 = 40.0;", stats_rs)
-        make = (ROOT / "build" / "make_definitive.py").read_text(encoding="utf8")
-        self.assertIn(f"REPEATS = {METHOD['repeats']}", make)
+        self.assertIn("(dps_s * kpm_s).sqrt()", stats_rs)
 
 
 class AgentFiles(unittest.TestCase):
@@ -109,11 +104,11 @@ class AgentFiles(unittest.TestCase):
         self.assertTrue(text.startswith("# SurvivorTiers"))
         self.assertIn(legal.freshness_text(EN), text)
         self.assertIn("Best five right now", text)
-        self.assertIn("time alive, damage dealt and kills", text)
+        self.assertIn("time alive × the square root", text)
         self.assertIn(f"{legal.SITE_URL}/en/metodo", text)
         self.assertNotIn("sheet percentiles", text)
         full = _read("llms-full.txt")
-        self.assertIn("time alive × sqrt(saturated damage rate × saturated kill rate)", full)
+        self.assertIn("time alive × sqrt(dps / (dps + 80) × kpm / (kpm + 40))", full)
         self.assertNotIn("Three pieces", full)
 
     def test_sitemap_has_lastmod_and_hreflang_for_every_url(self) -> None:

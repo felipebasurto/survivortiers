@@ -40,16 +40,12 @@ STR: dict[str, tuple[str, str]] = {
     "tier": ("Tier {t}", "Tier {t}"),
 
     # ------------------------------------------------------------ portada
-    "index_title": ("{site} · Tier list de {game}", "{site} · {game} tier list"),
-    "index_desc": ("Tier list de los {n} Pokémon de {game}, hecha simulando {sims} partidas por Pokémon. Código y datos abiertos en GitHub.",
-                   "Tier list of the {n} Pokémon in {game}, built by simulating {sims} games per Pokémon. Code and data open on GitHub."),
+    "index_desc": ("Tier list de los {n} Pokémon de {game}, hecha con {games} partidas simuladas con el código del juego. Código y datos abiertos en GitHub.",
+                   "Tier list of the {n} Pokémon in {game}, built from {games} runs simulated with the game's code. Code and data open on GitHub."),
     "fresh": ("Actualizado al parche del {date} ({sha})", "Updated to the {date} patch ({sha})"),
     "guides_h": ("Más listas", "More lists"),
-    "guides_types": ("Por tipo", "By type"),
     "guide_best": ("Mejores Pokémon", "Best Pokémon"),
-    "guide_starters": ("Mejores iniciales", "Best starters"),
     "guide_legendary": ("Legendarios", "Legendaries"),
-    "guide_passives": ("Mejores pasivas", "Best passives"),
     "guide_tierlist": ("Tier list completa", "Full tier list"),
     "dataset_name": ("Ranking no oficial de los Pokémon de {game}", "Unofficial ranking of the Pokémon in {game}"),
     "agents_label": ("Para agentes de IA y datos:", "For AI agents and data:"),
@@ -77,9 +73,9 @@ STR: dict[str, tuple[str, str]] = {
     "filters_btn": ("Filtros y orden", "Filters and sorting"),
     "nav_more": ("Más", "More"),
     "about_value_html": (
-        'Tier list de {game} hecha simulando {sims} partidas por Pokémon, no solo con fórmulas de stats. Código, simulador '
-        'y datos abiertos en <a href="{repo}" rel="noopener">GitHub</a>, para que cualquiera lo compruebe.',
-        'Tier list of {game} built by simulating {sims} games per Pokémon, not from stat formulas alone. Code, simulator '
+        'Tier list de {game} hecha con {games} partidas simuladas con el código del juego, no con fórmulas de stats. Código, '
+        'simulador y datos abiertos en <a href="{repo}" rel="noopener">GitHub</a>, para que cualquiera lo compruebe.',
+        'Tier list of {game} built from {games} runs simulated with the game\'s code, not from stat formulas. Code, simulator '
         'and data open on <a href="{repo}" rel="noopener">GitHub</a>, so anyone can check it.'),
     "home_title": ("Mejores Pokémon de {game}: tier list de {n} | {site}",
                    "Best Pokémon in {game}: tier list of {n} | {site}"),
@@ -100,23 +96,12 @@ STR: dict[str, tuple[str, str]] = {
     "rar_5": ("Legendaria", "Legendary"),
     "stars_alt": ("{n} de 5 estrellas", "{n} of 5 stars"),
     "sprite_alt": ("Sprite de {name}", "Sprite of {name}"),
-    "ficha_title": ("{name} en {game} · tier {tier} · {site}", "{name} in {game} · tier {tier} · {site}"),
-    "ficha_desc": ("{label}: tier {tier}, puesto {rank} de {total} en {game}.",
-                   "{label}: tier {tier}, rank {rank} of {total} in {game}."),
-    "sheet_title": ("{name} en {game}: tier, build y cómo conseguirlo",
-                    "{name} in {game}: tier, build and how to get it"),
-    "sheet_desc": ("{name} en {game}: tier {tier}, puesto {rank} de {total}. Grupo vinculado, estadísticas base y banner de gacha.",
-                   "{name} in {game}: tier {tier}, rank {rank} of {total}. Bonded move group, base stats and gacha banner."),
     "fh_title": ("{name} en {game}: tier {tier}, mejor build y ataques | {site}",
                  "{name} in {game}: {tier} tier, best build and moves | {site}"),
-    "fh_desc": ("{name} es tier {tier} en {game}: puesto {rank} de {total}. Mejor build: {attacks}. "
-                "Con las cartas que conviene coger y el banner {banner} donde sale.",
-                "{name} is {tier} tier in {game}: rank {rank} of {total}. Best build: {attacks}. "
-                "With the cards worth taking and the {banner} banner it comes from."),
     "fh_desc_buffs": ("{name} es tier {tier} en {game}: puesto {rank} de {total}. Mejor build: {attacks}, con {buffs}. "
-                      "Con las cartas que conviene coger y el banner {banner} donde sale.",
+                      "Aguanta {time} de mediana y sale en el banner {banner}.",
                       "{name} is {tier} tier in {game}: rank {rank} of {total}. Best build: {attacks}, with {buffs}. "
-                      "With the cards worth taking and the {banner} banner it comes from."),
+                      "It survives {time} on median and is on the {banner} banner."),
     "sheet_obtain_h": ("Cómo conseguirlo", "How to get it"),
     "sheet_faq_h": ("Preguntas", "Questions"),
     "faq_q_worth": ("¿Vale la pena?", "Is it worth it?"),
@@ -131,7 +116,6 @@ STR: dict[str, tuple[str, str]] = {
     "faq_a_D": ("No, está entre los peores: tier D, puesto {rank} de {total}.",
                 "No, it is one of the worst: tier D, rank {rank} of {total}."),
     "faq_q_moves": ("¿Qué ataques le pongo?", "Which moves should I use?"),
-    "faq_q_cards": ("¿Qué cartas le conviene coger?", "Which upgrade cards should I take?"),
     "faq_a_cards": ("Según nuestra simulación, en este orden: {cards}.",
                     "Based on our simulation, in this order: {cards}."),
     "faq_a_cards_gate": ("Según nuestra simulación, en este orden: {cards}. {once} solo hace falta una vez, para evolucionar el ataque.",
@@ -143,101 +127,27 @@ STR: dict[str, tuple[str, str]] = {
     "faq_get_odds": ("Cada tirada tiene un {pct}\u00a0% de probabilidad, así que de media hacen falta unas {n} tiradas, "
                      "sin contar las garantías.",
                      "Each pull has a {pct}% chance, so on average it takes about {n} pulls, not counting pity guarantees."),
-    "sheet_sim_line": ("Puesto simulado (mejor ataque): {rank}", "Simulated rank (best move): {rank}"),
-    "sheet_open_line": ("Apertura con Repertorio: puesto {rank}", "Repertoire opening: rank {rank}"),
-    "flag_status": ("Uno de sus ataques aplica un estado que esta pasada de la simulación no reproduce, "
-                    "así que su aguante puede estar infravalorado.",
-                    "One of its attacks applies a status this sim pass does not reproduce, "
-                    "so its survival may be underrated."),
-    "flag_melee": ("En la apertura con Repertorio todos los ataques que le pueden salir son cuerpo a cuerpo, aunque vete los peores.",
-                   "In the Repertoire opening every attack it can draw is melee, even after banning the worst ones."),
     "pager_aria": ("Pokémon vecinos", "Neighbouring Pokémon"),
     "dex_no": ("nº {dex}", "no. {dex}"),
     "tpl_title": ("Fichas de los Pokémon de {game} | {site}", "Pokémon pages of {game} | {site}"),
-    "tpl_desc": ("Las {n} fichas de {game}, una por Pokémon: tier, build, cartas y cómo conseguirlo.",
-                 "All {n} {game} pages, one per Pokémon: tier, build, cards and how to get it."),
+    "tpl_desc": ("Las {n} fichas de {game}, una por Pokémon: tier, por qué, cuánto aguanta, builds y cómo conseguirlo.",
+                 "All {n} {game} pages, one per Pokémon: tier, why, survival time, builds and how to get it."),
     "tpl_h1": ("Fichas de los Pokémon de {game}", "Pokémon pages of {game}"),
-    "tpl_lede": ("Cada uno de los {n} Pokémon tiene su ficha con el tier, el puesto, la build, las cartas que conviene coger y "
-                 "cómo conseguirlo. Elige uno de la lista.",
-                 "Each of the {n} Pokémon has its own page with its tier, rank, build, the cards worth taking and how to get "
-                 "it. Pick one from the list."),
-    "f_missing": ("Pokémon no encontrado", "Pokémon not found"),
+    "tpl_lede": ("Cada uno de los {n} Pokémon tiene su ficha con el tier, el puesto, por qué está ahí, cuánto aguanta, sus "
+                 "builds y cómo conseguirlo. Elige uno de la lista.",
+                 "Each of the {n} Pokémon has its own page with its tier, rank, why it is there, how long it survives, its "
+                 "builds and how to get it. Pick one from the list."),
 
     # ------------------------------------------------------------ gráficos de la ficha
-    "t_band": ("Puesto", "Rank"),
-    "t_pillars": ("Puntos fuertes", "Strengths"),
-    "t_methods": ("Cada medida", "Each measure"),
-    "t_base": ("Estadísticas base", "Base stats"),
-    "bs_hp": ("PS", "HP"),
-    "bs_atk": ("Ataque", "Attack"),
-    "bs_def": ("Defensa", "Defense"),
-    "bs_spa": ("Ataque especial", "Sp. Attack"),
-    "bs_spd": ("Defensa especial", "Sp. Defense"),
-    "bs_spe": ("Velocidad", "Speed"),
-    "bs_total": ("Total", "Total"),
-    "bs_s_hp": ("PS", "HP"),
-    "bs_s_atk": ("Atq", "Atk"),
-    "bs_s_def": ("Def", "Def"),
-    "bs_s_spa": ("AtE", "SpA"),
-    "bs_s_spd": ("DeE", "SpD"),
-    "bs_s_spe": ("Vel", "Spe"),
-    "bs_alt_item": ("{label} {v}", "{label} {v}"),
-    "t_combat": ("Ataque y defensa", "Attack and defense"),
     "cb_pa": ("Ataque físico", "Physical attack"),
     "cb_sa": ("Ataque especial", "Special attack"),
     "cb_df": ("Defensa", "Defense"),
     "cb_sd": ("Def. Especial", "Sp. Def."),
     "cb_kind_phys": ("Atacante físico", "Physical attacker"),
     "cb_kind_spec": ("Atacante especial", "Special attacker"),
-    "cb_kind_mix": ("Mixto", "Mixed"),
-    "cb_note": ("Con 75 de defensa recibes daño normal: con mucha defensa, hasta un {less}\u00a0% menos; con poca, "
-                "hasta un {more}\u00a0% más. Los golpes físicos los frena la Defensa y los especiales la Def. Especial.",
-                "At 75 defense you take normal damage: high defense cuts up to {less}\u00a0% and low defense adds up to "
-                "{more}\u00a0%. Physical hits are blocked by Defense, special hits by Sp. Def."),
-    "t_sim": ("Aguante simulado", "Simulated survival"),
-    "band_rank": ("puesto {rank}", "rank {rank}"),
-    "band_range": ("{lo} a {hi}", "{lo} to {hi}"),
-    "t_learn": ("Ataques que puede aprender", "Moves it can learn"),
-    "learn_lede": ("{n} ataques: los de tipo normal y los de sus tipos, por tier general (la misma que en Ataques). "
-                   "No los simula con este Pokémon.",
-                   "{n} moves: normal-type ones and those of its types, by overall tier (the same as on Moves). "
-                   "They are not simulated with this Pokémon."),
-    "learn_boosts": ("Potenciadores", "Boosts"),
-    "t_build": ("Build", "Build"),
-    "build_items": ("Objetos", "Items"),
     "bd_start_with": ("Empieza con", "Start with"),
     "build_default_start": ("De serie: {move}; cámbialo con Movimiento inicial (400 monedas)",
                             "Default: {move}; change it with Starting Move (400 coins)"),
-    "build_super": ("Super efectivo", "Super effective"),
-    "build_neutral": ("Sin resistencia", "Never resisted"),
-    "build_cards": ("Cartas por prioridad", "Cards by priority"),
-    "build_card_hint": ("Si no te sale una, coge la siguiente de la lista.", "If one doesn't show up, take the next one on the list."),
-    "build_card_once": ("1× = cógela una vez, para evolucionar el ataque del grupo.",
-                        "1× = take it once, to evolve the group move."),
-    "build_card_more": ("Ver orden completo", "See full order"),
-    "bp_cards_all": ("Orden completo", "Full order"),
-    "build_share": ("Compartir esta build", "Share this build"),
-    "build_copied": ("Enlace copiado", "Link copied"),
-    "build_brand": ("{site}", "{site}"),
-    "met_builds_h": ("Builds por Pokémon", "Builds per Pokémon"),
-    "met_builds_1": ("La ficha enseña el mejor grupo vinculado cuerpo a cuerpo (con al menos un ataque cuerpo a cuerpo) y el mejor "
-                     "a distancia (sin ninguno). Cada uno se elige por la mediana de puntuación de la simulación, en la búsqueda "
-                     "de grupo fijo. El primer ataque de la build es con el que empieza la partida simulada, y es el que te "
-                     "conviene elegir con la mejora Movimiento inicial.",
-                     "Each sheet shows the best melee bonded group (at least one melee move) and the best ranged one (none). "
-                     "Each is picked by the simulation's median score, from the fixed-group search. The build's first attack "
-                     "is the one the simulated run starts with, and the one to pick with the Starting Move upgrade."),
-    "met_builds_2": ("Un atacante físico (ataque físico mayor que el especial) lleva Danza Espada; uno especial, Maquinación. "
-                     "Empatan en especial. Los ataques son de su categoría, y Ataque Rápido, Placaje y Golpe Cuerpo no entran. "
-                     "Como todos los ataques cuerpo a cuerpo son físicos, un atacante especial solo tiene build a distancia, "
-                     "y la ficha enseña solo esa.",
-                     "A physical attacker (physical attack above special) carries Swords Dance; a special one carries Nasty Plot. "
-                     "Ties count as special. Moves match its category, and Quick Attack, Tackle and Body Slam are left out. "
-                     "Since every melee attack is physical, a special attacker only has a ranged build, and the sheet shows only that one."),
-    "met_builds_3": ("Las puntuaciones salen del mismo simulador. Mientras un ataque cuerpo a cuerpo está activo, el juego reduce "
-                     "un 25\u00a0% el daño que recibes, y eso ya cuenta en la puntuación de la build cuerpo a cuerpo.",
-                     "Scores come from the same simulator. While a melee move is active, the game cuts the damage you take "
-                     "by 25%, and that is already counted in the melee build's score."),
     "bd_melee": ("Cuerpo a cuerpo", "Melee"),
     "bd_ranged": ("A distancia", "Ranged"),
     "bd_time": ("Tiempo", "Time"),
@@ -254,96 +164,62 @@ STR: dict[str, tuple[str, str]] = {
                       "While a melee move is active, you take 25% less damage."),
     "faq_a_build": ("{kind}: {attacks}, con {buffs}. Empieza con {start}.", "{kind}: {attacks}, with {buffs}. Start with {start}."),
     "faq_a_build_best": ("Puntúa más la build {kind}.", "The {kind} build scores higher."),
-    "t_rank": ("Ranking", "Ranking"),
-    "rank_how": ("Cómo se calcula", "How it is calculated"),
-    "ficha_rank": ("Puesto {rank} de {total}", "Rank {rank} of {total}"),
+    "t_builds": ("Builds", "Builds"),
+    "mv_tier_tip": ("Tier {t} en la tier list de ataques", "Tier {t} on the move tier list"),
+    "pct_alt": ("Percentil {pct} de 100", "Percentile {pct} of 100"),
+    "why_h": ("Por qué está en el puesto {rank}", "Why it ranks {rank}"),
+    "why_note": ("Cuánto sube o baja su puntuación cada factor frente a un Pokémon en la media. La barra es su percentil.",
+                 "How much each factor raises or lowers its score against an average Pokémon. The bar is its percentile."),
+    "why_flat": ("Está cerca de la media en todo: ningún factor le mueve la puntuación más de un 2\u00a0%.",
+                 "It is close to average in everything: no factor moves its score by more than 2%."),
+    "why_atk_phys": ("Ataque físico ×{v}", "Physical attack ×{v}"),
+    "why_atk_spec": ("Ataque especial ×{v}", "Special attack ×{v}"),
+    "why_atk_mix": ("Ataque físico y especial ×{v} de media", "Physical and special attack ×{v} on average"),
+    "why_group": ("Sus ataques: {moves}", "Its moves: {moves}"),
+    "why_hp": ("PS {v}", "HP {v}"),
+    "why_df": ("Defensa {v}", "Defense {v}"),
+    "why_sd": ("Def. Especial {v}", "Sp. Def. {v}"),
+    "why_spd": ("Velocidad {v}", "Speed {v}"),
+    "why_size": ("Tamaño: radio de {v} px", "Size: {v} px radius"),
+    "why_types": ("Por sus tipos recibe ×{v} de daño", "Its types take ×{v} damage"),
+    "surv_h": ("Cuánto aguanta", "How long it survives"),
+    "surv_cap": ("de mediana, con la build {kind}", "on median, with the {kind} build"),
+    "surv_alt": ("{t}; la mediana de los 966 es {med} y el que más aguanta llega a {max}",
+                 "{t}; the median of all 966 is {med} and the longest reaches {max}"),
+    "surv_median": ("mediana {t}", "median {t}"),
+    "surv_best": ("mejor {t}", "best {t}"),
+    "st_h": ("Estadísticas en el juego", "In-game stats"),
+    "st_hp": ("PS", "HP"),
+    "st_spd": ("Velocidad", "Speed"),
+    "st_size": ("Radio (px)", "Radius (px)"),
+    "st_types": ("Daño recibido por tipos", "Damage taken by type"),
+    "st_note": ("Valores del código del juego. La barra es el percentil entre los {n}: más larga, mejor.",
+                "Values from the game code. The bar is the percentile among all {n}: longer is better."),
     "sort_by": ("Ordenar por", "Sort by"),
     "sort_rank": ("Puesto", "Rank"),
     "sort_name": ("Nombre", "Name"),
     "sort_dex": ("Nº Pokédex", "Pokédex no."),
-    "sort_atk": ("Ataque máximo", "Top attack"),
+    "sort_s": ("Tiempo que aguanta", "Survival time"),
     "sort_pa": ("Ataque físico", "Physical attack"),
     "sort_sa": ("Ataque especial", "Special attack"),
     "sort_df": ("Defensa", "Defense"),
     "sort_sd": ("Def. Especial", "Sp. Def."),
     "sort_hp": ("Vida", "HP"),
     "sort_spd": ("Velocidad", "Speed"),
-    "sort_ehp": ("Vida efectiva", "Effective HP"),
     "sort_rad": ("Tamaño", "Size"),
-    "sort_td": ("Defensa de tipos", "Type resistance"),
-    "sort_mv": ("Movimientos", "Moves"),
-    "sort_st": ("Estadísticas", "Stats"),
     "sort_rar": ("Rareza", "Rarity"),
     "dir_asc": ("Menor primero", "Lowest first"),
     "dir_desc": ("Mayor primero", "Highest first"),
-    "band_zoom": ("Zoom · puestos {lo} a {hi} de {total}", "Zoom · ranks {lo} to {hi} of {total}"),
-    "band_all": ("Todos los puestos · 1 a {total}", "All ranks · 1 to {total}"),
-    "band_alt": ("{name}: puesto {rank} de {total}, tier {tier}. Suele quedar entre el {lo} y el {hi}.",
-                 "{name}: rank {rank} of {total}, tier {tier}. Usually lands between {lo} and {hi}."),
-    "pill_stats": ("Estadísticas", "Stats"),
-    "pill_moves": ("Ataques", "Moves"),
-    "pill_typedef": ("Defensa de tipos", "Type resistance"),
-    "pill_size": ("Hitbox pequeño", "Small hitbox"),
-    "pillars_alt_item": ("{label}, mejor que el {v} % de los Pokémon", "{label}, better than {v}% of Pokémon"),
     "median": ("mediana", "median"),
-    "m_sheet": ("Ficha", "Sheet"),
-    "m_simStart": ("Partida, apertura con Repertorio", "Game, Repertoire opening"),
-    "m_simBest": ("Partida, mejor ataque", "Game, best move"),
-    "m_lateMax": ("Final, todas las mejoras al máximo", "Late game, all shop upgrades maxed"),
-    "m_lateFresh": ("Final, sin mejoras de tienda", "Late game, no shop upgrades"),
-    "methods_lede": ("Cada punto es el puesto que daría esa medida: 1 es el mejor de 966, a la izquierda. "
-                     "La escala se amplía hasta su peor puesto, así que un 24 parece lejos de 1, pero sigue siendo el 3 % superior. "
-                     "«Apertura con Repertorio» es la partida empezando con dos ataques y hasta tres vetos. "
-                     "«Final» estima cuánto aguanta al final de una partida, con la tienda de estadísticas sin comprar nada "
-                     "o con todas sus mejoras permanentes al máximo; esa medida no es la apertura. La línea naranja es el puesto final, "
-                     "que mezcla todas las medidas.",
-                     "Each dot is the rank that measure would give: 1 is the best of 966, on the left. "
-                     "The scale zooms in to its worst rank, so 24 looks far from 1 but is still the top 3%. "
-                     "'Repertoire opening' is the run starting with two attacks and up to three bans. "
-                     "'Late game' estimates how long a Pokémon lasts at the end of a run, with no stat-shop upgrades "
-                     "bought or with all permanent upgrades maxed; that measure is not the opening. The orange line is the final rank, which mixes every measure."),
-    "methods_final": ("puesto final {rank}", "final rank {rank}"),
-    "methods_alt": ("{name}: puesto final {rank}. ", "{name}: final rank {rank}. "),
-    "methods_alt_item": ("{label}, puesto {v}", "{label}, rank {v}"),
-    "sim_start": ("Apertura con Repertorio: {name}", "Repertoire opening: {name}"),
-    "sim_best": ("Mejor ataque: {name}", "Best move: {name}"),
-    "sim_median": ("mediana de todos: {s} s", "median of all: {s} s"),
-    "sim_alt": ("Segundos simulados que aguanta un bot con un grupo fijo (mediana de 200 partidas): ",
-                "Simulated seconds a bot survives with one fixed group (median of 200 games): "),
-    "sim_lede": ("Un bot juega con un grupo fijo (el ataque de serie, otro más, Danza Espada o Maquinación según el primer ataque, y Fortaleza). "
-                 "La barra de apertura es una estimación: con Repertorio sale un segundo ataque al azar, con Veto se bloquean los 3 que más bajan esa media, y se juega el mejor de los dos. "
-                 "Los vínculos llegan al ganar la grieta, no al empezar; hay jefes y orbes de curación, y se lanzan todos los tipos de ataque. "
-                 "Hasta 900 s. El bot no esquiva como una persona.",
-                 "A bot plays one fixed group (the default attack, one more attack, Swords Dance or Nasty Plot to match the first attack, and Harden). "
-                 "The opening bar is an estimate: Repertoire deals a random second attack, Veto bans the 3 that pull that average down the most, and the better of the two is played. "
-                 "Bonds arrive when a rift is won, not at the start; bosses and heal orbs are in, and every attack kind fires. "
-                 "Up to 900 s. The bot does not dodge the way a person does."),
-    "sim_scale": ("Escala: de {lo} s a {hi} s, lo que aguantan todos los Pokémon.",
-                  "Scale: {lo} s to {hi} s, what all Pokémon last."),
-    "sim_gain": ("Con el mejor ataque aguanta {d} s más que con esa apertura. Cifra simulada.",
-                 "With the best move it lasts {d} s longer than with that opening. Simulated figure."),
-    "sim_noshop": ("Sin Repertorio ni Veto, solo con {name}, la simulación aguanta {s} s.",
-                   "With no Repertoire and no Veto, {name} alone lasts {s} s in the simulation."),
 
     # ------------------------------------------------------------ listas de consulta (landing.py)
     "lp_top_h": ("Ranking", "Ranking"),
-    "lp_start_move": ("De serie: {move}", "Default: {move}"),
     "lp_best_title": ("Mejores Pokémon de {game} · {site}", "Best Pokémon in {game} · {site}"),
     "lp_best_h1": ("Mejores Pokémon de {game}", "Best Pokémon in {game}"),
     "lp_best_desc": ("Los {n} mejores Pokémon de {game} según la tier list simulada: {top}.",
                      "The {n} best Pokémon in {game} by the simulated tier list: {top}."),
     "lp_best_lede": ("Los mejores Pokémon de {game} son {top}. Los {n} primeros forman el tier S.",
                      "The best Pokémon in {game} are {top}. The first {n} make up tier S."),
-    "lp_start_title": ("Mejores iniciales de {game} · {site}", "Best starters in {game} · {site}"),
-    "lp_start_h1": ("Mejores iniciales de {game}", "Best starters in {game}"),
-    "lp_start_desc": ("Los iniciales de {game} que más aguantan en la apertura con Repertorio: {top}.",
-                      "The starters in {game} that last longest in the Repertoire opening: {top}."),
-    "lp_start_lede": ("Los iniciales que más aguantan en la apertura de {game} son {top}.",
-                      "The starters that last longest in the {game} opening are {top}."),
-    "lp_start_note": ("Apertura: el ataque de serie con Repertorio (un segundo ataque al azar) y Veto (se bloquean los tres "
-                      "que más bajan la media). Puesto por esa apertura, no por el final de la partida.",
-                      "Opening: the default attack with Repertoire (a random second move) and Veto (the three moves that pull "
-                      "the average down are banned). Rank by that opening, not the late game."),
     "lp_leg_title": ("Legendarios de {game} · {site}", "Legendaries in {game} · {site}"),
     "lp_leg_h1": ("Legendarios de {game}", "Legendaries in {game}"),
     "lp_leg_desc": ("Los {n} legendarios de {game} por puesto en la tier list simulada: {top}.",
@@ -356,26 +232,22 @@ STR: dict[str, tuple[str, str]] = {
                      "The best {type} Pokémon in {game}: {top}."),
     "lp_type_lede": ("Los mejores Pokémon de tipo {type} en {game} son {top}. De los {n} de ese tipo, {s} están en el tier S.",
                      "The best {type} Pokémon in {game} are {top}. Of the {n} of that type, {s} are in tier S."),
-    "lp_pas_title": ("Mejores pasivas de {game} · {site}", "Best passives in {game} · {site}"),
-    "lp_pas_h1": ("Mejores pasivas de {game}", "Best passives in {game}"),
-    "lp_pas_desc": ("Las cartas de nivel de {game} que más monedas dan: {top}.",
-                    "The level-up cards in {game} that earn the most coins: {top}."),
-    "lp_pas_lede": ("En {game}, la carta que más monedas da es {best}. Después: {next}. Las demás no suben las monedas.",
-                    "In {game}, the card that earns the most coins is {best}. Then: {next}. The rest do not raise coins."),
-    "lp_pas_lede_tie": ("Priorizar una carta no mueve la mediana de monedas. Las ocho quedan empatadas.",
-                        "Prioritizing a card does not move the median coins. All eight are tied."),
-    "lp_pas_desc_tie": ("Ninguna carta de nivel de {game} mueve la mediana de monedas.",
-                        "No level-up card in {game} moves the median coins."),
-    "lp_pas_note": ("Monedas: subida al priorizar la carta. La tabla completa, con la baya Zidra y las combinaciones con objetos, está en Pasivas.",
-                    "Coins: the rise from prioritizing the card. The full table, with the Sitrus Berry and item combinations, is on Passives."),
-    "lp_pas_link": ("Tabla completa en Pasivas", "Full table on Passives"),
 
     # ------------------------------------------------------------ ataques
     "ataques_title": ("Ataques de {game} · {site}", "Moves in {game} · {site}"),
     "ataques_desc": ("Tier list de los {n} ataques de {game}.", "Tier list of the {n} moves in {game}."),
     "ataques_h1": ("Ataques de {game}", "Moves in {game}"),
-    "cat_melee": ("Cuerpo a cuerpo", "Melee"),
-    "cat_ranged": ("Distancia", "Ranged"),
+    "cat_physical": ("Ataques físicos", "Physical moves"),
+    "cat_special": ("Ataques especiales", "Special moves"),
+    "cat_groups": ("Mejores grupos", "Best groups"),
+    "mv_lede": ("Cada ataque jugado solo por {refs} Pokémon de referencia de su clase, {seeds} partidas cada uno. "
+                "1× es un ataque normal de su clase; 1,5× rinde un 50\u00a0% más.",
+                "Each move played alone by {refs} reference Pokémon of its class, {seeds} runs each. "
+                "1× is a typical move of its class; 1.5× does 50% better."),
+    "mv_groups_lede": ("Los {n} mejores grupos de cuatro huecos por clase de atacante y build, jugados por las mismas "
+                       "referencias. 1× es el grupo normal de su clase.",
+                       "The top {n} four-slot groups per attacker class and build, played by the same reference "
+                       "Pokémon. 1× is a typical group of its class."),
     "cat_stat": ("Potenciadores", "Boosts"),
     "mv_value": ("Valor", "Value"),
     "mv_typical": ("normal", "typical"),
@@ -411,9 +283,8 @@ STR: dict[str, tuple[str, str]] = {
     "mv_kind_shove": ("Empuje", "Shove"),
     "mv_kind_stun": ("Aturdimiento", "Stun"),
     "mv_new": ("Nuevo", "New"),
-    "mv_unranked_h": ("Sin puesto", "Not ranked"),
-    "mv_unranked": ("No hace daño por sí solo, así que no entra en el ranking.",
-                    "It deals no damage on its own, so it is not ranked."),
+    "mv_unranked": ("No hacen daño por sí solos, así que no tienen tier: cuentan dentro de los grupos.",
+                    "They deal no damage on their own, so they have no tier: they count inside the groups."),
     "mv_read_h": ("Cómo leer las tarjetas", "How to read the cards"),
     "mv_stacks": ("Cada acumulación: {amt} de {stat}, hasta {n}", "Each stack: {amt} {stat}, up to {n}"),
     "mv_buff_max": ("Con las {ups} mejoras: {amt} por acumulación, hasta {n}, y dura {dur} s",
@@ -430,37 +301,33 @@ STR: dict[str, tuple[str, str]] = {
                       "Melee: the attack makes you get close to the enemy"),
     "rng_tip_ranged": ("A distancia: el ataque pega desde lejos", "Ranged: the attack hits from far away"),
     "mv_range_h": ("Distancia de cada ataque", "Range of each move"),
-    "odds_title": ("Probabilidad por rareza", "Odds by rarity"),
 
     # ------------------------------------------------------------ objetos
     "obj_title": ("Objetos de {game} · {site}", "Items in {game} · {site}"),
-    "obj_desc": ("Tier list de los objetos de {game} por fase de la partida.",
-                 "Tier list of the {game} items by phase of the run."),
+    "obj_desc": ("Los objetos de {game} y qué hace cada uno según el código del juego.",
+                 "The {game} items and what each one does according to the game code."),
     "obj_h1": ("Objetos de {game}", "Items in {game}"),
-    "obj_lede": ("En {game} solo se lleva uno por partida: los cofres los sueltan y puedes cambiarlo.",
-                 "In {game} you carry one per run: chests drop them and you can swap it."),
-    "obj_phases_h": ("Tier por fase", "Tier by phase"),
-    "obj_table_h": ("Qué hace cada objeto", "What each item does"),
+    "obj_lede": ("En {game} solo se lleva uno por partida: los cofres los sueltan y puedes cambiarlo. Aquí va lo que hace "
+                 "cada uno según el código del juego; no los ordenamos porque la simulación no los usa.",
+                 "In {game} you carry one per run: chests drop them and you can swap it. This is what each one does "
+                 "according to the game code; we do not rank them because the simulation does not use them."),
 
     # ------------------------------------------------------------ pasivas
     "pv_title": ("Pasivas de {game} · {site}", "Passives in {game} · {site}"),
-    "pv_desc": ("Qué carta de nivel coger en {game}, en orden, y cuándo la baya Zidra.",
-                "Which level-up card to take in {game}, in order, and when to take the Sitrus Berry."),
+    "pv_desc": ("Las cartas de subida de nivel y los potenciadores de {game}: efecto, máximo y valores del juego.",
+                "The level-up cards and boosts in {game}: effect, cap and game values."),
     "pv_h1": ("Pasivas de {game}", "Passives in {game}"),
-    "pv_lede": ("Cartas de nivel de {game} ordenadas por las monedas que dan.", "Level-up cards in {game}, ranked by the coins they earn."),
-    "pv_rank_h": ("Orden", "Order"),
-    "pv_rank_note": ("Monedas: subida al priorizar la carta. Aguante y bajas/min: cómo cambia la partida.",
-                     "Coins: the rise from prioritizing the card. Survival and kills/min: how the run changes."),
-    "pv_surv": ("Aguante", "Survival"),
-    "pv_kills": ("Bajas/min", "Kills/min"),
-    "pv_take": ("Cógela", "Take it"),
-    "pv_wait": ("Espera", "Wait"),
-    "pv_items_h": ("Con objeto", "With an item"),
-    "pv_items_note": ("Lo que suma la carta si ya llevas el objeto.", "What the card adds once you hold the item."),
-    "pv_offers_h": ("Qué cartas salen", "Which cards come up"),
-    "pv_except_h": ("Ataques que cambian el orden", "Moves that change the order"),
-    "pv_method_sum": ("Cómo se calcula", "How it is calculated"),
-    "pv_method_link": ("Método completo", "Full method"),
+    "pv_lede": ("Las cartas de subida de nivel y los potenciadores de {game}, tal como los define el código del juego.",
+                "The level-up cards and boosts in {game}, as the game code defines them."),
+    "pv_cards_h": ("Cartas de subida de nivel", "Level-up cards"),
+    "pv_th_card": ("Carta", "Card"),
+    "pv_th_effect": ("Efecto", "Effect"),
+    "pv_th_max": ("Máximo", "Max"),
+    "pv_no_max": ("sin tope", "no cap"),
+    "pv_cards_note": ("Efecto y máximo de veces de levelup.js, en el orden del juego. La reducción de daño de Coraza no pasa "
+                      "del 70\u00a0%. No las ordenamos: la simulación las coge con una prioridad fija y no mide cuál conviene.",
+                      "Effect and max picks from levelup.js, in the game's order. Armor's damage reduction stops at 70%. "
+                      "We do not rank them: the simulation takes them in a fixed order and does not measure which is better."),
 
     # ------------------------------------------------------------ gacha
     "gachas_title": ("Gacha de {game} · {site}", "Gacha for {game} · {site}"),
@@ -491,7 +358,6 @@ STR: dict[str, tuple[str, str]] = {
                        "leaves it."),
     "col_json": ("Resultado", "Result"),
     "col_view": ("Ver", "Show"),
-    "col_file": ("O un archivo .json", "Or a .json file"),
     "col_drop": ("Arrastra aquí el .json o pulsa para elegirlo", "Drag the .json here or click to choose it"),
 
     # ------------------------------------------------------------ acerca
@@ -526,153 +392,64 @@ STR: dict[str, tuple[str, str]] = {
 
     # ------------------------------------------------------------ método
     "met_title": ("Método del ranking de {game} · {site}", "Ranking method for {game} · {site}"),
-    "met_desc": ("Cómo se calcula el ranking de {game}: {sims} partidas simuladas por Pokémon con un bot, una nota de tiempo, daño y bajas, "
-                 "repetida {reps} veces. Sin nota de ficha.",
-                 "How the {game} ranking is calculated: {sims} simulated games per Pokémon with a bot, a score from time, damage and kills, "
-                 "repeated {reps} times. No sheet score."),
+    "m3_desc": ("Cómo se hace el ranking de {game}: {games} partidas simuladas con el código del juego, en tres fases y sin reglas a mano.",
+                "How the {game} ranking is made: {games} simulated runs with the game's code, in three phases and with no hand-made rules."),
+    "m3_notice_h": ("Hemos mejorado el ranking.", "We have improved the ranking."),
+    "m3_notice": ("Ahora todo sale de simular partidas: cada Pokémon juega con la mejor build que encontró la simulación, "
+                  "sin reglas escritas a mano. Muchos puestos han cambiado.",
+                  "Everything now comes from simulated runs: each Pokémon plays with the best build the simulation found, "
+                  "with no hand-written rules. Many ranks have changed."),
+    "m3_notice_link": ("Cómo lo hacemos", "How we do it"),
+    "m3_lede": ("{games} partidas de un bot con el código del juego, de hasta {minutes} minutos cada una, en tres fases.",
+                "{games} runs by a bot using the game's code, up to {minutes} minutes each, in three phases."),
+    "m3_k_games": ("Partidas", "Runs"),
+    "m3_k_attacks": ("Ataques", "Moves"),
+    "m3_k_groups": ("Grupos probados", "Groups tried"),
+    "m3_k_mons": ("Pokémon", "Pokémon"),
+    "m3_p1_h": ("1. Tier list de ataques", "1. Move tier list"),
+    "m3_p1": ("Cada uno de los {attacks} ataques juega solo en {refs} Pokémon de referencia de su clase (físicos o especiales, "
+              "con vida, defensas, tamaño y velocidad variados), {seeds} partidas por referencia: {games} partidas. "
+              "Su cifra compara con un ataque normal de su clase, así que no pesa qué Pokémon lo usa.",
+              "Each of the {attacks} moves plays alone on {refs} reference Pokémon of its class (physical or special, "
+              "with varied HP, defenses, size and speed), {seeds} runs per reference: {games} runs. "
+              "Its figure compares it with a typical move of its class, so it does not depend on who uses it."),
+    "m3_p2_h": ("2. Grupos de ataques", "2. Move groups"),
+    "m3_p2": ("Los mejores ataques se combinan en grupos de cuatro huecos (tres ataques y un potenciador, o dos y dos), "
+              "vinculados desde el principio y jugados por las mismas referencias. {groups} grupos en tres rondas de "
+              "{s1}, {s2} y {s3} partidas por referencia, con semillas nuevas en cada ronda: {games} partidas.",
+              "The best moves are combined into four-slot groups (three moves and a boost, or two and two), bonded from "
+              "the start and played by the same reference Pokémon. {groups} groups over three rounds of {s1}, {s2} and "
+              "{s3} runs per reference, with new seeds each round: {games} runs."),
+    "m3_p3_h": ("3. La build de cada Pokémon", "3. Each Pokémon's build"),
+    "m3_p3": ("Cada Pokémon prueba sus propios grupos, con los ataques que puede aprender. Lo que se aprendió en la fase 2 "
+              "elige los más prometedores: {g1} grupos con {s1} partidas, los {g2} mejores con {s2} y los {g3} finalistas "
+              "con {s3}, siempre con semillas nuevas. Se queda con su mejor build cuerpo a cuerpo y su mejor a distancia. "
+              "{games} partidas.",
+              "Each Pokémon tries its own groups, with the moves it can learn. What phase 2 learned picks the most "
+              "promising ones: {g1} groups with {s1} runs, the best {g2} with {s2} and the {g3} finalists with {s3}, "
+              "always with new seeds. It keeps its best melee build and its best ranged one. {games} runs."),
+    "m3_rank_h": ("Puesto y tiers", "Rank and tiers"),
+    "m3_rank": ("El puesto ordena la mejor de sus dos builds por la mediana de sus {seeds} partidas finales. Cada partida "
+                "vale el tiempo que aguanta × la raíz de su ritmo de daño por su ritmo de bajas, los dos con techo: {dps} de "
+                "daño por segundo o {kpm} bajas por minuto ya cuentan la mitad. Sin daño vale 0. Tiers por puesto: {sizes}.",
+                "The rank sorts the better of its two builds by the median of its {seeds} final runs. Each run is worth the "
+                "time it survives × the square root of its damage rate times its kill rate, both capped: {dps} damage per "
+                "second or {kpm} kills per minute already count half. No damage is worth 0. Tiers by rank: {sizes}."),
+    "m3_why_h": ("El porqué de cada ficha", "The why on each page"),
+    "m3_why": ("Un ajuste sobre los 966 dice cuánto pesa cada factor en la puntuación: el ataque del Pokémon, lo bueno que es "
+               "su grupo, PS, Defensa, Def. Especial, velocidad, tamaño y el daño que le hacen por sus tipos. Explica el "
+               "{r2} de las diferencias (R²). La ficha nombra los factores que más le suman y le restan.",
+               "A fit over all 966 says how much each factor weighs on the score: the Pokémon's attack, how good its group "
+               "is, HP, Defense, Sp. Def., speed, size and the damage its types take. It explains {r2} of the differences "
+               "(R²). Each page names the factors that add and subtract the most."),
+    "m3_limits_h": ("Lo que no simulamos", "What we do not simulate"),
+    "m3_limits": ("El bot no lleva objetos, no hay terreno ni estados alterados, y coge las cartas de subida de nivel con una "
+                  "prioridad fija. Por eso la web no recomienda cartas ni objetos: de eso solo enseña lo que dice el código "
+                  "del juego.",
+                  "The bot holds no item, there is no terrain or status conditions, and it takes level-up cards in a fixed "
+                  "order. That is why the site does not recommend cards or items: for those it only shows what the game "
+                  "code says."),
     "met_h1": ("Método del ranking de {game}", "Ranking method for {game}"),
-    "met_lede": ("Cada Pokémon de {game} recibe un puesto del 1 al 966 y un tier. Sale solo de partidas simuladas: "
-                 "un bot juega partidas completas con cada uno y el puesto ordena sus notas. Como una nota sola puede engañar, "
-                 "el orden se repite {reps} veces.",
-                 "Each Pokémon in {game} gets a rank from 1 to 966 and a tier. It comes only from simulated games: "
-                 "a bot plays full games with each one and the rank orders their scores. Since one score can mislead, "
-                 "the order is repeated {reps} times."),
-    "kpi_pokemon": ("Pokémon con puesto", "Pokémon ranked"),
-    "kpi_games": ("partidas simuladas", "simulated games"),
-    "kpi_hours": ("horas de juego simulado, unos {years} años seguidos", "hours of simulated play, about {years} years straight"),
-    "kpi_reps": ("repeticiones del orden", "order repeats"),
-    "stg_title": ("Partidas por fase", "Games per stage"),
-    "stg_lede": ("La pantalla de grupos pone el {share} de las partidas. Cada puesto sale de {seeds} partidas en la apertura.",
-                 "The group screen takes {share} of all games. Each rank comes from {seeds} games on the opening."),
-    "stg_alt": ("Partidas por fase: ", "Games per stage: "),
-    "stg_start_screen": ("Pantalla de aperturas", "Opening screen"),
-    "stg_start_refine": ("Afinar aperturas", "Refine openings"),
-    "stg_move_duel": ("Duelo de ataques", "Move duel"),
-    "stg_group_screen": ("Pantalla de grupos", "Group screen"),
-    "stg_group_refine": ("Afinar grupos", "Refine groups"),
-    "stg_start_sweep": ("Barrido con grupo 2+2", "Sweep with a 2+2 group"),
-    "stg_final": ("Puesto final", "Final rank"),
-    "stg_d_start_screen": ("{per} aperturas por Pokémon, {seeds} partidas cada una", "{per} openings per Pokémon, {seeds} games each"),
-    "stg_d_start_refine": ("{per} aperturas por Pokémon, {seeds} partidas cada una", "{per} openings per Pokémon, {seeds} games each"),
-    "stg_d_move_duel": ("{per} ataques en {species} Pokémon, {seeds} partidas cada uno", "{per} moves on {species} Pokémon, {seeds} games each"),
-    "stg_d_group_screen": ("{per} grupos por Pokémon, {seeds} partidas cada uno", "{per} groups per Pokémon, {seeds} games each"),
-    "stg_d_group_refine": ("{per} grupos por Pokémon, {seeds} partidas cada uno", "{per} groups per Pokémon, {seeds} games each"),
-    "stg_d_start_sweep": ("{per} aperturas con grupo 2+2, {seeds} partidas cada una", "{per} openings with a 2+2 group, {seeds} games each"),
-    "stg_d_final": ("{per} bloques de semillas, {seeds} partidas cada uno", "{per} seed blocks, {seeds} games each"),
-    "dur_title": ("Cuánto aguanta cada apertura", "How long each opening lasts"),
-    "dur_lede": ("Cada barra cuenta Pokémon. La mediana de su apertura va de {lo} a {hi} segundos, y ninguna llega al tope de {cap}.",
-                 "Each bar counts Pokémon. Each opening's median runs from {lo} to {hi} seconds, and none reaches the {cap} cap."),
-    "dur_median": ("mediana {s} s", "median {s} s"),
-    "dur_alt": ("Pokémon por tramo de segundos en su apertura. Mediana {s} s, entre {lo} y {hi} s.",
-                "Pokémon per time span in their opening. Median {s} s, between {lo} and {hi} s."),
-    "dur_axis": ("segundos que aguanta la apertura, cada barra cubre 10 s", "seconds the opening lasts, each bar covers 10 s"),
-    "score_title": ("Cada factor se satura", "Each factor saturates"),
-    "score_lede": ("Con {dps} de daño por segundo el factor ya vale la mitad, y con {kpm} bajas por minuto, lo mismo. "
-                   "Después, cada punto extra suma menos.",
-                   "At {dps} damage per second the factor is already half, and at {kpm} kills per minute, the same. "
-                   "After that, each extra point adds less."),
-    "score_formula": ("nota = tiempo × √( (daño por segundo ÷ (daño por segundo + {dps})) × (bajas por minuto ÷ (bajas por minuto + {kpm})) )",
-                      "score = time × √( (damage per second ÷ (damage per second + {dps})) × (kills per minute ÷ (kills per minute + {kpm})) )"),
-    "score_dps_axis": ("daño por segundo", "damage per second"),
-    "score_kpm_axis": ("bajas por minuto", "kills per minute"),
-    "score_half": ("{v}: la mitad", "{v}: half"),
-    "score_dot": ("{name}: {v}", "{name}: {v}"),
-    "score_ex": ("{name} en su apertura: {s} s, {dps} de daño por segundo y {kpm} bajas por minuto. "
-                 "Con esos factores, la nota es {s} × √({sd} × {sk}) = {score}.",
-                 "{name} on their opening: {s} s, {dps} damage per second and {kpm} kills per minute. "
-                 "With those factors, the score is {s} × √({sd} × {sk}) = {score}."),
-    "score_alt": ("Curvas de saturación del daño por segundo (mitad en {dps}) y de las bajas por minuto (mitad en {kpm}).",
-                  "Saturation curves for damage per second (half at {dps}) and kills per minute (half at {kpm})."),
-    "fm_screen": ("En la pantalla", "On the screen"),
-    "fm_refine": ("Afinadas", "Refined"),
-    "fm_duel": ("En el duelo", "In the duel"),
-    "fm_moves_title": ("Aperturas que prueba cada Pokémon", "Openings each Pokémon tries"),
-    "fm_moves_lede": ("Mediana por Pokémon. Pasan a afinar las tres mejores aperturas. Las dos mejores van al duelo, "
-                      "que solo disputan {species} Pokémon, con {seeds} partidas cada uno.",
-                      "Median per Pokémon. The top three openings move on to refining. The top two go to the duel, "
-                      "which only {species} Pokémon play, with {seeds} games each."),
-    "fm_moves_alt": ("Aperturas por Pokémon: ", "Openings per Pokémon: "),
-    "fm_groups_title": ("Grupos que prueba cada Pokémon", "Groups each Pokémon tries"),
-    "fm_groups_lede": ("Mediana por Pokémon, con cuatro huecos por grupo. Pasan a afinar {per} por Pokémon, con {seeds} partidas cada uno.",
-                       "Median per Pokémon, four slots per group. {per} per Pokémon move on to refining, with {seeds} games each."),
-    "fm_groups_alt": ("Grupos por Pokémon: ", "Groups per Pokémon: "),
-    "width_title": ("El margen habitual mide {w} puestos", "The usual range is {w} places"),
-    "width_lede": ("Cada barra cuenta Pokémon según el ancho de su margen, del percentil 10 al 90 de sus puestos. "
-                   "La última barra suma todo lo que pasa de 325.",
-                   "Each bar counts Pokémon by the width of their range, from the 10th to the 90th percentile of their ranks. "
-                   "The last bar holds everything past 325."),
-    "width_median": ("mediana {n}", "median {n}"),
-    "width_axis": ("ancho del margen, en puestos; cada barra cubre 25", "width of the range, in places; each bar covers 25"),
-    "width_alt": ("Pokémon por ancho de margen. Mediana de {n} puestos: ", "Pokémon per range width. Median of {n} places: "),
-    "places_n": ("{n} puestos", "{n} places"),
-    "tw_title": ("Ancho típico del margen por tier", "Typical range width per tier"),
-    "tw_lede": ("El tier S apenas se mueve, con {s} puestos. En el B el margen habitual cubre unos {b} puestos.",
-                "Tier S barely moves, at {s} places. In tier B the usual range covers about {b} places."),
-    "tw_alt": ("Mediana del ancho del margen por tier: ", "Median range width per tier: "),
-    "front_title": ("Pokémon cuyo margen cruza un corte", "Pokémon whose range crosses a cut"),
-    "front_lede": ("{n} de {total} Pokémon ({pct}) tienen un margen que pasa de un tier a otro. Su tier puede cambiar entre repeticiones.",
-                   "{n} of {total} Pokémon ({pct}) have a range that crosses from one tier into another. Their tier can change between repeats."),
-    "front_label": ("{a} y {b}, puesto {edge}", "{a} and {b}, rank {edge}"),
-    "front_alt": ("Pokémon cuyo margen cruza cada corte: ", "Pokémon whose range crosses each cut: "),
-    "met_step_1_h": ("Simular", "Simulate"),
-    "met_step_1": ("Un bot juega partidas completas con cada Pokémon en un simulador que sigue el código del juego. Da vueltas "
-                   "alrededor de la horda para que los disparos, los golpes y los orbes den en el blanco, esquiva los ataques "
-                   "avisados y recoge los orbes. Cada Pokémon juega {sims} partidas con semillas distintas, con un tope de "
-                   "{cap} segundos.",
-                   "A bot plays full games with each Pokémon in a simulator that follows the game's code. It circles the "
-                   "horde so shots, hits and orbs connect, dodges telegraphed attacks and picks up orbs. Each Pokémon plays "
-                   "{sims} games with different seeds, capped at {cap} seconds."),
-    "met_step_2_h": ("Puntuar", "Score"),
-    "met_step_2": ("Cada partida vale el tiempo que aguanta vivo, multiplicado por la raíz de dos cosas: el daño por segundo y las "
-                   "bajas por minuto. Las dos se saturan: a unos {dps} de daño por segundo o {kpm} bajas por minuto ya se ha "
-                   "llegado a la mitad, y a partir de ahí cada punto extra pesa menos. Una partida sin daño vale 0, así que "
-                   "aguantar sin pelear no sube puestos.",
-                   "A game is worth the time it stays alive, multiplied by the square root of two things: damage per second "
-                   "and kills per minute. Both saturate: at about {dps} damage per second or {kpm} kills per minute you are "
-                   "halfway there, and past that every extra point counts for less. A game with no damage is worth 0, so "
-                   "surviving without fighting does not climb the ranking."),
-    "met_step_3_h": ("Elegir el ataque", "Pick the move"),
-    "met_step_3": ("Se prueba, uno por uno, cada ataque que el Pokémon puede aprender. El mejor ataque de daño es el que sale "
-                   "en su ficha; si dos empatan dentro del margen de error, gana el que más sobrevive, luego el que más "
-                   "derrota. El grupo de ataques sigue unas reglas fijas de build, que están más abajo.",
-                   "Every move the Pokémon can learn is tried, one by one. The best damaging move is the one on its page; "
-                   "if two tie within the margin of error, the one that survives longer wins, then the one with more "
-                   "kills. The move group follows fixed build rules, listed below."),
-    "met_step_4_h": ("Repetir {reps} veces", "Repeat {reps} times"),
-    "met_step_4": ("Cada nota tiene un margen de error, que se mide con las propias partidas. En cada repetición, la nota "
-                   "de cada Pokémon cae en un punto al azar dentro de su margen y se ordenan los 966. Si dos márgenes se "
-                   "solapan, es un empate, no una diferencia.",
-                   "Each score has a margin of error, measured from the games themselves. In every repeat, each Pokémon's "
-                   "score lands on a random point inside its margin and all 966 are sorted. If two margins overlap, that "
-                   "is a tie, not a difference."),
-    "met_step_5_h": ("Puesto y rango", "Rank and range"),
-    "met_step_5": ("El puesto final es la mediana de las posiciones de esas repeticiones. El rango habitual de cada ficha va "
-                   "del percentil 10 al 90 de esas posiciones.",
-                   "The final rank is the median of the positions across those repeats. The usual range on each page runs "
-                   "from the 10th to the 90th percentile of those positions."),
-    "met_step_6_h": ("Tier", "Tier"),
-    "met_step_6": ("Los puestos se reparten en tiers de tamaño fijo, en orden: {sizes}. No hay requisitos de entrada: "
-                   "ninguna ficha de estadísticas, de tipos o de tamaño mueve el puesto, solo cuenta el simulador.",
-                   "Ranks are split, in order, into tiers of fixed size: {sizes}. There are no entry requirements: "
-                   "no stats, type or size sheet moves the rank, only the simulator counts."),
-    "pipe_title": ("Del dato al tier", "From data to tier"),
-    "pipe_1": ("Simular", "Simulate"),
-    "pipe_2": ("Puntuar", "Score"),
-    "pipe_3": ("Elegir ataque", "Pick the move"),
-    "pipe_4": ("Repetir ×{reps}", "Repeat ×{reps}"),
-    "pipe_5": ("Puesto y rango", "Rank and range"),
-    "pipe_6": ("Tier", "Tier"),
-    "pipe_alt": ("Pasos del cálculo: ", "Calculation steps: "),
-    "met_rules_h": ("Reglas de build", "Build rules"),
-    "met_rules": ("No hay reglas a mano: ningún Pokémon tiene ataques prohibidos ni un factor contra el cuerpo a cuerpo. Un grupo "
-                  "ocupa como máximo cuatro huecos y lleva al menos dos ataques; Sustituto cuenta como ataque. Los grupos pueden "
-                  "mezclar ataques físicos y especiales con cualquier potenciador (Danza Espada, Danza Dragón, Maquinación, "
-                  "Fortaleza, Agilidad). Gana el grupo con la nota más alta del simulador.",
-                  "There are no hand-made rules: no Pokémon has banned moves or a factor against melee. A group takes at most "
-                  "four slots and holds at least two attacks; Substitute counts as an attack. Groups can mix physical and "
-                  "special attacks with any boost (Swords Dance, Dragon Dance, Nasty Plot, Harden, Agility). The group with "
-                  "the highest simulator score wins."),
-    "met_check_h": ("Cómo se comprueba", "How it is checked"),
     "met_check": ("El motor está escrito dos veces, en JavaScript y en Rust, y en su modo básico un test comprueba que dan el mismo "
                   "resultado paso a paso. Las fórmulas de daño, el modo de tipo único y otras reglas se comparan con las "
                   "funciones del propio juego, y los combates de prueba se repiten con el código del juego descargado "
@@ -681,69 +458,14 @@ STR: dict[str, tuple[str, str]] = {
                   "give the same result step by step. Damage formulas, the single-type bonus and other rules are compared "
                   "against the game's own functions, and test fights are replayed with the game's downloaded code "
                   "(commit {sha}). It is all in the repository, next to the data."),
-    "tiers_title": ("Tamaño de cada tier", "Size of each tier"),
-    "tiers_alt": ("Pokémon por tier: ", "Pokémon per tier: "),
-    "agree_title": ("Qué medida se parece más al ranking", "Which measure is closest to the ranking"),
-    "agree_alt": ("Parecido con el puesto final: ", "Closeness to the final rank: "),
-    "rib_title": ("Cuánto se mueve cada puesto", "How much each rank moves"),
-    "rib_lede": ("Cada trazo es un Pokémon. Su posición horizontal es su puesto final, y el trazo marca dónde cayó "
-                 "en las 2.000 repeticiones (entre el 10 % y el 90 % de los casos). Trazo corto: puesto firme. "
-                 "El rango habitual mide unos {s} puestos en el tier S y {c} en el C.",
-                 "Each stroke is a Pokémon. Its horizontal position is its final rank, and the stroke shows where it "
-                 "landed across the 2,000 repeats (between the 10th and 90th percentile). Short stroke: firm rank. "
-                 "The usual range is about {s} places in tier S and {c} in tier C."),
-    "rib_x": ("puesto final", "final rank"),
-    "rib_y": ("puesto en las repeticiones", "rank in the repeats"),
-    "rib_alt": ("Margen de puestos de cada Pokémon. Ancho típico por tier: ",
-                "Rank range of each Pokémon. Typical width per tier: "),
-    "rib_alt_item": ("{t} {m} puestos", "{t} {m} places"),
-    "stab_title": ("Se queda en su tier", "Stays in its tier"),
-    "stab_alt": ("Pokémon que se quedan en su tier: ", "Pokémon that stay in their tier: "),
-    "reps_title": ("2.000 repeticiones", "2,000 repeats"),
-    "reps_lede": ("Cada punto es un Pokémon de ejemplo. La sombra es su rango habitual (del percentil 10 al 90) y la "
-                  "raya roja, su puesto final. En cada repetición cae en un punto distinto de ese rango.",
-                  "Each dot is an example Pokémon. The shade is its usual range (10th to 90th percentile) and the red "
-                  "line its final rank. Each repeat lands it somewhere else within that range."),
-    "reps_pause": ("Pausa", "Pause"),
-    "reps_play": ("Seguir", "Play"),
-    "reps_count": ("{n} / {total}", "{n} / {total}"),
-    "arena_title": ("Así se ve una partida simulada", "What a simulated game looks like"),
-    "arena_lede": ("Ilustración, no datos del ranking. Así juega cada Pokémon las partidas simuladas: esquiva, dispara "
-                   "a los enemigos que se acercan y aguanta lo que puede.",
-                   "Illustration, not ranking data. This is how each Pokémon plays the simulated games: it dodges, "
-                   "shoots the enemies that come close, and survives as long as it can."),
-    "arena_time": ("tiempo", "time"),
-    "arena_kills": ("derrotados", "defeated"),
-    "arena_alt": ("Animación de una partida simulada. Un Pokémon esquiva y dispara a enemigos que se acercan.",
-                  "Animation of a simulated game. A Pokémon dodges and fires at approaching enemies."),
-    "met_limits_h": ("Límites", "Limits"),
-    "met_lim_1": ("Es un bot, no una persona: juega peor el cuerpo a cuerpo y no busca camino hasta las grietas, "
-                  "solo cuenta el tiempo de ir andando.",
-                  "It is a bot, not a person: it plays melee worse and does not path to rifts, it only counts the time "
-                  "spent walking."),
-    "met_lim_2": ("El grupo de ataques no se vincula hasta ganar una grieta, como en el juego, y un compañero de sinergia como "
-                  "Hex no ataca antes.",
-                  "The move group does not bond until a rift is won, as in the game, and a synergy partner such as Hex does "
-                  "not attack before then."),
-    "met_lim_3": ("Los números son estimaciones de {sims} partidas por Pokémon; por eso cada ficha lleva su rango habitual.",
-                  "The numbers are estimates from {sims} games per Pokémon; that is why each page shows its usual range."),
-    "met_lim_4": ("No se ha contrastado con partidas reales de jugadores, solo con las reglas y el código del juego.",
-                  "It has not been checked against real player games, only against the game's rules and code."),
     # ------------------------------------------------------------ navegación de las herramientas
     "nav_planificador": ("Planificador", "Build planner"),
     "guide_finder": ("Buscador por tipos", "Type finder"),
-    "guide_planner": ("Planificador de build", "Build planner"),
-    "stat_atk": ("Ataque", "Attack"),
-    "stat_spd": ("Velocidad", "Speed"),
-    "stat_def": ("Defensa", "Defense"),
-    "stat_regen": ("Regeneración", "Regeneration"),
     "tool_noscript": ("Esta herramienta necesita JavaScript.", "This tool needs JavaScript."),
     "tool_load": ("Cargando datos…", "Loading data…"),
     "tool_fail": ("No se pudieron cargar los datos. Recarga la página.", "The data did not load. Reload the page."),
 
     # ------------------------------------------------------------ nota del Repertorio
-    "rep_note": ("Repertorio te da un segundo ataque al azar y no se puede deshacer.",
-                 "Repertoire gives you a random second attack and can't be undone."),
 
     # ------------------------------------------------------------ potenciadores (pasivas)
     "pv_buff_h": ("Potenciadores: el tope de dos y la categoría", "Boosts: the two-boost cap and the category"),
@@ -824,12 +546,11 @@ STR: dict[str, tuple[str, str]] = {
 
     # ------------------------------------------------------------ planificador de build
     "bp_title": ("Planificador de build de {game} · {site}", "Build planner for {game} · {site}"),
-    "bp_desc": ("Arma el grupo vinculado, el objeto y las cartas de un Pokémon de {game}. Empieza con su build recomendada "
-                "y comparte el enlace.",
-                "Build the bonded group, item and cards for a {game} Pokémon. Starts from its recommended build and shares as a link."),
+    "bp_desc": ("Arma el grupo vinculado de un Pokémon de {game}. Empieza con su mejor build de la simulación y comparte el enlace.",
+                "Build the bonded group for a {game} Pokémon. Starts from its best simulated build and shares as a link."),
     "bp_h1": ("Planificador de build", "Build planner"),
-    "bp_lede": ("Elige un Pokémon. Empieza con su build recomendada: cambia lo que quieras y copia el enlace.",
-                "Pick a Pokémon. It starts on its recommended build: change anything you like and copy the link."),
+    "bp_lede": ("Elige un Pokémon. Empieza con su mejor build de la simulación: cambia lo que quieras y copia el enlace.",
+                "Pick a Pokémon. It starts on its best simulated build: change anything you like and copy the link."),
     "bp_pick_h": ("Pokémon", "Pokémon"),
     "bp_pick_ph": ("Nombre o número", "Name or number"),
     "bp_side": ("Pega más con: {side}", "Hits harder with: {side}"),
@@ -850,14 +571,6 @@ STR: dict[str, tuple[str, str]] = {
     "bp_mismatch_some": ("{boost} solo sube {n} de tus {total} ataques.", "{boost} only raises {n} of your {total} attacks."),
     "bp_both": ("Danza Espada y Danza Dragón comparten el contador de ataque físico: no se suman. Elige solo una.",
                 "Swords Dance and Dragon Dance share the physical attack counter, so they don't add up. Pick one."),
-    "bp_item_h": ("Objeto", "Item"),
-    "bp_item_none": ("Sin objeto", "No item"),
-    "bp_item_best": ("Recomendado", "Recommended"),
-    "bp_cards_h": ("Cartas, en orden", "Cards, in order"),
-    "bp_cards_note": ("Por orden de prioridad, sin repetir. Cómo se ordenan, en Pasivas.",
-                      "In priority order, no repeats. How they are ranked is on Passives."),
-    "bp_card_n": ("{n}.ª carta", "Card {n}"),
-    "bp_card_none": ("—", "—"),
     "bp_result_h": ("Tu build", "Your build"),
     "bp_cover": ("Super efectivo contra el {super} de los Pokémon. Al menos neutral contra el {neutral}.",
                  "Super effective against {super} of Pokémon. At least neutral against {neutral}."),
@@ -865,7 +578,7 @@ STR: dict[str, tuple[str, str]] = {
     "bp_link": ("Enlace de esta build", "Link to this build"),
     "bp_copy": ("Copiar enlace", "Copy link"),
     "bp_copied": ("Enlace copiado", "Link copied"),
-    "bp_reset": ("Restaurar la recomendada", "Restore recommended"),
+    "bp_reset": ("Volver a su mejor build", "Back to its best build"),
     "bp_rank": ("Puesto {rank} de {total} · tier {tier}", "Rank {rank} of {total} · tier {tier}"),
     "bp_open_sheet": ("Ver su ficha", "See its sheet"),
     "bp_boost_guide": ("Cómo funcionan los potenciadores", "How boosts work"),

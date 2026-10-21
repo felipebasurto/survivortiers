@@ -54,24 +54,11 @@ check('lado físico o especial igual que G.Stats.sideOf', () => {
   }
 });
 
-const coverageMismatch = [];
-check('la cobertura reproduce d[9][0] y d[9][1] de cada build fija', () => {
-  const defenders = index.map(p => p.types);
-  for (const p of index) {
-    const d9 = species.d[String(p.dex)][9];
-    const nBoost = d9[5];
-    const attacks = d9[2].slice(0, d9[2].length - nBoost);
-    const cov = tools.coverage(defenders, tools.attackTypesOf(game.moves, attacks), game.chart);
-    if (cov.super !== d9[0] || cov.neutral !== d9[1]) coverageMismatch.push(p.dex);
-  }
-  assert.equal(coverageMismatch.length, 0, 'dex con cobertura distinta: ' + coverageMismatch.slice(0, 10).join(', '));
-});
-
 check('cada build recomendada: sin repetidos, máximo 2 potenciadores, ids en el grupo del Pokémon', () => {
   for (const p of index) {
     const rec = tools.recommended(p.dex, species);
     const pool = tools.poolOf(p.types, game.pool);
-    const known = new Set([...pool, ...species.d[String(p.dex)][9][2]]);
+    const known = new Set([...pool, ...['melee', 'ranged'].flatMap(k => species.builds[String(p.dex)][k].moves)]);
     const ids = rec.group.filter(Boolean);
     assert.equal(new Set(ids).size, ids.length, 'repetido en ' + p.dex);
     assert.ok(ids.length <= tools.PLAN_SLOTS, 'más de cuatro en ' + p.dex);
@@ -80,31 +67,22 @@ check('cada build recomendada: sin repetidos, máximo 2 potenciadores, ids en el
   }
 });
 
-// The planner recommends the best-scored published build (melee or ranged, build/builds.py). A species with
-// no build pair falls back to the fixed group of the ranking (d[9]) and its planner cards (d[10]).
-const publishedTop = dex => {
-  const pair = (species.builds || {})[String(dex)] || {};
-  return ['melee', 'ranged'].map(k => pair[k]).filter(Boolean).reduce((best, b) => (!best || b.score > best.score ? b : best), null);
-};
-
-check('la build recomendada es la mejor build publicada (melee o ranged), o el grupo fijo si no hay', () => {
+check('la build recomendada es la mejor de las dos publicadas', () => {
   for (const p of index) {
-    const top = publishedTop(p.dex);
-    const ids = (top ? top.moves : species.d[String(p.dex)][9][2]).slice(0, tools.PLAN_SLOTS);
-    assert.deepEqual(tools.recommended(p.dex, species).group.filter(Boolean), ids, String(p.dex));
+    const pair = species.builds[String(p.dex)];
+    assert.ok(pair && pair[pair.best], 'sin builds en ' + p.dex);
+    assert.deepEqual(tools.recommended(p.dex, species).group.filter(Boolean), pair[pair.best].moves.slice(0, tools.PLAN_SLOTS), String(p.dex));
   }
 });
 
 check('la URL de una build recomendada se lee igual', () => {
   for (const p of index) {
     const rec = tools.recommended(p.dex, species);
-    const st = { dex: p.dex, group: rec.group, item: rec.item, cards: rec.cards };
+    const st = { dex: p.dex, group: rec.group };
     const search = '?' + tools.encodeState(st);
     const back = tools.decodeState(search, game, species, index, p.dex);
     assert.equal(back.fromUrl, true, String(p.dex));
     assert.deepEqual(back.group, st.group, String(p.dex));
-    assert.equal(back.item, st.item, String(p.dex));
-    assert.deepEqual(back.cards, st.cards, String(p.dex));
   }
 });
 
@@ -112,11 +90,9 @@ check('una URL editada a mano no rompe el estado', () => {
   const back = tools.decodeState('?p=999999&g=nope,tackle,tackle,swords-dance,harden&o=zzz&c=zz', game, species, index, 1);
   assert.equal(back.fromUrl, false);
   assert.equal(back.dex, 1);
-  assert.equal(back.item, null);
   assert.equal(back.group.filter(Boolean).length <= tools.PLAN_SLOTS, true);
   const boosts = tools.boostsOf(game.moves, back.group.filter(Boolean));
   assert.ok(boosts.length <= tools.BOOST_CAP);
-  assert.deepEqual(back.cards, [null, null, null, null]);
 });
 
 check('el tercer potenciador se descarta en la URL', () => {
@@ -147,21 +123,6 @@ check('la categoría de cada movimiento viene del juego (físico o especial)', (
   assert.equal(game.moves['ember'].c, 'special');
 });
 
-check('cartas del planificador: cuatro, en orden de prioridad, y con la que evoluciona el ataque dentro', () => {
-  for (const p of index) {
-    const [order, gate] = species.d[String(p.dex)][10];
-    const picks = tools.plannerCards([order, gate]);
-    assert.equal(picks.length, tools.PLAN_SLOTS, String(p.dex));
-    assert.equal(new Set(picks).size, picks.length, 'repetida en ' + p.dex);
-    const pos = picks.map(id => order.indexOf(id));
-    assert.deepEqual(pos, [...pos].sort((a, b) => a - b), 'fuera de orden en ' + p.dex);
-    if (gate) assert.ok(picks.includes(gate), 'falta la carta que evoluciona en ' + p.dex);
-    const top = publishedTop(p.dex);
-    const expected = top ? tools.plannerCards(top.cards) : picks;
-    assert.deepEqual(tools.recommended(p.dex, species).cards, expected, String(p.dex));
-  }
-});
-
 check('la danza de la build recomendada se elige por categoría, sin Danza Espada fija', () => {
   for (const p of index) {
     const rec = tools.recommended(p.dex, species);
@@ -173,10 +134,7 @@ check('la danza de la build recomendada se elige por categoría, sin Danza Espad
   }
 });
 
-const report = {
-  pokemon: index.length,
-  coverageMismatch: coverageMismatch.length,
-};
+const report = { pokemon: index.length };
 if (failures.length) {
   console.error(failures.join('\n'));
   console.error(JSON.stringify(report));

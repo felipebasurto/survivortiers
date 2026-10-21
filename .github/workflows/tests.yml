@@ -39,24 +39,20 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: simulator/sim-rs
-      - name: build pokesim (make_definitive.py calls `pokesim repertorio`)
+      - name: build pokesim (test_game_js.py runs it against the game's JavaScript)
         run: cargo build --release --manifest-path simulator/sim-rs/Cargo.toml
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install numpy pyarrow
-      - name: ranking matches the committed sim CSVs
-        run: python3 build/regen.py --check
+      - run: pip install numpy
       - name: attack tier list matches the committed phase 1 output
         run: python3 build/attack_tiers.py --check
       - name: bond tier list matches the committed phase 2 output
         run: python3 build/bond_tiers.py --check
       - name: species builds and ranking match the committed phase 3 output
         run: python3 build/species_builds.py --check
-      - name: facts and summaries match the data
-        run: |
-          python3 build/facts_export.py --check
-          python3 build/summary_pipeline.py check
+      - name: the why model matches the committed fit
+        run: python3 build/why.py --check
       - name: unit tests (the ones that read site/ render it first)
         run: python3 -m unittest discover -s build -p "test_*.py"
       - name: serve the rendered site and check it

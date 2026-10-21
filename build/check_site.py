@@ -32,7 +32,6 @@ from urllib.parse import parse_qs, urldefrag, urljoin, urlparse
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 import agents  # noqa: E402
-import combos  # noqa: E402
 import indexnow  # noqa: E402
 import landing  # noqa: E402
 import legal  # noqa: E402
@@ -55,12 +54,11 @@ MAX_FILES, MAX_BYTES = 4_000, 180_000_000
 EXPECTED_COUNTS = tiers.COUNTS
 SPANISH_WORDS = re.compile(r"\b(el|los|las|del|con|para|puesto|aguante|daño|ficha|partidas?|repeticiones|cuántos)\b", re.I)
 LANGS = ("", "en/")
-# S+A rates from build/catalog.py on the current ranking (3b6585e). Paldea was already 17.4.
-EXPECTED_GACHA = {"Paldea": 17.4, "Alola": 15.7, "Galar": 12.6, "Sinnoh": 15.9, "Kanto": 8.6, "Teselia": 14.2,
-                  "Johto": 13.0, "Kalos": 8.6, "Hoenn": 8.1}
+# S+A rates from build/catalog.py on the phase-3 ranking.
+EXPECTED_GACHA = {"Kanto": 2.6, "Johto": 10.0, "Hoenn": 11.1, "Sinnoh": 14.0, "Teselia": 18.4, "Kalos": 15.7,
+                  "Alola": 16.9, "Galar": 11.5, "Paldea": 16.3}
 
 
-CARD_IDS = {"atk", "spd", "hp", "cd", "def", "rgn", "mag", "xp"}
 
 class Page(HTMLParser):
     def __init__(self) -> None:
@@ -356,8 +354,8 @@ def wait_js(page, js: str, timeout_ms: int) -> None:
 
 
 def browser_check(base: str, index: list[dict], args, err, notes: list[str]) -> None:
-    """Dibuja la ficha de cada Pokémon en un navegador de verdad: 4 gráficos con texto alternativo, el sprite cargado,
-    el nombre correcto y ningún error de consola. También prueba que un enlace viejo acaba en la ficha."""
+    """Dibuja la ficha de cada Pokémon en un navegador de verdad: las dos builds, por qué, supervivencia y stats, el
+    sprite cargado, el nombre correcto y ningún error de consola. También prueba que un enlace viejo acaba en la ficha."""
     if sync_playwright is None:
         notes.append("fichas en el navegador: omitido (pip install playwright)")
         return
@@ -365,10 +363,7 @@ def browser_check(base: str, index: list[dict], args, err, notes: list[str]) -> 
     dexes = sorted(by_dex)
     rng = random.Random(7)
     sample = dexes if args.all_species else sorted(set(rng.sample(dexes, min(args.species, len(dexes)))) | {dexes[0], dexes[-1]} | ({94, 354} & set(dexes)))
-    with (ROOT / "data" / "builds.csv").open(encoding="utf8", newline="") as f:
-        build_kinds: dict[int, set[str]] = {}
-        for row in csv.DictReader(f):
-            build_kinds.setdefault(int(row["dex"]), set()).add(row["build"])
+    pairs = json.loads(fetch(base + "data/species.json")[1])["builds"]
     drawn = 0
     with sync_playwright() as pw:
         browser = launch_chromium(pw)
@@ -389,75 +384,51 @@ def browser_check(base: str, index: list[dict], args, err, notes: list[str]) -> 
                 page.goto(f"{base}{lang}pokemon/?id={d}", wait_until="domcontentloaded")
                 try:
                     page.wait_for_url(re.compile(rf"/pokemon/{d}-[^/?#]+/?$"), timeout=15000)
-                    wait_js(page, "() => document.querySelectorAll('figure.fig').length === 5", 15000)
+                    wait_js(page, "() => document.querySelectorAll('#build .bd-opt').length === 2", 15000)
                     wait_js(page, "() => { const i = document.querySelector('.ficha-sprite img'); return !!i && i.complete; }", 15000)
                 except (Error, TimeoutError):
                     err(f"{lang}pokemon/?id={d}: la ficha no se dibuja")
                     continue
                 info = page.evaluate("""() => ({
-                    alts: [...document.querySelectorAll('.fig-body[role=img]')].map(e => (e.getAttribute('aria-label') || '').length),
                     h1: document.querySelector('h1').firstChild.textContent.trim(),
                     img: document.querySelector('.ficha-sprite img').naturalWidth,
                     src: document.querySelector('.ficha-sprite img').src,
-                    build: { starts: [...document.querySelectorAll('#build .bd-opt')].map(o => [...o.querySelectorAll('.bd-row')].map(r => r.classList.contains('is-start'))),
-                             pills: document.querySelectorAll('#build .bd-opt .bd-pill.is-gold').length,
-                             defaultNotes: document.querySelectorAll('#build p.bd-default').length,
-                             options: document.querySelectorAll('#build .bd-opt').length,
-                             single: document.querySelectorAll('#build .bd-pair.is-single').length,
-                             empties: [...document.querySelectorAll('#build .bd-pair > *')].filter(e => e.getBoundingClientRect().height < 40).length,
-                             best: document.querySelectorAll('#build .bd-opt.is-best').length,
-                             rows: [...document.querySelectorAll('#build .bd-opt .bd-rows')].map(u => u.children.length),
-                             stats: document.querySelectorAll('#build .bd-opt .bd-stats dd').length,
-                             notes: document.querySelectorAll('#build .bd-opt[data-build=melee] .bd-note').length,
-                             cards: [...document.querySelectorAll('#build .bd-opt .bd-cardlist')].map(o => [...o.querySelectorAll('.bd-n')].map(n => n.textContent.trim())),
-                             items: document.querySelectorAll('#build .bd-gear .bd-row').length,
-                             icons: [...document.querySelectorAll('#build .bd-gear .bd-ico img')].every(i => i.complete && i.naturalWidth > 0),
-                             expands: document.querySelectorAll('#build details').length,
-                             title: (document.querySelector('#build h2') || {}).textContent,
-                             overflow: [...document.querySelectorAll('#build, #build *')].some(e => e.getBoundingClientRect().right > innerWidth + 1) },
-                    buildKinds: [...document.querySelectorAll('#build .bd-opt')].map(e => e.dataset.build),
+                    kinds: [...document.querySelectorAll('#build .bd-opt')].map(e => e.dataset.build),
+                    best: [...document.querySelectorAll('#build .bd-opt.is-best')].map(e => e.dataset.build),
+                    starts: [...document.querySelectorAll('#build .bd-opt')].map(o => [...o.querySelectorAll('.bd-row')].map(r => r.classList.contains('is-start'))),
+                    stats: document.querySelectorAll('#build .bd-opt .bd-stats dd').length,
+                    why: document.querySelectorAll('#porque .why-row, #porque .why-flat').length,
+                    surv: !!document.querySelector('#supervivencia .surv-big'),
+                    statRows: document.querySelectorAll('#stats li').length,
+                    overflow: [...document.querySelectorAll('#ficha, #ficha *')].some(e => e.getBoundingClientRect().right > innerWidth + 1),
                     base: new URL(document.documentElement.dataset.sprites, location.href).href,
                     ext: document.documentElement.dataset.spritesExt || '.png' })""")
                 want = by_dex[d]["nameEn" if en else "name"]
                 if info["h1"] != want:
                     err(f"{lang}pokemon/?id={d}: el título es {info['h1']!r} y debería ser {want!r}")
-                if len(info["alts"]) != 5 or min(info["alts"]) < 20:
-                    err(f"{lang}pokemon/?id={d}: {len(info['alts'])} gráficos con texto alternativo (se esperaban 5 de 20+ letras)")
-                b = info["build"]
-                want_cards = [str(i) for i in range(1, 9)]
-                kinds = build_kinds.get(d, set())
-                if b["title"] != "Build" or b["best"] > 1 or sorted(info["buildKinds"]) != sorted(kinds) \
-                        or b["options"] != len(kinds) or len(b["rows"]) != len(kinds):
-                    err(f"{lang}pokemon/?id={d}: la sección Build no tiene las builds de sus datos {sorted(kinds)} ({b})")
-                if b["single"] != (1 if len(kinds) == 1 else 0) or b["empties"]:
-                    err(f"{lang}pokemon/?id={d}: la rejilla de builds deja titulo, columna o hueco vacío ({b})")
-                if b["defaultNotes"] != 1 or b["pills"] != len(kinds) or any(r[:1] != [True] or any(r[1:]) for r in b["starts"]):
-                    err(f"{lang}pokemon/?id={d}: cada build debe llevar solo su primer ataque marcado como el de empezar, y una sola nota de serie ({b})")
-                if any(not 2 <= n <= 4 for n in b["rows"]) or b["stats"] != 4 * len(b["rows"]):
-                    err(f"{lang}pokemon/?id={d}: una build sin 2 a 4 ataques o sin sus cuatro cifras ({b})")
-                if any(c != want_cards for c in b["cards"]) or len(b["cards"]) != len(b["rows"]):
-                    err(f"{lang}pokemon/?id={d}: las cartas por prioridad no salen 1 a 8 en cada build ({b['cards']})")
-                if b["notes"] != (1 if "melee" in info["buildKinds"] else 0):
-                    err(f"{lang}pokemon/?id={d}: la nota de cuerpo a cuerpo no aparece o sobra ({b['notes']})")
-                if b["items"] != 3 or not b["icons"]:
-                    err(f"{lang}pokemon/?id={d}: los objetos de la Build no salen o no cargan sus iconos ({b})")
-                if b["expands"]:
-                    err(f"{lang}pokemon/?id={d}: la sección Build sigue con desplegables ({b['expands']})")
-                if b["overflow"]:
-                    err(f"{lang}pokemon/?id={d}: la sección Build se desborda en 390 px de ancho")
+                pair = pairs.get(str(d), {})
+                if info["kinds"][:1] != [pair.get("best")] or sorted(info["kinds"]) != ["melee", "ranged"] \
+                        or info["best"] != [pair.get("best")]:
+                    err(f"{lang}pokemon/?id={d}: las builds no son las dos de species.json con la mejor primero ({info})")
+                if any(r[:1] != [True] or any(r[1:]) or not 2 <= len(r) <= 4 for r in info["starts"]) or info["stats"] != 8:
+                    err(f"{lang}pokemon/?id={d}: cada build debe tener 2 a 4 ataques, el primero marcado, y sus cuatro cifras ({info})")
+                if not info["why"] or not info["surv"] or not info["statRows"]:
+                    err(f"{lang}pokemon/?id={d}: faltan por qué, supervivencia o stats ({info})")
+                if info["overflow"]:
+                    err(f"{lang}pokemon/?id={d}: la ficha se desborda en 390 px de ancho")
                 if info["src"] != f"{info['base']}{d}{info['ext']}" or info["img"] == 0:
                     err(f"{lang}pokemon/?id={d}: el sprite no carga ({info['src']})")
                 if problems:
                     err(f"{lang}pokemon/?id={d}: errores en el navegador: {problems[:2]}")
                 drawn += 1
             page.goto(f"{base}{lang}pokemon/?id=99999")
-            page.wait_for_selector("#ficha h1", timeout=8000)
-            if page.locator("figure.fig").count():
+            page.wait_for_selector("h1", timeout=8000)
+            if page.locator("#build").count():
                 err(f"{lang}pokemon/?id=99999 debería decir que no existe")
             page.goto(f"{base}{lang}pokemon/25.html", wait_until="domcontentloaded")
             try:
                 page.wait_for_url(re.compile(r"/pokemon/25-pikachu/?$"), timeout=15000)
-                wait_js(page, "() => document.querySelectorAll('figure.fig').length === 5", 15000)
+                wait_js(page, "() => document.querySelectorAll('#build .bd-opt').length === 2", 15000)
             except (Error, TimeoutError):
                 err(f"{lang}pokemon/25.html no acaba en la ficha de Pikachu")
             else:
@@ -467,7 +438,7 @@ def browser_check(base: str, index: list[dict], args, err, notes: list[str]) -> 
     notes.append(f"fichas dibujadas en el navegador: {drawn} de {2 * len(dexes)}")
 
 
-THEME_LIGHT, THEME_DARK = "#f6f0dc", "#1b1528"
+THEME_LIGHT, THEME_DARK = theme.THEME_COLOR["light"], theme.THEME_COLOR["dark"]
 PNG_OK = ("og.png", "apple-touch-icon.png")
 THEME_PAGES = ("", "novedades.html", "coleccion.html", "pokemon/25-pikachu/", "metodo.html", "ataques.html", "pasivas.html", "en/", "en/novedades.html", "en/pokemon/25-pikachu/", "en/coleccion.html", "en/pasivas.html")
 THEME_STATE_JS = """() => ({
@@ -541,15 +512,6 @@ def theme_check(base: str, err, notes: list[str]) -> None:
             expect(page, "coleccion (el sistema pasa a claro)", None, THEME_LIGHT)
             ctx.close()
 
-            ctx = browser.new_context(viewport={"width": 1280, "height": 860}, color_scheme="light")
-            page = ctx.new_page()
-            watch(page)
-            page.goto(base + "metodo.html")
-            page.wait_for_selector("[data-arena] canvas", state="attached", timeout=8000)
-            page.click("#theme")
-            page.wait_for_timeout(150)
-            page.click("#theme")
-            ctx.close()
         except (Error, TimeoutError) as e:
             err(f"comprobación de tema: {str(e).splitlines()[0]}")
         browser.close()
@@ -609,87 +571,34 @@ def main() -> int:
     if missing_files:
         err(f"faltan en sprites/: {missing_files[:10]}")
     try:
-        species = json.loads(fetch(base + "data/species.json")[1])["d"]
+        pairs = json.loads(fetch(base + "data/species.json")[1])["builds"]
         moves = json.loads(fetch(base + "data/moves.json")[1])
         unranked = json.loads(fetch(base + "data/moves_unranked.json")[1])
     except (ValueError, KeyError):
         err("data/species.json, data/moves.json o data/moves_unranked.json no se pueden leer")
-        species, moves, unranked = {}, [], []
+        pairs, moves, unranked = {}, [], []
     move_ids = {m["id"] for m in moves} | {m["id"] for m in unranked}
-    # The bonded attacks are the simulated best move, unless the fixed-group search
-    # (simulator/results/fixed_group/group_search.csv) picked a longer-lasting group.
-    search_picks = combos._search_picks()
-
-    def group_matches(dex: int, entry: list) -> bool:
-        n_boost = entry[9][5]
-        attacks = entry[9][2][: len(entry[9][2]) - n_boost]
-        picked = search_picks.get(dex)
-        if picked is None:
-            return bool(attacks) and attacks[0] == entry[4]
-        return attacks == picked[0]
-
+    # species.json: las dos builds de la fase 3 (build/species_builds.py) y cuál puntúa más
     for d in dexes:
-        e = species.get(str(d))
-        ok = (isinstance(e, list) and len(e) == 12 and len(e[0]) == 4 and all(0 <= v <= 1 for v in e[0])
-              and len(e[1]) == 5 and all(isinstance(v, int) and 1 <= v <= 966 for v in e[1])
-              and e[2] in move_ids and e[4] in move_ids and e[3] > 0 and e[5] > 0
-              and all(m in move_ids for m in e[6]) and isinstance(e[7], int) and 0 <= e[7] <= 15
-              and len(e[8]) == 6 and all(isinstance(v, int) and 1 <= v <= 255 for v in e[8])
-              # build: % super efectivo, % no resistido, 2-4 ids de movimientos, tipos, 0-3 opcionales y nº de
-              # potenciadores (build/combos.py)
-              and len(e[9]) == 6 and e[9][5] in (0, 1, 2) and all(isinstance(v, int) and 0 <= v <= 100 for v in e[9][:2])
-              and 2 <= len(e[9][2]) <= 4 and all(m in move_ids for m in e[9][2]) and e[9][3] in (1, 2, 3)
-              and len(e[9][4]) <= 3 and all(m in move_ids for m in e[9][4])
-              and not set(e[9][4]) & set(e[9][2]) and group_matches(d, e)
-              # cartas por prioridad (build/passives.py): las 8 ids, de mejor a peor, y la que evoluciona el ataque o null
-              and len(e[10]) == 2 and sorted(e[10][0]) == sorted(CARD_IDS)
-              and (e[10][1] is None or e[10][1] in CARD_IDS)
-              and isinstance(e[11], (int, float)) and e[11] > 0)
+        pair = pairs.get(str(d))
+        ok = isinstance(pair, dict) and pair.get("best") in ("melee", "ranged") and all(
+            isinstance(pair.get(k), dict) and 2 <= len(pair[k]["moves"]) <= 4 and all(m in move_ids for m in pair[k]["moves"])
+            and len(set(pair[k]["moves"])) == len(pair[k]["moves"]) and pair[k]["nBoost"] in (0, 1, 2)
+            and pair[k]["time"] > 0 and pair[k]["lo"] <= pair[k]["score"] <= pair[k]["hi"]
+            for k in ("melee", "ranged"))
+        if ok and pair["melee"]["score"] != pair["ranged"]["score"]:
+            ok = pair[pair["best"]]["score"] == max(pair["melee"]["score"], pair["ranged"]["score"])
         if not ok:
-            err(f"data/species.json: datos incompletos o raros para el Pokémon {d}")
+            err(f"data/species.json: builds incompletas o raras para el Pokémon {d}")
 
-    # side: phys / spec / mix según los ataques del grupo que enseña la ficha, no según v.ak (pa/sa).
-    damage_of = {m["id"]: m.get("damage") for m in moves}
-    side_of = {"physical": "phys", "special": "spec"}
-    if damage_of and species:
-        for p in index:
-            side = p.get("side")
-            ak = p.get("v", {}).get("ak")
-            if side not in ("phys", "spec", "mix"):
-                err(f"pokemon-index {p['dex']}: side {side!r}")
-                continue
-            if ak not in ("phys", "spec", "mix"):
-                err(f"pokemon-index {p['dex']}: falta v.ak")
-            entry = species.get(str(p["dex"]))
-            if not isinstance(entry, list) or len(entry) < 10 or not isinstance(entry[9], list) or len(entry[9]) < 6:
-                continue
-            n_boost = entry[9][5]
-            ids = entry[9][2]
-            attacks = ids[:len(ids) - n_boost] if isinstance(n_boost, int) and isinstance(ids, list) else []
-            classes = {side_of.get(damage_of.get(m)) for m in attacks}
-            if classes == {"phys"}:
-                want = "phys"
-            elif classes == {"spec"}:
-                want = "spec"
-            elif classes == {"phys", "spec"}:
-                want = "mix"
-            else:
-                want = None
-            if side != want:
-                err(f"pokemon-index {p['dex']}: side {side} no sale de los ataques del grupo {attacks} ({classes})")
-
-    # resúmenes de la ficha (build/summary_pipeline.py): uno por Pokémon e idioma, 2-3 frases, salvo los marcados
-    flagged = set(json.loads((ROOT / "data" / "summaries.json").read_text(encoding="utf8")).get("flagged", {}))
-    for lang in ("es", "en"):
-        try:
-            texts = json.loads(fetch(base + f"data/summaries-{lang}.json")[1])
-        except ValueError:
-            err(f"data/summaries-{lang}.json no se puede leer")
+    # side: phys / spec / mix según los ataques de la mejor build
+    side_of = {"physical": "phys", "special": "spec", "mixed": "mix"}
+    for p in index:
+        pair = pairs.get(str(p["dex"]))
+        if not isinstance(pair, dict) or pair.get("best") not in pair:
             continue
-        bad = [d for d in dexes if str(d) not in flagged and
-               (not isinstance(texts.get(str(d)), str) or not 2 <= texts[str(d)].count(". ") + 1 <= 3)]
-        if bad or len(texts) + len(flagged) != 966:
-            err(f"data/summaries-{lang}.json: {len(texts)} resúmenes; faltan o están mal {bad[:10]}")
+        if p.get("side") != side_of.get(pair[pair["best"]]["mix"]):
+            err(f"pokemon-index {p['dex']}: side {p.get('side')} no sale de la mejor build ({pair[pair['best']]['mix']})")
 
     # rastreo
     start = [f"{base}{lang}{p}" for lang in LANGS
@@ -846,15 +755,12 @@ def main() -> int:
             err(f"{lang or 'es'}: la tier list no enlaza a las 966 fichas "
                 f"(faltan {sorted(set(dexes) - ficha_ids[lang])[:5]}, sobran {sorted(ficha_ids[lang] - set(dexes))[:5]})")
         tpl = body_by_url.get(f"{base}{lang}pokemon/", "")
-        if not (tpl.count('id="ficha"') == 1 and 'id="i18n"' in tpl and 'id="tpl-types"' in tpl
-                and 'id="tpl-regions"' in tpl and 'id="slugs"' in tpl):
+        if not (tpl.count('id="ficha"') == 1 and 'id="slugs"' in tpl):
             err(f"{lang}pokemon/: falta algo de la plantilla de ficha")
         if f'<link rel="canonical" href="{legal.SITE_URL}/{lang}">' not in tpl:
             err(f"{lang}pokemon/: la canónica de la plantilla debe ser la portada del idioma")
         if tpl.count('<ol class="slug-list">') != 1 or len(re.findall(r'<li><a href="[^"]*pokemon/\d+-', tpl)) != len(dexes):
             err(f"{lang}pokemon/: la plantilla no lista las {len(dexes)} fichas en HTML")
-        if len(re.findall(r'<span data-t="', tpl)) != 18 or len(re.findall(r'<span data-gen="', tpl)) != 9:
-            err(f"{lang}pokemon/: tipos o regiones incompletos en la plantilla")
     for lang, labels in (("", ("Todos", "Físico", "Especial", "Mixto")), ("en/", ("All", "Physical", "Special", "Mixed"))):
         home = body_by_url.get(f"{base}{lang}", "")
         if 'class="side-filter"' not in home or any(f">{label}<" not in home for label in labels):

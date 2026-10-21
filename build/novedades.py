@@ -16,9 +16,9 @@ GAME_REPO = "https://github.com/JPTER78/pokesurvivor"
 BANNER_KEY = "survivortiers.novedades.20261019b"
 
 LEDE = (
-    "Dos actualizaciones seguidas: la del 18 de octubre de 2026 (físico y especial) y la del 19 (38 ataques nuevos). "
+    "El 21 de octubre cambiamos cómo se hace el ranking. Antes, dos actualizaciones del juego seguidas: la del 18 de octubre de 2026 (físico y especial) y la del 19 (38 ataques nuevos). "
     "El ranking se recalcula con las dos: los puestos de antes ya no valen.",
-    "Two updates in a row: October 18, 2026 (physical and special) and October 19 (38 new moves). "
+    "On October 21 we changed how the ranking is made. Before that, two game updates in a row: October 18, 2026 (physical and special) and October 19 (38 new moves). "
     "The ranking is recalculated with both: the old positions no longer count.",
 )
 
@@ -115,7 +115,29 @@ SECTIONS_19 = [
     },
 ]
 
-SECTIONS = SECTIONS_19 + [
+# Cambio del sitio, no del juego: el método del ranking (build/attack_tiers.py, bond_tiers.py, species_builds.py).
+SECTIONS_SITE = [
+    {
+        "id": "metodo-nuevo",
+        "h": ("21 oct 2026: hemos mejorado el ranking", "Oct 21, 2026: we improved the ranking"),
+        "body": [
+            ("Ahora todo sale de simular partidas, en tres fases: cada ataque solo, luego grupos de cuatro ataques, y luego "
+             "los grupos de cada Pokémon con los ataques que puede aprender. Cada uno se ordena por su mejor build. Ya no "
+             "hay reglas escritas a mano, y muchos puestos han cambiado.",
+             "Everything now comes from simulated runs, in three phases: each move alone, then four-move groups, then each "
+             "Pokémon's groups with the moves it can learn. Each one is ranked by its best build. There are no hand-written "
+             "rules any more, and many ranks have changed."),
+            ("Cada ficha dice por qué está en su puesto, cuánto aguanta y sus dos builds con el tier de cada ataque. Las "
+             "recomendaciones de cartas y objetos se han quitado: la simulación no los prueba, así que Objetos y Pasivas "
+             "solo enseñan lo que dice el código del juego.",
+             "Each page says why it holds its rank, how long it survives and its two builds with each move's tier. Card "
+             "and item recommendations are gone: the simulation does not test them, so Items and Passives only show what "
+             "the game code says."),
+        ],
+    },
+]
+
+SECTIONS = SECTIONS_SITE + SECTIONS_19 + [
     {
         "id": "ranking",
         "h": ("El ranking se rehizo", "The ranking was rebuilt"),

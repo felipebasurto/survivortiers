@@ -1,4 +1,4 @@
-"""Fichas estáticas: slug, probabilidad de tirada y una página de Mewtwo ya generada.
+"""Fichas estáticas: slug, probabilidad de tirada, el porqué y una página de Mewtwo ya generada.
 
     python3 -m unittest build/test_static_ficha.py
 
@@ -18,8 +18,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "build"))
 
-import sitefixture  # noqa: E402
+import agents  # noqa: E402
+import landing  # noqa: E402
 import legal  # noqa: E402
+import sitefixture  # noqa: E402
 import static_ficha  # noqa: E402
 import toolpages  # noqa: E402
 from i18n import EN, ES  # noqa: E402
@@ -83,70 +85,73 @@ class StaticMewtwo(unittest.TestCase):
     def setUpClass(cls) -> None:
         sitefixture.ensure_site()
 
-    def test_ficha_has_no_repertorio_note(self) -> None:
-        for page in (SITE / "pokemon" / "150-mewtwo" / "index.html", SITE / "en" / "pokemon" / "150-mewtwo" / "index.html"):
-            html = page.read_text(encoding="utf8")
-            self.assertNotIn("rep-note", html, page)
-            self.assertNotIn("rep-warn", html, page)
-        for source in ("ficha.js", "style.css"):
-            self.assertNotIn("rep-warn", (ROOT / "src" / source).read_text(encoding="utf8"), source)
-
-    def test_sample_page_has_tier_rank_and_title_without_js(self) -> None:
+    def test_sample_page_has_rank_why_survival_builds_and_stats_without_js(self) -> None:
         es_path = SITE / "pokemon" / "150-mewtwo" / "index.html"
         en_path = SITE / "en" / "pokemon" / "150-mewtwo" / "index.html"
         self.assertTrue(es_path.is_file(), "falta la ficha estática: python3 build/render.py")
         es, en = es_path.read_text(encoding="utf8"), en_path.read_text(encoding="utf8")
-        rows = list(csv.DictReader(
-            (line for line in (ROOT / "data" / "ranking_definitive.csv").read_text(encoding="utf8").splitlines()
-             if not line.startswith("#"))))
-        row = next(r for r in rows if r["dex"] == "150")
-        stats = json.loads((ROOT / "data" / "base_stats.json").read_text(encoding="utf8"))["150"]
-        species = json.loads((SITE / "data" / "species.json").read_text(encoding="utf8"))
+        row = next(r for r in csv.DictReader((SITE / "data" / "ranking.csv").read_text(encoding="utf8").splitlines())
+                   if r["dex"] == "150")
+        pair = json.loads((SITE / "data" / "species.json").read_text(encoding="utf8"))["builds"]["150"]
         moves = {m["id"]: m for m in json.loads((SITE / "data" / "moves.json").read_text(encoding="utf8"))}
         moves.update({m["id"]: m for m in json.loads((SITE / "data" / "moves_unranked.json").read_text(encoding="utf8"))})
-        ids, n_boost = species["d"]["150"][9][2], species["d"]["150"][9][5]
         game = legal.GAME_NAME
         self.assertIn(f"<title>Mewtwo en {game}: tier {row['tier']}, mejor build y ataques | SurvivorTiers</title>", es)
         self.assertIn(f"<title>Mewtwo in {game}: {row['tier']} tier, best build and moves | SurvivorTiers</title>", en)
-        for html, rank_word in ((es, "puesto"), (en, "rank")):
+        best = pair[pair["best"]]
+        self.assertEqual(row["build"], pair["best"])
+        for html, why in ((es, "Por qué está en el puesto"), (en, "Why it ranks")):
             self.assertRegex(html, r"<h1>Mewtwo <")
-            self.assertRegex(html, r'<img class="px"[^>]* alt="[^"]*Mewtwo[^"]*"')
             text = _visible(html)
-            self.assertIn(row["tier"], text)
-            self.assertIn(row["rank"], text)
-            self.assertIn(row["rank_sim_best"], text)
-            self.assertIn(row["rank_sim_start"], text)
-            self.assertIn(rank_word, text.lower())
-            for n in stats:
-                self.assertIn(str(n), text)
-            self.assertNotIn("Esta página necesita JavaScript", html)
-            self.assertNotIn("This page needs JavaScript", html)
+            self.assertIn(f"{why} {row['rank']}", text)
+            self.assertIn(static_ficha.mmss(best["time"]), text)
+            self.assertIn(f'<section class="why" id="porque"', html)
+            self.assertIn(f'<section class="surv" id="supervivencia"', html)
+            self.assertIn(f'<section class="sheet stats" id="stats"', html)
+            self.assertEqual(html.count('class="bd-opt'), 2)
             self.assertNotIn(legal.UPDATED_COMMIT, text)
             self.assertIn("FAQPage", html)
             self.assertIn(f'rel="canonical" href="{legal.SITE_URL}/', html)
             self.assertIn('hreflang="es"', html)
             self.assertIn('hreflang="en"', html)
-            self.assertIn('property="og:title"', html)
-            self.assertIn("<h1>", html)
-        buffs = ids[-n_boost:] if n_boost else []
-        attacks = ids[:-n_boost] if n_boost else ids
-        es_text, en_text = _visible(es), _visible(en)
-        for mid in attacks + buffs:
-            self.assertIn(moves[mid]["name"], es_text)
-            self.assertIn(moves[mid]["en"]["name"], en_text)
-        self.assertIn(f"{legal.SITE_URL}/pokemon/150-mewtwo/", es)
-        self.assertIn(f"{legal.SITE_URL}/en/pokemon/150-mewtwo/", es)
+        for kind in ("melee", "ranged"):
+            for mid in pair[kind]["moves"]:
+                self.assertIn(moves[mid]["name"], _visible(es))
+                self.assertIn(moves[mid]["en"]["name"], _visible(en))
         shell = (SITE / "pokemon" / "index.html").read_text(encoding="utf8")
         self.assertIn('id="slugs"', shell)
-        self.assertNotIn("necesita JavaScript", _visible(shell))
         self.assertEqual(len(re.findall(r'<li><a href="[^"]*pokemon/\d+-', shell)), 966)
         self.assertIn(f'<link rel="canonical" href="{legal.SITE_URL}/">', shell)
         sitemap = (SITE / "sitemap.xml").read_text(encoding="utf8")
-        self.assertEqual(sitemap.count("<url>"), (8 + 966 + 22 + len(toolpages.FOLDERS) + 1) * 2)
-        self.assertIn("/pokemon/150-mewtwo/", sitemap)
+        pages = len(agents.PAGES) + 966 + len(landing.pages()) + len(toolpages.FOLDERS)
+        self.assertEqual(sitemap.count("<url>"), pages * 2)
         self.assertIn("/en/pokemon/150-mewtwo/", sitemap)
-        robots = (SITE / "robots.txt").read_text(encoding="utf8")
-        self.assertIn(f"Sitemap: {legal.SITE_URL}/sitemap.xml", robots)
+
+    def test_no_cards_or_items_are_recommended(self) -> None:
+        for rel in ("pokemon/150-mewtwo/index.html", "en/pokemon/150-mewtwo/index.html"):
+            text = _visible((SITE / rel).read_text(encoding="utf8"))
+            self.assertNotRegex(text, r"(?i)cartas por prioridad|cards by priority|objeto recomendado|recommended item")
+
+
+class WhyRows(unittest.TestCase):
+    """Qué factores nombra la ficha: los que más suman y restan, según la mitad del ranking."""
+
+    def _entry(self, rank: int, effects: list[float]) -> dict:
+        return {"r": {"rank": rank}, "why": [{"f": f"f{i}", "effect": e} for i, e in enumerate(effects)]}
+
+    def test_top_half_names_two_ups_and_one_down(self) -> None:
+        rows = static_ficha.why_rows(self._entry(10, [0.2, 0.1, 0.05, -0.03, -0.08]))
+        self.assertEqual([w["effect"] for w in rows], [0.2, 0.1, -0.08])
+
+    def test_bottom_half_names_one_up_and_two_downs(self) -> None:
+        rows = static_ficha.why_rows(self._entry(900, [0.2, 0.1, -0.03, -0.08]))
+        self.assertEqual([w["effect"] for w in rows], [0.2, -0.08, -0.03])
+
+    def test_small_effects_are_left_out_and_others_fill_the_gap(self) -> None:
+        rows = static_ficha.why_rows(self._entry(10, [0.2, 0.01, -0.005, 0.03]))
+        self.assertEqual([w["effect"] for w in rows], [0.2, 0.03])
+        self.assertEqual(static_ficha.why_rows(self._entry(900, [0.3, 0.2, 0.1])), [
+            {"f": "f0", "effect": 0.3}, {"f": "f1", "effect": 0.2}, {"f": "f2", "effect": 0.1}])
 
 
 def _faq_pairs(page: str) -> list[tuple[str, str]]:
@@ -168,15 +173,14 @@ class FaqCopy(unittest.TestCase):
             page = (SITE / rel).read_text(encoding="utf8")
             ld = json.loads(re.search(r'<script type="application/ld\+json">(.*?)</script>', page, re.S).group(1))
             pairs = _faq_pairs(page)
-            self.assertEqual(len(pairs), 4, rel)
+            self.assertEqual(len(pairs), 3, rel)
             self.assertEqual(pairs, [(e["name"], e["acceptedAnswer"]["text"]) for e in ld["mainEntity"]], rel)
 
     def test_mewtwo_questions_are_the_player_ones(self) -> None:
         es = [q for q, _ in _faq_pairs((SITE / "pokemon" / "150-mewtwo" / "index.html").read_text(encoding="utf8"))]
         en = [q for q, _ in _faq_pairs((SITE / "en" / "pokemon" / "150-mewtwo" / "index.html").read_text(encoding="utf8"))]
-        self.assertEqual(es, ["¿Vale la pena?", "¿Qué ataques le pongo?", "¿Qué cartas le conviene coger?", "¿Cómo se consigue?"])
-        self.assertEqual(en, ["Is it worth it?", "Which moves should I use?", "Which upgrade cards should I take?",
-                              "How do you get it?"])
+        self.assertEqual(es, ["¿Vale la pena?", "¿Qué ataques le pongo?", "¿Cómo se consigue?"])
+        self.assertEqual(en, ["Is it worth it?", "Which moves should I use?", "How do you get it?"])
 
     def test_faq_answers_do_not_repeat_the_name(self) -> None:
         for rel in ("pokemon/150-mewtwo/index.html", "en/pokemon/150-mewtwo/index.html"):
@@ -195,19 +199,14 @@ class FaqCopy(unittest.TestCase):
         self.assertEqual(static_ficha._join(ES, []), "")
 
     def test_faq_branches(self) -> None:
-        cards = "Según nuestra simulación, en este orden: Imán una vez y después Vigor."
-        plain = static_ficha._faqs(ES, "A", 87, "Cuerpo a cuerpo: Psíquico y Vozarrón.", cards, "Kanto", False, "0,25", 400)
-        self.assertEqual(plain[1][1], "Cuerpo a cuerpo: Psíquico y Vozarrón.")
-        self.assertEqual(plain[0][1], "Sí, está entre los buenos: tier A, puesto 87 de 966.")
-        self.assertEqual(plain[-1][1], "Sale en el banner Kanto. Cada tirada tiene un 0,25\u00a0% de probabilidad, "
-                                       "así que de media hacen falta unas 400 tiradas, sin contar las garantías.")
-        one = static_ficha._faqs(ES, "B", 300, "A distancia: Vozarrón y Golpe Cuerpo, con Danza Espada.", "", "Galar",
-                                 True, "2", 51)
-        self.assertEqual([q for q, _ in one], ["¿Vale la pena?", "¿Qué ataques le pongo?", "¿Cómo se consigue?"])
-        self.assertTrue(one[-1][1].startswith("Es de los legendarios y sale en el banner Galar."))
-        en = static_ficha._faqs(EN, "D", 966, "Ranged: Hyper Voice, with Swords Dance.", "Based on our simulation, "
-                                "in this order: Reflexes.", "Galar", False, "2.0", 51)
-        self.assertEqual(en[1][1], "Ranged: Hyper Voice, with Swords Dance.")
+        plain = static_ficha._faqs(ES, "A", 87, "Cuerpo a cuerpo: Psíquico y Vozarrón.", "Kanto", False, "0,25", 400)
+        self.assertEqual([a for _, a in plain], [
+            "Sí, está entre los buenos: tier A, puesto 87 de 966.", "Cuerpo a cuerpo: Psíquico y Vozarrón.",
+            "Sale en el banner Kanto. Cada tirada tiene un 0,25\u00a0% de probabilidad, así que de media hacen falta "
+            "unas 400 tiradas, sin contar las garantías."])
+        leg = static_ficha._faqs(ES, "B", 300, "A distancia: Vozarrón.", "Galar", True, "2", 51)
+        self.assertTrue(leg[-1][1].startswith("Es de los legendarios y sale en el banner Galar."))
+        en = static_ficha._faqs(EN, "D", 966, "Ranged: Hyper Voice, with Swords Dance.", "Galar", False, "2.0", 51)
         self.assertEqual(en[-1][1], "It is on the Galar banner. Each pull has a 2.0% chance, so on average it takes "
                                     "about 51 pulls, not counting pity guarantees.")
 

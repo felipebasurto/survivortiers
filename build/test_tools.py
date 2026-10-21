@@ -23,7 +23,6 @@ import finder  # noqa: E402
 import gamestats  # noqa: E402
 import pasivas  # noqa: E402
 import planner  # noqa: E402
-import repertorio  # noqa: E402
 import slugs  # noqa: E402
 import toolpages  # noqa: E402
 from i18n import EN, ES  # noqa: E402
@@ -67,19 +66,22 @@ class ToolsDataTest(unittest.TestCase):
 
 
 class RecommendedBuildTest(unittest.TestCase):
-    def test_planner_keeps_the_published_group(self):
+    def test_planner_takes_the_best_published_build(self):
         if shutil.which("node") is None:
             self.skipTest("node no está instalado")
         script = r"""
 const assert = require('node:assert/strict');
 const tools = require('./src/tools.js');
-function rec(dex, ids, nBoost) {
-  const species = { items: [], d: {} };
-  species.d[String(dex)] = [0, 0, 0, 0, 0, 0, 0, 0, 0, [0, 0, ids, 0, 0, nBoost], [['pow', 'run', 'hp', 'cor'], null]];
+function rec(dex, best, melee, ranged) {
+  const species = { builds: {} };
+  species.builds[String(dex)] = { best, melee: { moves: melee }, ranged: { moves: ranged } };
   return tools.recommended(dex, species);
 }
-assert.deepEqual(rec(94, ['shadow-ball', 'lick', 'swords-dance', 'harden'], 2).group, ['shadow-ball', 'lick', 'swords-dance', 'harden']);
-assert.deepEqual(rec(95, ['lick', 'shadow-ball', 'hex', 'agility'], 1).group, ['lick', 'shadow-ball', 'hex', 'agility']);
+const melee = ['lick', 'shadow-ball', 'swords-dance', 'harden'];
+const ranged = ['shadow-ball', 'hex', 'nasty-plot', 'agility'];
+assert.deepEqual(rec(94, 'melee', melee, ranged).group, melee);
+assert.deepEqual(rec(94, 'ranged', melee, ranged).group, ranged);
+assert.deepEqual(tools.recommended(1, { builds: {} }).group, [null, null, null, null]);
 """
         res = subprocess.run(["node", "-e", script], capture_output=True, text=True, cwd=ROOT)
         self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
@@ -116,15 +118,6 @@ class ToolsHtmlTest(unittest.TestCase):
     def setUpClass(cls) -> None:
         sitefixture.ensure_site(need_site=False)
 
-    def test_repertorio_note_in_both_languages(self):
-        for L, text in ((ES, "Repertorio te da un segundo ataque al azar y no se puede deshacer."),
-                        (EN, "Repertoire gives you a random second attack and can't be undone.")):
-            html = repertorio.note(L)
-            self.assertTrue(html.startswith('<p class="rep-note"><svg class="rep-ico"'), html)
-            self.assertIn(text, html)
-            self.assertNotIn("<li>", html)
-            self.assertNotIn("rep-warn", html)
-
     def test_boost_table_uses_game_values(self):
         html = pasivas._boosts(ES, "../")
         self.assertIn('id="potenciadores"', html)
@@ -148,7 +141,7 @@ class ToolsHtmlTest(unittest.TestCase):
 
     def test_planner_page_has_targets_for_script(self):
         html = planner.content(EN)
-        for hook in ('id="bp-app"', 'id="bp-q"', 'id="bp-slots"', 'id="bp-item"', 'id="bp-cards"', 'id="bp-warn"',
+        for hook in ('id="bp-app"', 'id="bp-q"', 'id="bp-slots"', 'id="bp-warn"',
                      'id="bp-result"', 'id="bp-boostcount"', 'id="bp-list"'):
             self.assertIn(hook, html)
         self.assertIn('id="bp-app" hidden', html)

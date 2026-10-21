@@ -9,7 +9,7 @@ import hashlib
 from pathlib import Path
 
 STORAGE_KEY = "survivortiers.tema"
-THEME_COLOR = {"light": "#f6f0dc", "dark": "#1b1528"}  # --bg de cada tema, para la barra del navegador en móvil
+THEME_COLOR = {"light": "#eef4ff", "dark": "#14265a"}  # --bg de cada tema, para la barra del navegador en móvil
 INIT_JS = (
     "(function(){var h=document.documentElement,t=null;"
     f"try{{t=localStorage.getItem('{STORAGE_KEY}')}}catch(e){{}}"

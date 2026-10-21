@@ -1,4 +1,6 @@
-"""Genera build/out/ (datos intermedios y public/ con los JSON que usa el navegador) a partir de data/ (ranking definitivo, pokedex_export.json, créditos, movimientos).
+"""Genera build/out/ (datos intermedios y public/ con los JSON que usa el navegador) a partir de data/: el ranking y las
+builds de la fase 3, el porqué de cada puesto (build/why.py), la tier list de ataques de la fase 1, los datos del juego,
+los créditos y los sprites.
 
     python3 build/catalog.py
 
@@ -10,6 +12,7 @@ from __future__ import annotations
 import csv
 import json
 import os
+import re
 import shutil
 import statistics
 import struct
@@ -20,33 +23,37 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-import builds  # noqa: E402
-import combos  # noqa: E402
-import passives  # noqa: E402
 import credits as credits_mod  # noqa: E402
 import game_moves  # noqa: E402
 import gamestats  # noqa: E402
 import legal  # noqa: E402
-import method_stats  # noqa: E402
-import objetos  # noqa: E402
-import summaries  # noqa: E402
 import tiers  # noqa: E402
-import summary_facts  # noqa: E402
 
 DATA = ROOT / "data"
 SPRITES = ROOT / "sprites"
 OUT = ROOT / "build" / "out"
 PUBLIC = OUT / "public"  # lo que render.py copia a site/data/
+V3 = ROOT / "simulator" / "v3" / "v3_data.json"
+RESULTS = ROOT / "simulator" / "results"
 
-RANKING_CSV = "ranking_definitive.csv"
-VERSION = "definitivo"
+RANKING_CSV = DATA / "ranking_fase3.csv"
+BUILDS_CSV = DATA / "species_builds.csv"
+WHY_CSV = DATA / "species_why.csv"
+ATTACKS_CSV = DATA / "attack_tiers.csv"
+BONDS_CSV = DATA / "bond_tiers.csv"
+VERSION = "fase3"
 TIER_CUTS = tiers.CUTS
 EXPECTED_COUNTS = tiers.COUNTS
 TOTAL = tiers.TOTAL
-# Simulación de grupo fijo que usa el ranking (make_definitive.py): la mediana de cada Pokémon sale de sus partidas.
-SIM_RANK = ROOT / "simulator" / "results" / "fixed_group" / "g2p2" / "rank_200.csv"
-PRESETS = ("Kyurem", "Keldeo", "Pikachu")  # ejemplos del deslizador de la página Método
-FIRM = 0.8  # un tier es «firme» si el Pokémon cae en él en al menos el 80 % de las repeticiones
+BUILD_KINDS = ("melee", "ranged")
+WHY_FACTORS = ("atk", "group", "hp", "df", "sd", "spd", "size", "types")
+
+# Partidas por grupo y referencia en cada ronda de las fases (build/attack_tiers.py SEEDS, bond_tiers.ROUNDS y
+# species_builds.ROUNDS). La fase 1 juega cada ataque en 6 referencias; la fase 2, cada grupo en 6.
+PHASE1_REFS, PHASE1_SEEDS = 6, 128
+PHASE2_REFS, PHASE2_SEEDS = 6, (2, 16, 64)
+PHASE3_SEEDS = (4, 32, 128)
+SIM_SECONDS = 900
 
 # gacha.js: probabilidades por tirada de 1★..5★ y orden de búsqueda del pool más cercano.
 RATES = [(1, 45.0), (2, 30.0), (3, 17.0), (4, 6.5), (5, 1.5)]
@@ -54,16 +61,10 @@ NEAR_ORDER = [0, -1, 1, -2, 2, -3, 3, -4, 4]
 BANNERS = {1: "Kanto", 2: "Johto", 3: "Hoenn", 4: "Sinnoh", 5: "Teselia", 6: "Kalos", 7: "Alola", 8: "Galar", 9: "Paldea"}
 EXPECTED_POOL = {1: 151, 2: 100, 3: 135, 4: 107, 5: 141, 6: 70, 7: 83, 8: 87, 9: 92}
 
-# Estructura numérica del método (simulador de Rust: stats.rs run_score; make_definitive.py: REPEATS, CUTS y qualifies).
-# Los textos de cada paso viven en build/i18n.py (claves met_*, pipe_*).
-METHOD = {
-    "score": {"dpsRef": 80, "kpmRef": 40, "capSeconds": 900},  # DPS_REF y KPM_REF de stats.rs; tope de la simulación
-    "repeats": 2000,
-}
-METHOD_KEYS = ("sheet", "simStart", "simBest", "lateMax", "lateFresh")
-# Combate del juego (js/data/pokedex.js @ 5a23d49, en data/pokedex_export.json; lo importa build/import_game_combat.py).
-# pa/sa: multiplicador del daño físico/especial; df/sd: Defensa y Defensa Especial base.
-COMBAT_KEYS = ("pa", "sa", "df", "sd")
+# Cartas de nivel del juego (js/systems/levelup.js STATS): la que evoluciona cada ataque (needs en v3_data.json).
+CARD_NAMES = {"hp": ("Vigor", "Vigor"), "atk": ("Potencia", "Power"), "spd": ("Carrera", "Sprint"),
+              "cd": ("Reflejos", "Reflexes"), "def": ("Coraza", "Armor"), "rgn": ("Síntesis", "Synthesis"),
+              "mag": ("Imán", "Magnet"), "xp": ("Aprendizaje", "Learning")}
 
 
 class CatalogError(RuntimeError):
@@ -73,6 +74,12 @@ class CatalogError(RuntimeError):
 def _read_csv(path: Path) -> list[dict]:
     with path.open(encoding="utf8", newline="") as f:
         return list(csv.DictReader(line for line in f if not line.startswith("#")))
+
+
+def _comment(path: Path) -> str:
+    with path.open(encoding="utf8") as f:
+        first = f.readline()
+    return first[1:].strip() if first.startswith("#") else ""
 
 
 def tier_of_rank(rank: int) -> str:
@@ -91,51 +98,47 @@ def png_size(path: Path) -> tuple[int, int]:
 
 
 def load_moves() -> list[dict]:
-    rows = _read_csv(DATA / "move_tierlist_v4.csv")
+    """La tier list de ataques de la fase 1 (data/attack_tiers.csv), con el icono, la mecánica y la evolución del juego."""
+    rows = _read_csv(ATTACKS_CSV)
     if not rows:
-        raise CatalogError("data/move_tierlist_v4.csv está vacío")
-    names_en = json.loads((DATA / "lang_en_moves.json").read_text(encoding="utf8"))
+        raise CatalogError("data/attack_tiers.csv está vacío")
     icons = json.loads((DATA / "move_icons.json").read_text(encoding="utf8"))  # node build/export_move_icons.js
     mechanics = json.loads((DATA / "move_mechanics.json").read_text(encoding="utf8"))  # node build/export_move_mechanics.js
-    def en(name: str | None, table: str) -> str | None:
-        if not name:
-            return None
-        if name not in names_en[table]:
-            raise CatalogError(f"sin nombre en inglés para {name!r}")
-        return names_en[table][name]
-
+    v3 = json.loads(V3.read_text(encoding="utf8"))["moves"]
     moves = []
     for r in rows:
-        move = {"id": r["move_id"], "name": r["name"], "category": r["category"], "tier": r["tier"],
-                "rank": int(r["rank"]), "type": r["type"], "kind": r["kind"],
-                "evolvesTo": r["evolves_to"] or None, "needsCard": r["needs_card"] or None,
-                "en": {"name": en(r["name"], "moves"), "evolvesTo": en(r["evolves_to"], "moves"),
-                       "needsCard": en(r["needs_card"], "cards")}}
-        # El valor de la tier list (score_rel): 1 es un movimiento normal, más es mejor. Es lo que ordena cada tier.
-        move["score"] = round(float(r["score_rel"]), 2)
-        if r["kind"] == "buff":
-            raise CatalogError(f"{r['move_id']}: la tier list solo lleva ataques (los potenciadores salen del juego)")
-        icon = icons.get(r["move_id"])
+        mid, game = r["move_id"], gamestats.move(r["move_id"])
+        if game["kind"] == "buff":
+            raise CatalogError(f"{mid}: la tier list solo lleva ataques (los potenciadores salen del juego)")
+        if game["cat"] != r["class"]:
+            raise CatalogError(f"{mid}: el juego dice {game['cat']}, la tier list {r['class']}")
+        evo, needs = game.get("evo"), v3[mid].get("needs")
+        move = {"id": mid, "name": r["name"], "category": r["class"], "tier": r["tier"], "rank": int(r["rank"]),
+                "type": r["type"], "kind": r["kind"],
+                # El valor de la tier list (score_rel): 1 es el ataque mediano de su categoría, más es mejor.
+                "score": round(float(r["score_rel"]), 2),
+                "evolvesTo": evo["name"] if evo else None, "needsCard": CARD_NAMES[needs][0] if evo and needs else None,
+                "en": {"name": r["name_en"], "evolvesTo": evo["en"] if evo else None,
+                       "needsCard": CARD_NAMES[needs][1] if evo and needs else None}}
+        icon = icons.get(mid)
         if icon is None:
-            raise CatalogError(f"sin icono del juego para {r['move_id']!r} (node build/export_move_icons.js)")
+            raise CatalogError(f"sin icono del juego para {mid!r} (node build/export_move_icons.js)")
         if (icon["type"], icon["kind"]) != (r["type"], r["kind"]):
-            raise CatalogError(f"{r['move_id']}: el juego dice {icon['type']}/{icon['kind']}, la tier list {r['type']}/{r['kind']}")
+            raise CatalogError(f"{mid}: el juego dice {icon['type']}/{icon['kind']}, la tier list {r['type']}/{r['kind']}")
         move["icon"] = {"size": icon["size"], "pal": icon["pal"], "rows": icon["rows"]}
         # Cómo se comporta en el juego (node build/export_move_mechanics.js): distingue teledirigido, perforante y salto.
-        mech = mechanics.get(r["move_id"])
+        mech = mechanics.get(mid)
         if mech is None:
-            raise CatalogError(f"sin mecánica del juego para {r['move_id']!r} (node build/export_move_mechanics.js)")
-        if mech["kind"] != r["kind"]:
-            raise CatalogError(f"{r['move_id']}: el juego dice {mech['kind']}, la tier list {r['kind']}")
+            raise CatalogError(f"sin mecánica del juego para {mid!r} (node build/export_move_mechanics.js)")
         move["mech"] = {"homing": mech["homing"], "pierce": mech["pierce"], "count": mech["count"]}
-        move["damage"] = game_moves.damage_class(r["move_id"], r["kind"])
+        move["damage"] = game_moves.damage_class(mid, r["kind"])
         moves.append(move)
     return moves
 
 
 def load_unranked() -> list[dict]:
     """Los potenciadores del juego (data/game_stats.json, en el orden de gamestats.BOOST_ORDER): sin tier ni valor,
-    porque la tier list mide ataques; van aparte de moves.json (la ficha cuenta y lista por tier)."""
+    porque la tier list mide ataques; van aparte de moves.json."""
     icons = json.loads((DATA / "move_icons.json").read_text(encoding="utf8"))
     game = gamestats.GAME["moves"]
     buffs = [mid for mid, m in game.items() if m["kind"] == "buff"]
@@ -162,12 +165,6 @@ def load_unranked() -> list[dict]:
     return out
 
 
-def _move(move_names: dict, mid: str) -> dict:
-    if mid not in move_names:
-        raise CatalogError(f"movimiento desconocido en el ranking: {mid!r}")
-    return {"id": mid, "name": move_names[mid]}
-
-
 def load_shiny(dexes: list[int]) -> set[int]:
     """Pokémon con sprite shiny en el juego: data/shiny_species.json, que hace build/shiny_sprites.py desde el
     sprites-meta.js de JPTER78/pokesurvivor. Aquí solo se comprueba que cuadre con los 966 y con sprites/shiny/."""
@@ -183,18 +180,55 @@ def load_shiny(dexes: list[int]) -> set[int]:
     return set(shiny)
 
 
-def load_pokemon(move_names: dict, credits: dict, shiny: set[int]) -> list[dict]:
+def _build(row: dict) -> dict:
+    """Una build de data/species_builds.csv: ataques y potenciadores en el orden del grupo (el primero es con el que
+    empieza) y las medianas de sus partidas."""
+    ids = row["group"].split("+")
+    n_boost = sum(1 for mid in ids if gamestats.move(mid)["kind"] == "buff")
+    if any(gamestats.move(mid)["kind"] == "buff" for mid in ids[:len(ids) - n_boost]):
+        raise CatalogError(f"{row['dex']} {row['build']}: un potenciador antes de un ataque en {row['group']}")
+    return {"moves": ids, "nBoost": n_boost, "mix": row["mix"], "time": round(float(row["median_s"]), 1),
+            "kills": round(float(row["median_kills"]), 1), "dealt": round(float(row["median_dealt"])),
+            "score": round(float(row["median_score"]), 1), "lo": round(float(row["score_lo"]), 1),
+            "hi": round(float(row["score_hi"]), 1)}
+
+
+def percentiles(values: dict[int, float], lower_better: bool = False) -> dict[int, int]:
+    """Percentil de cada valor entre los 966, 0 el peor y 100 el mejor (los empates cuentan la mitad)."""
+    xs = list(values.values())
+    out = {}
+    for dex, x in values.items():
+        below = sum(1 for v in xs if (v > x if lower_better else v < x))
+        equal = sum(1 for v in xs if v == x)
+        out[dex] = round(100 * (below + equal / 2) / len(xs))
+    return out
+
+
+def load_pokemon(credits: dict, shiny: set[int]) -> list[dict]:
     dex_export = {p["dex"]: p for p in json.load(open(DATA / "pokedex_export.json", encoding="utf8"))}
-    base_stats = json.loads((DATA / "base_stats.json").read_text(encoding="utf8"))  # build/fetch_base_stats.py
-    if {str(d) for d in dex_export} != set(base_stats):
-        raise CatalogError("data/base_stats.json no coincide con pokedex_export.json; vuelve a ejecutar fetch_base_stats.py")
+    v3 = {m["dex"]: m for m in json.loads(V3.read_text(encoding="utf8"))["dex"]}
     names_en = {int(r["dex"]): r["name_en"] for r in _read_csv(DATA / "species_names_en.csv")}
-    rows = {int(r["dex"]): r for r in _read_csv(DATA / RANKING_CSV)}
-    if len(rows) != TOTAL:
-        raise CatalogError(f"{RANKING_CSV}: {len(rows)} Pokémon distintos, se esperaban {TOTAL}")
+    rows = {int(r["dex"]): r for r in _read_csv(RANKING_CSV)}
+    builds: dict[int, dict[str, dict]] = {}
+    for r in _read_csv(BUILDS_CSV):
+        builds.setdefault(int(r["dex"]), {})[r["build"]] = _build(r)
+    why: dict[int, list[dict]] = {}
+    for r in _read_csv(WHY_CSV):
+        why.setdefault(int(r["dex"]), []).append(
+            {"f": r["factor"], "value": float(r["value"]), "pct": int(r["pct"]), "effect": float(r["effect"])})
     dexes = sorted(dex_export)
-    if sorted(rows) != dexes:
-        raise CatalogError(f"{RANKING_CSV}: los números de Pokédex no coinciden con pokedex_export.json")
+    for name, table in (("ranking_fase3.csv", rows), ("species_builds.csv", builds), ("species_why.csv", why)):
+        if sorted(table) != dexes:
+            raise CatalogError(f"{name}: los números de Pokédex no coinciden con pokedex_export.json")
+    if any(sorted(b) != sorted(BUILD_KINDS) for b in builds.values()):
+        raise CatalogError("species_builds.csv: cada Pokémon lleva una build melee y una ranged")
+    if any([w["f"] for w in ws] != list(WHY_FACTORS) for ws in why.values()):
+        raise CatalogError(f"species_why.csv: cada Pokémon lleva los factores {WHY_FACTORS} en ese orden")
+    # Estadísticas del juego que usa el simulador (v3_data.json) y su percentil entre los 966.
+    game = {d: {"hp": v3[d]["hp"], "spd": v3[d]["spd"], "pa": v3[d]["pa"], "sa": v3[d]["sa"], "df": v3[d]["df"],
+                "sd": v3[d]["sd"], "size": next(w["value"] for w in why[d] if w["f"] == "size"),
+                "types": next(w["value"] for w in why[d] if w["f"] == "types")} for d in dexes}
+    pct = {k: percentiles({d: game[d][k] for d in dexes}, lower_better=k in ("size", "types")) for k in game[dexes[0]]}
 
     entries = []
     for dex in dexes:
@@ -202,9 +236,9 @@ def load_pokemon(move_names: dict, credits: dict, shiny: set[int]) -> list[dict]
         name_en = names_en.get(dex)
         if not name_en:
             raise CatalogError(f"sin nombre inglés para el Pokémon {dex}")
-        if row["name"] != name_en:
-            raise CatalogError(f"nombre inglés distinto en el ranking y en species_names para {dex}: "
-                               f"{row['name']!r} / {name_en!r}")
+        if row["name"] != v3[dex]["name"]:
+            raise CatalogError(f"nombre distinto en el ranking y en v3_data.json para {dex}: "
+                               f"{row['name']!r} / {v3[dex]['name']!r}")
         sprite_path = SPRITES / f"{dex}.png"
         if not sprite_path.exists():
             raise CatalogError(f"falta el sprite {dex}.png")
@@ -219,31 +253,19 @@ def load_pokemon(move_names: dict, credits: dict, shiny: set[int]) -> list[dict]
         tier = tier_of_rank(rank)
         if row["tier"] != tier:
             raise CatalogError(f"{dex}: tier del CSV {row['tier']} ≠ {tier} según el puesto {rank}")
-        pair = [_move(move_names, m) for m in row["move_pair"].split(" + ") if m]
-        ranking = {
-            "rank": rank, "tier": tier, "p10": int(row["rank_p10"]), "p90": int(row["rank_p90"]),
-            "pTier": float(row["p_tier"]), "pS": float(row["p_S"]),
-            "pillars": {"stats": float(row["pct_stats"]), "moves": float(row["pct_moves"]),
-                        "typedef": float(row["pct_typedef"]), "size": float(row["pct_size"])},
-            "methods": {"sheet": int(row["rank_sheet"]), "simStart": int(row["rank_sim_start"]),
-                        "simBest": int(row["rank_sim_best"]), "lateMax": int(row["rank_v4_max"]),
-                        "lateFresh": int(row["rank_v4_fresh"])},
-            "sim": {"start": {**_move(move_names, row["start_move"]), "kind": row["start_kind"],
-                              "seconds": float(row["start_median_s"])},
-                    "noshop": {"seconds": float(row["start_noshop_s"])},
-                    "best": {**_move(move_names, row["best_move"]), "seconds": float(row["best_median_s"])}},
-            "pair": pair,
-            "flags": {"statusUnmodelled": row["status_unmodelled"] == "1", "melee": row["melee_locked"] == "1"},
-        }
-        if any(k not in px for k in COMBAT_KEYS):
-            raise CatalogError(f"{dex}: falta pa/sa/df/sd en pokedex_export.json; ejecuta build/import_game_combat.py")
+        best = builds[dex][row["build"]]
+        if best["moves"] != row["group"].split("+"):
+            raise CatalogError(f"{dex}: el grupo del ranking no es el de su build {row['build']}")
         entries.append({
             "dex": dex, "name": px["name"], "nameEn": name_en, "types": px["types"],
             "rarity": px["rarity"], "legendary": px["legendary"],
-            "bannerId": px["gen"], "banner": px["banner"], "sprite": sprite, "r": ranking, "sh": dex in shiny,
-            "base": {"atk": px["atk"], "hp": px["hp"], "spd": px["spd"], "ehp": px["effective_hp"],
-                     "rad": px["body_radius"], "pa": px["pa"], "sa": px["sa"], "df": px["df"], "sd": px["sd"]},
-            "stats": base_stats[str(dex)],
+            "bannerId": px["gen"], "banner": px["banner"], "sprite": sprite, "sh": dex in shiny, "bst": v3[dex]["bst"],
+            "start": v3[dex]["start"],
+            "r": {"rank": rank, "tier": tier, "best": row["build"], "score": best["score"], "lo": best["lo"],
+                  "hi": best["hi"], "time": best["time"], "kills": best["kills"], "dealt": best["dealt"]},
+            "builds": builds[dex],
+            "game": game[dex], "pct": {k: pct[k][dex] for k in pct},
+            "why": why[dex],
         })
     return entries
 
@@ -258,18 +280,6 @@ def check_ranks(entries: list[dict]) -> dict:
     if counts != EXPECTED_COUNTS:
         raise CatalogError(f"conteos {counts}, esperados {EXPECTED_COUNTS}")
     return counts
-
-
-def build_stability(entries: list[dict]) -> list[dict]:
-    """Por tier: cuántos son firmes (≥ 80 % de las repeticiones en su tier) y el ancho típico de la banda p10–p90."""
-    out = []
-    for t, lo, hi in TIER_CUTS:
-        es = [e["r"] for e in entries if e["r"]["tier"] == t]
-        out.append({"tier": t, "from": lo, "to": hi, "n": len(es),
-                    "firm": round(100 * sum(r["pTier"] >= FIRM for r in es) / len(es)),
-                    "bandWidth": round(statistics.median(r["p90"] - r["p10"] for r in es))})
-    return out
-
 
 
 def _pull_chance(pool_by_rarity: dict, all_mons: list, good: set) -> float:
@@ -299,160 +309,97 @@ def build_gachas(entries: list[dict]) -> list[dict]:
             by_rarity.setdefault(e["rarity"], []).append(e["dex"])
         good = {e["dex"] for e in mons if e["r"]["tier"] in ("S", "A")}
         s = sum(1 for e in mons if e["r"]["tier"] == "S")
-        tiers = {t: sum(1 for e in mons if e["r"]["tier"] == t) for t, _, _ in TIER_CUTS}
+        tiers_n = {t: sum(1 for e in mons if e["r"]["tier"] == t) for t, _, _ in TIER_CUTS}
         out.append({"gen": gen, "name": name, "poolSize": len(mons), "legendaryCount": sum(e["legendary"] for e in mons),
-                    "tiers": tiers, "sCount": s, "aCount": len(good) - s, "sPlusARate": round(100 * len(good) / len(mons), 1),
+                    "tiers": tiers_n, "sCount": s, "aCount": len(good) - s, "sPlusARate": round(100 * len(good) / len(mons), 1),
                     "pullChance": round(100 * _pull_chance(by_rarity, [e["dex"] for e in mons], good), 1)})
     if sum(g["poolSize"] for g in out) != TOTAL:
         raise CatalogError("los pools de los banners no suman 966")
     return out
 
 
-def sim_seeds() -> int:
-    """Partidas simuladas por Pokémon en la sim del ranking (columna n de rank_200.csv). Tienen que ser todas iguales."""
-    counts = {int(r["n"]) for r in _read_csv(SIM_RANK)}
-    if len(counts) != 1:
-        raise CatalogError(f"{SIM_RANK.name}: partidas por Pokémon distintas {sorted(counts)}")
-    return counts.pop()
+def _lines(path: Path) -> int:
+    """Filas de datos de un CSV de resultados (sin la cabecera)."""
+    with path.open("rb") as f:
+        return sum(chunk.count(b"\n") for chunk in iter(lambda: f.read(1 << 20), b"")) - 1
 
 
-def build_meta(entries: list[dict], credits: dict, counts: dict) -> dict:
+def score_refs() -> dict:
+    """Las dos referencias de la puntuación de una partida (simulator/sim-rs/src/stats.rs run_score)."""
+    text = (ROOT / "simulator" / "sim-rs" / "src" / "stats.rs").read_text(encoding="utf8")
+    refs = {k: re.search(rf"const {k}_REF: f64 = (\d+(?:\.\d+)?);", text) for k in ("DPS", "KPM")}
+    if not all(refs.values()):
+        raise CatalogError("stats.rs no define DPS_REF y KPM_REF")
+    return {"dpsRef": float(refs["DPS"].group(1)), "kpmRef": float(refs["KPM"].group(1))}
+
+
+def method_numbers(moves: list[dict]) -> dict:
+    """Cuántos ataques, grupos y partidas hay detrás de cada fase, contados en sus salidas guardadas."""
+    p1_games = len(moves) * PHASE1_REFS * PHASE1_SEEDS
+    bonds = _read_csv(BONDS_CSV)
+    cumulative = {s: sum(PHASE2_SEEDS[:i + 1]) for i, s in enumerate(PHASE2_SEEDS)}
+    p2_games = sum(PHASE2_REFS * cumulative[int(r["seeds"])] for r in bonds)
+    rounds = [_lines(RESULTS / "fase3" / f"r{k}_raw.csv") for k in "ABC"]
+    p3_games = sum(n * s for n, s in zip(rounds, PHASE3_SEEDS))
+    return {
+        "seconds": SIM_SECONDS, "score": score_refs(),
+        "p1": {"attacks": len(moves), "refs": PHASE1_REFS, "seeds": PHASE1_SEEDS, "games": p1_games},
+        "p2": {"groups": len(bonds), "refs": PHASE2_REFS, "seeds": list(PHASE2_SEEDS), "games": p2_games,
+               "final": sum(1 for r in bonds if int(r["seeds"]) == PHASE2_SEEDS[-1])},
+        "p3": {"groups": rounds, "seeds": list(PHASE3_SEEDS), "games": p3_games},
+        "games": p1_games + p2_games + p3_games,
+    }
+
+
+def why_model() -> dict:
+    """R² y pesos del modelo del porqué, de la primera línea de data/species_why.csv (build/why.py)."""
+    head = _comment(WHY_CSV)
+    r2 = re.search(r"R² (\d+\.\d+)", head)
+    if not r2 or "Pesos: " not in head:
+        raise CatalogError("data/species_why.csv no lleva el R² y los pesos en la primera línea (build/why.py)")
+    weights = dict(part.split() for part in head.split("Pesos: ")[1].split(", "))
+    return {"r2": float(r2.group(1)), "weights": {k: float(v) for k, v in weights.items()}}
+
+
+def build_meta(entries: list[dict], moves: list[dict], credits: dict, counts: dict) -> dict:
     when = os.environ.get("SOURCE_DATE_EPOCH")
     stamp = datetime.fromtimestamp(int(when), timezone.utc) if when else datetime.now(timezone.utc)
-    top = sorted(entries, key=lambda e: e["r"]["rank"])[:3]
+    ranked = sorted(entries, key=lambda e: e["r"]["rank"])
+    times = sorted(e["r"]["time"] for e in entries)
+    longest = max(entries, key=lambda e: e["r"]["time"])
     return {
         "version": VERSION, "generatedAt": stamp.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "tierCuts": [{"tier": t, "from": a, "to": b} for t, a, b in TIER_CUTS],
-        "tierCounts": counts, "total": TOTAL, "gameCommit": legal.GAME_COMMIT, "firmShare": int(FIRM * 100),
-        "simSeeds": sim_seeds(),
-        "top": [{"dex": e["dex"], "name": e["name"], "nameEn": e["nameEn"]} for e in top],
-        "simMedianSeconds": round(statistics.median(e["r"]["sim"]["start"]["seconds"] for e in entries)),
-        "stability": build_stability(entries), "method": METHOD, "methodStats": method_stats.compute(),
-        "simRange": [min(sec for e in entries for sec in (e["r"]["sim"]["start"]["seconds"], e["r"]["sim"]["best"]["seconds"])),
-                     max(sec for e in entries for sec in (e["r"]["sim"]["start"]["seconds"], e["r"]["sim"]["best"]["seconds"]))],
-        "presets": [e["dex"] for name in PRESETS for e in entries if e["name"] == name],
+        "tierCounts": counts, "total": TOTAL, "gameCommit": legal.GAME_COMMIT,
+        "top": [{"dex": e["dex"], "name": e["name"], "nameEn": e["nameEn"]} for e in ranked[:3]],
+        "time": {"median": round(statistics.median(times), 1), "min": times[0], "max": times[-1],
+                 "maxDex": longest["dex"]},
+        "seeds": PHASE3_SEEDS[-1], "method": method_numbers(moves), "why": why_model(),
         "credits": [{"name": a["name"], "url": a["url"], "dex": a["dex"]} for a in credits["artists"]],
         "spriteLicense": {"name": credits_mod.SPRITE_LICENSE["name"], "url": credits_mod.SPRITE_LICENSE["url"],
                           "source": credits_mod.SPRITE_SOURCE["name"], "sourceUrl": credits_mod.SPRITE_SOURCE["url"]},
     }
 
 
-def slim(entries: list[dict], sides: dict[int, str]) -> list[dict]:
-    """Lo mínimo para la tier list, el buscador y la colección: r = [puesto, tier, p10, p90, % en su tier].
-    side es phys, spec o mix según los ataques del mejor grupo simulado (no según pa/sa: eso sigue en v.ak).
-    bst = suma de stats base: es el campo bst de js/data/pokedex.js del juego para los 966 Pokémon."""
+SIDE = {"physical": "phys", "special": "spec", "mixed": "mix"}
+
+
+def slim(entries: list[dict]) -> list[dict]:
+    """Lo mínimo para la tier list, el buscador y la colección: r = [puesto, tier]; side es phys, spec o mix según los
+    ataques de su mejor build; v, los valores por los que se ordena la lista (s = segundos que aguanta).
+    bst = suma de stats base del juego (v3_data.json), el orden de featured() en systems/gacha.js."""
     return [{"dex": e["dex"], "name": e["name"], "nameEn": e["nameEn"], "types": e["types"],
              "rarity": e["rarity"], "legendary": e["legendary"], "bannerId": e["bannerId"], "sh": e["sh"],
-             "bst": sum(e["stats"]), "w": e["sprite"]["w"], "h": e["sprite"]["h"],
-             "r": [e["r"]["rank"], e["r"]["tier"], e["r"]["p10"], e["r"]["p90"], round(100 * e["r"]["pTier"])],
-             "side": sides[e["dex"]], "v": sort_values(e)}
+             "bst": e["bst"], "w": e["sprite"]["w"], "h": e["sprite"]["h"],
+             "r": [e["r"]["rank"], e["r"]["tier"]], "side": SIDE[e["builds"][e["r"]["best"]]["mix"]],
+             "v": {"s": e["r"]["time"], "pa": e["game"]["pa"], "sa": e["game"]["sa"], "hp": e["game"]["hp"],
+                   "spd": e["game"]["spd"], "df": e["game"]["df"], "sd": e["game"]["sd"], "rad": e["game"]["size"]}}
             for e in entries]
 
 
-def group_side(attacks: list[str]) -> str:
-    """'phys', 'spec' o 'mix' según los ataques del mejor grupo simulado, el que enseña la ficha.
-
-    Cada ataque es físico o especial por su categoría en los datos de movimientos del juego
-    (build/game_moves.py). Mixto si el grupo tiene de los dos. Un potenciador no es un ataque."""
-    if not attacks:
-        raise CatalogError("el grupo no tiene ataques")
-    classes: set[str] = set()
-    for mid in attacks:
-        cat = game_moves.attack_class(mid)
-        if cat == "physical":
-            classes.add("phys")
-        elif cat == "special":
-            classes.add("spec")
-        else:
-            raise CatalogError(f"{mid}: categoría {cat} en un ataque del grupo")
-    if classes == {"phys", "spec"}:
-        return "mix"
-    if classes == {"phys"}:
-        return "phys"
-    if classes == {"spec"}:
-        return "spec"
-    raise CatalogError(f"categoría del grupo inesperada: {sorted(classes)}")
-
-
-def group_sides(combo: dict[int, dict]) -> dict[int, str]:
-    """dex -> lado de los ataques del grupo publicado (build/combos.py), que sale de group_search.csv."""
-    out = {}
-    for dex, row in combo.items():
-        n = row["nBoost"]
-        attacks = row["moves"][:len(row["moves"]) - n] if n else list(row["moves"])
-        out[dex] = group_side(attacks)
-    return out
-
-
-def attack_kind(pa: float, sa: float) -> str:
-    """'phys', 'spec' o 'mix': el lado fuerte del Pokémon. Mixto si pa y sa están a 0,05 o menos (en centésimas, sin
-    errores de coma flotante). Lo leen la ficha estática, la lista (src/app.js) y la ficha interactiva (src/ficha.js)."""
-    gap = round((pa - sa) * 100)
-    if abs(gap) <= 5:
-        return "mix"
-    return "phys" if gap > 0 else "spec"
-
-
-def sort_values(e: dict) -> dict:
-    """Valores por los que se ordena la lista: los de la Pokédex (atk, hp, spd, ehp, rad), los pilares en %
-    (td = defensa de tipos, mv = movimientos, st = estadísticas) y el combate del juego (pa, sa, df, sd, y ak, el
-    lado fuerte). Las claves son cortas para que el JSON pese poco."""
-    b, pil = e["base"], e["r"]["pillars"]
-    return {"atk": round(b["atk"], 2), "hp": b["hp"], "spd": b["spd"], "ehp": round(b["ehp"]),
-            "rad": round(b["rad"], 1), "td": round(100 * pil["typedef"]), "mv": round(100 * pil["moves"]),
-            "st": round(100 * pil["stats"]), "pa": round(b["pa"], 2), "sa": round(b["sa"], 2),
-            "df": b["df"], "sd": b["sd"], "ak": attack_kind(b["pa"], b["sa"])}
-
-
-def build_items() -> list[dict]:
-    """Objetos recomendados en la build (build/objetos.py), con el icono del juego en el mismo formato que los movimientos."""
-    out = []
-    for it in objetos.recommended():
-        icon = objetos.ICONS[it["id"]]
-        out.append({"id": it["id"], "name": it["name"][0], "en": {"name": it["name"][1]},
-                    "icon": {"size": icon["size"], "pal": icon["pal"], "rows": icon["rows"]}})
-    return out
-
-
-def build_cards() -> dict:
-    """Cartas de subida de nivel con su dibujo del juego (data/card_icons.json, de build/export_move_icons.js)."""
-    icons = json.loads((DATA / "card_icons.json").read_text(encoding="utf8"))
-    names = {"hp": "Vigor", "atk": "Power", "spd": "Sprint", "cd": "Reflexes", "def": "Armor", "rgn": "Synthesis",
-             "mag": "Magnet", "xp": "Learning"}
-    return {k: {"id": "card:" + k, "name": v["title"], "en": {"name": names[k]},
-                "icon": {"size": v["size"], "pal": v["pal"], "rows": v["rows"]}} for k, v in icons.items() if k in names}
-
-
-def species_details(entries: list[dict], sim_range: list[float], median: float, combo: dict,
-                    pairs: dict[str, dict]) -> dict:
-    psim = passives.load()
-    """Lo que la ficha necesita además de pokemon-index.json, en listas para que pese poco. Orden de cada entrada:
-    [pilares (stats, moves, typedef, size), puestos por medida (METHOD_KEYS), ataque inicial, segundos de la
-    apertura con Repertorio, mejor ataque, segundos, pareja de ataques, banderas (1 estado sin simular, 2 sigue en
-    cuerpo a cuerpo tras Repertorio, 4 estadísticas, 8 tipos), estadísticas base oficiales [PS, ataque, defensa,
-    ataque especial, defensa especial, velocidad], combo de cobertura [% super efectivo, % no resistido, ids de los
-    ataques y el potenciador, tipos de ataque distintos (1-3), ids de los ataques opcionales] (build/combos.py),
-    cartas por prioridad, segundos del ataque inicial a solas (sin Repertorio ni Veto)].
-    Lo lee src/ficha.js.
-    «builds» son las dos builds de la simulación por Pokémon (build/builds.py): melee y ranged, cada una con sus ataques,
-    tiempo, daño, bajas, puntuación y cartas.
-    «items» son los objetos de la build, iguales para todos. «statMedian» es la mediana de cada estadística base entre los 966, para la línea de referencia de la ficha."""
-    out = {}
-    for e in entries:
-        r = e["r"]
-        f = r["flags"]
-        out[str(e["dex"])] = [
-            [r["pillars"][k] for k in ("stats", "moves", "typedef", "size")], [r["methods"][k] for k in METHOD_KEYS],
-            r["sim"]["start"]["id"], r["sim"]["start"]["seconds"], r["sim"]["best"]["id"], r["sim"]["best"]["seconds"],
-            [m["id"] for m in r["pair"]], int(f["statusUnmodelled"]) + 2 * int(f["melee"]),
-            e["stats"], [combo[e["dex"]]["super"], combo[e["dex"]]["neutral"], combo[e["dex"]]["moves"],
-                         combo[e["dex"]]["types"], combo[e["dex"]]["alts"], combo[e["dex"]]["nBoost"]],
-            # cartas por prioridad (build/passives.py): [8 ids de mejor a peor, id de la que evoluciona el ataque o null]
-            passives.priority(e["dex"], combo[e["dex"]]["moves"], psim),
-            r["sim"]["noshop"]["seconds"]]
-    medians = [statistics.median(e["stats"][i] for e in entries) for i in range(6)]
-    return {"sim": [*sim_range, median], "statMedian": medians, "items": build_items(), "cards": build_cards(), "d": out,
-            "builds": pairs}
+def species_public(entries: list[dict]) -> dict:
+    """data/species.json: las dos builds de cada Pokémon (melee y ranged) y cuál gana. Lo lee el planificador."""
+    return {"builds": {str(e["dex"]): {**e["builds"], "best": e["r"]["best"]} for e in entries}}
 
 
 def write_json(name: str, obj, pretty: bool = False, public: bool = False) -> None:
@@ -467,45 +414,32 @@ def main() -> int:
         credits = credits_mod.parse_credits(DATA / "CREDITS.md")
         moves = load_moves()
         unranked = load_unranked()
-        move_names = {m["id"]: m["name"] for m in moves}
         dexes = sorted(p["dex"] for p in json.loads((DATA / "pokedex_export.json").read_text(encoding="utf8")))
-        entries = load_pokemon(move_names, credits, load_shiny(dexes))
+        entries = load_pokemon(credits, load_shiny(dexes))
+        known = {m["id"] for m in moves} | {m["id"] for m in unranked}
+        unknown = sorted({mid for e in entries for b in e["builds"].values() for mid in b["moves"]} - known)
+        if unknown:
+            raise CatalogError(f"movimientos de las builds sin ficha de ataque: {unknown}")
         counts = check_ranks(entries)
         gachas = build_gachas(entries)
-        meta = build_meta(entries, credits, counts)
+        meta = build_meta(entries, moves, credits, counts)
     except (CatalogError, credits_mod.CreditsError, ValueError, KeyError, OSError) as exc:
         print(f"ERROR de catálogo: {exc}", file=sys.stderr)
         return 1
-    # Los resúmenes de la ficha se validan contra los datos de hoy (solo biblioteca estándar: aquí no hay numpy).
-    # Un dato que cambió, un nombre que ya no es el de la build o una afirmación sin respaldo paran el build.
-    texts = summaries.load()
-    errs, sstats = summaries.check(summary_facts.base_records(), texts)
-    if errs:
-        for e in errs[:40]:
-            print("  " + e, file=sys.stderr)
-        print(f"ERROR de catálogo: {len(errs)} errores en data/summaries.json; ver build/summary_pipeline.py",
-              file=sys.stderr)
-        return 1
-    dex_types = {p["dex"]: p["types"] for p in json.loads((DATA / "pokedex_export.json").read_text(encoding="utf8"))}
-    combo = combos.compute_all(dex_types, {e["dex"]: e["r"]["sim"]["best"]["id"] for e in entries})
-    sides = group_sides(combo)
     shutil.rmtree(OUT, ignore_errors=True)
     write_json("pokemon.json", entries)
     write_json("moves.json", moves)
     write_json("moves_unranked.json", unranked)
-    write_json("pokemon-index.json", slim(entries, sides), public=True)
-    write_json("species.json", species_details(entries, meta["simRange"], meta["simMedianSeconds"], combo,
-                                               builds.public(builds.read_rows())), public=True)
+    write_json("pokemon-index.json", slim(entries), public=True)
+    write_json("species.json", species_public(entries), public=True)
     write_json("moves.json", moves, public=True)
     write_json("tiers.json", json.loads((DATA / "tiers.json").read_text(encoding="utf8")), public=True)
     write_json("moves_unranked.json", unranked, public=True)
-    for lang in ("es", "en"):
-        write_json(f"summaries-{lang}.json", summaries.public(texts, lang), public=True)
     write_json("gachas.json", gachas, pretty=True)
     write_json("meta.json", meta, pretty=True)
-    print(f"catálogo: {len(entries)} Pokémon, {len(moves)} movimientos, {len(gachas)} banners → {OUT}")
+    print(f"catálogo: {len(entries)} Pokémon, {len(moves)} ataques, {len(gachas)} banners → {OUT}")
     print("  " + " ".join(f"{t} {n}" for t, n in counts.items()))
-    print(f"  resúmenes: {sstats['texts']} textos, {sstats['claims']} afirmaciones validadas, {sstats['flagged']} marcados")
+    print(f"  partidas: {meta['method']['games']:,} · porqué R² {meta['why']['r2']}")
     for g in sorted(gachas, key=lambda g: -g["sPlusARate"]):
         print(f"  {g['name']:8s} pool {g['poolSize']:3d}  S+A {g['sCount'] + g['aCount']:2d}  {g['sPlusARate']:5.1f} %"
               f"  (por tirada {g['pullChance']:.1f} %)")

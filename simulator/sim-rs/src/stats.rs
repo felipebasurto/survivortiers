@@ -78,7 +78,7 @@ pub struct Summary {
     pub n_cap: usize,
     pub mean_hp_frac: Option<f64>,
     pub status_ignored: bool,
-    /// Median of time * dealt * (1 + kills). Zero damage scores 0.
+    /// Median of run_score: time * sqrt(saturated dps * saturated kills per minute). Zero damage scores 0.
     pub median_score: f64,
     pub mean_score: f64,
     pub score_lo: f64,

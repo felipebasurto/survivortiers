@@ -324,18 +324,14 @@
     rank: { val: p => p.r[0], desc: false, show: p => p.r[0] },
     name: { val: p => monName(p), desc: false, text: true, show: p => p.r[0] },
     dex: { val: p => p.dex, desc: false, show: p => p.r[0] },
-    atk: { val: p => p.v.atk, desc: true, show: p => dec(p.v.atk, 2) },
+    s: { val: p => p.v.s, desc: true, show: p => Math.floor(Math.round(p.v.s) / 60) + ':' + String(Math.round(p.v.s) % 60).padStart(2, '0') },
     pa: { val: p => p.v.pa, desc: true, show: p => dec(p.v.pa, 2) },
     sa: { val: p => p.v.sa, desc: true, show: p => dec(p.v.sa, 2) },
     hp: { val: p => p.v.hp, desc: true, show: p => p.v.hp },
     spd: { val: p => p.v.spd, desc: true, show: p => p.v.spd },
     df: { val: p => p.v.df, desc: true, show: p => p.v.df },
     sd: { val: p => p.v.sd, desc: true, show: p => p.v.sd },
-    ehp: { val: p => p.v.ehp, desc: true, show: p => p.v.ehp },
-    rad: { val: p => p.v.rad, desc: true, show: p => dec(p.v.rad, 1) },
-    td: { val: p => p.v.td, desc: true, show: p => pct(p.v.td) },
-    mv: { val: p => p.v.mv, desc: true, show: p => pct(p.v.mv) },
-    st: { val: p => p.v.st, desc: true, show: p => pct(p.v.st) },
+    rad: { val: p => p.v.rad, desc: false, show: p => dec(p.v.rad, 1) },
     rar: { val: p => p.rarity, desc: true, show: p => p.rarity },
   };
   let sortKey = 'rank', sortDesc = false;
@@ -1541,7 +1537,6 @@
   }
 
   // ---------------------------------------------------------------- gráficos
-  const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   // Cada gráfico (.anim) arranca su animación CSS cuando entra en pantalla.
   function initReveal() {
@@ -1552,264 +1547,6 @@
       if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
     }), { threshold: 0.2 });
     figs.forEach(f => io.observe(f));
-  }
-
-  // Media geométrica frente a aritmética con pesos por pieza.
-  function initDemo() {
-    const fig = $('[data-demo]');
-    if (!fig) return;
-    const sliders = $$('input[type=range]', fig);
-    const weights = sliders.map(i => +i.dataset.w);
-    const total = weights.reduce((a, b) => a + b, 0);
-    const show = (kind, v) => {
-      $('[data-out=' + kind + ']', fig).style.width = (v * 100).toFixed(1) + '%';
-      const val = $('[data-out-val=' + kind + ']', fig);
-      val.style.left = (v * 100).toFixed(1) + '%';
-      val.textContent = TEXT.pct(Math.round(v * 100));
-    };
-    const update = () => {
-      const v = sliders.map(i => +i.value / 100);
-      sliders.forEach(i => { i.nextElementSibling.textContent = TEXT.pct(i.value); });
-      show('geo', Math.exp(v.reduce((a, x, k) => a + weights[k] * Math.log(x), 0) / total));
-      show('arith', v.reduce((a, x, k) => a + weights[k] * x, 0) / total);
-    };
-    sliders.forEach(i => i.addEventListener('input', () => {
-      $$('.chip-btn', fig).forEach(b => b.setAttribute('aria-pressed', 'false'));
-      update();
-    }));
-    $$('.chip-btn', fig).forEach(b => b.addEventListener('click', () => {
-      b.dataset.v.split(',').forEach((x, k) => { sliders[k].value = x; });
-      $$('.chip-btn', fig).forEach(o => o.setAttribute('aria-pressed', String(o === b)));
-      update();
-    }));
-  }
-
-  // Ilustración de las 2.000 repeticiones: cada punto salta dentro de su rango real.
-  // Los puntos del recorrido paso a paso no tienen botón y solo saltan mientras se ven.
-  function initReps() {
-    const REPEATS = 2000;
-    const PER_TICK = 40; // repeticiones por tic: 2.000 en unos 2,5 s
-    const TICK_MS = 50;
-    $$('[data-reps]').forEach(fig => {
-      const dots = $$('.rp-dot', fig);
-      const btn = $('[data-play]', fig);
-      const count = $('[data-count]', fig);
-      let n = 1;
-      let timer = null;
-      const step = () => {
-        if (!fig.offsetParent) return;
-        n = (n - 1 + PER_TICK) % REPEATS + 1;
-        if (count) count.textContent = TEXT.repCount(n, REPEATS);
-        dots.forEach(d => {
-          const lo = +d.dataset.lo;
-          const hi = +d.dataset.hi;
-          d.style.left = ((lo + Math.random() * (hi - lo) - 1) / 965 * 100).toFixed(2) + '%';
-        });
-      };
-      const set = on => {
-        clearInterval(timer);
-        timer = on ? setInterval(step, TICK_MS) : null;
-        if (btn) btn.textContent = on ? TEXT.pause : TEXT.play;
-      };
-      if (btn) btn.addEventListener('click', () => set(!timer));
-      set(!REDUCED);
-    });
-  }
-
-  // Recorrido de un Pokémon en cinco pasos, con chips para cambiar de Pokémon.
-  function initWalk() {
-    const fig = $('[data-walk]');
-    if (!fig) return;
-    const STEPS = $$('[data-step]', $('[data-mon-panel]', fig)).length;
-    const panels = $$('[data-mon-panel]', fig);
-    const chips = $$('[data-mon]', fig);
-    const dots = $$('[data-go]', fig);
-    const prev = $('[data-prev]', fig);
-    const next = $('[data-next]', fig);
-    const auto = $('[data-auto]', fig);
-    const pos = $('.walk-pos', fig);
-    let mon = 0;
-    let step = 0;
-    let timer = null;
-    fig.classList.add('stepper');
-    const render = () => {
-      panels.forEach((p, i) => { p.hidden = i !== mon; });
-      $$('[data-step]', panels[mon]).forEach(s => { s.hidden = +s.dataset.step !== step; });
-      chips.forEach((c, i) => c.setAttribute('aria-pressed', String(i === mon)));
-      dots.forEach((d, k) => {
-        d.setAttribute('aria-current', k === step ? 'step' : 'false');
-        d.classList.toggle('past', k < step);
-      });
-      pos.textContent = TEXT.stepOf(step + 1, STEPS);
-      prev.disabled = step === 0;
-      next.disabled = step === STEPS - 1;
-    };
-    const stop = () => { clearInterval(timer); timer = null; auto.textContent = TEXT.auto; };
-    const go = k => { step = Math.max(0, Math.min(STEPS - 1, k)); render(); };
-    prev.addEventListener('click', () => { stop(); go(step - 1); });
-    next.addEventListener('click', () => { stop(); go(step + 1); });
-    dots.forEach((d, k) => d.addEventListener('click', () => { stop(); go(k); }));
-    chips.forEach((c, i) => c.addEventListener('click', () => { mon = i; go(0); }));
-    auto.addEventListener('click', () => {
-      if (timer) { stop(); return; }
-      auto.textContent = TEXT.stop;
-      if (step === STEPS - 1) go(0);
-      timer = setInterval(() => {
-        if (step === STEPS - 1) { stop(); return; }
-        go(step + 1);
-      }, 3500);
-    });
-    stop();
-    render();
-  }
-
-  // Ilustración de una partida simulada. No son datos del ranking: solo muestra qué se mide.
-  function initArena() {
-    const fig = $('[data-arena]');
-    if (!fig) return;
-    const cv = $('canvas', fig);
-    const ctx = cv.getContext('2d');
-    ctx.imageSmoothingEnabled = false;
-    const W = cv.width;
-    const H = cv.height;
-    const tEl = $('[data-t]', fig);
-    const kEl = $('[data-k]', fig);
-    const btn = $('[data-play]', fig);
-    const sprite = new Image();
-    sprite.addEventListener('error', () => { if (spritesAlt && sprite.src.startsWith(sprites)) sprite.src = spritesAlt + sprite.src.slice(sprites.length); });
-    sprite.src = cv.dataset.sprite;
-    const WALLS = [[58, 40, 8, 52], [206, 112, 52, 8], [146, 24, 44, 8]];
-    const WATER = [[232, 28, 64, 38], [40, 130, 48, 30]];
-    const SOLID = WALLS.concat(WATER);
-    let color = {};
-    let hero, enemies, shots, t, kills, spawn, shoot, over;
-    let running = false;
-    let visible = false;
-    let last = 0;
-
-    const readColors = () => {
-      const cs = getComputedStyle(html);
-      const v = n => cs.getPropertyValue(n).trim();
-      color = { bg: v('--arena-bg'), wall: v('--arena-wall'), water: v('--arena-water'), enemy: v('--arena-enemy'),
-        shot: v('--arena-shot'), hp: v('--arena-hp'), ink: v('--arena-ink') };
-    };
-    const reset = () => {
-      hero = { x: W / 2, y: H / 2, hp: 100 };
-      enemies = []; shots = []; t = 0; kills = 0; spawn = 0; shoot = 0; over = 0;
-    };
-    const blocked = (x, y, r) => SOLID.some(([a, b, w, h]) => x + r > a && x - r < a + w && y + r > b && y - r < b + h);
-    const move = (o, dx, dy, r) => {
-      if (!blocked(o.x + dx, o.y, r)) o.x += dx;
-      if (!blocked(o.x, o.y + dy, r)) o.y += dy;
-      o.x = Math.max(r, Math.min(W - r, o.x));
-      o.y = Math.max(r, Math.min(H - r, o.y));
-    };
-
-    const update = dt => {
-      if (over > 0) { over -= dt; if (over <= 0) reset(); return; }
-      t += dt;
-      spawn += dt * Math.min(5, 1.2 + t * 0.04);
-      while (spawn >= 1 && enemies.length < 60) {
-        spawn -= 1;
-        const edge = Math.floor(Math.random() * 4);
-        const x = edge === 0 ? 0 : edge === 1 ? W : Math.random() * W;
-        const y = edge === 2 ? 0 : edge === 3 ? H : Math.random() * H;
-        enemies.push({ x, y, hp: t > 25 ? 2 : 1, v: 20 + Math.random() * 12 + Math.min(10, t * 0.15) });
-      }
-      spawn = Math.min(spawn, 1);
-      let vx = (W / 2 - hero.x) / W * 0.8 + Math.cos(t * 0.7) * 0.3;
-      let vy = (H / 2 - hero.y) / H * 0.8 + Math.sin(t * 0.9) * 0.3;
-      let near = null;
-      let nearD = 1e9;
-      enemies.forEach(e => {
-        const dx = hero.x - e.x;
-        const dy = hero.y - e.y;
-        const d = Math.hypot(dx, dy) || 1;
-        if (d < 80) { const w = (80 - d) / 80 * 2; vx += dx / d * w; vy += dy / d * w; }
-        if (d < nearD) { nearD = d; near = e; }
-      });
-      const n = Math.hypot(vx, vy);
-      if (n > 0.05) move(hero, vx / n * 58 * dt, vy / n * 58 * dt, 6);
-      shoot += dt;
-      if (shoot >= 0.45 && near && nearD < 140) {
-        shoot = 0;
-        const d = nearD || 1;
-        shots.push({ x: hero.x, y: hero.y, vx: (near.x - hero.x) / d * 150, vy: (near.y - hero.y) / d * 150, life: 1.2 });
-      }
-      shots.forEach(s => {
-        s.x += s.vx * dt; s.y += s.vy * dt; s.life -= dt;
-        if (blocked(s.x, s.y, 1)) s.life = 0;
-        enemies.forEach(e => {
-          if (s.life > 0 && Math.hypot(e.x - s.x, e.y - s.y) < 6) { s.life = 0; e.hp -= 1; if (e.hp <= 0) kills += 1; }
-        });
-      });
-      shots = shots.filter(s => s.life > 0);
-      enemies = enemies.filter(e => e.hp > 0);
-      enemies.forEach(e => {
-        const dx = hero.x - e.x;
-        const dy = hero.y - e.y;
-        const d = Math.hypot(dx, dy) || 1;
-        move(e, dx / d * e.v * dt, dy / d * e.v * dt, 4);
-        if (d < 9) hero.hp -= 14 * dt;
-      });
-      if (hero.hp <= 0) over = 1.2;
-    };
-
-    const draw = () => {
-      ctx.fillStyle = color.bg; ctx.fillRect(0, 0, W, H);
-      ctx.fillStyle = color.water; WATER.forEach(r => ctx.fillRect(...r));
-      ctx.fillStyle = color.wall; WALLS.forEach(r => ctx.fillRect(...r));
-      enemies.forEach(e => {
-        const x = Math.round(e.x) - 4;
-        const y = Math.round(e.y) - 4;
-        ctx.fillStyle = color.enemy; ctx.fillRect(x, y + 1, 8, 6); ctx.fillRect(x + 1, y, 6, 8);
-        ctx.fillStyle = color.ink; ctx.fillRect(x + 2, y + 3, 1, 2); ctx.fillRect(x + 5, y + 3, 1, 2);
-      });
-      ctx.fillStyle = color.shot; shots.forEach(s => ctx.fillRect(Math.round(s.x) - 1, Math.round(s.y) - 1, 3, 3));
-      if (sprite.complete && sprite.naturalWidth) {
-        const k = Math.max(sprite.naturalWidth, sprite.naturalHeight) > 28 ? 0.5 : 1;
-        const w = Math.round(sprite.naturalWidth * k);
-        const h = Math.round(sprite.naturalHeight * k);
-        ctx.drawImage(sprite, Math.round(hero.x - w / 2), Math.round(hero.y - h / 2), w, h);
-      } else {
-        ctx.fillStyle = color.shot; ctx.fillRect(Math.round(hero.x) - 5, Math.round(hero.y) - 5, 10, 10);
-      }
-      ctx.fillStyle = color.ink; ctx.fillRect(6, 6, 52, 6);
-      ctx.fillStyle = color.hp; ctx.fillRect(7, 7, Math.max(0, Math.round(hero.hp / 100 * 50)), 4);
-      if (over > 0) {
-        ctx.fillStyle = color.ink; ctx.font = '600 15px "Zen Kaku Gothic New", system-ui, sans-serif'; ctx.textAlign = 'center';
-        ctx.fillText(TEXT.over, W / 2, H / 2);
-      }
-      tEl.textContent = Math.floor(t);
-      kEl.textContent = kills;
-    };
-
-    let raf = 0;
-    const kick = () => { if (!raf) raf = requestAnimationFrame(frame); };
-    function frame(now) {
-      raf = 0;
-      if (!running || !visible || document.hidden) { last = 0; return; }
-      update(Math.min(0.05, last ? (now - last) / 1000 : 0.016));
-      last = now;
-      draw();
-      kick();
-    }
-    const set = on => {
-      running = on;
-      btn.textContent = on ? TEXT.pause : TEXT.play;
-      if (on) kick();
-    };
-
-    readColors();
-    document.addEventListener('themechange', () => { readColors(); draw(); });
-    document.fonts.ready.then(draw);
-    reset();
-    if (REDUCED) { for (let i = 0; i < 80; i++) update(0.05); draw(); } else draw();
-    btn.addEventListener('click', () => set(!running));
-    sprite.addEventListener('load', draw);
-    new IntersectionObserver(es => { visible = es[0].isIntersecting; kick(); }, { threshold: 0.1 }).observe(cv);
-    document.addEventListener('visibilitychange', kick);
-    set(!REDUCED);
   }
 
   // ---------------------------------------------------------------- tema claro u oscuro
@@ -1889,10 +1626,6 @@
   initPatchNote();
   centerNav();
   initReveal();
-  initDemo();
-  initReps();
-  initWalk();
-  initArena();
   // Ataques: el buscador filtra las tarjetas por nombre o tipo y oculta los grupos y secciones que quedan vacíos.
   function initMoves() {
     const q = $('#mv-q');

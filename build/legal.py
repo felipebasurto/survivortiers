@@ -7,8 +7,8 @@ from i18n import GAME_NAME, SITE_NAME, Lang
 
 
 def method_counts(L: Lang, meta: dict) -> dict[str, str]:
-    """Partidas simuladas por Pokémon y repeticiones del cálculo, con el formato de idioma. Los textos los citan."""
-    return {"sims": L.num(meta["simSeeds"]), "reps": L.num(meta["method"]["repeats"])}
+    """Partidas simuladas en total y partidas de la ronda final de cada build, con el formato de idioma."""
+    return {"games": L.num(meta["method"]["games"]), "sims": L.num(meta["seeds"])}
 
 
 def freshness_text(L: Lang, meta: dict | None = None) -> str:
