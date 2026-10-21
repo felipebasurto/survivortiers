@@ -5,6 +5,7 @@ mod batch;
 mod data;
 mod engine;
 mod math;
+mod funnel;
 mod production;
 mod radii;
 mod repertorio;
@@ -1912,6 +1913,7 @@ fn main() {
     let t0 = Instant::now();
     match cfg.rest.first().map(String::as_str) {
         Some("production") => production::command(&data, &cfg.rest[1..]),
+        Some("funnel") => funnel::command(&data, &cfg.rest[1..]),
         Some("fingerprint") => println!("{}", research::fingerprint()),
         Some("candidates") => {
             research::candidates(&data, cfg.rest[1].parse().expect("dex"), cfg.list, false)

@@ -54,6 +54,7 @@ struct Manifest {
     policy: SearchPolicy,
     hash: String,
     rustc: String,
+    tm_budget: Option<u64>,
 }
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 struct Stratum {
@@ -100,12 +101,12 @@ fn canonical(v: &Value, out: &mut Vec<u8>) {
         _ => out.extend(serde_json::to_vec(v).unwrap()),
     }
 }
-fn hash_value(v: &Value) -> String {
+pub(crate) fn hash_value(v: &Value) -> String {
     let mut b = Vec::new();
     canonical(v, &mut b);
     format!("{:x}", Sha256::digest(b))
 }
-fn compiler_version() -> String {
+pub(crate) fn compiler_version() -> String {
     Command::new("rustc")
         .arg("--version")
         .output()
@@ -143,7 +144,7 @@ fn num(v: &Value, k: &str) -> Result<f64, String> {
     }
     Ok(n)
 }
-fn parse_manifest_value(data: &Data, v: Value) -> Result<Manifest, String> {
+fn parse_manifest_value(data: &Data, mut v: Value) -> Result<Manifest, String> {
     if v["schema"].as_u64() != Some(1) {
         return Err("manifest schema must be 1".into());
     }
@@ -242,6 +243,18 @@ fn parse_manifest_value(data: &Data, v: Value) -> Result<Manifest, String> {
         return Err("exposureMargins must define contactDamagePerMinute, contactFraction, and trappedFraction".into());
     }
     let survival_margin = num(p, "survivalNoninferioritySeconds")?;
+    let tm_budget = match v.get("tmBudget") {
+        None | Some(Value::Null) => {
+            if let Some(obj) = v.as_object_mut() {
+                obj.remove("tmBudget");
+            }
+            None
+        }
+        Some(n) => Some(
+            n.as_u64()
+                .ok_or("tmBudget must be a nonnegative integer")?,
+        ),
+    };
     let hash = hash_value(&v);
     Ok(Manifest {
         raw: v,
@@ -266,6 +279,7 @@ fn parse_manifest_value(data: &Data, v: Value) -> Result<Manifest, String> {
         },
         hash,
         rustc: compiler_version(),
+        tm_budget,
     })
 }
 fn parse_manifest(data: &Data, path: &str) -> Result<Manifest, String> {
@@ -327,7 +341,7 @@ fn stratum(dex: u32, style: &BuildStyle, role: &CombatRole, branch: &str) -> Str
         branch: branch.into(),
     }
 }
-fn config_proxy(data: &Data, base: &Mon, c: &Configuration) -> (f64, usize, usize) {
+pub(crate) fn config_proxy(data: &Data, base: &Mon, c: &Configuration) -> (f64, usize, usize) {
     let mon = data
         .configure(base, &c.nature, c.ability.as_deref(), &c.tms)
         .expect("generated legal configuration");
@@ -470,7 +484,7 @@ fn move_proxy(data: &Data, base: &Mon, ix: usize) -> f64 {
         * fit
         * mono
 }
-fn visit_groups(data: &Data, base: &Mon, mon: &Mon, f: &mut impl FnMut(Vec<usize>)) {
+pub(crate) fn visit_groups(data: &Data, base: &Mon, mon: &Mon, f: &mut impl FnMut(Vec<usize>)) {
     // Bounded move beam: one best move per source feature bucket, then a fixed cap. It
     // preserves type, own/off-type, melee/ranged, and taught/natural coverage without walking
     // the cartesian set of every legal group. This is an explicit heuristic search frontier.
@@ -676,8 +690,36 @@ fn group_order(a: &GroupProposal, b: &GroupProposal) -> Ordering {
         .then_with(|| b.own.cmp(&a.own))
         .then_with(|| a.moves.cmp(&b.moves))
 }
-fn candidate_value(c: &Candidate) -> Value {
-    json!({"id":c.config.id,"dex":c.config.dex,"group":c.config.moves,"tms":c.config.tms,"secondStart":c.config.second,"nature":c.config.nature,"ability":c.config.ability,"natureEquivalence":c.config.nature_equivalence,"build":c.stratum.style,"role":c.stratum.role,"branch":c.branch,"variantId":format!("{}:{}:{}",c.stratum.style,c.stratum.role,c.branch),"proxyDps":c.proxy_dps,"coverageTypes":c.coverage_types,"ownTypeAttacks":c.own_type_attacks})
+pub(crate) fn taught_tm_cost(data: &Data, base: &Mon, tms: &[String]) -> Result<u64, String> {
+    let mut sum = 0u64;
+    for id in tms {
+        let ix = *data
+            .move_ix
+            .get(id)
+            .ok_or_else(|| format!("unknown TM {id}"))?;
+        if base.pool.contains(&ix) || ix == base.start {
+            continue;
+        }
+        if !base.tms.contains(&ix) {
+            return Err(format!("TM {id} is not legal for dex {}", base.dex));
+        }
+        let price = data
+            .tm_prices
+            .get(id)
+            .copied()
+            .ok_or_else(|| format!("TM {id} has no price"))?;
+        sum += u64::from(price);
+    }
+    Ok(sum)
+}
+fn candidate_value(data: &Data, c: &Candidate) -> Result<Value, String> {
+    let base = data
+        .dex
+        .iter()
+        .find(|m| m.dex == c.config.dex)
+        .ok_or_else(|| format!("candidate dex {} missing", c.config.dex))?;
+    let tm_cost = taught_tm_cost(data, base, &c.config.tms)?;
+    Ok(json!({"id":c.config.id,"dex":c.config.dex,"group":c.config.moves,"tms":c.config.tms,"tmCost":tm_cost,"secondStart":c.config.second,"nature":c.config.nature,"ability":c.config.ability,"natureEquivalence":c.config.nature_equivalence,"build":c.stratum.style,"role":c.stratum.role,"branch":c.branch,"variantId":format!("{}:{}:{}",c.stratum.style,c.stratum.role,c.branch),"proxyDps":c.proxy_dps,"coverageTypes":c.coverage_types,"ownTypeAttacks":c.own_type_attacks}))
 }
 fn parse_candidate(data: &Data, v: &Value) -> Result<Candidate, String> {
     let dex = v["dex"].as_u64().ok_or("candidate dex missing")? as u32;
@@ -877,9 +919,9 @@ fn generate_candidates(
         total_proposals += proposal_count;
         let mut profile_proposals = 0u64;
         let mut found_strata = BTreeSet::new();
+        let mut budget_excluded = BTreeSet::new();
         let mut top: BTreeMap<Stratum, Vec<Candidate>> = BTreeMap::new();
         for (st, groups) in proposals {
-            found_strata.insert(st.clone());
             let mut raw = Vec::new();
             for g in groups {
                 let ids = g
@@ -905,6 +947,11 @@ fn generate_candidates(
                 )?;
                 profile_proposals += cfgs.len() as u64;
                 for config in cfgs {
+                    let cost = taught_tm_cost(data, base, &config.tms)?;
+                    if m.tm_budget.is_some_and(|budget| cost > budget) {
+                        budget_excluded.insert(st.clone());
+                        continue;
+                    }
                     let (proxy_dps, coverage_types, own_type_attacks) =
                         config_proxy(data, base, &config);
                     raw.push(Candidate {
@@ -931,6 +978,10 @@ fn generate_candidates(
             let mut list = by_ability.into_values().collect::<Vec<_>>();
             list.sort_by(candidate_order);
             list.truncate(m.policy.shortlist_per_stratum);
+            if list.is_empty() {
+                continue;
+            }
+            found_strata.insert(st.clone());
             top.insert(st, list);
         }
         expanded += profile_proposals;
@@ -948,7 +999,12 @@ fn generate_candidates(
                         branch: branch.into(),
                     };
                     if !found_strata.contains(&st) {
-                        missing.push(json!({"dex":dex,"variantId":format!("{build}:{role}:{branch}"),"reason":"no legal proposal in bounded source-feature beam"}));
+                        let reason = if budget_excluded.contains(&st) {
+                            "tm budget excluded every proposal"
+                        } else {
+                            "no legal proposal in bounded source-feature beam"
+                        };
+                        missing.push(json!({"dex":dex,"variantId":format!("{build}:{role}:{branch}"),"reason":reason}));
                     }
                 }
             }
@@ -970,7 +1026,7 @@ fn generate_candidates(
     Ok((candidates, controls, ledger))
 }
 
-fn paired_interval(xs: &[f64]) -> Value {
+pub(crate) fn paired_interval(xs: &[f64]) -> Value {
     if xs.is_empty() {
         return json!({"n":0,"mean":null,"lower":null,"upper":null});
     }
@@ -1018,23 +1074,22 @@ fn paired_interval(xs: &[f64]) -> Value {
 
 fn build_opts(
     data: &Data,
-    c: &Candidate,
+    config: &Configuration,
     seed: u32,
     seconds: f64,
 ) -> Result<(Mon, usize, Opts), String> {
     let base = data
         .dex
         .iter()
-        .find(|m| m.dex == c.config.dex)
+        .find(|m| m.dex == config.dex)
         .ok_or("unknown configuration dex")?;
     let mon = data.configure(
         base,
-        &c.config.nature,
-        c.config.ability.as_deref(),
-        &c.config.tms,
+        &config.nature,
+        config.ability.as_deref(),
+        &config.tms,
     )?;
-    let ids = c
-        .config
+    let ids = config
         .moves
         .iter()
         .map(|id| {
@@ -1052,8 +1107,7 @@ fn build_opts(
         .copied()
         .filter(|&i| data.moves[i].kind_name == "buff")
         .collect::<Vec<_>>();
-    let second = c
-        .config
+    let second = config
         .second
         .as_ref()
         .map(|s| {
@@ -1073,7 +1127,7 @@ fn build_opts(
     ext.initial_second = second;
     ext.bonded = true;
     ext.bosses = true;
-    ext.ability = c.config.ability.clone();
+    ext.ability = config.ability.clone();
     let opts = Opts {
         seed,
         seconds,
@@ -1086,6 +1140,19 @@ fn build_opts(
     Ok((mon, ids[0], opts))
 }
 
+pub(crate) fn run_configuration(
+    data: &Data,
+    tables: &Tables,
+    config: &Configuration,
+    seed: u32,
+    seconds: f64,
+) -> Result<Value, String> {
+    let (mon, start, opts) = build_opts(data, config, seed, seconds)?;
+    let r = run_match(&Libm, data, tables, &mon, start, &opts);
+    Ok(
+        json!({"seed":seed,"metrics":{"damage":r.dealt,"contactDamage":r.risk.damage,"contactSeconds":r.risk.contact_seconds,"trappedSeconds":r.risk.surrounded_seconds,"kills":r.kills,"bosses":r.bosses,"survivalSeconds":r.time}}),
+    )
+}
 fn run_one(
     data: &Data,
     tables: &Tables,
@@ -1093,17 +1160,13 @@ fn run_one(
     seed: u32,
     seconds: f64,
 ) -> Result<Value, String> {
-    let (mon, start, opts) = build_opts(data, c, seed, seconds)?;
-    let r = run_match(&Libm, data, tables, &mon, start, &opts);
-    Ok(
-        json!({"seed":seed,"metrics":{"damage":r.dealt,"contactDamage":r.risk.damage,"contactSeconds":r.risk.contact_seconds,"trappedSeconds":r.risk.surrounded_seconds,"kills":r.kills,"bosses":r.bosses,"survivalSeconds":r.time}}),
-    )
+    run_configuration(data, tables, &c.config, seed, seconds)
 }
 
-fn task_id(plan_hash: &str, cfg: &str, stage: &str, seed: u32) -> String {
+pub(crate) fn task_id(plan_hash: &str, cfg: &str, stage: &str, seed: u32) -> String {
     format!("{}", hash_value(&json!([plan_hash, cfg, stage, seed])))
 }
-fn atomic_json(path: &Path, v: &Value) -> Result<(), String> {
+pub(crate) fn atomic_json(path: &Path, v: &Value) -> Result<(), String> {
     if let Some(p) = path.parent() {
         fs::create_dir_all(p).map_err(|e| e.to_string())?;
     }
@@ -1135,10 +1198,10 @@ fn write_plan(data: &Data, manifest: &Manifest, out: &str) -> Result<(), String>
     let (candidates, controls, summary) = generate_candidates(data, manifest)?;
     let mut roster = Vec::new();
     for c in &candidates {
-        roster.push(candidate_value(c));
+        roster.push(candidate_value(data, c)?);
     }
     for c in &controls {
-        roster.push(candidate_value(c));
+        roster.push(candidate_value(data, c)?);
     }
     let mut ledger = Vec::new();
     for c in &roster {
@@ -1525,7 +1588,7 @@ fn execute(data: &Data, plan_path: &str, cache_dir: &str, out: &str) -> Result<(
 fn row_metrics<'a>(row: &'a Value) -> Option<&'a Value> {
     Some(&row["row"]["metrics"])
 }
-fn normalized_exposure(m: &Value) -> [f64; 3] {
+pub(crate) fn normalized_exposure(m: &Value) -> [f64; 3] {
     let life = m["survivalSeconds"].as_f64().unwrap_or(0.).max(1.);
     [
         m["contactDamage"].as_f64().unwrap_or(0.) * 60. / life,
@@ -1564,10 +1627,25 @@ fn analyze_winners(plan: &Value, rows: &[Value], m: &Manifest) -> Vec<Value> {
     }
     let confirmed = confirmed_rows.keys().copied().collect::<BTreeSet<&str>>();
     for ((dex, build, role, branch), cs) in strata {
-        let cs = cs
+        let confirmed_cs = cs
             .into_iter()
             .filter(|c| confirmed.contains(c["id"].as_str().unwrap_or("")))
             .collect::<Vec<_>>();
+        let over_budget = confirmed_cs.iter().any(|c| {
+            m.tm_budget
+                .is_some_and(|budget| c["tmCost"].as_u64().unwrap_or(0) > budget)
+        });
+        let cs = confirmed_cs
+            .into_iter()
+            .filter(|c| {
+                m.tm_budget
+                    .is_none_or(|budget| c["tmCost"].as_u64().unwrap_or(0) <= budget)
+            })
+            .collect::<Vec<_>>();
+        if cs.is_empty() && over_budget {
+            winners.push(json!({"dex":dex,"variantId":format!("{build}:{role}:{branch}"),"status":"over_tm_budget","winnerConfirmed":false,"confidenceUnresolved":true,"configuration":null,"reason":"tm budget excluded the confirmed candidate"}));
+            continue;
+        }
         if cs.is_empty() {
             winners.push(json!({"dex":dex,"variantId":format!("{build}:{role}:{branch}"),"status":"inconclusive","winnerConfirmed":false,"confidenceUnresolved":true,"configuration":null,"reason":"No candidate completed independent confirmation; screening or wall-time budget was incomplete."}));
             continue;
@@ -2048,6 +2126,7 @@ mod tests {
             },
             hash: String::new(),
             rustc: String::new(),
+            tm_budget: None,
         }
     }
 
@@ -2147,5 +2226,72 @@ mod tests {
             assert_eq!(indexed, reference, "margins {margins:?}, per stratum {per_stratum}");
             assert!(indexed.contains_key("control"), "control always confirmed");
         }
+    }
+
+    #[test]
+    fn taught_tm_cost_sums_shop_prices_and_skips_natural_moves() {
+        let data = data();
+        let base = data.dex.iter().find(|m| m.dex == 19).unwrap();
+        let ice = taught_tm_cost(&data, base, &["ice-beam".into()]).unwrap();
+        let shadow = taught_tm_cost(&data, base, &["shadow-ball".into()]).unwrap();
+        assert_eq!(ice, 840);
+        assert_eq!(shadow, 780);
+        assert_eq!(
+            taught_tm_cost(&data, base, &["ice-beam".into(), "shadow-ball".into()]).unwrap(),
+            1620
+        );
+        assert_eq!(taught_tm_cost(&data, base, &["body-slam".into()]).unwrap(), 0);
+        assert_eq!(
+            taught_tm_cost(&data, base, &["ice-beam".into(), "body-slam".into()]).unwrap(),
+            840
+        );
+    }
+
+    fn budget_manifest(budget: Option<u64>) -> Value {
+        let mut value = json!({"schema":1,"gameCommit":research::GAME_COMMIT,"engineFingerprint":research::fingerprint(),"policyVersion":POLICY_VERSION,"dex":[19],"screeningSeeds":[1001],"confirmationSeeds":[3001],"secondsPerMatch":15,"limits":{"maxConfigurations":5000,"maxMatches":100000,"maxSimulatedSeconds":1500000,"maxWallSeconds":30,"maxFailedTasks":1,"threads":1},"searchPolicy":{"version":POLICY_VERSION,"groupsPerStratum":1,"shortlistPerStratum":1,"confirmPerStratum":1,"exposureMargins":{"contactDamagePerMinute":0,"contactFraction":0,"trappedFraction":0},"survivalNoninferioritySeconds":0}});
+        if let Some(budget) = budget {
+            value["tmBudget"] = json!(budget);
+        }
+        value
+    }
+
+    fn plan_hash_for(manifest: Value, tag: &str) -> (String, Vec<Value>) {
+        let data = data();
+        let manifest = parse_manifest_value(&data, manifest).unwrap();
+        let path = std::env::temp_dir().join(format!("tm-budget-{tag}-{}.json", std::process::id()));
+        write_plan(&data, &manifest, path.to_str().unwrap()).unwrap();
+        let plan: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+        let _ = fs::remove_file(&path);
+        (
+            plan["planHash"].as_str().unwrap().to_string(),
+            plan["candidateRoster"].as_array().unwrap().clone(),
+        )
+    }
+
+    fn roster_ids(roster: &[Value]) -> Vec<String> {
+        roster
+            .iter()
+            .map(|c| c["id"].as_str().unwrap().to_string())
+            .collect()
+    }
+
+    #[test]
+    fn no_tm_budget_keeps_the_plan_hash_and_a_tight_budget_drops_taught_tms() {
+        let (open_a, roster_a) = plan_hash_for(budget_manifest(None), "absent-a");
+        let (open_b, _) = plan_hash_for(budget_manifest(None), "absent-b");
+        let mut null_manifest = budget_manifest(None);
+        null_manifest["tmBudget"] = Value::Null;
+        let (null_budget, roster_null) = plan_hash_for(null_manifest, "null");
+        let (wide, roster_wide) = plan_hash_for(budget_manifest(Some(1_000_000_000)), "wide");
+        let (tight, roster_tight) = plan_hash_for(budget_manifest(Some(0)), "tight");
+        assert_eq!(open_a, open_b, "two plans with no budget");
+        assert_eq!(open_a, null_budget, "null tmBudget is no budget");
+        assert_eq!(roster_ids(&roster_a), roster_ids(&roster_null));
+        assert_eq!(roster_ids(&roster_a), roster_ids(&roster_wide), "a budget above every price keeps the roster");
+        assert_ne!(open_a, wide, "the manifest records a numeric budget");
+        assert_ne!(open_a, tight);
+        assert!(roster_a.iter().any(|c| c["tmCost"].as_u64().unwrap() > 0));
+        assert!(roster_tight.iter().all(|c| c["tmCost"].as_u64().unwrap() == 0));
+        assert!(roster_tight.len() < roster_a.len());
     }
 }
