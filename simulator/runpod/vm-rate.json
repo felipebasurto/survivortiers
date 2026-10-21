@@ -1,0 +1,14 @@
+{
+  "source": "S0 calibration on the 4-core VM, stock Eevee, 207 tasks per run, 0 failures, before funnel edits",
+  "hostCores": 4,
+  "threads": 4,
+  "matchesPerSecond": [176.08, 171.16, 168.12],
+  "simulatedSecondsPerSecond": [21802, 21193, 20818],
+  "tasksPerRun": 207,
+  "failures": 0,
+  "limiter": "4 cores, samples of /proc/stat were 86 to 93 percent busy at 4 threads",
+  "targetVcpu": 32,
+  "hourlyUsd": 1.12,
+  "maxHours": 2.5,
+  "maxUsd": 3.0
+}
