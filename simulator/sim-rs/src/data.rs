@@ -310,6 +310,8 @@ pub struct Data {
     pub dragon_dance: usize,
     pub agility: usize,
     pub nasty_plot: usize,
+    /// Shop price of each TM id. A move already in the natural pool costs nothing.
+    pub tm_prices: HashMap<String, u32>,
 }
 
 fn num(v: &Value, k: &str) -> f64 {
@@ -599,6 +601,19 @@ impl Data {
         let dragon_dance = move_ix["dragon-dance"];
         let agility = move_ix["agility"];
         let nasty_plot = move_ix["nasty-plot"];
+        let tm_prices = raw["tmPrices"]
+            .as_object()
+            .unwrap_or_else(|| panic!("tmPrices missing"))
+            .iter()
+            .map(|(id, price)| {
+                (
+                    id.clone(),
+                    price
+                        .as_u64()
+                        .unwrap_or_else(|| panic!("tm price {id}")) as u32,
+                )
+            })
+            .collect();
         Data {
             commit: raw["gameCommit"].as_str().unwrap_or("5a23d49").into(),
             natures: raw["natures"].clone(),
@@ -616,6 +631,7 @@ impl Data {
             dragon_dance,
             agility,
             nasty_plot,
+            tm_prices,
         }
     }
 }

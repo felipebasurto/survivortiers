@@ -27,6 +27,7 @@ pub fn fingerprint() -> String {
         include_bytes!("selection_io.rs"),
         include_bytes!("batch.rs"),
         include_bytes!("production.rs"),
+        include_bytes!("funnel.rs"),
         include_bytes!("../Cargo.toml"),
         include_bytes!("../Cargo.lock"),
         include_bytes!("../../data/game.json"),
