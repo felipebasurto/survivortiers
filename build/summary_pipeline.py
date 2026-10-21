@@ -7,6 +7,7 @@
        ... writers for the retry prompts, then validate again (2 retries at most, then the species is flagged)
     python3 build/summary_pipeline.py assemble      # 4. data/summaries.json (+ the cache of untouched species)
     python3 build/summary_pipeline.py check         # data/summaries.json against data/facts.parquet
+    python3 build/summary_pipeline.py rebuild       # build sentence of every text from today's builds (no writers)
 
 The cache is the `fp` stored with each text: the hash of that species' facts row. `plan` only sends species whose
 row changed, that have no text or whose text no longer passes; `plan --all` sends all 966.
@@ -16,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -24,6 +26,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import facts_export  # noqa: E402
 import summaries  # noqa: E402
 import summary_facts as sf  # noqa: E402
+from static_ficha import _starts_i_sound  # noqa: E402
 
 ROOT = sf.ROOT
 WORK = ROOT / ".cache" / "summaries"
@@ -197,6 +200,49 @@ def assemble(args) -> int:
     return check(args)
 
 
+BUILD_SENTENCE = {
+    "es": re.compile(r"Empieza con \[m\.start:.*?; lleva (\[i\.best:[^\]]*\])\."),
+    "en": re.compile(r"Start with \[m\.start:.*?; carry (\[i\.best:[^\]]*\])\."),
+}
+
+
+def build_sentence(f: dict, lang: str, item_mark: str) -> str:
+    """The how-to-build sentence for the build the ficha shows first: its start, the other moves, the item."""
+    b = f["build"]
+    mark = lambda role, m: f"[{role}:{m['id']}|{m[lang]}]"
+    group = [mark("m.group", m) for m in b["group"]]
+    start = mark("m.start", b["start"])
+    if lang == "en":
+        return f"Start with {start}, bond {', '.join(group[:-1])} and {group[-1]}; carry {item_mark}."
+    conj = " e " if _starts_i_sound(b["group"][-1][lang]) else " y "
+    return f"Empieza con {start} y vincula {', '.join(group[:-1])}{conj}{group[-1]}; lleva {item_mark}."
+
+
+def rebuild(args) -> int:
+    """Rewrite the build sentence of every summary from today's facts (the build the ficha shows first), keep the
+    rest of the text, and refresh the stored hashes. For when the build data changes, not the other claims."""
+    facts = facts_export.load()
+    doc = summaries.load()
+    for d, entry in doc["species"].items():
+        f = facts[d]
+        for lang in ("es", "en"):
+            rx = BUILD_SENTENCE[lang]
+            m = rx.search(entry[lang])
+            if not m:
+                print(f"  {d} {lang}: no hay frase de build", file=sys.stderr)
+                return 1
+            entry[lang] = entry[lang][:m.start()] + build_sentence(f, lang, m.group(1)) + entry[lang][m.end():]
+        for lang, old, new in (("es", "Lo que más lo sube es [up:best_move", "En el ranking, lo que más lo sube es [up:best_move"),
+                               ("en", "What lifts it most is [up:best_move", "In the ranking, what lifts it most is [up:best_move")):
+            longer = entry[lang].replace(old, new)
+            if len(summaries.plain(longer)) <= summaries.MAX_LEN:
+                entry[lang] = longer
+        entry["fp"], entry["bfp"] = sf.fingerprint(f), sf.fingerprint(sf.base_of(f))
+    summaries.PATH.write_text(json.dumps(doc, ensure_ascii=False, indent=1) + "\n", encoding="utf8")
+    print(f"rebuild: {len(doc['species'])} resúmenes con la frase de build al día")
+    return check(args)
+
+
 def check(args) -> int:
     facts = facts_export.load()
     doc = summaries.load()
@@ -217,8 +263,9 @@ def main() -> int:
     sub.add_parser("validate")
     sub.add_parser("assemble")
     sub.add_parser("check")
+    sub.add_parser("rebuild")
     args = ap.parse_args()
-    return {"plan": plan, "validate": validate, "assemble": assemble, "check": check}[args.cmd](args)
+    return {"plan": plan, "validate": validate, "assemble": assemble, "check": check, "rebuild": rebuild}[args.cmd](args)
 
 
 if __name__ == "__main__":

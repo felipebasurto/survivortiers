@@ -184,7 +184,7 @@ def build(L: Lang, page: Page, index: list[dict], by_dex: dict[int, dict], detai
           moves: dict[str, dict], meta: dict, home: str) -> Built:
     members = _members(page, index)
     rows = _select(page, index, by_dex, details, moves, L)
-    note = L.t("lp_note", sims=L.num(meta["simSeeds"]), reps=L.num(meta["method"]["repeats"]))
+    note = ""
     s = sum(1 for p in members if p["r"][1] == TIER_S)
     top_h = L.t("lp_top_h")
     types = None
@@ -227,7 +227,7 @@ def build(L: Lang, page: Page, index: list[dict], by_dex: dict[int, dict], detai
         body = f'<section class="ql-list"><h2>{escape(top_h)}</h2>{_list_html(L, home, rows)}</section>'
     rep = repertorio.note(L) if page.key == "starters" else ""
     content = (f'<div class="ql"><h1>{escape(h1)}</h1>'
-               f'<p class="ql-lede">{escape(lede)}</p><p class="ql-note">{escape(note)}</p>{rep}'
+               f'<p class="ql-lede">{escape(lede)}</p>{f'<p class="ql-note">{escape(note)}</p>' if note else ""}{rep}'
                f'<p class="fresh">{escape(legal.freshness_text(L, meta))}</p>'
                f'{body}{guides_nav(L, home, types=types, skip=page.key)}</div>')
     return Built(title=title, desc=desc, h1=h1, content=content, jsonld=_jsonld(L, page, title, desc, rows, meta),

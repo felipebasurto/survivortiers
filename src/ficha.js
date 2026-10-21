@@ -247,11 +247,18 @@
   const dmgTag = m => m.damage ? '<span class="cat-tag is-' + m.damage + '" title="' + esc(t('dmg_tip_' + m.damage)) + '">' +
     esc(t('dmg_' + m.damage)) + '</span>' : '';
   // Cuerpo a cuerpo o a distancia (build/static_ficha.py range_html): color e icono propios.
-  const rangeTag = m => {
-    if (!m || !m.kind) return '';  // objetos: no tienen ataque cuerpo a cuerpo ni a distancia
-    const c = m.kind === 'melee' ? 'melee' : 'ranged';
-    return '<span class="rng-tag is-' + c + '" title="' + esc(t('rng_tip_' + c)) + '">' + esc(t('bd_' + c)) + '</span>';
+  const rangeChip = c => '<span class="rng-tag is-' + c + '" title="' + esc(t('rng_tip_' + c)) + '">' + esc(t('bd_' + c)) + '</span>';
+  // Tipo de daño de una build: físico o especial si todos sus ataques de daño lo son, mixto si mezcla. Potenciadores fuera.
+  const DMG_KEY = { physical: 'dmg_physical', special: 'dmg_special', mix: 'dmg_mix' };
+  const buildDamage = (moves, ids) => {
+    const kinds = new Set(ids.map(id => moves.find(x => x.id === id))
+      .filter(m => m && (m.damage === 'physical' || m.damage === 'special')).map(m => m.damage));
+    if (!kinds.size) return null;
+    return kinds.size === 2 ? 'mix' : [...kinds][0];
   };
+  // Tipo de daño y rango de una build, con las mismas etiquetas que los ataques (build/static_ficha.py combo_html).
+  const comboHtml = (dmg, rng) => (dmg ? '<span class="cat-tag is-' + dmg + '">' + esc(t(DMG_KEY[dmg])) + '</span>' : '') + rangeChip(rng);
+  const rangeTag = m => (!m || !m.kind) ? '' : rangeChip(m.kind === 'melee' ? 'melee' : 'ranged');  // objetos: sin rango
   // Misma clave que game_moves.shape_key y que la etiqueta de ataques.html (mv_kind_*).
   const shapeKey = m => {
     const mech = m.mech || {};
@@ -301,7 +308,6 @@
   // Una build sin ataques que le valgan no sale. La de mayor puntuación lleva la marca; la otra dice cuánto le falta.
   const BUILD_KINDS = ['melee', 'ranged'];
   const BUILD_NAME = { melee: 'bd_melee', ranged: 'bd_ranged' };
-  const BUILD_NONE = { melee: 'bd_none_melee', ranged: 'bd_none_ranged' };
   const BUILD_OTHER = { melee: 'bd_other_ranged', ranged: 'bd_other_melee' };
   const GAP_SMALL_PCT = 5;
   const numText = n => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, EN ? ',' : '.');
@@ -326,9 +332,10 @@
 
   // Una fila: número (vacío en el inicio y en los objetos), icono, nombre y etiquetas; una marca opcional a la derecha.
   // Los potenciadores van marcados.
-  function moveRow(m, n, pill, buff) {
+  function moveRow(m, n, pill, buff, start) {
     const nm = EN ? m.en.name : m.name;
-    return '<li class="bd-row' + (buff ? ' is-buff' : '') + '" style="--tc:' + (TYPE_COLOR[m.type] || ITEM_COLOR) + '">' +
+    if (start) pill = { text: t('bd_start_with'), gold: true };
+    return '<li class="bd-row' + (buff ? ' is-buff' : '') + (start ? ' is-start' : '') + '" style="--tc:' + (TYPE_COLOR[m.type] || ITEM_COLOR) + '">' +
       '<span class="bd-n">' + n + '</span>' +
       '<span class="bd-ico"><img src="' + iconUrl(m) + '" alt="" width="32" height="32"></span>' +
       '<span class="bd-info"><span class="bd-nm">' + esc(nm) + '</span>' + moveTags(m, true) + '</span>' +
@@ -336,13 +343,12 @@
   }
 
   function buildOption(kind, b, other, moves, cards, win) {
-    const head = '<h3 class="bd-kind is-' + kind + '">' + esc(t(BUILD_NAME[kind])) + '</h3>';
-    if (!b) return '<article class="bd-opt is-none" data-build="' + kind + '">' + head +
-      '<p class="bd-none">' + esc(t(BUILD_NONE[kind])) + '</p></article>';
+    if (!b) return '';
+    const head = '<h3 class="bd-kind">' + comboHtml(buildDamage(moves, b.moves), kind) + '</h3>';
     const ids = b.moves, nb = b.nBoost;
     const rows = ids.map((id, i) => {
       const m = moves.find(x => x.id === id);
-      return m ? moveRow(m, i + 1, null, i >= ids.length - nb) : '';
+      return m ? moveRow(m, i + 1, null, i >= ids.length - nb, i === 0) : '';
     }).join('');
     const stats = '<dl class="bd-stats">' +
       '<div><dt>' + esc(t('bd_time')) + '</dt><dd>' + decText(b.time, 1) + ' s</dd></div>' +
@@ -358,8 +364,7 @@
         '<span class="bd-nm">' + esc(EN ? m.en.name : m.name) + '</span>' +
         (gate ? '<b class="bd-gate" title="' + esc(t('build_card_once')) + '">1×</b>' : '') + '</li>';
     }).join('');
-    const cardsHtml = '<p class="bd-cap">' + esc(t('build_cards')) + '</p><ol class="bd-cardlist">' + cardItems + '</ol>' +
-      (gateId ? '<p class="bd-legend">' + esc(t('build_card_once')) + '</p>' : '');
+    const cardsHtml = '<p class="bd-cap">' + esc(t('build_cards')) + '</p><ol class="bd-cardlist">' + cardItems + '</ol>';
     const note = kind === 'melee' ? '<p class="bd-note">' + esc(t('bd_melee_note')) + '</p>' : '';
     return '<article class="bd-opt' + (win === kind && other ? ' is-best' : '') + '" data-build="' + kind + '">' + head +
       verdict(kind, b, other, win) + '<ol class="bd-rows">' + rows + '</ol>' + stats + cardsHtml + note + '</article>';
@@ -371,15 +376,15 @@
     const sprite = '<span class="bd-sprite" style="--tc:' + (TYPE_COLOR[p.types[0]] || '#888') +
       '"><img class="px" src="' + sprites + p.dex + spriteExt + '" width="' + p.w * scale + '" height="' + p.h * scale + '" alt=""></span>';
     const start = moves.find(m => m.id === d[2]);
-    const startRow = start ? moveRow(start, '', null) : '';
-    const options = BUILD_KINDS.map(kind => buildOption(kind, pair[kind], pair[BUILD_KINDS.find(k => k !== kind)], moves, cards, win)).join('');
-    const itemRows = items.map((m, i) => moveRow(m, '', i === 0 ? { text: t('build_best_item'), gold: true } : null)).join('');
+    const defaultStart = start ? '<p class="bd-default">' + esc(t('build_default_start', { move: EN ? start.en.name : start.name })) + '</p>' : '';
+    const options = BUILD_KINDS.map(kind => buildOption(kind, pair[kind], pair[BUILD_KINDS.find(k => k !== kind)], moves, cards, win)).filter(Boolean);
+    const itemRows = items.map(m => moveRow(m, '', null)).join('');
+    const legend = BUILD_KINDS.some(k => pair[k] && pair[k].cards[1]) ? '<p class="bd-legend">' + esc(t('build_card_once')) + '</p>' : '';
     return '<section class="fig anim fig-build" id="build" aria-labelledby="bd-h"><div class="bd-card" style="' + typeVars(p) + '">' +
       '<header class="bd-head">' + sprite + '<div><h2 id="bd-h">' + esc(t('t_build')) + '</h2><span class="bd-who">' + esc(name) + '</span></div>' +
       '<button class="bd-share" type="button" aria-label="' + esc(t('build_share')) + '" title="' + esc(t('build_share')) + '">' + SHARE_SVG + '</button>' +
       '<span class="bd-toast" role="status" aria-live="polite"></span></header>' +
-      '<div class="bd-block bd-start">' + capOf('build_start') + '<ul class="bd-rows">' + startRow + '</ul></div>' +
-      '<p class="bd-cap">' + esc(t('bd_pair_cap')) + '</p><div class="bd-pair">' + options + '</div>' +
+      '<div class="bd-pair' + (options.length > 1 ? '' : ' is-single') + '">' + options.join('') + '</div>' + legend + defaultStart +
       '<div class="bd-gear">' + capOf('build_items') + '<ul class="bd-rows">' + itemRows + '</ul></div>' +
       '<div class="bd-cover">' + meter(t('build_super'), superPct, 'bd-super') + meter(t('build_neutral'), neutralPct, 'bd-neutral') + '</div>' +
       '<p class="bd-brand">' + esc(t('build_brand')) + '</p></div></section>';
@@ -482,7 +487,7 @@
       '<div class="ficha-sprite" style="--tc:' + (TYPE_COLOR[p.types[0]] || '#888') + ';--tc2:' + (TYPE_COLOR[p.types[1] || p.types[0]] || '#888') + '">' +
       '<img class="px" src="' + sprites + p.dex + spriteExt + '" width="' + p.w * scale + '" height="' + p.h * scale + '" alt="' + esc(t('sprite_alt', { name })) + '">' +
       '<span class="tier-badge medal ' + tier + '" title="' + esc(t('tier', { t: tier })) + '">' + tier + '</span></div>' +
-      '<div class="fh-main"><h1>' + esc(name) + ' <span class="fh-game">' + esc(t('fh_game')) + '</span> ' + otherName + '<small class="fh-dex">' + esc(t('dex_no', { dex: p.dex })) + '</small></h1>' +
+      '<div class="fh-main"><h1>' + esc(name) + ' ' + otherName + '<small class="fh-dex">' + esc(t('dex_no', { dex: p.dex })) + '</small></h1>' +
       '<div class="facts">' + pills + rarity + legendary + tpl('tpl-regions', 'data-gen', p.bannerId) + '</div>' +
       '<p class="rankline" title="' + rankTitle + '" aria-label="' + rankTitle + '"><i class="ico ico-trophy" aria-hidden="true"></i><strong>' + rank + '</strong><span>/ ' + TOTAL + '</span>' +
       (lo != null && hi != null ? '<span class="rankband">' + esc(t('band_range', { lo, hi })) + '</span>' : '') + '</p>' +
@@ -493,6 +498,7 @@
   // van hasta ×1,8 con la línea en ×1,00; las de defensa, hasta 255 con la línea en 75 (daño normal).
   const COMBAT_LO = 0.78, COMBAT_HI = 1.25, COMBAT_REF_DEF = 75, ATK_BAR_MAX = 1.8, DEF_BAR_MAX = 255;
   const KIND_KEY = { phys: 'cb_kind_phys', spec: 'cb_kind_spec', mix: 'cb_kind_mix' };
+  const KIND_CLASS = { phys: 'physical', spec: 'special', mix: 'mix' };
   const dec2 = x => x.toFixed(2).replace('.', EN ? '.' : ',');
   const combatBar = (cls, label, shown, fill, mark) =>
     '<div class="cb-row ' + cls + '"><span class="cb-name">' + esc(label) + '</span>' +
@@ -508,7 +514,7 @@
     const note = t('cb_note', { less: Math.round((1 - COMBAT_LO) * 100), more: Math.round((COMBAT_HI - 1) * 100) });
     return '<section class="combat" id="combate" aria-labelledby="cb-h" data-kind="' + v.ak + '">' +
       '<header class="cb-head"><h3 id="cb-h">' + esc(t('t_combat')) + '</h3>' +
-      '<span class="cb-kind cb-k-' + v.ak + '">' + esc(t(KIND_KEY[v.ak])) + '</span></header>' +
+      '<span class="cat-tag is-' + KIND_CLASS[v.ak] + '">' + esc(t(KIND_KEY[v.ak])) + '</span></header>' +
       '<div class="cb-list">' + atk + '</div><div class="cb-list">' + dfn + '</div>' +
       '<p class="cb-note">' + esc(note) + '</p></section>';
   }

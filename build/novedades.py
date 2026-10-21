@@ -298,10 +298,9 @@ def _facts(L: Lang, facts) -> str:
     return f'<div class="nv-facts">{cards}</div>'
 
 
-def _section(L: Lang, i: int, s: dict) -> str:
+def _section(L: Lang, s: dict) -> str:
     parts = [f'<section class="nv-sec" id="{s["id"]}" aria-labelledby="{s["id"]}-h">',
-             f'<header class="nv-sec-head"><span class="nv-idx" aria-hidden="true">{i:02d}</span>'
-             f'<h2 id="{s["id"]}-h">{escape(_pick(L, s["h"]))}</h2></header>']
+             f'<header class="nv-sec-head"><h2 id="{s["id"]}-h">{escape(_pick(L, s["h"]))}</h2></header>']
     for text in s.get("body", []):
         parts.append(f"<p>{escape(_pick(L, text))}</p>")
     if "table" in s:
@@ -319,7 +318,7 @@ def _section(L: Lang, i: int, s: dict) -> str:
 
 
 def content(L: Lang) -> str:
-    sections = "".join(_section(L, i, s) for i, s in enumerate(SECTIONS, 1))
+    sections = "".join(_section(L, s) for s in SECTIONS)
     foot = _pick(L, FOOT).format(commit=PATCH_COMMIT, repo=escape(GAME_REPO, quote=True))
     return f"""
 <div class="nv">

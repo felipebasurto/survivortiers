@@ -16,7 +16,7 @@ from i18n import Lang
 
 TOOL_KEYS = (
     "tf_g_x24", "tf_g_weak", "tf_g_res", "tf_g_imm", "tf_none", "tf_count", "tf_empty", "tf_card_double",
-    "tf_card_pa", "tf_card_sa", "tool_noscript", "tool_fail", "tool_load",
+    "tf_card_pa", "tf_card_sa", "tf_start", "tool_noscript", "tool_fail", "tool_load",
 )
 
 
@@ -65,7 +65,6 @@ def content(L: Lang) -> str:
 <section class="tool-pick" aria-labelledby="tf-pick-h">
   <div class="tool-pick-head"><h2 id="tf-pick-h">{escape(L.t("tf_pick_h"))}</h2>
     <button type="button" class="btn ghost tool-clear" id="tf-clear" hidden>{escape(L.t("tf_clear"))}</button></div>
-  <p class="tool-rule">{escape(L.t("tf_rule"))}</p>
   <div class="tf-chips" role="group" aria-label="{escape(L.t("tf_pick_h"))}">{chips}</div>
 </section>
 <div class="tf-layout">

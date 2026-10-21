@@ -51,7 +51,6 @@ STR: dict[str, tuple[str, str]] = {
     "guide_legendary": ("Legendarios", "Legendaries"),
     "guide_passives": ("Mejores pasivas", "Best passives"),
     "guide_tierlist": ("Tier list completa", "Full tier list"),
-    "fh_game": ("en {game}", "in {game}"),
     "dataset_name": ("Ranking no oficial de los Pokémon de {game}", "Unofficial ranking of the Pokémon in {game}"),
     "agents_label": ("Para agentes de IA y datos:", "For AI agents and data:"),
     "index_h1": ("Tier list de {game}", "{game} tier list"),
@@ -150,8 +149,8 @@ STR: dict[str, tuple[str, str]] = {
                     "así que su aguante puede estar infravalorado.",
                     "One of its attacks applies a status this sim pass does not reproduce, "
                     "so its survival may be underrated."),
-    "flag_melee": ("Sigue en cuerpo a cuerpo: aunque vete los peores ataques, el segundo no lo saca de ahí.",
-                   "It stays melee: even after banning its worst moves, the second attack never gets it out."),
+    "flag_melee": ("En la apertura con Repertorio todos los ataques que le pueden salir son cuerpo a cuerpo, aunque vete los peores.",
+                   "In the Repertoire opening every attack it can draw is melee, even after banning the worst ones."),
     "pager_aria": ("Pokémon vecinos", "Neighbouring Pokémon"),
     "dex_no": ("nº {dex}", "no. {dex}"),
     "tpl_title": ("Fichas de los Pokémon de {game} | {site}", "Pokémon pages of {game} | {site}"),
@@ -206,7 +205,9 @@ STR: dict[str, tuple[str, str]] = {
     "learn_boosts": ("Potenciadores", "Boosts"),
     "t_build": ("Build", "Build"),
     "build_items": ("Objetos", "Items"),
-    "build_start": ("Inicio", "Start"),
+    "bd_start_with": ("Empieza con", "Start with"),
+    "build_default_start": ("De serie: {move}; cámbialo con Movimiento inicial (400 monedas)",
+                            "Default: {move}; change it with Starting Move (400 coins)"),
     "build_super": ("Super efectivo", "Super effective"),
     "build_neutral": ("Sin resistencia", "Never resisted"),
     "build_cards": ("Cartas por prioridad", "Cards by priority"),
@@ -218,25 +219,25 @@ STR: dict[str, tuple[str, str]] = {
     "build_share": ("Compartir esta build", "Share this build"),
     "build_copied": ("Enlace copiado", "Link copied"),
     "build_brand": ("{site}", "{site}"),
-    "build_best_item": ("Mejor objeto", "Best item"),
-    "met_builds_h": ("Dos builds por Pokémon", "Two builds per Pokémon"),
-    "met_builds_1": ("La ficha enseña dos grupos vinculados: el mejor de cuerpo a cuerpo (con al menos un ataque cuerpo a cuerpo) "
-                     "y el mejor a distancia (sin ninguno). Cada uno se elige por la mediana de puntuación de la simulación, en la "
-                     "búsqueda de grupo fijo.",
-                     "Each sheet shows two bonded groups: the best melee one (at least one melee move) and the best ranged one "
-                     "(none). Each is picked by the simulation's median score, from the fixed-group search."),
+    "met_builds_h": ("Builds por Pokémon", "Builds per Pokémon"),
+    "met_builds_1": ("La ficha enseña el mejor grupo vinculado cuerpo a cuerpo (con al menos un ataque cuerpo a cuerpo) y el mejor "
+                     "a distancia (sin ninguno). Cada uno se elige por la mediana de puntuación de la simulación, en la búsqueda "
+                     "de grupo fijo. El primer ataque de la build es con el que empieza la partida simulada, y es el que te "
+                     "conviene elegir con la mejora Movimiento inicial.",
+                     "Each sheet shows the best melee bonded group (at least one melee move) and the best ranged one (none). "
+                     "Each is picked by the simulation's median score, from the fixed-group search. The build's first attack "
+                     "is the one the simulated run starts with, and the one to pick with the Starting Move upgrade."),
     "met_builds_2": ("Un atacante físico (ataque físico mayor que el especial) lleva Danza Espada; uno especial, Maquinación. "
                      "Empatan en especial. Los ataques son de su categoría, y Ataque Rápido, Placaje y Golpe Cuerpo no entran. "
-                     "Si ningún ataque vale para una build, la ficha lo dice.",
+                     "Como todos los ataques cuerpo a cuerpo son físicos, un atacante especial solo tiene build a distancia, "
+                     "y la ficha enseña solo esa.",
                      "A physical attacker (physical attack above special) carries Swords Dance; a special one carries Nasty Plot. "
                      "Ties count as special. Moves match its category, and Quick Attack, Tackle and Body Slam are left out. "
-                     "If no move is worth it for a build, the sheet says so."),
-    "met_builds_3": ("Las dos puntuaciones salen del mismo simulador. Mientras un cuerpo a cuerpo está activo, el juego reduce "
+                     "Since every melee attack is physical, a special attacker only has a ranged build, and the sheet shows only that one."),
+    "met_builds_3": ("Las puntuaciones salen del mismo simulador. Mientras un ataque cuerpo a cuerpo está activo, el juego reduce "
                      "un 25\u00a0% el daño que recibes, y eso ya cuenta en la puntuación de la build cuerpo a cuerpo.",
-                     "Both scores come from the same simulator. While a melee move is active, the game cuts the damage you take "
+                     "Scores come from the same simulator. While a melee move is active, the game cuts the damage you take "
                      "by 25%, and that is already counted in the melee build's score."),
-    "bd_pair_cap": ("Dos builds: la mejor de cuerpo a cuerpo y la mejor a distancia. La simulación puntúa cada una.",
-                    "Two builds: the best melee and the best ranged. The simulation scores each one."),
     "bd_melee": ("Cuerpo a cuerpo", "Melee"),
     "bd_ranged": ("A distancia", "Ranged"),
     "bd_time": ("Tiempo", "Time"),
@@ -249,11 +250,9 @@ STR: dict[str, tuple[str, str]] = {
     "bd_gap": ("Un {pct} peor que la build {other}.", "{pct} below the {other} build."),
     "bd_other_melee": ("cuerpo a cuerpo", "melee"),
     "bd_other_ranged": ("a distancia", "ranged"),
-    "bd_none_melee": ("No hay ataques cuerpo a cuerpo que le valgan.", "No melee moves worth using on it."),
-    "bd_none_ranged": ("No hay ataques a distancia que le valgan.", "No ranged moves worth using on it."),
-    "bd_melee_note": ("Los ataques cuerpo a cuerpo te obligan a pegar de cerca. Mientras uno está activo, el juego te quita un 25\u00a0% del daño que recibes.",
-                      "Melee moves make you get close to enemies. While one is active, the game cuts the damage you take by 25%."),
-    "faq_a_build": ("{kind}: {attacks}, con {buffs}.", "{kind}: {attacks}, with {buffs}."),
+    "bd_melee_note": ("Mientras un ataque cuerpo a cuerpo está activo, recibes un 25\u00a0% menos de daño.",
+                      "While a melee move is active, you take 25% less damage."),
+    "faq_a_build": ("{kind}: {attacks}, con {buffs}. Empieza con {start}.", "{kind}: {attacks}, with {buffs}. Start with {start}."),
     "faq_a_build_best": ("Puntúa más la build {kind}.", "The {kind} build scores higher."),
     "t_rank": ("Ranking", "Ranking"),
     "rank_how": ("Cómo se calcula", "How it is calculated"),
@@ -311,11 +310,11 @@ STR: dict[str, tuple[str, str]] = {
     "sim_median": ("mediana de todos: {s} s", "median of all: {s} s"),
     "sim_alt": ("Segundos simulados que aguanta un bot con un grupo fijo (mediana de 200 partidas): ",
                 "Simulated seconds a bot survives with one fixed group (median of 200 games): "),
-    "sim_lede": ("Un bot juega con un grupo fijo (el ataque inicial, otro más, Danza Espada o Maquinación según el primer ataque, y Fortaleza). "
+    "sim_lede": ("Un bot juega con un grupo fijo (el ataque de serie, otro más, Danza Espada o Maquinación según el primer ataque, y Fortaleza). "
                  "La barra de apertura es una estimación: con Repertorio sale un segundo ataque al azar, con Veto se bloquean los 3 que más bajan esa media, y se juega el mejor de los dos. "
                  "Los vínculos llegan al ganar la grieta, no al empezar; hay jefes y orbes de curación, y se lanzan todos los tipos de ataque. "
                  "Hasta 900 s. El bot no esquiva como una persona.",
-                 "A bot plays one fixed group (the starting move, one more attack, Swords Dance or Nasty Plot to match the first attack, and Harden). "
+                 "A bot plays one fixed group (the default attack, one more attack, Swords Dance or Nasty Plot to match the first attack, and Harden). "
                  "The opening bar is an estimate: Repertoire deals a random second attack, Veto bans the 3 that pull that average down the most, and the better of the two is played. "
                  "Bonds arrive when a rift is won, not at the start; bosses and heal orbs are in, and every attack kind fires. "
                  "Up to 900 s. The bot does not dodge the way a person does."),
@@ -328,11 +327,7 @@ STR: dict[str, tuple[str, str]] = {
 
     # ------------------------------------------------------------ listas de consulta (landing.py)
     "lp_top_h": ("Ranking", "Ranking"),
-    "lp_note": ("Cada puesto sale de {sims} partidas simuladas por Pokémon y {reps} repeticiones del cálculo. "
-                "Cómo se calcula, en Método.",
-                "Each rank comes from {sims} simulated games per Pokémon and {reps} repeats of the calculation. "
-                "How it is calculated, on Method."),
-    "lp_start_move": ("Ataque inicial: {move}", "Starting move: {move}"),
+    "lp_start_move": ("De serie: {move}", "Default: {move}"),
     "lp_best_title": ("Mejores Pokémon de {game} · {site}", "Best Pokémon in {game} · {site}"),
     "lp_best_h1": ("Mejores Pokémon de {game}", "Best Pokémon in {game}"),
     "lp_best_desc": ("Los {n} mejores Pokémon de {game} según la tier list simulada: {top}.",
@@ -345,9 +340,9 @@ STR: dict[str, tuple[str, str]] = {
                       "The starters in {game} that last longest in the Repertoire opening: {top}."),
     "lp_start_lede": ("Los iniciales que más aguantan en la apertura de {game} son {top}.",
                       "The starters that last longest in the {game} opening are {top}."),
-    "lp_start_note": ("Apertura: el ataque inicial con Repertorio (un segundo ataque al azar) y Veto (se bloquean los tres "
+    "lp_start_note": ("Apertura: el ataque de serie con Repertorio (un segundo ataque al azar) y Veto (se bloquean los tres "
                       "que más bajan la media). Puesto por esa apertura, no por el final de la partida.",
-                      "Opening: the starting move with Repertoire (a random second move) and Veto (the three moves that pull "
+                      "Opening: the default attack with Repertoire (a random second move) and Veto (the three moves that pull "
                       "the average down are banned). Rank by that opening, not the late game."),
     "lp_leg_title": ("Legendarios de {game} · {site}", "Legendaries in {game} · {site}"),
     "lp_leg_h1": ("Legendarios de {game}", "Legendaries in {game}"),
@@ -379,7 +374,6 @@ STR: dict[str, tuple[str, str]] = {
     "ataques_title": ("Ataques de {game} · {site}", "Moves in {game} · {site}"),
     "ataques_desc": ("Tier list de los {n} ataques de {game}.", "Tier list of the {n} moves in {game}."),
     "ataques_h1": ("Ataques de {game}", "Moves in {game}"),
-    "ataques_lede": ("Los ataques de {game}, de mejor a peor.", "The moves in {game}, best to worst."),
     "cat_melee": ("Cuerpo a cuerpo", "Melee"),
     "cat_ranged": ("Distancia", "Ranged"),
     "cat_stat": ("Potenciadores", "Boosts"),
@@ -428,6 +422,7 @@ STR: dict[str, tuple[str, str]] = {
     "dmg_physical": ("Físico", "Physical"),
     "dmg_special": ("Especial", "Special"),
     "dmg_status": ("Estado", "Status"),
+    "dmg_mix": ("Mixto", "Mixed"),
     "dmg_tip_physical": ("Ataque físico: pega con el Ataque", "Physical attack: deals damage with Attack"),
     "dmg_tip_special": ("Ataque especial: pega con el Ataque Especial", "Special attack: deals damage with Sp. Attack"),
     "dmg_tip_status": ("Potenciador: no hace daño", "Boost: deals no damage"),
@@ -791,8 +786,6 @@ STR: dict[str, tuple[str, str]] = {
     "tf_lede": ("Elige uno o dos tipos. Te digo qué Pokémon los tienen y qué ataques les pegan fuerte.",
                 "Pick one or two types. See which Pokémon have them and which attacks hit them hardest."),
     "tf_pick_h": ("Tipos", "Types"),
-    "tf_rule": ("Con un tipo salen todos los que lo tienen. Con dos, solo los que tienen exactamente esos dos.",
-                "With one type you get every Pokémon that has it. With two, only the ones with exactly those two."),
     "tf_clear": ("Quitar tipos", "Clear types"),
     "tf_start": ("Elige un tipo para ver sus debilidades.", "Pick a type to see its weaknesses."),
     "tf_weak_h": ("Debilidades", "Weaknesses"),

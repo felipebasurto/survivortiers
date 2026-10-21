@@ -16,6 +16,7 @@ devolver 404.html con estado 404 para lo que no existe, como el hosting: usa bui
 from __future__ import annotations
 
 import argparse
+import csv
 import html as html_lib
 import json
 import random
@@ -363,7 +364,11 @@ def browser_check(base: str, index: list[dict], args, err, notes: list[str]) -> 
     by_dex = {p["dex"]: p for p in index}
     dexes = sorted(by_dex)
     rng = random.Random(7)
-    sample = dexes if args.all_species else sorted(set(rng.sample(dexes, min(args.species, len(dexes)))) | {dexes[0], dexes[-1]})
+    sample = dexes if args.all_species else sorted(set(rng.sample(dexes, min(args.species, len(dexes)))) | {dexes[0], dexes[-1]} | ({94, 354} & set(dexes)))
+    with (ROOT / "data" / "builds.csv").open(encoding="utf8", newline="") as f:
+        build_kinds: dict[int, set[str]] = {}
+        for row in csv.DictReader(f):
+            build_kinds.setdefault(int(row["dex"]), set()).add(row["build"])
     drawn = 0
     with sync_playwright() as pw:
         browser = launch_chromium(pw)
@@ -394,20 +399,23 @@ def browser_check(base: str, index: list[dict], args, err, notes: list[str]) -> 
                     h1: document.querySelector('h1').firstChild.textContent.trim(),
                     img: document.querySelector('.ficha-sprite img').naturalWidth,
                     src: document.querySelector('.ficha-sprite img').src,
-                    build: { start: document.querySelectorAll('#build .bd-start .bd-row').length,
+                    build: { starts: [...document.querySelectorAll('#build .bd-opt')].map(o => [...o.querySelectorAll('.bd-row')].map(r => r.classList.contains('is-start'))),
+                             pills: document.querySelectorAll('#build .bd-opt .bd-pill.is-gold').length,
+                             defaultNotes: document.querySelectorAll('#build p.bd-default').length,
                              options: document.querySelectorAll('#build .bd-opt').length,
-                             none: document.querySelectorAll('#build .bd-opt.is-none').length,
+                             single: document.querySelectorAll('#build .bd-pair.is-single').length,
+                             empties: [...document.querySelectorAll('#build .bd-pair > *')].filter(e => e.getBoundingClientRect().height < 40).length,
                              best: document.querySelectorAll('#build .bd-opt.is-best').length,
-                             rows: [...document.querySelectorAll('#build .bd-opt:not(.is-none) .bd-rows')].map(u => u.children.length),
-                             stats: document.querySelectorAll('#build .bd-opt:not(.is-none) .bd-stats dd').length,
+                             rows: [...document.querySelectorAll('#build .bd-opt .bd-rows')].map(u => u.children.length),
+                             stats: document.querySelectorAll('#build .bd-opt .bd-stats dd').length,
                              notes: document.querySelectorAll('#build .bd-opt[data-build=melee] .bd-note').length,
-                             cards: [...document.querySelectorAll('#build .bd-opt:not(.is-none) .bd-cardlist')].map(o => [...o.querySelectorAll('.bd-n')].map(n => n.textContent.trim())),
+                             cards: [...document.querySelectorAll('#build .bd-opt .bd-cardlist')].map(o => [...o.querySelectorAll('.bd-n')].map(n => n.textContent.trim())),
                              items: document.querySelectorAll('#build .bd-gear .bd-row').length,
                              icons: [...document.querySelectorAll('#build .bd-gear .bd-ico img')].every(i => i.complete && i.naturalWidth > 0),
                              expands: document.querySelectorAll('#build details').length,
                              title: (document.querySelector('#build h2') || {}).textContent,
                              overflow: [...document.querySelectorAll('#build, #build *')].some(e => e.getBoundingClientRect().right > innerWidth + 1) },
-                    buildKinds: [...document.querySelectorAll('#build .bd-opt:not(.is-none)')].map(e => e.dataset.build),
+                    buildKinds: [...document.querySelectorAll('#build .bd-opt')].map(e => e.dataset.build),
                     base: new URL(document.documentElement.dataset.sprites, location.href).href,
                     ext: document.documentElement.dataset.spritesExt || '.png' })""")
                 want = by_dex[d]["nameEn" if en else "name"]
@@ -416,10 +424,15 @@ def browser_check(base: str, index: list[dict], args, err, notes: list[str]) -> 
                 if len(info["alts"]) != 5 or min(info["alts"]) < 20:
                     err(f"{lang}pokemon/?id={d}: {len(info['alts'])} gráficos con texto alternativo (se esperaban 5 de 20+ letras)")
                 b = info["build"]
-                b = info["build"]
                 want_cards = [str(i) for i in range(1, 9)]
-                if b["start"] != 1 or b["options"] != 2 or b["title"] != "Build" or b["none"] + len(b["rows"]) != 2 or b["best"] > 1:
-                    err(f"{lang}pokemon/?id={d}: la sección Build no tiene inicio y dos builds ({b})")
+                kinds = build_kinds.get(d, set())
+                if b["title"] != "Build" or b["best"] > 1 or sorted(info["buildKinds"]) != sorted(kinds) \
+                        or b["options"] != len(kinds) or len(b["rows"]) != len(kinds):
+                    err(f"{lang}pokemon/?id={d}: la sección Build no tiene las builds de sus datos {sorted(kinds)} ({b})")
+                if b["single"] != (1 if len(kinds) == 1 else 0) or b["empties"]:
+                    err(f"{lang}pokemon/?id={d}: la rejilla de builds deja titulo, columna o hueco vacío ({b})")
+                if b["defaultNotes"] != 1 or b["pills"] != len(kinds) or any(r[:1] != [True] or any(r[1:]) for r in b["starts"]):
+                    err(f"{lang}pokemon/?id={d}: cada build debe llevar solo su primer ataque marcado como el de empezar, y una sola nota de serie ({b})")
                 if any(not 2 <= n <= 4 for n in b["rows"]) or b["stats"] != 4 * len(b["rows"]):
                     err(f"{lang}pokemon/?id={d}: una build sin 2 a 4 ataques o sin sus cuatro cifras ({b})")
                 if any(c != want_cards for c in b["cards"]) or len(b["cards"]) != len(b["rows"]):
@@ -771,7 +784,7 @@ def main() -> int:
         if ficha and int(ficha.group(1)) in names:
             dex = int(ficha.group(1))
             want = names[dex][1 if english else 0]
-            h1 = re.search(r"<h1>(.*?)<span", body_by_url[url], re.S)
+            h1 = re.search(r"<h1>(.*?)<small", body_by_url[url], re.S)
             got = html_lib.unescape(h1.group(1)).strip() if h1 else None
             if got != want:
                 err(f"{url}: el título es {got!r} y debería ser {want!r}")
