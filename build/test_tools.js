@@ -166,7 +166,6 @@ check('la danza de la build recomendada se elige por categoría, sin Danza Espad
 const report = {
   pokemon: index.length,
   coverageMismatch: coverageMismatch.length,
-  swapped: swaps.length,
 };
 if (failures.length) {
   console.error(failures.join('\n'));
