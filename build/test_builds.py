@@ -141,8 +141,6 @@ class FichaBuildLayout(unittest.TestCase):
                 self.assertNotIn("bd-none", page)
                 self.assertNotIn("is-none", page)
                 self.assertNotIn("bd-note", page)
-                self.assertNotIn('<p class="bd-cap">' + html_lib.escape(ES.t("bd_pair_cap")), page)
-                self.assertNotIn('<p class="bd-cap">' + html_lib.escape(EN.t("bd_pair_cap")), page)
 
     def test_species_with_both_builds_is_unchanged(self) -> None:
         for prefix, lang in (("", ES), ("en", EN)):
@@ -153,7 +151,6 @@ class FichaBuildLayout(unittest.TestCase):
                 self.assertIn('data-build="ranged"', page)
                 self.assertIn('class="bd-pair"', page)
                 self.assertNotIn("is-single", page)
-                self.assertIn('<p class="bd-cap">' + html_lib.escape(lang.t("bd_pair_cap")), page)
 
     def test_each_build_starts_with_its_own_first_attack(self) -> None:
         expect = {("", "94-gengar"): {"ranged": "Viento Aciago"},

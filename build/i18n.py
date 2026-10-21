@@ -51,7 +51,6 @@ STR: dict[str, tuple[str, str]] = {
     "guide_legendary": ("Legendarios", "Legendaries"),
     "guide_passives": ("Mejores pasivas", "Best passives"),
     "guide_tierlist": ("Tier list completa", "Full tier list"),
-    "fh_game": ("en {game}", "in {game}"),
     "dataset_name": ("Ranking no oficial de los Pokémon de {game}", "Unofficial ranking of the Pokémon in {game}"),
     "agents_label": ("Para agentes de IA y datos:", "For AI agents and data:"),
     "index_h1": ("Tier list de {game}", "{game} tier list"),
@@ -220,7 +219,6 @@ STR: dict[str, tuple[str, str]] = {
     "build_share": ("Compartir esta build", "Share this build"),
     "build_copied": ("Enlace copiado", "Link copied"),
     "build_brand": ("{site}", "{site}"),
-    "build_best_item": ("Mejor objeto", "Best item"),
     "met_builds_h": ("Builds por Pokémon", "Builds per Pokémon"),
     "met_builds_1": ("La ficha enseña el mejor grupo vinculado cuerpo a cuerpo (con al menos un ataque cuerpo a cuerpo) y el mejor "
                      "a distancia (sin ninguno). Cada uno se elige por la mediana de puntuación de la simulación, en la búsqueda "
@@ -240,8 +238,6 @@ STR: dict[str, tuple[str, str]] = {
                      "un 25\u00a0% el daño que recibes, y eso ya cuenta en la puntuación de la build cuerpo a cuerpo.",
                      "Scores come from the same simulator. While a melee move is active, the game cuts the damage you take "
                      "by 25%, and that is already counted in the melee build's score."),
-    "bd_pair_cap": ("Se simulan dos builds: la mejor cuerpo a cuerpo y la mejor a distancia.",
-                    "Two builds are simulated: the best melee and the best ranged."),
     "bd_melee": ("Cuerpo a cuerpo", "Melee"),
     "bd_ranged": ("A distancia", "Ranged"),
     "bd_time": ("Tiempo", "Time"),
@@ -331,10 +327,6 @@ STR: dict[str, tuple[str, str]] = {
 
     # ------------------------------------------------------------ listas de consulta (landing.py)
     "lp_top_h": ("Ranking", "Ranking"),
-    "lp_note": ("Cada puesto sale de {sims} partidas simuladas por Pokémon y {reps} repeticiones del cálculo. "
-                "Cómo se calcula, en Método.",
-                "Each rank comes from {sims} simulated games per Pokémon and {reps} repeats of the calculation. "
-                "How it is calculated, on Method."),
     "lp_start_move": ("De serie: {move}", "Default: {move}"),
     "lp_best_title": ("Mejores Pokémon de {game} · {site}", "Best Pokémon in {game} · {site}"),
     "lp_best_h1": ("Mejores Pokémon de {game}", "Best Pokémon in {game}"),
@@ -382,7 +374,6 @@ STR: dict[str, tuple[str, str]] = {
     "ataques_title": ("Ataques de {game} · {site}", "Moves in {game} · {site}"),
     "ataques_desc": ("Tier list de los {n} ataques de {game}.", "Tier list of the {n} moves in {game}."),
     "ataques_h1": ("Ataques de {game}", "Moves in {game}"),
-    "ataques_lede": ("Los ataques de {game}, de mejor a peor.", "The moves in {game}, best to worst."),
     "cat_melee": ("Cuerpo a cuerpo", "Melee"),
     "cat_ranged": ("Distancia", "Ranged"),
     "cat_stat": ("Potenciadores", "Boosts"),
@@ -432,7 +423,6 @@ STR: dict[str, tuple[str, str]] = {
     "dmg_special": ("Especial", "Special"),
     "dmg_status": ("Estado", "Status"),
     "dmg_mix": ("Mixto", "Mixed"),
-    "bd_best_label": ("Mejor build", "Best build"),
     "dmg_tip_physical": ("Ataque físico: pega con el Ataque", "Physical attack: deals damage with Attack"),
     "dmg_tip_special": ("Ataque especial: pega con el Ataque Especial", "Special attack: deals damage with Sp. Attack"),
     "dmg_tip_status": ("Potenciador: no hace daño", "Boost: deals no damage"),
@@ -796,8 +786,6 @@ STR: dict[str, tuple[str, str]] = {
     "tf_lede": ("Elige uno o dos tipos. Te digo qué Pokémon los tienen y qué ataques les pegan fuerte.",
                 "Pick one or two types. See which Pokémon have them and which attacks hit them hardest."),
     "tf_pick_h": ("Tipos", "Types"),
-    "tf_rule": ("Con un tipo salen todos los que lo tienen. Con dos, solo los que tienen exactamente esos dos.",
-                "With one type you get every Pokémon that has it. With two, only the ones with exactly those two."),
     "tf_clear": ("Quitar tipos", "Clear types"),
     "tf_start": ("Elige un tipo para ver sus debilidades.", "Pick a type to see its weaknesses."),
     "tf_weak_h": ("Debilidades", "Weaknesses"),

@@ -403,7 +403,6 @@ def browser_check(base: str, index: list[dict], args, err, notes: list[str]) -> 
                              pills: document.querySelectorAll('#build .bd-opt .bd-pill.is-gold').length,
                              defaultNotes: document.querySelectorAll('#build p.bd-default').length,
                              options: document.querySelectorAll('#build .bd-opt').length,
-                             pairCap: document.querySelectorAll('#build > .bd-card > p.bd-cap').length,
                              single: document.querySelectorAll('#build .bd-pair.is-single').length,
                              empties: [...document.querySelectorAll('#build .bd-pair > *')].filter(e => e.getBoundingClientRect().height < 40).length,
                              best: document.querySelectorAll('#build .bd-opt.is-best').length,
@@ -430,8 +429,7 @@ def browser_check(base: str, index: list[dict], args, err, notes: list[str]) -> 
                 if b["title"] != "Build" or b["best"] > 1 or sorted(info["buildKinds"]) != sorted(kinds) \
                         or b["options"] != len(kinds) or len(b["rows"]) != len(kinds):
                     err(f"{lang}pokemon/?id={d}: la sección Build no tiene las builds de sus datos {sorted(kinds)} ({b})")
-                if b["pairCap"] != (1 if len(kinds) > 1 else 0) or b["single"] != (1 if len(kinds) == 1 else 0) \
-                        or b["empties"]:
+                if b["single"] != (1 if len(kinds) == 1 else 0) or b["empties"]:
                     err(f"{lang}pokemon/?id={d}: la rejilla de builds deja titulo, columna o hueco vacío ({b})")
                 if b["defaultNotes"] != 1 or b["pills"] != len(kinds) or any(r[:1] != [True] or any(r[1:]) for r in b["starts"]):
                     err(f"{lang}pokemon/?id={d}: cada build debe llevar solo su primer ataque marcado como el de empezar, y una sola nota de serie ({b})")
@@ -786,7 +784,7 @@ def main() -> int:
         if ficha and int(ficha.group(1)) in names:
             dex = int(ficha.group(1))
             want = names[dex][1 if english else 0]
-            h1 = re.search(r"<h1>(.*?)<span", body_by_url[url], re.S)
+            h1 = re.search(r"<h1>(.*?)<small", body_by_url[url], re.S)
             got = html_lib.unescape(h1.group(1)).strip() if h1 else None
             if got != want:
                 err(f"{url}: el título es {got!r} y debería ser {want!r}")

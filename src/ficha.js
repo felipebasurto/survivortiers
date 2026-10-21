@@ -364,8 +364,7 @@
         '<span class="bd-nm">' + esc(EN ? m.en.name : m.name) + '</span>' +
         (gate ? '<b class="bd-gate" title="' + esc(t('build_card_once')) + '">1×</b>' : '') + '</li>';
     }).join('');
-    const cardsHtml = '<p class="bd-cap">' + esc(t('build_cards')) + '</p><ol class="bd-cardlist">' + cardItems + '</ol>' +
-      (gateId ? '<p class="bd-legend">' + esc(t('build_card_once')) + '</p>' : '');
+    const cardsHtml = '<p class="bd-cap">' + esc(t('build_cards')) + '</p><ol class="bd-cardlist">' + cardItems + '</ol>';
     const note = kind === 'melee' ? '<p class="bd-note">' + esc(t('bd_melee_note')) + '</p>' : '';
     return '<article class="bd-opt' + (win === kind && other ? ' is-best' : '') + '" data-build="' + kind + '">' + head +
       verdict(kind, b, other, win) + '<ol class="bd-rows">' + rows + '</ol>' + stats + cardsHtml + note + '</article>';
@@ -379,15 +378,13 @@
     const start = moves.find(m => m.id === d[2]);
     const defaultStart = start ? '<p class="bd-default">' + esc(t('build_default_start', { move: EN ? start.en.name : start.name })) + '</p>' : '';
     const options = BUILD_KINDS.map(kind => buildOption(kind, pair[kind], pair[BUILD_KINDS.find(k => k !== kind)], moves, cards, win)).filter(Boolean);
-    const itemRows = items.map((m, i) => moveRow(m, '', i === 0 ? { text: t('build_best_item'), gold: true } : null)).join('');
+    const itemRows = items.map(m => moveRow(m, '', null)).join('');
+    const legend = BUILD_KINDS.some(k => pair[k] && pair[k].cards[1]) ? '<p class="bd-legend">' + esc(t('build_card_once')) + '</p>' : '';
     return '<section class="fig anim fig-build" id="build" aria-labelledby="bd-h"><div class="bd-card" style="' + typeVars(p) + '">' +
       '<header class="bd-head">' + sprite + '<div><h2 id="bd-h">' + esc(t('t_build')) + '</h2><span class="bd-who">' + esc(name) + '</span></div>' +
-      (win ? '<p class="bd-best"><span class="bd-best-lbl">' + esc(t('bd_best_label')) + '</span>' +
-        comboHtml(buildDamage(moves, pair[win].moves), win) + '</p>' : '') +
       '<button class="bd-share" type="button" aria-label="' + esc(t('build_share')) + '" title="' + esc(t('build_share')) + '">' + SHARE_SVG + '</button>' +
       '<span class="bd-toast" role="status" aria-live="polite"></span></header>' +
-      (options.length > 1 ? '<p class="bd-cap">' + esc(t('bd_pair_cap')) + '</p>' : '') +
-      '<div class="bd-pair' + (options.length > 1 ? '' : ' is-single') + '">' + options.join('') + '</div>' + defaultStart +
+      '<div class="bd-pair' + (options.length > 1 ? '' : ' is-single') + '">' + options.join('') + '</div>' + legend + defaultStart +
       '<div class="bd-gear">' + capOf('build_items') + '<ul class="bd-rows">' + itemRows + '</ul></div>' +
       '<div class="bd-cover">' + meter(t('build_super'), superPct, 'bd-super') + meter(t('build_neutral'), neutralPct, 'bd-neutral') + '</div>' +
       '<p class="bd-brand">' + esc(t('build_brand')) + '</p></div></section>';
@@ -490,7 +487,7 @@
       '<div class="ficha-sprite" style="--tc:' + (TYPE_COLOR[p.types[0]] || '#888') + ';--tc2:' + (TYPE_COLOR[p.types[1] || p.types[0]] || '#888') + '">' +
       '<img class="px" src="' + sprites + p.dex + spriteExt + '" width="' + p.w * scale + '" height="' + p.h * scale + '" alt="' + esc(t('sprite_alt', { name })) + '">' +
       '<span class="tier-badge medal ' + tier + '" title="' + esc(t('tier', { t: tier })) + '">' + tier + '</span></div>' +
-      '<div class="fh-main"><h1>' + esc(name) + ' <span class="fh-game">' + esc(t('fh_game')) + '</span> ' + otherName + '<small class="fh-dex">' + esc(t('dex_no', { dex: p.dex })) + '</small></h1>' +
+      '<div class="fh-main"><h1>' + esc(name) + ' ' + otherName + '<small class="fh-dex">' + esc(t('dex_no', { dex: p.dex })) + '</small></h1>' +
       '<div class="facts">' + pills + rarity + legendary + tpl('tpl-regions', 'data-gen', p.bannerId) + '</div>' +
       '<p class="rankline" title="' + rankTitle + '" aria-label="' + rankTitle + '"><i class="ico ico-trophy" aria-hidden="true"></i><strong>' + rank + '</strong><span>/ ' + TOTAL + '</span>' +
       (lo != null && hi != null ? '<span class="rankband">' + esc(t('band_range', { lo, hi })) + '</span>' : '') + '</p>' +

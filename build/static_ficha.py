@@ -263,15 +263,6 @@ def combo_html(L: Lang, dmg: str | None, rng: str) -> str:
             f'{esc(L.t(BUILD_NAME[rng]))}</span>')
 
 
-def best_range_html(L: Lang, pair: dict[str, dict | None], moves: dict[str, dict]) -> str:
-    """La build que puntúa más: su combinación de daño y rango. Con empate, nada."""
-    win = _winner(pair)
-    if not win:
-        return ""
-    dmg = build_damage(moves, pair[win]["moves"])
-    return f'<p class="bd-best"><span class="bd-best-lbl">{esc(L.t("bd_best_label"))}</span>{combo_html(L, dmg, win)}</p>'
-
-
 def _lead(pair: dict[str, dict | None]) -> str:
     """La build que encabeza la descripción: la ganadora o, con empate o una sola, la cuerpo a cuerpo si existe."""
     return _winner(pair) or ("melee" if pair.get("melee") else "ranged")
@@ -349,8 +340,7 @@ def _build_option(L: Lang, moves: dict[str, dict], cards: dict, kind: str, b: di
         items.append(f'<li class="{"is-gate" if cid == gate else ""}"><span class="bd-n">{i}</span>'
                      f'<span class="bd-nm">{esc(_card_name(L, cards[cid]))}</span>{once}</li>')
     cards_html = (f'<p class="bd-cap">{esc(L.t("build_cards"))}</p>'
-                  f'<ol class="bd-cardlist">{"".join(items)}</ol>'
-                  + (f'<p class="bd-legend">{esc(L.t("build_card_once"))}</p>' if gate else ""))
+                  f'<ol class="bd-cardlist">{"".join(items)}</ol>')
     note = f'<p class="bd-note">{esc(L.t("bd_melee_note"))}</p>' if kind == "melee" else ""
     best = " is-best" if win == kind and other else ""
     return (f'<article class="bd-opt{best}" data-build="{kind}">{head}'
@@ -410,7 +400,8 @@ def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, detail: list,
         _build_option(L, moves, cards, kind, pair.get(kind), pair.get(BUILD_OTHER_KIND[kind]), win)
         for kind in BUILD_NAME]
     options = [o for o in options if o]
-    pair_cap = f'<p class="bd-cap">{esc(L.t("bd_pair_cap"))}</p>' if len(options) > 1 else ""
+    legend = (f'<p class="bd-legend">{esc(L.t("build_card_once"))}</p>'
+              if any(b and b["cards"][1] for b in pair.values()) else "")
     pair_cls = "bd-pair" if len(options) > 1 else "bd-pair is-single"
     stat_rows = "".join(
         f'<tr><th scope="row">{esc(L.t(key))}</th><td class="num">{n}</td></tr>'
@@ -427,7 +418,7 @@ def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, detail: list,
 <span class="tier-badge medal {tier}" title="{esc(L.t("tier", t=tier))}">{tier}</span>
 </div>
 <div class="fh-main">
-<h1>{esc(name)} <span class="fh-game">{esc(L.t("fh_game"))}</span> {other}<small class="fh-dex">{esc(L.t("dex_no", dex=entry["dex"]))}</small></h1>
+<h1>{esc(name)} {other}<small class="fh-dex">{esc(L.t("dex_no", dex=entry["dex"]))}</small></h1>
 <div class="facts"><span class="types">{pills}</span>
 <span class="rarity r{rarity}" role="img" aria-label="{rarity_name}" title="{rarity_name}"><svg class="rball" viewBox="0 0 12 12" aria-hidden="true"><use href="#rball-{rarity}"/></svg></span>
 {legendary}{region}</div>
@@ -439,9 +430,9 @@ def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, detail: list,
 </header>
 <section class="fig fig-build" id="build" aria-labelledby="bd-h">
 <div class="bd-card" style="--p1:{tc};--p2:{tc2}">
-<header class="bd-head"><div><h2 id="bd-h">{esc(L.t("t_build"))}</h2><span class="bd-who">{esc(name)}</span></div>{best_range_html(L, pair, moves)}</header>
-{pair_cap}
+<header class="bd-head"><div><h2 id="bd-h">{esc(L.t("t_build"))}</h2><span class="bd-who">{esc(name)}</span></div></header>
 <div class="{pair_cls}">{"".join(options)}</div>
+{legend}
 {default_start}
 <div class="bd-cover">{_meter(L.t("build_super"), int(super_pct), "bd-super")}{_meter(L.t("build_neutral"), int(neutral_pct), "bd-neutral")}</div>
 <p class="bd-brand">{esc(L.t("build_brand", site=legal.SITE_NAME))}</p>

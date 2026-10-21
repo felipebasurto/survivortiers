@@ -109,7 +109,7 @@ class StaticMewtwo(unittest.TestCase):
         self.assertIn(f"<title>Mewtwo en {game}: tier {row['tier']}, mejor build y ataques | SurvivorTiers</title>", es)
         self.assertIn(f"<title>Mewtwo in {game}: {row['tier']} tier, best build and moves | SurvivorTiers</title>", en)
         for html, rank_word in ((es, "puesto"), (en, "rank")):
-            self.assertRegex(html, r"<h1>Mewtwo <span")
+            self.assertRegex(html, r"<h1>Mewtwo <")
             self.assertRegex(html, r'<img class="px"[^>]* alt="[^"]*Mewtwo[^"]*"')
             text = _visible(html)
             self.assertIn(row["tier"], text)

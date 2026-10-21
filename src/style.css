@@ -691,8 +691,6 @@ summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
 .rng-tag.is-melee { --rng: var(--cat-melee); --ico: url(img/ui/fist.png); }
 .rng-tag.is-ranged { --rng: var(--cat-ranged); --ico: url(img/ui/bow.png); }
 .bd-kind { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.bd-best { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; }
-.bd-best-lbl { font: 700 .6875rem/1 var(--ui); letter-spacing: .05em; text-transform: uppercase; color: var(--bd-ink-2); }
 .lt-move > .cat-tag { margin-left: 6px; }
 .bond li > .bd-tags { margin-left: 6px; }
 .bd-tags { display: inline-flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 3px; max-width: 100%; min-width: 0; }
@@ -1445,7 +1443,6 @@ html { overflow-x: hidden; }
 /* ---------- datos del juego, resumen de la ficha y páginas de consulta (landing.py) ---------- */
 .fresh { margin: 0 0 18px; font: .8125rem/1.5 var(--sans); color: var(--ink-2); font-variant-numeric: tabular-nums lining-nums; }
 .resumen { margin: 0 0 6px; max-width: 64ch; font: .95rem/1.6 var(--ui); color: var(--ink); }
-.fh-game { font: 500 .95rem var(--sans); color: var(--ink-2); text-shadow: none; }
 .ql h1 { font: 700 clamp(1.7rem, 6vw, 2.6rem)/1.2 var(--ui); letter-spacing: -.01em; margin: 0 0 12px; }
 .ql h2 { font: 700 1.1rem/1.3 var(--ui); margin: 40px 0 12px; }
 .ql-lede { font: 600 1.05rem/1.55 var(--ui); max-width: 60ch; margin: 0 0 8px; }
@@ -1478,7 +1475,6 @@ html { overflow-x: hidden; }
 .nv-sec { margin-top: 44px; }
 .nv-sec-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 2px solid var(--rule-soft); }
 .nv-sec h2 { display: block; margin: 0; padding: 0; border: 0; font: 700 1.3rem/1.3 var(--ui); letter-spacing: -.01em; }
-.nv-idx { min-width: 2ch; font: 700 .875rem/1 var(--ui); color: var(--accent); font-variant-numeric: tabular-nums lining-nums; }
 
 .nv-table-wrap { max-width: 68ch; margin: 16px 0 18px; overflow-x: auto; }
 .nv-table { width: 100%; border-collapse: collapse; font-size: .9375rem; }
