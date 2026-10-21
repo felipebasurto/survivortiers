@@ -705,7 +705,9 @@ def render_metodo(c: Ctx, meta: dict) -> str:
         ("m3_p2_h", L.t("m3_p2", groups=L.num(p2["groups"]), s1=p2["seeds"][0], s2=p2["seeds"][1], s3=p2["seeds"][2],
                         games=L.num(p2["games"]))),
         ("m3_p3_h", L.t("m3_p3", g1=L.num(p3["groups"][0]), g2=L.num(p3["groups"][1]), g3=L.num(p3["groups"][2]),
-                        s1=p3["seeds"][0], s2=p3["seeds"][1], s3=p3["seeds"][2], games=L.num(p3["games"]))),
+                        s1=p3["seeds"][0], s2=p3["seeds"][1], s3=p3["seeds"][2], games=L.num(p3["games"]))
+         + " " + L.t("m3_p3_var", variants=L.num(p3["variants"]), seeds=p3["seeds"][2], duels=L.num(p3["duels"]),
+                     promoted=L.num(p3["promoted"]))),
         ("m3_rank_h", L.t("m3_rank", seeds=meta["seeds"], sizes=sizes, dps=L.num(m["score"]["dpsRef"]),
                           kpm=L.num(m["score"]["kpmRef"]))),
         ("m3_why_h", L.t("m3_why", r2=L.pcts(meta["why"]["r2"] * 100))),

@@ -335,6 +335,16 @@ def build_gachas(entries: list[dict]) -> list[dict]:
     return out
 
 
+def _groups(path: Path) -> set[tuple[str, str]]:
+    return {(r["dex"], r["group"]) for r in _read_csv(path)}
+
+
+def _promoted() -> int:
+    """Builds que son una variante que ganó el desempate (data/species_builds.csv frente a rD_pairs.csv)."""
+    won = {(r["dex"], r["build"], r["challenger"]) for r in _read_csv(RESULTS / "fase3" / "rD_pairs.csv")}
+    return sum((r["dex"], r["build"], r["group"]) in won for r in _read_csv(BUILDS_CSV))
+
+
 def _lines(path: Path) -> int:
     """Filas de datos de un CSV de resultados (sin la cabecera)."""
     with path.open("rb") as f:
@@ -358,12 +368,18 @@ def method_numbers(moves: list[dict]) -> dict:
     p2_games = sum(PHASE2_REFS * cumulative[int(r["seeds"])] for r in bonds)
     rounds = [_lines(RESULTS / "fase3" / f"r{k}_raw.csv") for k in "ABC"]
     p3_games = sum(n * s for n, s in zip(rounds, PHASE3_SEEDS))
+    # Variantes y desempate (species_builds.py --variants y --promote): solo los grupos que no jugó la búsqueda.
+    fresh = [len(_groups(RESULTS / "fase3" / f"v{k}_raw.csv") - _groups(RESULTS / "fase3" / f"r{k}_raw.csv"))
+             for k in "ABC"]
+    duels = _lines(RESULTS / "fase3" / "rD_pairs.csv")
+    p3_games += sum(n * s for n, s in zip(fresh, PHASE3_SEEDS)) + 2 * duels * PHASE3_SEEDS[-1]
     return {
         "seconds": SIM_SECONDS, "score": score_refs(),
         "p1": {"attacks": len(moves), "refs": PHASE1_REFS, "seeds": PHASE1_SEEDS, "games": p1_games},
         "p2": {"groups": len(bonds), "refs": PHASE2_REFS, "seeds": list(PHASE2_SEEDS), "games": p2_games,
                "final": sum(1 for r in bonds if int(r["seeds"]) == PHASE2_SEEDS[-1])},
-        "p3": {"groups": rounds, "seeds": list(PHASE3_SEEDS), "games": p3_games},
+        "p3": {"groups": rounds, "seeds": list(PHASE3_SEEDS), "games": p3_games, "variants": len(_read_csv(VARIANTS_CSV)),
+               "duels": duels, "promoted": _promoted()},
         "games": p1_games + p2_games + p3_games,
     }
 

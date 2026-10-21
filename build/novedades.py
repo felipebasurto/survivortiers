@@ -127,6 +127,12 @@ SECTIONS_SITE = [
              "Each build shows each move's type and its coverage: how many of the Pokémon that spawn as enemies it hits "
              "super effectively and how many resist all its moves. Folded underneath are variants in case you want it "
              "more aggressive (no Harden) or with more type coverage, with what they lose or gain in the simulation."),
+            ("Al buscarlas salieron variantes que puntuaban más que la build publicada. Las 337 volvieron a jugar con "
+             "partidas nuevas contra su build, y en 254 ganó la variante, casi siempre cambiando Fortaleza por un "
+             "tercer ataque. Esas builds y el ranking se han actualizado: 66 Pokémon cambian de tier.",
+             "While searching them, some variants scored higher than the published build. All 337 replayed fresh runs "
+             "against their build, and in 254 the variant won, almost always swapping Harden for a third attack. "
+             "Those builds and the ranking are updated: 66 Pokémon change tier."),
             ("Nueva página Tipos: cómo pega cada tipo de ataque a los enemigos al principio y al final de la partida, "
              "el 20 % extra de los Pokémon de un solo tipo y el clima.",
              "New Types page: how each move type hits the enemies early and late in a run, the 20% bonus for "

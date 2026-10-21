@@ -33,6 +33,11 @@ una cosa, con el mismo embudo de tres rondas y las mismas semillas:
 Su ronda A son los grupos de la ronda A principal que cumplen la condición más los TOP_V mejores previstos que la
 cumplen (el modelo de arriba).
 
+Desempate (`--promote`, después de las variantes): si una variante puntúa más que su build en la ronda C, las dos
+vuelven a jugar con semillas nuevas (ronda D, ROUND_D). Si la variante gana también ahí, pasa a ser la build, con las
+cifras de la ronda D; si no, la build se queda con las de la ronda C. Las parejas quedan fijadas en
+simulator/results/fase3/rD_pairs.csv, y las variantes se vuelven a buscar para las builds nuevas.
+
 Ranking: median_score de la ronda C (supervivencia, daño y bajas; simulator/sim-rs/src/stats.rs) de la mejor de las
 dos builds. Tiers con los cortes de data/tiers.json.
 """
@@ -67,6 +72,8 @@ SECONDS = "900"
 TOP_A = 30  # por especie, build y mezcla de categorías
 TOP_B = 4  # por especie y build
 ROUNDS = ((4, 0), (32, 100), (128, 1000))  # (semillas, seed0) de las rondas A, B y C
+ROUND_D = (128, 5000)  # el desempate entre una build y la variante que la supera en la ronda C
+SEEDS = (*ROUNDS, ROUND_D)
 MIXES = ("physical", "special", "mixed")
 VARIANTS = ("aggro", "cover")
 COVER_MIN = 40  # especies enemigas (de 862) que resisten todos los ataques de la build
@@ -74,11 +81,11 @@ TOP_V = 15  # grupos previstos nuevos por build y variante
 
 
 def only_path(k: int, tag: str = "r") -> Path:
-    return OUT_DIR / f"{tag}{'ABC'[k]}_only.txt"
+    return OUT_DIR / f"{tag}{'ABCD'[k]}_only.txt"
 
 
 def raw_path(k: int, tag: str = "r") -> Path:
-    return OUT_DIR / f"{tag}{'ABC'[k]}_raw.csv"
+    return OUT_DIR / f"{tag}{'ABCD'[k]}_raw.csv"
 
 
 def mix_of(attacks: list[str]) -> str:
@@ -181,7 +188,7 @@ def advance(rows: dict[tuple[int, str], dict], keys: dict[tuple[int, str], list[
 
 def fingerprint(k: int) -> str:
     """Huella de lo que decide el resultado de un grupo: el motor, los datos del juego y las semillas de la ronda."""
-    h = hashlib.sha256(repr((ROUNDS[k], SECONDS)).encode())
+    h = hashlib.sha256(repr((SEEDS[k], SECONDS)).encode())
     for path in sorted((SIM / "sim-rs" / "src").rglob("*")) + [SIM / "v3" / "v3_data.json"]:
         if path.is_file():
             h.update(str(path.relative_to(SIM)).encode())
@@ -193,7 +200,7 @@ def run_round(k: int, keys: dict[tuple[int, str], list[str]], tag: str = "r") ->
     """Simula los grupos de la ronda k que faltan. Un grupo con el mismo motor, datos y semillas da la misma fila,
     así que las filas guardadas con la misma huella se reutilizan (las variantes, también las de la búsqueda
     principal); si la huella cambia, la ronda se hace entera."""
-    seeds, seed0 = ROUNDS[k]
+    seeds, seed0 = SEEDS[k]
     need = {(dex, g) for (dex, _), gs in keys.items() for g in gs}
     have: dict[tuple[int, str], dict] = {}
     for t in dict.fromkeys((tag, "r")):
@@ -201,11 +208,11 @@ def run_round(k: int, keys: dict[tuple[int, str], list[str]], tag: str = "r") ->
         if raw_path(k, t).exists() and stamp.exists() and stamp.read_text().strip() == fingerprint(k):
             have.update({key: r for key, r in load(raw_path(k, t)).items() if key in need and key not in have})
     todo = sorted(need - set(have))
-    print(f"ronda {tag}{'ABC'[k]}: {len(need)} grupos, {len(have)} ya jugados, {len(todo)} x {seeds} semillas = "
+    print(f"ronda {tag}{'ABCD'[k]}: {len(need)} grupos, {len(have)} ya jugados, {len(todo)} x {seeds} semillas = "
           f"{len(todo) * seeds} partidas", flush=True)
     if todo:
         only_path(k, tag).write_text("".join(f"{dex}|{g}\n" for dex, g in todo), encoding="utf8")
-        fresh = OUT_DIR / f"{tag}{'ABC'[k]}_new.csv"
+        fresh = OUT_DIR / f"{tag}{'ABCD'[k]}_new.csv"
         bt.synergy(only_path(k, tag), fresh, seeds, seed0)
         have.update(load(fresh))
         fresh.unlink()
@@ -226,14 +233,65 @@ def run_sim() -> None:
             keys = advance(load(raw_path(k)), keys, TOP_B if k == 0 else 1)
 
 
-def main_keys() -> dict[tuple[int, str], str]:
-    """(dex, build) -> el grupo publicado, desde la salida guardada."""
+PAIRS = OUT_DIR / "rD_pairs.csv"
+
+
+def searched_keys() -> dict[tuple[int, str], str]:
+    """(dex, build) -> el grupo que sale de las rondas A, B y C."""
     rows = [load(raw_path(k)) for k in range(2)]
     keys_a: dict[tuple[int, str], list[str]] = {}
     for (dex, g) in rows[0]:
         keys_a.setdefault((dex, builds._kind(picks.split_group(g)[0])), []).append(g)
     keys_c = advance(rows[1], advance(rows[0], keys_a, TOP_B), 1)
     return {key: gs[0] for key, gs in keys_c.items()}
+
+
+def pairs() -> dict[tuple[int, str], tuple[str, str]]:
+    """(dex, build) -> (build buscada, variante que la retó), de rD_pairs.csv."""
+    if not PAIRS.exists():
+        return {}
+    with PAIRS.open(encoding="utf8") as f:
+        return {(int(r["dex"]), r["build"]): (r["main"], r["challenger"]) for r in csv.DictReader(f)}
+
+
+def promoted() -> dict[tuple[int, str], str]:
+    """(dex, build) -> la variante que ganó también el desempate de la ronda D."""
+    if not pairs():
+        return {}
+    d = load(raw_path(3))
+    return {key: alt for key, (main, alt) in pairs().items() if order(d[(key[0], alt)]) < order(d[(key[0], main)])}
+
+
+def main_keys() -> dict[tuple[int, str], str]:
+    """(dex, build) -> el grupo publicado: el de la búsqueda o la variante que ganó el desempate."""
+    return {**searched_keys(), **promoted()}
+
+
+def main_rows() -> dict[tuple[int, str], tuple[str, dict]]:
+    """(dex, build) -> (grupo publicado, sus cifras): las de la ronda D si ganó el desempate, si no las de la C."""
+    won = promoted()
+    c = load(raw_path(2))
+    d = load(raw_path(3)) if won else {}
+    return {key: (g, d[(key[0], g)] if key in won else c[(key[0], g)]) for key, g in main_keys().items()}
+
+
+def run_promote() -> None:
+    """Fija las parejas (variante que supera a su build en la ronda C) y juega su desempate."""
+    if PAIRS.exists():
+        sys.exit(f"{PAIRS.relative_to(ROOT)} ya existe: bórralo para volver a elegir las parejas")
+    c, vc = load(raw_path(2)), load(raw_path(2, "v"))
+    found: dict[tuple[int, str], tuple[str, str]] = {}
+    for row in variant_rows():
+        key, main = (row["dex"], row["build"]), row["main"]
+        if order(vc[(key[0], row["group"])]) < order(c[(key[0], main)]):
+            cur = found.get(key)
+            if cur is None or order(vc[(key[0], row["group"])]) < order(vc[(key[0], cur[1])]):
+                found[key] = (main, row["group"])
+    with PAIRS.open("w", encoding="utf8", newline="") as f:
+        w = csv.writer(f, lineterminator="\n")
+        w.writerow(["dex", "build", "main", "challenger"])
+        w.writerows([dex, b, m, a] for (dex, b), (m, a) in sorted(found.items()))
+    run_round(3, {key: [m, a] for key, (m, a) in found.items()})
 
 
 def resist(group: str) -> int:
@@ -296,7 +354,7 @@ def run_variants() -> None:
     run_round(2, keys, "v")
 
 
-def variant_table(out: Path = VARIANT_TABLE) -> None:
+def variant_rows() -> list[dict]:
     rows_a = {**load(raw_path(0)), **load(raw_path(0, "v"))}
     pools = variant_pools(load(raw_path(0, "v")))
     keys_c = advance(load(raw_path(1, "v")), advance(rows_a, pools, TOP_B), 1)
@@ -312,6 +370,11 @@ def variant_table(out: Path = VARIANT_TABLE) -> None:
             "median_s": r["median_s"], "median_kills": r["median_kills"], "median_dealt": r["median_dealt"],
             "median_score": r["median_score"], "score_lo": r["score_lo"], "score_hi": r["score_hi"],
         })
+    return out_rows
+
+
+def variant_table(out: Path = VARIANT_TABLE) -> None:
+    out_rows = variant_rows()
     with out.open("w", encoding="utf8", newline="") as f:
         f.write(f"# Fase 3, variantes (build/species_builds.py --variants): agresiva (sin potenciador de defensa) y "
                 f"cobertura (la mitad o menos de enemigos que resisten); {ROUNDS[2][0]} semillas.\n")
@@ -325,16 +388,10 @@ def variant_table(out: Path = VARIANT_TABLE) -> None:
 def build_tables(builds_out: Path = BUILDS_TABLE, rank_out: Path = RANK_TABLE) -> None:
     v3 = {m["dex"]: m for m in at.load_v3()["dex"]}
     names = builds._game_moves()
-    rows = [load(raw_path(k)) for k in range(len(ROUNDS))]
-    keys_a: dict[tuple[int, str], list[str]] = {}
-    for (dex, g) in rows[0]:
-        keys_a.setdefault((dex, builds._kind(picks.split_group(g)[0])), []).append(g)
-    keys_b = advance(rows[0], keys_a, TOP_B)
-    keys_c = advance(rows[1], keys_b, 1)
-
+    published = {}
     out_rows = []
-    for (dex, build), (g,) in sorted(keys_c.items()):
-        r = rows[2][(dex, g)]
+    for (dex, build), (g, r) in sorted(main_rows().items()):
+        published[(dex, g)] = r
         attacks, buff, fourth = picks.split_group(g)
         out_rows.append({
             "dex": dex, "name": v3[dex]["name"], "build": build, "group": g,
@@ -346,7 +403,8 @@ def build_tables(builds_out: Path = BUILDS_TABLE, rank_out: Path = RANK_TABLE) -
         })
     with builds_out.open("w", encoding="utf8", newline="") as f:
         f.write(f"# Fase 3 (build/species_builds.py): la mejor build de cada especie y tipo, con el grupo vinculado "
-                f"desde el principio; cifras de {ROUNDS[2][0]} semillas que no se usaron para elegirla.\n")
+                f"desde el principio; cifras de {ROUNDS[2][0]} semillas que no se usaron para elegirla (ronda C, o la D "
+                f"si una variante ganó el desempate).\n")
         w = csv.DictWriter(f, fieldnames=list(out_rows[0]), lineterminator="\n")
         w.writeheader()
         w.writerows(out_rows)
@@ -362,7 +420,7 @@ def build_tables(builds_out: Path = BUILDS_TABLE, rank_out: Path = RANK_TABLE) -
         else:
             other[row["dex"]] = row
     ranked = sorted(best.values(), key=lambda r: (-float(r["median_score"]), r["dex"]))
-    halves = {d: (float(rows[2][(d, r["group"])]["score_a"]), float(rows[2][(d, r["group"])]["score_b"]))
+    halves = {d: (float(published[(d, r["group"])]["score_a"]), float(published[(d, r["group"])]["score_b"]))
               for d, r in best.items()}
     rank_rows = []
     for i, r in enumerate(ranked, 1):
@@ -391,6 +449,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Fase 3: build óptima por Pokémon y ranking.")
     parser.add_argument("--sim", action="store_true", help="Correr el simulador antes de escribir las tablas.")
     parser.add_argument("--variants", action="store_true", help="Simular las variantes agresiva y de cobertura.")
+    parser.add_argument("--promote", action="store_true",
+                        help="Desempate de las variantes que superan a su build, y variantes de las builds nuevas.")
     parser.add_argument("--check", action="store_true", help="Fallar si las tablas no son las que sale de la salida guardada.")
     args = parser.parse_args()
     if args.check:
@@ -409,6 +469,9 @@ def main() -> None:
     if not all(raw_path(k).exists() for k in range(len(ROUNDS))):
         sys.exit(f"falta la salida de {OUT_DIR.relative_to(ROOT)}: corre con --sim")
     if args.variants:
+        run_variants()
+    if args.promote:
+        run_promote()
         run_variants()
     build_tables()
     if all(raw_path(k, "v").exists() for k in range(len(ROUNDS))):

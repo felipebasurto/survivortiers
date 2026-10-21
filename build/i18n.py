@@ -507,6 +507,13 @@ STR: dict[str, tuple[str, str]] = {
               "Each Pokémon tries its own groups, with the moves it can learn. What phase 2 learned picks the most "
               "promising ones: {g1} groups with {s1} runs, the best {g2} with {s2} and the {g3} finalists with {s3}, "
               "always with new seeds. It keeps its best melee build and its best ranged one. {games} runs."),
+    "m3_p3_var": ("Después, cada build busca con el mismo embudo dos variantes: sin potenciador de defensa y con más "
+                  "cobertura de tipos ({variants} en total). Si una variante puntúa más que su build, las dos repiten "
+                  "{seeds} partidas con semillas nuevas y se queda la que gane: {duels} desempates, {promoted} builds "
+                  "cambiaron.",
+                  "Then each build searches, with the same funnel, two variants: no defence boost and more type "
+                  "coverage ({variants} in all). If a variant scores higher than its build, both replay {seeds} runs "
+                  "with new seeds and the winner stays: {duels} tie-breaks, {promoted} builds changed."),
     "m3_rank_h": ("Puesto y tiers", "Rank and tiers"),
     "m3_rank": ("El puesto ordena la mejor de sus dos builds por la mediana de sus {seeds} partidas finales. Cada partida "
                 "vale el tiempo que aguanta × la raíz de su ritmo de daño por su ritmo de bajas, los dos con techo: {dps} de "
