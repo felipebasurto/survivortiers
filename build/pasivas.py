@@ -1,8 +1,8 @@
 """Pasivas: las cartas de subida de nivel de PokéSurvivor y los potenciadores, tal como los define el juego.
 
-Las cartas salen de js/systems/levelup.js (STATS, en el orden del juego) y los potenciadores de data/game_stats.json.
-No hay cifras de simulación: el bot coge las cartas con una prioridad fija, así que la web no dice cuál conviene.
-Cada texto es una pareja (es, en).
+Las cartas son el STATS de js/systems/levelup.js en el commit de gamestats (pin, sin checkout del juego).
+Los potenciadores salen de data/game_stats.json. No hay cifras de simulación: el bot coge las cartas con una
+prioridad fija, así que la web no dice cuál conviene. Cada texto es una pareja (es, en).
 """
 from __future__ import annotations
 
@@ -17,12 +17,11 @@ from i18n import Lang, NBSP
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
-LEVELUP = ROOT / "simulator" / "vendor" / f"pokesurvivor-{gamestats.COMMIT}" / "js" / "systems" / "levelup.js"
 ICONS = json.loads((DATA / "card_icons.json").read_text(encoding="utf8"))
 ITEM_ICONS = json.loads((DATA / "item_icons.json").read_text(encoding="utf8"))
 ICON_LETTERS = "abcdefghijklmnopqrstuvwxyz"
 
-# Nombre y efecto en inglés de cada carta de levelup.js (el juego solo está en español).
+# Nombre y efecto en inglés de cada carta (el juego solo está en español).
 EN = {
     "hp": ("Vigor", "+20 max HP (and heals it)."),
     "atk": ("Power", "+10% damage with every move."),
@@ -34,18 +33,25 @@ EN = {
     "xp": ("Learning", "+12% experience gained."),
     "heal": ("Sitrus Berry", "Restores 45% of your HP right now."),
 }
-_CARD_RE = re.compile(r"\{ id: '(\w+)',\s+icon: '\w+', title: '([^']+)',\s+desc: '([^']+)',(?:\s+apply: [^\n]*?)(?:, max: (\d+))? \}",
-                      re.S)
+
+# STATS de js/systems/levelup.js @ gamestats.COMMIT: id, título ES, desc ES, max (None = sin tope).
+_STATS = (
+    ("hp", "Vigor", "+20 de vida máxima (y la recupera).", None),
+    ("atk", "Potencia", "+10% de daño con todos los movimientos.", 40),
+    ("spd", "Carrera", "+7% de velocidad de movimiento.", 8),
+    ("cd", "Reflejos", "-8% de recarga en todos los movimientos.", 10),
+    ("def", "Coraza", "+6% de reducción de daño recibido.", 12),
+    ("rgn", "Síntesis", "+0.9 de vida regenerada por segundo.", None),
+    ("mag", "Imán", "+30% de radio de recogida de experiencia.", 6),
+    ("xp", "Aprendizaje", "+12% de experiencia ganada.", 8),
+    ("heal", "Baya Zidra", "Recupera el 45% de tu vida ahora mismo.", None),
+)
 
 
 def game_cards() -> list[dict]:
     """Las cartas de estadística de levelup.js STATS, en su orden: id, nombre, efecto y tope de veces (None = sin tope)."""
-    text = LEVELUP.read_text(encoding="utf8")
-    block = text[text.index("const STATS = ["):text.index("];", text.index("const STATS = ["))]
-    out = []
-    for cid, title, desc, top in _CARD_RE.findall(block):
-        out.append({"id": cid, "name": (title, EN[cid][0]), "effect": (desc, EN[cid][1]),
-                    "max": int(top) if top else None})
+    out = [{"id": cid, "name": (title, EN[cid][0]), "effect": (desc, EN[cid][1]), "max": top}
+           for cid, title, desc, top in _STATS]
     if [c["id"] for c in out] != list(EN):
         raise ValueError(f"levelup.js STATS no son las cartas esperadas: {[c['id'] for c in out]}")
     return out
