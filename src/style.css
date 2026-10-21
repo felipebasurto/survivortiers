@@ -701,6 +701,8 @@ summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
   font: 600 .75rem/1.35 "Zen Kaku Gothic New", var(--ui); text-align: center; overflow-wrap: anywhere; }
 .bd-card .mv-shape { color: var(--bd-ink-2); }
 .bd-row .mv-shape { font-size: .625rem; line-height: 1.15; padding: 1px 3px 2px; }
+.mv-inv { display: inline-flex; align-items: center; padding: 1px 5px 2px; font: 700 .625rem/1.15 var(--ui);
+  color: var(--bd-gold-ink, var(--ink)); box-shadow: 0 0 0 1px currentColor; }
 .mv-new { display: inline-flex; align-items: center; gap: 3px; font: 600 .5625rem/1 "Zen Kaku Gothic New", var(--ui);
   letter-spacing: .05em; text-transform: uppercase; color: var(--bd-gold-ink, var(--accent)); }
 .mv-new::before { content: ""; width: 4px; height: 4px; background: currentColor; }

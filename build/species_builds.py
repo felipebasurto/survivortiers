@@ -38,6 +38,13 @@ vuelven a jugar con semillas nuevas (ronda D, ROUND_D). Si la variante gana tamb
 cifras de la ronda D; si no, la build se queda con las de la ronda C. Las parejas quedan fijadas en
 simulator/results/fase3/rD_pairs.csv, y las variantes se vuelven a buscar para las builds nuevas.
 
+Regla de tipos (`--rule`, después del desempate): toda build lleva el potenciador de ataque que sube al menos uno de
+sus ataques del tipo del Pokémon, y al menos dos ataques de su tipo (uno de cada tipo si tiene dos). La simulación
+favorecía ataques Normal porque cada pool tiene muchos y en los empates el azar elegía uno de ellos. Si la build no
+cumple la regla, se elige entre los grupos que la cumplen y ya jugaron la ronda A (la principal o la de variantes),
+con el mismo embudo: los TOP_B mejores a la ronda B y el mejor a la C, reutilizando las partidas ya jugadas. Las
+elegidas quedan en simulator/results/fase3/rule_picks.csv. Las variantes también cumplen la regla.
+
 Ranking: median_score de la ronda C (supervivencia, daño y bajas; simulator/sim-rs/src/stats.rs) de la mejor de las
 dos builds. Tiers con los cortes de data/tiers.json.
 """
@@ -203,7 +210,7 @@ def run_round(k: int, keys: dict[tuple[int, str], list[str]], tag: str = "r") ->
     seeds, seed0 = SEEDS[k]
     need = {(dex, g) for (dex, _), gs in keys.items() for g in gs}
     have: dict[tuple[int, str], dict] = {}
-    for t in dict.fromkeys((tag, "r")):
+    for t in dict.fromkeys((tag, "r", "v")):
         stamp = raw_path(k, t).with_suffix(".fingerprint")
         if raw_path(k, t).exists() and stamp.exists() and stamp.read_text().strip() == fingerprint(k):
             have.update({key: r for key, r in load(raw_path(k, t)).items() if key in need and key not in have})
@@ -262,17 +269,79 @@ def promoted() -> dict[tuple[int, str], str]:
     return {key: alt for key, (main, alt) in pairs().items() if order(d[(key[0], alt)]) < order(d[(key[0], main)])}
 
 
+RULE_PICKS = OUT_DIR / "rule_picks.csv"
+
+
+@functools.lru_cache(maxsize=None)
+def _types(dex: int) -> tuple[str, ...]:
+    return tuple(next(m for m in at.load_v3()["dex"] if m["dex"] == dex)["types"])
+
+
+def rule_ok(dex: int, group: str) -> bool:
+    """El potenciador de ataque sube al menos un ataque de su tipo, y lleva dos ataques de su tipo (uno de cada tipo
+    si tiene dos)."""
+    attacks, buff, _ = picks.split_group(group)
+    types = _types(dex)
+    own = [a for a in attacks if coverage.move_type(a) in types]
+    if buff is None or picks.attack_buff_side()[buff] not in {builds._game_moves()[a]["cat"] for a in own}:
+        return False
+    if len(types) == 2:
+        return {coverage.move_type(a) for a in own} == set(types)
+    return len(own) >= 2
+
+
+def ruled() -> dict[tuple[int, str], str]:
+    """(dex, build) -> el grupo que cumple la regla de tipos, de rule_picks.csv."""
+    if not RULE_PICKS.exists():
+        return {}
+    with RULE_PICKS.open(encoding="utf8") as f:
+        return {(int(r["dex"]), r["build"]): r["group"] for r in csv.DictReader(f)}
+
+
 def main_keys() -> dict[tuple[int, str], str]:
-    """(dex, build) -> el grupo publicado: el de la búsqueda o la variante que ganó el desempate."""
-    return {**searched_keys(), **promoted()}
+    """(dex, build) -> el grupo publicado: el de la búsqueda, la variante que ganó el desempate o el elegido por la
+    regla de tipos."""
+    return {**searched_keys(), **promoted(), **ruled()}
 
 
 def main_rows() -> dict[tuple[int, str], tuple[str, dict]]:
-    """(dex, build) -> (grupo publicado, sus cifras): las de la ronda D si ganó el desempate, si no las de la C."""
-    won = promoted()
+    """(dex, build) -> (grupo publicado, sus cifras): las de la ronda C de la regla si la build no la cumplía, las de
+    la ronda D si ganó el desempate, si no las de la C."""
+    won, rule = promoted(), ruled()
     c = load(raw_path(2))
     d = load(raw_path(3)) if won else {}
-    return {key: (g, d[(key[0], g)] if key in won else c[(key[0], g)]) for key, g in main_keys().items()}
+    q = load(raw_path(2, "q")) if rule else {}
+
+    def row(key: tuple[int, str], g: str) -> dict:
+        if key in rule:
+            return q[(key[0], g)]
+        return d[(key[0], g)] if key in won else c[(key[0], g)]
+    return {key: (g, row(key, g)) for key, g in main_keys().items()}
+
+
+def run_rule() -> None:
+    """Las builds que no cumplen la regla de tipos eligen entre los grupos que la cumplen (rondas B y C)."""
+    if RULE_PICKS.exists():
+        sys.exit(f"{RULE_PICKS.relative_to(ROOT)} ya existe: bórralo para volver a elegir")
+    rows_a = {**load(raw_path(0)), **load(raw_path(0, "v"))}
+    played: dict[int, list[str]] = {}
+    for dex, g in rows_a:
+        played.setdefault(dex, []).append(g)
+    keys_a = {}
+    for (dex, build), main in sorted(main_keys().items()):
+        if rule_ok(dex, main):
+            continue
+        gs = sorted(g for g in played.get(dex, []) if builds._kind(picks.split_group(g)[0]) == build and rule_ok(dex, g))
+        if gs:
+            keys_a[(dex, build)] = gs
+    keys_b = advance(rows_a, keys_a, TOP_B)
+    run_round(1, keys_b, "q")
+    keys_c = advance(load(raw_path(1, "q")), keys_b, 1)
+    run_round(2, keys_c, "q")
+    with RULE_PICKS.open("w", encoding="utf8", newline="") as f:
+        w = csv.writer(f, lineterminator="\n")
+        w.writerow(["dex", "build", "group"])
+        w.writerows([dex, b, gs[0]] for (dex, b), gs in sorted(keys_c.items()))
 
 
 def run_promote() -> None:
@@ -309,7 +378,9 @@ def wants(variant: str, main: str) -> bool:
     return resist(main) >= COVER_MIN
 
 
-def fits(variant: str, main: str, group: str) -> bool:
+def fits(variant: str, main: str, group: str, dex: int) -> bool:
+    if not rule_ok(dex, group):
+        return False
     if variant == "aggro":
         return picks.split_group(group)[2] is None
     return 2 * resist(group) <= resist(main)
@@ -327,7 +398,7 @@ def variant_pools(extra: dict[tuple[int, str], dict] | None = None) -> dict[tupl
             if not wants(v, main):
                 continue
             gs = sorted(g for g in played.get(dex, ()) if g != main and builds._kind(picks.split_group(g)[0]) == build
-                        and fits(v, main, g))
+                        and fits(v, main, g, dex))
             if gs:
                 out[(dex, f"{build}:{v}")] = gs
     return out
@@ -343,7 +414,7 @@ def run_variants() -> None:
         cands = [g for g, b in builds.candidates(dex).items() if b == build and g != main]
         for v in VARIANTS:
             if wants(v, main):
-                new = sorted((-model.predict(g), g) for g in cands if (dex, g) not in played and fits(v, main, g))
+                new = sorted((-model.predict(g), g) for g in cands if (dex, g) not in played and fits(v, main, g, dex))
                 keys[(dex, f"{build}:{v}")] = [g for _, g in new[:TOP_V]]
     run_round(0, keys, "v")
     pools = variant_pools(load(raw_path(0, "v")))
@@ -449,6 +520,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Fase 3: build óptima por Pokémon y ranking.")
     parser.add_argument("--sim", action="store_true", help="Correr el simulador antes de escribir las tablas.")
     parser.add_argument("--variants", action="store_true", help="Simular las variantes agresiva y de cobertura.")
+    parser.add_argument("--rule", action="store_true",
+                        help="Regla de tipos: las builds que no la cumplen eligen entre las que sí, y variantes nuevas.")
     parser.add_argument("--promote", action="store_true",
                         help="Desempate de las variantes que superan a su build, y variantes de las builds nuevas.")
     parser.add_argument("--check", action="store_true", help="Fallar si las tablas no son las que sale de la salida guardada.")
@@ -472,6 +545,9 @@ def main() -> None:
         run_variants()
     if args.promote:
         run_promote()
+        run_variants()
+    if args.rule:
+        run_rule()
         run_variants()
     build_tables()
     if all(raw_path(k, "v").exists() for k in range(len(ROUNDS))):

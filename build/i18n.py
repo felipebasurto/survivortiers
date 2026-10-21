@@ -307,6 +307,18 @@ STR: dict[str, tuple[str, str]] = {
     "mv_kind_vortex": ("Remolino", "Vortex"),
     "mv_kind_shove": ("Empuje", "Shove"),
     "mv_kind_stun": ("Aturdimiento", "Stun"),
+    "mv_inv_tag": ("Invulnerable 0,3\u00a0s", "Invulnerable 0.3\u00a0s"),
+    "mv_inv_tip": ("Cada embestida te deja invulnerable 0,3 s", "Each dash makes you invulnerable for 0.3 s"),
+    "mv_dash_fact": ("Cada embestida te deja invulnerable 0,3 s. Embiste cada {cd} s ({cd_max} s desde el nivel 4) si hay "
+                     "un enemigo cerca: hasta un {pct} del tiempo sin recibir daño. Solo pega poco, pero dentro de un "
+                     "grupo ayuda mucho a aguantar.",
+                     "Each dash makes you invulnerable for 0.3 s. It dashes every {cd} s ({cd_max} s from level 4) when "
+                     "an enemy is close: up to {pct} of the time without taking damage. It hits weakly on its own, but "
+                     "in a group it helps a lot to survive."),
+    "bd_dash_note": ("{moves}: cada embestida te deja invulnerable 0,3 s, y embiste cada {cd} s si hay un enemigo cerca. "
+                     "Pega poco, pero por eso ayuda tanto a aguantar.",
+                     "{moves}: each dash makes you invulnerable for 0.3 s, and it dashes every {cd} s when an enemy is "
+                     "close. It hits weakly, but that is why it helps so much to survive."),
     "mv_new": ("Nuevo", "New"),
     "mv_unranked": ("No hacen daño por sí solos, así que no tienen tier: cuentan dentro de los grupos.",
                     "They deal no damage on their own, so they have no tier: they count inside the groups."),
@@ -514,6 +526,14 @@ STR: dict[str, tuple[str, str]] = {
                   "Then each build searches, with the same funnel, two variants: no defence boost and more type "
                   "coverage ({variants} in all). If a variant scores higher than its build, both replay {seeds} runs "
                   "with new seeds and the winner stays: {duels} tie-breaks, {promoted} builds changed."),
+    "m3_p3_rule": ("Por último, una regla: cada build lleva el potenciador que sube sus ataques y al menos dos ataques "
+                   "del tipo del Pokémon, uno de cada tipo si tiene dos. La simulación sola elegía muchos ataques Normal: "
+                   "todos los Pokémon los aprenden, y en los empates el azar elegía uno de ellos. Las {rule} builds que "
+                   "no la cumplían eligen entre los grupos que sí, con el mismo embudo. Las variantes también la cumplen.",
+                   "Finally, a rule: every build carries the boost that raises its moves and at least two moves of the "
+                   "Pokémon's type, one of each type if it has two. The simulation alone picked many Normal moves: every "
+                   "Pokémon learns them, and in ties chance picked one of them. The {rule} builds that broke the rule "
+                   "choose among the groups that keep it, with the same funnel. Variants keep it too."),
     "m3_rank_h": ("Puesto y tiers", "Rank and tiers"),
     "m3_rank": ("El puesto ordena la mejor de sus dos builds por la mediana de sus {seeds} partidas finales. Cada partida "
                 "vale el tiempo que aguanta × la raíz de su ritmo de daño por su ritmo de bajas, los dos con techo: {dps} de "

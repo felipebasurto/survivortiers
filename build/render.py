@@ -411,6 +411,10 @@ def move_facts(L: Lang, m: dict) -> str:
             facts.append(L.t("mv_evolves_card", move=evo, card=card))
         else:
             facts.append(L.t("mv_evolves", move=evo))
+    if m["kind"] == "dash":
+        cd, cd_max = game_moves.dash_cooldowns(m["id"])
+        facts.append(L.t("mv_dash_fact", cd=L.dec(cd, 2), cd_max=L.dec(cd_max, 2),
+                         pct=L.pcts(round(100 * game_moves.DASH_INVULN / cd))))
     if "buff" in m:
         b, top = m["buff"], m["buff"]["max"]
         stat = L.t(gamestats.BOOST_LABEL[b["stat"]])
@@ -707,7 +711,8 @@ def render_metodo(c: Ctx, meta: dict) -> str:
         ("m3_p3_h", L.t("m3_p3", g1=L.num(p3["groups"][0]), g2=L.num(p3["groups"][1]), g3=L.num(p3["groups"][2]),
                         s1=p3["seeds"][0], s2=p3["seeds"][1], s3=p3["seeds"][2], games=L.num(p3["games"]))
          + " " + L.t("m3_p3_var", variants=L.num(p3["variants"]), seeds=p3["seeds"][2], duels=L.num(p3["duels"]),
-                     promoted=L.num(p3["promoted"]))),
+                     promoted=L.num(p3["promoted"]))
+         + " " + L.t("m3_p3_rule", rule=L.num(p3["rule"]))),
         ("m3_rank_h", L.t("m3_rank", seeds=meta["seeds"], sizes=sizes, dps=L.num(m["score"]["dpsRef"]),
                           kpm=L.num(m["score"]["kpmRef"]))),
         ("m3_why_h", L.t("m3_why", r2=L.pcts(meta["why"]["r2"] * 100))),

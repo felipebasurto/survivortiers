@@ -55,8 +55,8 @@ EXPECTED_COUNTS = tiers.COUNTS
 SPANISH_WORDS = re.compile(r"\b(el|los|las|del|con|para|puesto|aguante|daño|ficha|partidas?|repeticiones|cuántos)\b", re.I)
 LANGS = ("", "en/")
 # S+A rates from build/catalog.py on the phase-3 ranking.
-EXPECTED_GACHA = {"Kanto": 3.3, "Johto": 10.0, "Hoenn": 10.4, "Sinnoh": 15.0, "Teselia": 17.0, "Kalos": 15.7,
-                  "Alola": 16.9, "Galar": 11.5, "Paldea": 17.4}
+EXPECTED_GACHA = {"Kanto": 5.3, "Johto": 7.0, "Hoenn": 11.1, "Sinnoh": 11.2, "Teselia": 17.0, "Kalos": 12.9,
+                  "Alola": 21.7, "Galar": 12.6, "Paldea": 17.4}
 
 
 

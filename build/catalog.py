@@ -369,8 +369,9 @@ def method_numbers(moves: list[dict]) -> dict:
     rounds = [_lines(RESULTS / "fase3" / f"r{k}_raw.csv") for k in "ABC"]
     p3_games = sum(n * s for n, s in zip(rounds, PHASE3_SEEDS))
     # Variantes y desempate (species_builds.py --variants y --promote): solo los grupos que no jugó la búsqueda.
-    fresh = [len(_groups(RESULTS / "fase3" / f"v{k}_raw.csv") - _groups(RESULTS / "fase3" / f"r{k}_raw.csv"))
-             for k in "ABC"]
+    extra = {k: set().union(*(_groups(f) for f in (RESULTS / "fase3" / f"{t}{k}_raw.csv" for t in "vq") if f.exists()))
+             for k in "ABC"}
+    fresh = [len(extra[k] - _groups(RESULTS / "fase3" / f"r{k}_raw.csv")) for k in "ABC"]
     duels = _lines(RESULTS / "fase3" / "rD_pairs.csv")
     p3_games += sum(n * s for n, s in zip(fresh, PHASE3_SEEDS)) + 2 * duels * PHASE3_SEEDS[-1]
     return {
@@ -379,7 +380,7 @@ def method_numbers(moves: list[dict]) -> dict:
         "p2": {"groups": len(bonds), "refs": PHASE2_REFS, "seeds": list(PHASE2_SEEDS), "games": p2_games,
                "final": sum(1 for r in bonds if int(r["seeds"]) == PHASE2_SEEDS[-1])},
         "p3": {"groups": rounds, "seeds": list(PHASE3_SEEDS), "games": p3_games, "variants": len(_read_csv(VARIANTS_CSV)),
-               "duels": duels, "promoted": _promoted()},
+               "duels": duels, "promoted": _promoted(), "rule": _lines(RESULTS / "fase3" / "rule_picks.csv")},
         "games": p1_games + p2_games + p3_games,
     }
 

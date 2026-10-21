@@ -60,3 +60,14 @@ NOTES = {
         "Only raises special attack. It has its own counter: a physical dance doesn't overwrite it.",
     ),
 }
+
+
+# combat.js dash(): cada embestida deja al jugador invulnerable este tiempo (pl.invuln = max(pl.invuln, 0.3)).
+DASH_INVULN = 0.3
+
+
+def dash_cooldowns(mid: str) -> tuple[float, float]:
+    """Recarga de una embestida al nivel 1 y al máximo (v3_data.json), en segundos."""
+    import coverage
+    levels = coverage._v3()["moves"][mid]["levels"]
+    return levels[0]["cd"], levels[-1]["cd"]

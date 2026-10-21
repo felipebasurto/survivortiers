@@ -42,7 +42,9 @@ def shape_html(L: Lang, move: dict) -> str:
     label = "" if move["kind"] == "melee" else \
         f'<span class="mv-shape">{esc(L.t("mv_kind_" + game_moves.shape_key(move)))}</span>'
     mark = f'<span class="mv-new">{esc(L.t("mv_new"))}</span>' if move.get("nuevo") else ""
-    return label + mark
+    inv = (f'<span class="mv-inv" title="{esc(L.t("mv_inv_tip"))}">{esc(L.t("mv_inv_tag"))}</span>'
+           if move["kind"] == "dash" else "")
+    return label + inv + mark
 
 
 def move_tags(L: Lang, move: dict) -> str:
@@ -395,6 +397,10 @@ def builds(L: Lang, assets: str, entry: dict, moves: dict[str, dict], start_move
     mono = t[0] if len(t) == 1 else None
     options = "".join(_build_option(L, assets, moves, k, pair[k], pair[BUILD_OTHER_KIND[k]], win, mono) for k in order)
     note = f'<p class="bd-default">{esc(L.t("mono_note", type=L.type_name(mono)))}</p>' if mono else ""
+    dashes = sorted({m for b in pair.values() if isinstance(b, dict) for m in b["moves"] if moves[m]["kind"] == "dash"})
+    if dashes:
+        cds = sorted({game_moves.dash_cooldowns(m)[0] for m in dashes})
+        note += (f'<p class="bd-default">{esc(L.t("bd_dash_note", moves=_join(L, [_move_name(L, moves, m) for m in dashes]), cd=" / ".join(L.dec(c, 2) for c in cds)))}</p>')
     tint = f'--p1:{typedata.TYPE_COLOR[t[0]]};--p2:{typedata.TYPE_COLOR[t[-1]]}'
     return (f'<section class="fig fig-build" id="build" aria-labelledby="bd-h">'
             f'<div class="bd-card" style="{tint}"><header class="bd-head"><h2 id="bd-h">{esc(L.t("t_builds"))}</h2></header>'

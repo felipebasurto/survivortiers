@@ -127,12 +127,12 @@ SECTIONS_SITE = [
              "Each build shows each move's type and its coverage: how many of the Pokémon that spawn as enemies it hits "
              "super effectively and how many resist all its moves. Folded underneath are variants in case you want it "
              "more aggressive (no Harden) or with more type coverage, with what they lose or gain in the simulation."),
-            ("Al buscarlas salieron variantes que puntuaban más que la build publicada. Las 337 volvieron a jugar con "
-             "partidas nuevas contra su build, y en 254 ganó la variante, casi siempre cambiando Fortaleza por un "
-             "tercer ataque. Esas builds y el ranking se han actualizado: 66 Pokémon cambian de tier.",
-             "While searching them, some variants scored higher than the published build. All 337 replayed fresh runs "
-             "against their build, and in 254 the variant won, almost always swapping Harden for a third attack. "
-             "Those builds and the ranking are updated: 66 Pokémon change tier."),
+            ("Y una regla nueva: toda build lleva el potenciador que sube sus ataques y al menos dos ataques del tipo "
+             "del Pokémon, uno de cada tipo si tiene dos. La simulación sola elegía muchos ataques Normal porque todos "
+             "los Pokémon los aprenden. 945 builds cambian y el ranking se ha recalculado con ellas.",
+             "And a new rule: every build carries the boost that raises its moves and at least two moves of the "
+             "Pokémon's type, one of each type if it has two. The simulation alone picked many Normal moves because "
+             "every Pokémon learns them. 945 builds change and the ranking is recalculated with them."),
             ("Nueva página Tipos: cómo pega cada tipo de ataque a los enemigos al principio y al final de la partida, "
              "el 20 % extra de los Pokémon de un solo tipo y el clima.",
              "New Types page: how each move type hits the enemies early and late in a run, the 20% bonus for "
