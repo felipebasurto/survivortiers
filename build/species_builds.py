@@ -25,6 +25,14 @@ Son unos 5.800 grupos por especie, así que no se simulan todos:
 4. Ronda C: el mejor de la ronda B, con semillas nuevas otra vez. Su cifra es la publicada, sin la suerte que lo
    eligió.
 
+Variantes (`--variants`, después de la búsqueda principal): para cada build, otra build del mismo tipo que cambia
+una cosa, con el mismo embudo de tres rondas y las mismas semillas:
+- agresiva: sin potenciador de defensa, cuando la build lleva uno;
+- cobertura: la que deja en la mitad o menos los enemigos que resisten todos sus ataques (build/coverage.py), cuando
+  la build tiene al menos COVER_MIN.
+Su ronda A son los grupos de la ronda A principal que cumplen la condición más los TOP_V mejores previstos que la
+cumplen (el modelo de arriba).
+
 Ranking: median_score de la ronda C (supervivencia, daño y bajas; simulator/sim-rs/src/stats.rs) de la mejor de las
 dos builds. Tiers con los cortes de data/tiers.json.
 """
@@ -33,6 +41,7 @@ from __future__ import annotations
 import argparse
 import csv
 import filecmp
+import functools
 import hashlib
 import math
 import statistics as st
@@ -43,6 +52,7 @@ from pathlib import Path
 import attack_tiers as at
 import bond_tiers as bt
 import builds
+import coverage
 import picks
 import tiers
 
@@ -51,20 +61,24 @@ SIM = at.SIM
 OUT_DIR = SIM / "results" / "fase3"
 BUILDS_TABLE = ROOT / "data" / "species_builds.csv"
 RANK_TABLE = ROOT / "data" / "ranking_fase3.csv"
+VARIANT_TABLE = ROOT / "data" / "species_variants.csv"
 
 SECONDS = "900"
 TOP_A = 30  # por especie, build y mezcla de categorías
 TOP_B = 4  # por especie y build
 ROUNDS = ((4, 0), (32, 100), (128, 1000))  # (semillas, seed0) de las rondas A, B y C
 MIXES = ("physical", "special", "mixed")
+VARIANTS = ("aggro", "cover")
+COVER_MIN = 40  # especies enemigas (de 862) que resisten todos los ataques de la build
+TOP_V = 15  # grupos previstos nuevos por build y variante
 
 
-def only_path(k: int) -> Path:
-    return OUT_DIR / f"r{'ABC'[k]}_only.txt"
+def only_path(k: int, tag: str = "r") -> Path:
+    return OUT_DIR / f"{tag}{'ABC'[k]}_only.txt"
 
 
-def raw_path(k: int) -> Path:
-    return OUT_DIR / f"r{'ABC'[k]}_raw.csv"
+def raw_path(k: int, tag: str = "r") -> Path:
+    return OUT_DIR / f"{tag}{'ABC'[k]}_raw.csv"
 
 
 def mix_of(attacks: list[str]) -> str:
@@ -131,14 +145,18 @@ class Model:
         return self.w["1"] + sum(v * self.term(k) for k, v in features(group).items())
 
 
-def shortlist() -> dict[tuple[int, str], list[str]]:
-    """(dex, build) -> grupos de la ronda A."""
+def models() -> dict[str, Model]:
     phase1 = {r["move_id"]: r for r in bt.attack_rows()}
     rounds = bt.load_rounds()
-    models = {cls: Model(cls, rounds, phase1) for cls in at.CLASSES}
+    return {cls: Model(cls, rounds, phase1) for cls in at.CLASSES}
+
+
+def shortlist() -> dict[tuple[int, str], list[str]]:
+    """(dex, build) -> grupos de la ronda A."""
+    ms = models()
     out: dict[tuple[int, str], list[str]] = {}
     for mon in at.load_v3()["dex"]:
-        model = models[at.attacker_class(mon)]
+        model = ms[at.attacker_class(mon)]
         buckets: dict[tuple[str, str], list[tuple[float, str]]] = {}
         for g, build in builds.candidates(mon["dex"]).items():
             attacks = picks.split_group(g)[0]
@@ -171,30 +189,32 @@ def fingerprint(k: int) -> str:
     return h.hexdigest()
 
 
-def run_round(k: int, keys: dict[tuple[int, str], list[str]]) -> None:
+def run_round(k: int, keys: dict[tuple[int, str], list[str]], tag: str = "r") -> None:
     """Simula los grupos de la ronda k que faltan. Un grupo con el mismo motor, datos y semillas da la misma fila,
-    así que las filas guardadas con la misma huella se reutilizan; si la huella cambia, la ronda se hace entera."""
+    así que las filas guardadas con la misma huella se reutilizan (las variantes, también las de la búsqueda
+    principal); si la huella cambia, la ronda se hace entera."""
     seeds, seed0 = ROUNDS[k]
     need = {(dex, g) for (dex, _), gs in keys.items() for g in gs}
-    stamp = raw_path(k).with_suffix(".fingerprint")
     have: dict[tuple[int, str], dict] = {}
-    if raw_path(k).exists() and stamp.exists() and stamp.read_text().strip() == fingerprint(k):
-        have = {key: r for key, r in load(raw_path(k)).items() if key in need}
+    for t in dict.fromkeys((tag, "r")):
+        stamp = raw_path(k, t).with_suffix(".fingerprint")
+        if raw_path(k, t).exists() and stamp.exists() and stamp.read_text().strip() == fingerprint(k):
+            have.update({key: r for key, r in load(raw_path(k, t)).items() if key in need and key not in have})
     todo = sorted(need - set(have))
-    print(f"ronda {'ABC'[k]}: {len(need)} grupos, {len(have)} ya jugados, {len(todo)} x {seeds} semillas = "
+    print(f"ronda {tag}{'ABC'[k]}: {len(need)} grupos, {len(have)} ya jugados, {len(todo)} x {seeds} semillas = "
           f"{len(todo) * seeds} partidas", flush=True)
     if todo:
-        only_path(k).write_text("".join(f"{dex}|{g}\n" for dex, g in todo), encoding="utf8")
-        fresh = OUT_DIR / f"r{'ABC'[k]}_new.csv"
-        bt.synergy(only_path(k), fresh, seeds, seed0)
+        only_path(k, tag).write_text("".join(f"{dex}|{g}\n" for dex, g in todo), encoding="utf8")
+        fresh = OUT_DIR / f"{tag}{'ABC'[k]}_new.csv"
+        bt.synergy(only_path(k, tag), fresh, seeds, seed0)
         have.update(load(fresh))
         fresh.unlink()
-    with raw_path(k).open("w", encoding="utf8", newline="") as f:
+    with raw_path(k, tag).open("w", encoding="utf8", newline="") as f:
         rows = [have[key] for key in sorted(need)]
         w = csv.DictWriter(f, fieldnames=list(rows[0]), lineterminator="\n")
         w.writeheader()
         w.writerows(rows)
-    stamp.write_text(fingerprint(k) + "\n", encoding="utf8")
+    raw_path(k, tag).with_suffix(".fingerprint").write_text(fingerprint(k) + "\n", encoding="utf8")
 
 
 def run_sim() -> None:
@@ -204,6 +224,102 @@ def run_sim() -> None:
         run_round(k, keys)
         if k + 1 < len(ROUNDS):
             keys = advance(load(raw_path(k)), keys, TOP_B if k == 0 else 1)
+
+
+def main_keys() -> dict[tuple[int, str], str]:
+    """(dex, build) -> el grupo publicado, desde la salida guardada."""
+    rows = [load(raw_path(k)) for k in range(2)]
+    keys_a: dict[tuple[int, str], list[str]] = {}
+    for (dex, g) in rows[0]:
+        keys_a.setdefault((dex, builds._kind(picks.split_group(g)[0])), []).append(g)
+    keys_c = advance(rows[1], advance(rows[0], keys_a, TOP_B), 1)
+    return {key: gs[0] for key, gs in keys_c.items()}
+
+
+def resist(group: str) -> int:
+    return _resist(tuple(coverage.attack_types(group.split("+"))))
+
+
+@functools.lru_cache(maxsize=None)
+def _resist(types: tuple[str, ...]) -> int:
+    return coverage.of_types(list(types))["resist"]
+
+
+def wants(variant: str, main: str) -> bool:
+    if variant == "aggro":
+        return picks.split_group(main)[2] is not None
+    return resist(main) >= COVER_MIN
+
+
+def fits(variant: str, main: str, group: str) -> bool:
+    if variant == "aggro":
+        return picks.split_group(group)[2] is None
+    return 2 * resist(group) <= resist(main)
+
+
+def variant_pools(extra: dict[tuple[int, str], dict] | None = None) -> dict[tuple[int, str], list[str]]:
+    """(dex, "build:variante") -> su ronda A: los grupos jugados (ronda A principal y de variantes) del mismo tipo de
+    build que cumplen la condición."""
+    played: dict[int, set[str]] = {}
+    for (dex, g) in [*load(raw_path(0)), *(extra or {})]:
+        played.setdefault(dex, set()).add(g)
+    out: dict[tuple[int, str], list[str]] = {}
+    for (dex, build), main in sorted(main_keys().items()):
+        for v in VARIANTS:
+            if not wants(v, main):
+                continue
+            gs = sorted(g for g in played.get(dex, ()) if g != main and builds._kind(picks.split_group(g)[0]) == build
+                        and fits(v, main, g))
+            if gs:
+                out[(dex, f"{build}:{v}")] = gs
+    return out
+
+
+def run_variants() -> None:
+    ms = models()
+    v3 = {m["dex"]: m for m in at.load_v3()["dex"]}
+    played = load(raw_path(0))
+    keys: dict[tuple[int, str], list[str]] = {}
+    for (dex, build), main in sorted(main_keys().items()):
+        model = ms[at.attacker_class(v3[dex])]
+        cands = [g for g, b in builds.candidates(dex).items() if b == build and g != main]
+        for v in VARIANTS:
+            if wants(v, main):
+                new = sorted((-model.predict(g), g) for g in cands if (dex, g) not in played and fits(v, main, g))
+                keys[(dex, f"{build}:{v}")] = [g for _, g in new[:TOP_V]]
+    run_round(0, keys, "v")
+    pools = variant_pools(load(raw_path(0, "v")))
+    rows_a = {**load(raw_path(0)), **load(raw_path(0, "v"))}
+    keys = advance(rows_a, pools, TOP_B)
+    run_round(1, keys, "v")
+    keys = advance(load(raw_path(1, "v")), keys, 1)
+    run_round(2, keys, "v")
+
+
+def variant_table(out: Path = VARIANT_TABLE) -> None:
+    rows_a = {**load(raw_path(0)), **load(raw_path(0, "v"))}
+    pools = variant_pools(load(raw_path(0, "v")))
+    keys_c = advance(load(raw_path(1, "v")), advance(rows_a, pools, TOP_B), 1)
+    final = load(raw_path(2, "v"))
+    mains = main_keys()
+    out_rows = []
+    for (dex, tag), (g,) in sorted(keys_c.items()):
+        build, variant = tag.split(":")
+        r = final[(dex, g)]
+        out_rows.append({
+            "dex": dex, "build": build, "variant": variant, "group": g, "main": mains[(dex, build)],
+            "resist": resist(g), "main_resist": resist(mains[(dex, build)]),
+            "median_s": r["median_s"], "median_kills": r["median_kills"], "median_dealt": r["median_dealt"],
+            "median_score": r["median_score"], "score_lo": r["score_lo"], "score_hi": r["score_hi"],
+        })
+    with out.open("w", encoding="utf8", newline="") as f:
+        f.write(f"# Fase 3, variantes (build/species_builds.py --variants): agresiva (sin potenciador de defensa) y "
+                f"cobertura (la mitad o menos de enemigos que resisten); {ROUNDS[2][0]} semillas.\n")
+        w = csv.DictWriter(f, fieldnames=list(out_rows[0]), lineterminator="\n")
+        w.writeheader()
+        w.writerows(out_rows)
+    if out == VARIANT_TABLE:
+        print(f"escrito {VARIANT_TABLE.relative_to(ROOT)}: {len(out_rows)} variantes")
 
 
 def build_tables(builds_out: Path = BUILDS_TABLE, rank_out: Path = RANK_TABLE) -> None:
@@ -274,21 +390,29 @@ def build_tables(builds_out: Path = BUILDS_TABLE, rank_out: Path = RANK_TABLE) -
 def main() -> None:
     parser = argparse.ArgumentParser(description="Fase 3: build óptima por Pokémon y ranking.")
     parser.add_argument("--sim", action="store_true", help="Correr el simulador antes de escribir las tablas.")
+    parser.add_argument("--variants", action="store_true", help="Simular las variantes agresiva y de cobertura.")
     parser.add_argument("--check", action="store_true", help="Fallar si las tablas no son las que sale de la salida guardada.")
     args = parser.parse_args()
     if args.check:
         with tempfile.TemporaryDirectory() as tmp:
-            b, r = Path(tmp) / "b.csv", Path(tmp) / "r.csv"
+            b, r, v = Path(tmp) / "b.csv", Path(tmp) / "r.csv", Path(tmp) / "v.csv"
             build_tables(b, r)
-            if not (filecmp.cmp(b, BUILDS_TABLE, shallow=False) and filecmp.cmp(r, RANK_TABLE, shallow=False)):
-                sys.exit("species_builds.csv o ranking_fase3.csv no coinciden con simulator/results/fase3/")
-        print("species_builds.csv y ranking_fase3.csv coinciden con la salida guardada")
+            variant_table(v)
+            if not all(filecmp.cmp(a, z, shallow=False) for a, z in
+                       ((b, BUILDS_TABLE), (r, RANK_TABLE), (v, VARIANT_TABLE))):
+                sys.exit("species_builds.csv, ranking_fase3.csv o species_variants.csv no coinciden con "
+                         "simulator/results/fase3/")
+        print("species_builds.csv, ranking_fase3.csv y species_variants.csv coinciden con la salida guardada")
         return
     if args.sim:
         run_sim()
     if not all(raw_path(k).exists() for k in range(len(ROUNDS))):
         sys.exit(f"falta la salida de {OUT_DIR.relative_to(ROOT)}: corre con --sim")
+    if args.variants:
+        run_variants()
     build_tables()
+    if all(raw_path(k, "v").exists() for k in range(len(ROUNDS))):
+        variant_table()
 
 
 if __name__ == "__main__":

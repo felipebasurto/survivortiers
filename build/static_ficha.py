@@ -12,6 +12,7 @@ import unicodedata
 from html import escape
 
 import catalog
+import coverage
 import game_moves
 import legal
 import regions
@@ -140,6 +141,8 @@ BUILD_OTHER = {"melee": "bd_other_ranged", "ranged": "bd_other_melee"}
 BUILD_LOWER = {"melee": "bd_other_melee", "ranged": "bd_other_ranged"}
 BUILD_OTHER_KIND = {"melee": "ranged", "ranged": "melee"}
 GAP_SMALL_PCT = 5
+DEF_BUFFS = ("harden", "agility")  # build/builds.py
+COVER_N = len(coverage.enemies())
 
 
 def _faqs(L: Lang, tier: str, rank: int, build_text: str, banner: str, legendary: bool,
@@ -292,47 +295,112 @@ def _verdict(L: Lang, kind: str, b: dict, other: dict, win: str | None) -> str:
     return f'<p class="bd-verdict">{esc(L.t(key, pct=L.pcts(gap), other=L.t(BUILD_OTHER[kind])))}</p>'
 
 
-def _move_row(L: Lang, assets: str, moves: dict[str, dict], mid: str, n: str, boost: bool, start: bool) -> str:
+def _move_row(L: Lang, assets: str, moves: dict[str, dict], mid: str, n: str, boost: bool, start: bool,
+              mono: str | None = None) -> str:
     """Una fila de la build: número, icono del juego, nombre, etiquetas y el tier del ataque en la fase 1. Los
-    potenciadores van marcados, y el ataque con el que empieza lleva la marca dorada."""
+    potenciadores van marcados, y el ataque con el que empieza lleva la marca dorada. Un ataque lleva su tipo, y el
+    +20 % si es del tipo de un Pokémon de un solo tipo (`mono`)."""
     m = moves[mid]
     ico = (f'<span class="bd-ico"><img src="{assets}img/moves/{mid}.svg" width="32" height="32" alt="" '
            f'decoding="async"></span>' if "icon" in m else "")
     cls = "bd-row" + (" is-buff" if boost else "") + (" is-start" if start else "")
     pill = f'<span class="bd-pill is-gold">{esc(L.t("bd_start_with"))}</span>' if start else ""
+    ty = ""
+    if not boost:
+        own = (f'<span class="bd-mono" title="{esc(L.t("mono_tip"))}">{esc(L.t("mono_tag"))}</span>'
+               if m["type"] == mono else "")
+        ty = f'<span class="bd-type">{_type_pill(L, m["type"])}{own}</span>'
     tier = (f'<span class="tier-badge mini {m["tier"]}" title="{esc(L.t("mv_tier_tip", t=m["tier"]))}">{m["tier"]}</span>'
             if "tier" in m else "")
     return (f'<li class="{cls}"><span class="bd-n">{n}</span>{ico}<span class="bd-info"><span class="bd-nm">'
-            f'{esc(_move_name(L, moves, mid))}</span>{pill}{move_tags(L, m)}</span>{tier}</li>')
+            f'{esc(_move_name(L, moves, mid))}</span>{pill}{ty}{move_tags(L, m)}</span>{tier}</li>')
 
 
-def _build_option(L: Lang, assets: str, moves: dict[str, dict], kind: str, b: dict, other: dict, win: str | None) -> str:
-    """Una de las dos builds: veredicto, ataques en filas y lo que hace en partida."""
-    head = f'<h3 class="bd-kind">{combo_html(L, b["mix"], kind)}</h3>'
+def _rows(L: Lang, assets: str, moves: dict[str, dict], b: dict, mono: str | None) -> str:
     ids, nb = b["moves"], int(b["nBoost"])
-    rows = "".join(_move_row(L, assets, moves, mid, str(i + 1), i >= len(ids) - nb, i == 0) for i, mid in enumerate(ids))
+    return "".join(_move_row(L, assets, moves, mid, str(i + 1), i >= len(ids) - nb, i == 0, mono)
+                   for i, mid in enumerate(ids))
+
+
+def _types_list(L: Lang, types: list[str]) -> str:
+    return _join(L, [L.type_name(t) for t in types])
+
+
+def coverage_html(L: Lang, b: dict) -> str:
+    """Cuántos de los enemigos del juego le pegan bien sus ataques y cuántos los resisten todos (build/coverage.py)."""
+    c = b["cover"]
+    resist = (L.t("cov_resist", k=L.num(c["resist"]), types=_types_list(L, c["by"])) if c["resist"]
+              else L.t("cov_none"))
+    return f'<p class="bd-cover">{esc(L.t("cov_text", good=L.num(c["good"]), n=L.num(COVER_N), resist=resist))}</p>'
+
+
+def _swap_text(L: Lang, moves: dict[str, dict], main: dict, alt: dict) -> str:
+    gone = [m for m in main["moves"] if m not in alt["moves"]]
+    new = [m for m in alt["moves"] if m not in main["moves"]]
+    names = lambda ids: _join(L, [_move_name(L, moves, m) for m in ids])  # noqa: E731
+    parts = [L.t("alt_swap", out=names(gone), inn=names(new))] if gone else []
+    if alt["moves"][0] != main["moves"][0]:
+        parts.append(L.t("alt_start", move=_move_name(L, moves, alt["moves"][0])))
+    return " ".join(parts)
+
+
+def _alt_gap(L: Lang, main: dict, alt: dict) -> str:
+    gap = _gap_pct(main["score"], alt["score"])
+    if gap >= GAP_SMALL_PCT:
+        return L.t("alt_gap", pct=L.pcts(gap))
+    more = round((alt["score"] - main["score"]) / main["score"] * 100)
+    return L.t("alt_more", pct=L.pcts(more)) if more >= GAP_SMALL_PCT else L.t("alt_even")
+
+
+def alternative(L: Lang, assets: str, moves: dict[str, dict], main: dict, variant: str, mono: str | None) -> str:
+    """Una variante plegada bajo la build: agresiva (sin potenciador de defensa) o de más cobertura de tipos."""
+    alt = main.get("alt", {}).get(variant)
+    if alt is None:
+        return ""
+    if variant == "aggro":
+        buff = next(m for m in main["moves"] if moves[m]["kind"] == "buff" and m in DEF_BUFFS)
+        summary = L.t("alt_aggro", buff=_move_name(L, moves, buff))
+        extra = ""
+    else:
+        summary = L.t("alt_cover", type=L.type_name(main["cover"]["by"][0]))
+        extra = L.t("alt_cover_gain", a=L.num(main["cover"]["resist"]), b=L.num(alt["cover"]["resist"])) + " "
+    text = f'{_swap_text(L, moves, main, alt)} {extra}{_alt_gap(L, main, alt)}'
+    return (f'<details class="bd-alt" data-alt="{variant}"><summary>{esc(summary)}</summary>'
+            f'<p class="bd-alt-txt">{esc(text)}</p><ol class="bd-rows is-alt">{_rows(L, assets, moves, alt, mono)}</ol>'
+            f'{coverage_html(L, alt)}</details>')
+
+
+def _build_option(L: Lang, assets: str, moves: dict[str, dict], kind: str, b: dict, other: dict, win: str | None,
+                  mono: str | None = None) -> str:
+    """Una de las dos builds: veredicto, ataques en filas, lo que hace en partida, su cobertura de tipos y las
+    variantes plegadas."""
+    head = f'<h3 class="bd-kind">{combo_html(L, b["mix"], kind)}</h3>'
     stats = (f'<dl class="bd-stats">'
              f'<div><dt>{esc(L.t("bd_time"))}</dt><dd>{mmss(b["time"])}</dd></div>'
              f'<div><dt>{esc(L.t("bd_kills"))}</dt><dd>{esc(L.num(b["kills"]))}</dd></div>'
              f'<div><dt>{esc(L.t("bd_dealt"))}</dt><dd>{esc(L.num(b["dealt"]))}</dd></div>'
              f'<div><dt>{esc(L.t("bd_score"))}</dt><dd>{esc(L.dec(b["score"], 1))}</dd></div></dl>')
+    alts = "".join(alternative(L, assets, moves, b, v, mono) for v in ("aggro", "cover"))
     best = " is-best" if win == kind else ""
     return (f'<article class="bd-opt{best}" data-build="{kind}">{head}'
-            f'{_verdict(L, kind, b, other, win)}<ol class="bd-rows">{rows}</ol>{stats}</article>')
+            f'{_verdict(L, kind, b, other, win)}<ol class="bd-rows">{_rows(L, assets, moves, b, mono)}</ol>{stats}'
+            f'{coverage_html(L, b)}{alts}</article>')
 
 
 def builds(L: Lang, assets: str, entry: dict, moves: dict[str, dict], start_move: str) -> str:
     pair = entry["builds"]
     win = _winner(pair)
     order = (entry["r"]["best"], BUILD_OTHER_KIND[entry["r"]["best"]])
-    options = "".join(_build_option(L, assets, moves, k, pair[k], pair[BUILD_OTHER_KIND[k]], win) for k in order)
     t = entry["types"]
+    mono = t[0] if len(t) == 1 else None
+    options = "".join(_build_option(L, assets, moves, k, pair[k], pair[BUILD_OTHER_KIND[k]], win, mono) for k in order)
+    note = f'<p class="bd-default">{esc(L.t("mono_note", type=L.type_name(mono)))}</p>' if mono else ""
     tint = f'--p1:{typedata.TYPE_COLOR[t[0]]};--p2:{typedata.TYPE_COLOR[t[-1]]}'
     return (f'<section class="fig fig-build" id="build" aria-labelledby="bd-h">'
             f'<div class="bd-card" style="{tint}"><header class="bd-head"><h2 id="bd-h">{esc(L.t("t_builds"))}</h2></header>'
             f'<div class="bd-pair">{options}</div>'
             f'<p class="bd-default">{esc(L.t("build_default_start", move=_move_name(L, moves, start_move)))}</p>'
-            f'</div></section>')
+            f'{note}</div></section>')
 
 
 # ---------------------------------------------------------------- estadísticas

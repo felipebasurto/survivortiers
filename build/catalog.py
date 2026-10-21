@@ -28,6 +28,7 @@ import game_moves  # noqa: E402
 import gamestats  # noqa: E402
 import legal  # noqa: E402
 import tiers  # noqa: E402
+import coverage  # noqa: E402
 
 DATA = ROOT / "data"
 SPRITES = ROOT / "sprites"
@@ -39,6 +40,8 @@ RESULTS = ROOT / "simulator" / "results"
 RANKING_CSV = DATA / "ranking_fase3.csv"
 BUILDS_CSV = DATA / "species_builds.csv"
 WHY_CSV = DATA / "species_why.csv"
+VARIANTS_CSV = DATA / "species_variants.csv"
+VARIANTS = ("aggro", "cover")
 ATTACKS_CSV = DATA / "attack_tiers.csv"
 BONDS_CSV = DATA / "bond_tiers.csv"
 VERSION = "fase3"
@@ -187,10 +190,17 @@ def _build(row: dict) -> dict:
     n_boost = sum(1 for mid in ids if gamestats.move(mid)["kind"] == "buff")
     if any(gamestats.move(mid)["kind"] == "buff" for mid in ids[:len(ids) - n_boost]):
         raise CatalogError(f"{row['dex']} {row['build']}: un potenciador antes de un ataque en {row['group']}")
-    return {"moves": ids, "nBoost": n_boost, "mix": row["mix"], "time": round(float(row["median_s"]), 1),
+    cov = coverage.of_build(ids)
+    return {"moves": ids, "nBoost": n_boost, "mix": row.get("mix") or _mix(ids), "time": round(float(row["median_s"]), 1),
             "kills": round(float(row["median_kills"]), 1), "dealt": round(float(row["median_dealt"])),
             "score": round(float(row["median_score"]), 1), "lo": round(float(row["score_lo"]), 1),
-            "hi": round(float(row["score_hi"]), 1)}
+            "hi": round(float(row["score_hi"]), 1),
+            "cover": {"good": cov["good"], "resist": cov["resist"], "by": list(cov["resist_by"])[:2]}}
+
+
+def _mix(ids: list[str]) -> str:
+    cats = {gamestats.move(m)["cat"] for m in ids if gamestats.move(m)["kind"] != "buff"}
+    return cats.pop() if len(cats) == 1 else "mixed"
 
 
 def percentiles(values: dict[int, float], lower_better: bool = False) -> dict[int, int]:
@@ -212,6 +222,13 @@ def load_pokemon(credits: dict, shiny: set[int]) -> list[dict]:
     builds: dict[int, dict[str, dict]] = {}
     for r in _read_csv(BUILDS_CSV):
         builds.setdefault(int(r["dex"]), {})[r["build"]] = _build(r)
+    # Variantes de cada build (build/species_builds.py --variants): agresiva sin potenciador de defensa y de más
+    # cobertura de tipos, cada una con sus cifras de la ronda final.
+    for r in _read_csv(VARIANTS_CSV):
+        b = builds[int(r["dex"])][r["build"]]
+        if b["moves"] != r["main"].split("+"):
+            raise CatalogError(f"species_variants.csv: {r['dex']} {r['build']} no parte de la build publicada")
+        b.setdefault("alt", {})[r["variant"]] = _build(r)
     why: dict[int, list[dict]] = {}
     for r in _read_csv(WHY_CSV):
         why.setdefault(int(r["dex"]), []).append(
@@ -399,7 +416,9 @@ def slim(entries: list[dict]) -> list[dict]:
 
 def species_public(entries: list[dict]) -> dict:
     """data/species.json: las dos builds de cada Pokémon (melee y ranged) y cuál gana. Lo lee el planificador."""
-    return {"builds": {str(e["dex"]): {**e["builds"], "best": e["r"]["best"]} for e in entries}}
+    lean = {"cover", "alt"}  # solo los usa la ficha
+    return {"builds": {str(e["dex"]): {**{k: {f: v for f, v in b.items() if f not in lean} for k, b in e["builds"].items()},
+                                       "best": e["r"]["best"]} for e in entries}}
 
 
 def write_json(name: str, obj, pretty: bool = False, public: bool = False) -> None:

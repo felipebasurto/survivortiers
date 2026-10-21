@@ -425,8 +425,6 @@ textarea {
 .bd-row.is-start { background: color-mix(in srgb, var(--bd-gold) 14%, var(--bd-tile)); box-shadow: inset 6px 0 0 var(--bd-gold), 0 0 0 2px var(--bd-gold); }
 .bd-row.is-start .bd-nm { font-size: 1.0625rem; font-weight: 700; }
 .bd-pill.is-gold { background: var(--bd-gold); color: #050914; box-shadow: none; }
-.bd-alts { margin: 10px 0 0; font: .8125rem/1.5 var(--ui); color: var(--bd-ink-2); }
-.bd-alts > span { font-weight: 600; color: var(--bd-ink); }
 .bd-cardlist { display: grid; gap: 6px; }
 .bd-cardlist li { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: var(--bd-tile); box-shadow: var(--notch-soft);
   font: 500 .875rem/1.3 var(--ui); color: var(--bd-ink); }
@@ -434,12 +432,19 @@ textarea {
 .bd-cardlist .bd-nm { flex: 1; min-width: 0; font-weight: 500; }
 .bd-gate { flex: none; padding: 2px 6px; background: var(--bd-gold); color: #050914; font: 700 .72rem/1 var(--ui); }
 .bd-hint, .bd-legend { margin: 10px 0 0; font: .75rem/1.45 var(--ui); color: var(--bd-ink-2); }
-.bd-cover { display: grid; gap: 8px; padding-top: 14px; border-top: 1px dashed var(--bd-line); }
-.bd-meter { display: grid; grid-template-columns: minmax(0, 11rem) 1fr 6.2ch; align-items: center; gap: 12px; font: .8125rem var(--ui); color: var(--bd-ink-2); }
-.bd-track { display: block; height: 8px; background: var(--bd-line); overflow: hidden; }
-.bd-track b { display: block; height: 100%; background: var(--bd-gold); }
-.bd-neutral .bd-track b { background: #6bcb77; }
-.bd-meter strong { text-align: right; color: var(--bd-ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+.bd-type { display: inline-flex; align-items: center; gap: 6px; }
+.bd-type .type { font-size: .75rem; }
+.bd-mono { padding: 2px 5px; font: 700 .6875rem/1 var(--ui); color: var(--bd-gold-ink); box-shadow: 0 0 0 1px var(--bd-gold); }
+.bd-cover { margin: 14px 0 0; font: .8125rem/1.5 var(--ui); color: var(--bd-ink-2); }
+.bd-alt { margin: 10px 0 0; border-top: 1px dashed var(--bd-line); }
+.bd-alt summary { display: flex; align-items: center; gap: 8px; padding: 10px 0 0; cursor: pointer; list-style: none;
+  font: 600 .8125rem/1.4 var(--ui); color: var(--bd-ink-2); }
+.bd-alt summary::-webkit-details-marker { display: none; }
+.bd-alt summary::before { content: "+"; flex: none; width: 1.1em; font-weight: 700; text-align: center; color: var(--bd-gold-ink); }
+.bd-alt[open] summary::before { content: "−"; }
+.bd-alt summary:hover { color: var(--bd-ink); }
+.bd-alt-txt { margin: 8px 0 10px; font: .8125rem/1.5 var(--ui); color: var(--bd-ink); }
+.bd-rows.is-alt .bd-row { padding-block: 7px; }
 .bd-brand { margin: 14px 0 0; text-align: right; font: 600 .75rem var(--ui); letter-spacing: .06em; color: var(--bd-ink-2); opacity: .8; }
 .bd-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; align-items: stretch; margin-bottom: 22px; }
 .bd-pair.is-single { grid-template-columns: minmax(0, 1fr); }
@@ -466,13 +471,9 @@ textarea {
   .bd-row { padding: 9px 12px 9px 10px; gap: 12px; }
   .bd-ico { width: 36px; height: 36px; }
   .bd-ico img { width: 28px; height: 28px; }
-  .bd-meter { grid-template-columns: 1fr 6.2ch; row-gap: 4px; }
-  .bd-meter > span { grid-column: 1 / -1; }
-  .bd-meter .bd-track { grid-column: 1; }
 }
 @media (prefers-reduced-motion: no-preference) {
   .anim .bd-row { animation: rise .5s ease-out backwards; }
-  .anim .bd-track b { animation: grow .8s cubic-bezier(.2, .7, .2, 1) backwards; }
 }
 .rb-ticks span:first-child { transform: none; }
 .rb-ticks span:last-child { transform: translateX(-100%); }
@@ -1754,3 +1755,6 @@ p.fresh { font: .8125rem/1.4 var(--sans); color: var(--ink-2); margin: 0 0 14px;
 .it-group h2 { margin-top: 32px; }
 li.it-card { display: flex; align-items: flex-start; gap: 14px; padding: 12px 14px; }
 .it-card .it-fact { margin: 4px 0 0; padding: 0; font: .8125rem/1.45 var(--sans); color: var(--ink); }
+.tp-wx { display: inline-flex; align-items: center; gap: 6px; margin: 2px 14px 2px 0; }
+.tp-wx b { font: 700 .875rem var(--ui); font-variant-numeric: tabular-nums; }
+.tp-table td b { font-weight: 700; }

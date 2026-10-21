@@ -29,6 +29,7 @@ import legal  # noqa: E402
 import novedades  # noqa: E402
 import objetos  # noqa: E402
 import pasivas  # noqa: E402
+import tipos  # noqa: E402
 import pack  # noqa: E402
 import planner  # noqa: E402
 import regions  # noqa: E402
@@ -54,7 +55,7 @@ NAV_TOP = [("index", "index.html", "nav_tiers"), ("ataques", "ataques.html", "na
            ("objetos", "objetos.html", "nav_objetos"), ("gachas", "gachas.html", "nav_gachas")]
 NAV_GROUPS = [
     ("nav_more", [("novedades", "novedades.html", "nav_novedades"), ("planificador", "@planner", "nav_planificador"),
-                  ("pasivas", "pasivas.html", "nav_pasivas"),
+                  ("pasivas", "pasivas.html", "nav_pasivas"), ("tipos", "tipos.html", "nav_tipos"),
                   ("metodo", "metodo.html", "nav_metodo"), ("acerca", "acerca.html", "nav_acerca")]),
 ]
 NAV = NAV_TOP + [item for _, items in NAV_GROUPS for item in items]
@@ -570,6 +571,12 @@ def render_pasivas(c: Ctx, meta: dict) -> str:
                 L.t("pv_desc", game=legal.GAME_NAME), content, meta)
 
 
+def render_tipos(c: Ctx, meta: dict) -> str:
+    L = c.L
+    return page(c, "tipos", L.t("tp_title", site=legal.SITE_NAME),
+                L.t("tp_desc", game=legal.GAME_NAME), tipos.content(L, c.home), meta)
+
+
 GACHA_STARS = (5, 4, 4, 3, 3, 3, 2, 2, 1)  # estrellas de cada banner, del mejor al peor
 
 
@@ -814,6 +821,7 @@ def main() -> int:
         put("ataques.html", lambda c: render_ataques(c, moves, meta, unranked))
         put("objetos.html", lambda c: render_objetos(c, meta))
         put("pasivas.html", lambda c: render_pasivas(c, meta))
+        put("tipos.html", lambda c: render_tipos(c, meta))
         put("gachas.html", lambda c: render_gachas(c, gachas, index, meta))
         put("coleccion.html", lambda c: render_coleccion(c, gachas, index, meta))
         put("metodo.html", lambda c: render_metodo(c, meta))

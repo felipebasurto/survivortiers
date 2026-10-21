@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "build"))
 
 import builds  # noqa: E402
+import coverage  # noqa: E402
 import sitefixture  # noqa: E402
 import static_ficha  # noqa: E402
 from i18n import EN, ES  # noqa: E402
@@ -34,6 +35,16 @@ class Candidates(unittest.TestCase):
     def test_every_shape_fills_the_four_slots(self) -> None:
         for group in builds.variants(["ember", "meteor-mash", "rock-throw"]) + builds.variants(["ember", "meteor-mash"]):
             self.assertEqual(len(group.split("+")), builds.picks.BOND_SLOTS, group)
+
+
+class Coverage(unittest.TestCase):
+    def test_counts_follow_the_game_chart(self) -> None:
+        normal = coverage.of_types(["normal"])
+        self.assertEqual(normal["good"], 0)  # Normal no es superefectivo contra nada
+        self.assertEqual(normal["n"], len(coverage.enemies()))
+        both = coverage.of_types(["normal", "fighting"])
+        self.assertLessEqual(both["resist"], normal["resist"])
+        self.assertTrue(set(both["resist_by"]) <= set(coverage.TYPES))
 
 
 def _b(score: float) -> dict:
@@ -88,7 +99,7 @@ class FichaBuilds(unittest.TestCase):
                     name = first["en"]["name"] if L.en else first["name"]
                     with self.subTest(dex=dex, prefix=prefix, kind=kind):
                         box = re.search(rf'<article class="bd-opt[^"]*" data-build="{kind}">.*?</article>', page, re.S)
-                        rows = re.findall(r'<li class="bd-row[^"]*">.*?</li>', box.group(0), re.S)
+                        rows = re.findall(r'<li class="bd-row[^"]*">.*?</li>', box.group(0).split("<details", 1)[0], re.S)
                         self.assertEqual(len(rows), len(self.pairs[str(dex)][kind]["moves"]))
                         self.assertIn("is-start", rows[0])
                         self.assertIn(f'<span class="bd-nm">{name}</span>', rows[0])
@@ -96,13 +107,50 @@ class FichaBuilds(unittest.TestCase):
 
     def test_every_move_row_has_its_game_icon(self) -> None:
         for dex, prefix, up in ((94, "", "../../"), (354, "en", "../../../")):
-            page = self._page(prefix, dex)
+            page = re.sub(r'<details class="bd-alt".*?</details>', "", self._page(prefix, dex), flags=re.S)
             ids = [m for k in ("melee", "ranged") for m in self.pairs[str(dex)][k]["moves"]]
             srcs = re.findall(r'<span class="bd-ico"><img src="([^"]+)"', page)
             with self.subTest(dex=dex, prefix=prefix):
                 self.assertEqual(sorted(srcs), sorted(f"{up}img/moves/{m}.svg" for m in ids))
                 for m in ids:
                     self.assertTrue((ROOT / "site" / "img" / "moves" / f"{m}.svg").is_file(), m)
+
+    def test_each_build_says_its_coverage_and_move_types(self) -> None:
+        for dex in (6, 94, 150):
+            pair = self.pairs[str(dex)]
+            page = self._page("", dex)
+            for kind in ("melee", "ranged"):
+                box = re.search(rf'<article class="bd-opt[^"]*" data-build="{kind}">.*?</article>', page, re.S).group(0)
+                main = box.split('<details', 1)[0]
+                cov = coverage.of_build(pair[kind]["moves"])
+                with self.subTest(dex=dex, kind=kind):
+                    self.assertIn(f"Pega bien a {cov['good']} de los {len(coverage.enemies())} Pokémon", main)
+                    attacks = [m for m in pair[kind]["moves"] if self.moves[m]["kind"] != "buff"]
+                    self.assertEqual(main.count('<span class="bd-type">'), len(attacks))
+
+    def test_own_type_bonus_only_for_single_type(self) -> None:
+        self.assertIn("bd-mono", self._page("", 150))  # Mewtwo, Psíquico: Confusión es de su tipo
+        self.assertNotIn("bd-mono", self._page("", 6))  # Charizard, Fuego/Volador
+
+    def test_variants_change_what_they_say(self) -> None:
+        import picks
+        seen = set()
+        entries = {str(e["dex"]): e for e in json.loads((ROOT / "build" / "out" / "pokemon.json").read_text(encoding="utf8"))}
+        for dex, e in entries.items():
+            for kind, b in e["builds"].items():
+                for v, alt in b.get("alt", {}).items():
+                    seen.add(v)
+                    with self.subTest(dex=dex, kind=kind, variant=v):
+                        self.assertNotEqual(alt["moves"], b["moves"])
+                        self.assertEqual(builds._kind(picks.split_group("+".join(alt["moves"]))[0]), kind)
+                        if v == "aggro":
+                            self.assertIsNotNone(picks.split_group("+".join(b["moves"]))[2])
+                            self.assertIsNone(picks.split_group("+".join(alt["moves"]))[2])
+                        else:
+                            self.assertLessEqual(2 * alt["cover"]["resist"], b["cover"]["resist"])
+        self.assertEqual(seen, {"aggro", "cover"})
+        page = self._page("", 4)  # Charmander: las dos variantes en su build a distancia
+        self.assertEqual(re.findall(r'<details class="bd-alt" data-alt="(\w+)">', page)[:2], ["aggro", "cover"])
 
     def test_boosts_have_no_range_tag(self) -> None:
         page = self._page("", 483)

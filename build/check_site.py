@@ -395,7 +395,7 @@ def browser_check(base: str, index: list[dict], args, err, notes: list[str]) -> 
                     src: document.querySelector('.ficha-sprite img').src,
                     kinds: [...document.querySelectorAll('#build .bd-opt')].map(e => e.dataset.build),
                     best: [...document.querySelectorAll('#build .bd-opt.is-best')].map(e => e.dataset.build),
-                    starts: [...document.querySelectorAll('#build .bd-opt')].map(o => [...o.querySelectorAll('.bd-row')].map(r => r.classList.contains('is-start'))),
+                    starts: [...document.querySelectorAll('#build .bd-opt')].map(o => [...o.querySelectorAll(':scope > .bd-rows > .bd-row')].map(r => r.classList.contains('is-start'))),
                     stats: document.querySelectorAll('#build .bd-opt .bd-stats dd').length,
                     why: document.querySelectorAll('#porque .why-row, #porque .why-flat').length,
                     surv: !!document.querySelector('#supervivencia .surv-bar'),

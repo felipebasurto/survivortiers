@@ -162,6 +162,30 @@ STR: dict[str, tuple[str, str]] = {
     "bd_other_ranged": ("a distancia", "ranged"),
     "bd_melee_note": ("Mientras un ataque cuerpo a cuerpo está activo, recibes un 25\u00a0% menos de daño.",
                       "While a melee move is active, you take 25% less damage."),
+    "cov_text": ("Pega bien a {good} de los {n} Pokémon que salen como enemigos. {resist}",
+                 "Super effective on {good} of the {n} Pokémon that spawn as enemies. {resist}"),
+    "cov_resist": ("{k} resisten todos sus ataques, sobre todo los de tipo {types}.",
+                   "{k} resist all its attacks, mostly {types} types."),
+    "cov_none": ("Ninguno resiste todos sus ataques.", "None resists all its attacks."),
+    "mono_note": ("Es de un solo tipo: el juego da un 20 % más de daño a sus ataques de tipo {type}. Los Pokémon "
+                  "de dos tipos no tienen ese extra.",
+                  "It has a single type: the game gives its {type} moves 20% more damage. Dual-type Pokémon get no such "
+                  "bonus."),
+    "mono_tag": ("+20 %", "+20%"),
+    "mono_tip": ("Ataque de su tipo: +20 % de daño por ser de un solo tipo",
+                 "Own-type move: +20% damage for having a single type"),
+    "alt_aggro": ("¿Más agresiva? Sin {buff}", "More aggressive? Drop {buff}"),
+    "alt_cover": ("¿Te resisten los de tipo {type}? Más cobertura", "Trouble with {type} types? More coverage"),
+    "alt_swap": ("Cambia {out} por {inn}.", "Swap {out} for {inn}."),
+    "alt_start": ("Empieza con {move}.", "Start with {move}."),
+    "alt_cover_gain": ("Los que resisten todos sus ataques bajan de {a} a {b}.",
+                       "Enemies that resist all its attacks drop from {a} to {b}."),
+    "alt_gap": ("En la simulación puntúa un {pct} menos que la de arriba.",
+                "In the simulation it scores {pct} below the build above."),
+    "alt_more": ("En la simulación puntúa un {pct} más que la de arriba.",
+                 "In the simulation it scores {pct} above the build above."),
+    "alt_even": ("En la simulación puntúa casi igual que la de arriba.",
+                 "In the simulation it scores about the same as the build above."),
     "faq_a_build": ("{kind}: {attacks}, con {buffs}. Empieza con {start}.", "{kind}: {attacks}, with {buffs}. Start with {start}."),
     "faq_a_build_best": ("Puntúa más la build {kind}.", "The {kind} build scores higher."),
     "t_builds": ("Builds", "Builds"),
@@ -314,6 +338,60 @@ STR: dict[str, tuple[str, str]] = {
                  "according to the game code; we do not rank them because the simulation does not use them."),
 
     # ------------------------------------------------------------ pasivas
+    "tp_title": ("Tipos de ataque en {game} · {site}", "Move types in {game} · {site}"),
+    "tp_desc": ("Qué tipo de ataque pega mejor a los Pokémon enemigos de {game}: tabla de tipos del juego, al principio "
+                "y al final de la partida, y el clima.",
+                "Which move type hits the enemy Pokémon in {game} hardest: the game's type chart, early and late in a "
+                "run, and the weather."),
+    "tp_h1": ("Tipos de ataque en {game}", "Move types in {game}"),
+    "tp_lede": ("Qué tipos de ataque pegan mejor a los Pokémon que salen como enemigos, con la tabla de tipos y el "
+                "clima del código del juego.",
+                "Which move types hit the Pokémon that spawn as enemies hardest, with the type chart and the weather "
+                "from the game code."),
+    "tp_rules_h": ("Cómo cuentan los tipos aquí", "How types work here"),
+    "tp_rule_chart": ("La tabla de tipos es más suave que en los juegos de Pokémon: superefectivo ×1,6 (×2,4 contra los "
+                      "dos tipos), poco eficaz ×0,6 (×0,36 contra los dos) y, donde habría inmunidad, ×0,3.",
+                      "The type chart is softer than in the Pokémon games: super effective ×1.6 (×2.4 against both "
+                      "types), not very effective ×0.6 (×0.36 against both) and, where there would be an immunity, ×0.3."),
+    "tp_rule_mono": ("Un Pokémon de un solo tipo hace un 20 % más de daño con los ataques de su tipo. Los de dos "
+                     "tipos no tienen ese extra.",
+                     "A single-type Pokémon deals 20% more damage with moves of its type. Dual-type Pokémon get no "
+                     "such bonus."),
+    "tp_rule_auto": ("Tus ataques se lanzan solos contra lo que tengas cerca: no eliges el ataque según el enemigo. "
+                     "Por eso importa cómo pega cada tipo de media contra todos.",
+                     "Your moves fire on their own at whatever is close: you don't pick a move for each enemy. That is "
+                     "why what matters is how each type hits on average against all of them."),
+    "tp_table_h": ("Cada tipo contra los enemigos", "Each type against the enemies"),
+    "tp_table_lede": ("Contra los {n} Pokémon que salen como enemigos, cada uno contado una vez. En cada partida salen "
+                      "7 especies al azar de cada tramo de tiempo.",
+                      "Against the {n} Pokémon that spawn as enemies, each counted once. Every run draws 7 species at "
+                      "random from each stretch of time."),
+    "tp_th_type": ("Tipo de ataque", "Move type"),
+    "tp_th_avg": ("Media", "Average"),
+    "tp_th_good": ("Superefectivo", "Super effective"),
+    "tp_th_resist": ("Lo resisten", "Resisted"),
+    "tp_th_early": ("Al principio", "Early"),
+    "tp_th_late": ("Al final", "Late"),
+    "tp_table_cap": ("Media: el multiplicador de la tabla de tipos, de media contra todos. Superefectivo y Lo resisten: "
+                     "a qué parte les hace más o menos de ×1. Al principio: los enemigos de los primeros 2:40; al "
+                     "final: los que salen desde el minuto 6:20. Sin clima ni el extra de un solo tipo.",
+                     "Average: the type chart multiplier, averaged over all of them. Super effective and Resisted: the "
+                     "share it hits for more or less than ×1. Early: the enemies of the first 2:40; late: those that "
+                     "spawn from 6:20 on. No weather and no single-type bonus."),
+    "tp_common": ("Los tipos más comunes entre los enemigos: {types}.", "The most common types among enemies: {types}."),
+    "tp_wx_h": ("Clima", "Weather"),
+    "tp_wx_lede": ("El clima multiplica el daño de algunos tipos, el de tus ataques y el de los enemigos.",
+                   "Weather multiplies the damage of some types, both your moves and the enemies'."),
+    "tp_wx_th": ("Clima", "Weather"),
+    "tp_wx_th_fx": ("Daño", "Damage"),
+    "tp_wx_sun": ("Sol", "Sun"),
+    "tp_wx_rain": ("Lluvia", "Rain"),
+    "tp_wx_sand": ("Tormenta de arena", "Sandstorm"),
+    "tp_wx_snow": ("Nieve", "Snow"),
+    "tp_wx_fog": ("Niebla", "Fog"),
+    "tp_finder": ("Las debilidades de cada combinación de tipos, en el buscador de tipos →",
+                  "The weaknesses of every type combination, in the type finder →"),
+    "nav_tipos": ("Tipos", "Types"),
     "pv_title": ("Pasivas de {game} · {site}", "Passives in {game} · {site}"),
     "pv_desc": ("Las cartas de subida de nivel y los potenciadores de {game}: efecto, máximo y valores del juego.",
                 "The level-up cards and boosts in {game}: effect, cap and game values."),

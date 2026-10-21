@@ -118,6 +118,22 @@ SECTIONS_19 = [
 # Cambio del sitio, no del juego: el método del ranking (build/attack_tiers.py, bond_tiers.py, species_builds.py).
 SECTIONS_SITE = [
     {
+        "id": "tipos-y-variantes",
+        "h": ("21 oct 2026: tipos y variantes de cada build", "Oct 21, 2026: types and variants of each build"),
+        "body": [
+            ("Cada build enseña el tipo de cada ataque y su cobertura: a cuántos de los Pokémon que salen como enemigos "
+             "pega bien y cuántos resisten todos sus ataques. Debajo, plegadas, hay variantes por si la quieres más "
+             "agresiva (sin Fortaleza) o con más cobertura de tipos, con lo que pierden o ganan en la simulación.",
+             "Each build shows each move's type and its coverage: how many of the Pokémon that spawn as enemies it hits "
+             "super effectively and how many resist all its moves. Folded underneath are variants in case you want it "
+             "more aggressive (no Harden) or with more type coverage, with what they lose or gain in the simulation."),
+            ("Nueva página Tipos: cómo pega cada tipo de ataque a los enemigos al principio y al final de la partida, "
+             "el 20 % extra de los Pokémon de un solo tipo y el clima.",
+             "New Types page: how each move type hits the enemies early and late in a run, the 20% bonus for "
+             "single-type Pokémon and the weather."),
+        ],
+    },
+    {
         "id": "metodo-nuevo",
         "h": ("21 oct 2026: hemos mejorado el ranking", "Oct 21, 2026: we improved the ranking"),
         "body": [

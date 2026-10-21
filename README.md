@@ -8,7 +8,7 @@ Web: https://survivortiers.pages.dev
 
 | Ruta | Qué hay |
 | --- | --- |
-| `data/` | Entradas: las tablas de las tres fases (`attack_tiers.csv`, `bond_tiers.csv`, `species_builds.csv`, `ranking_fase3.csv`) y el porqué (`species_why.csv`), `pokedex_export.json`, nombres y textos de ataques en inglés (`species_names_en.csv`, `lang_en_moves.json`), `CREDITS.md` y licencia del juego (copiados del commit `a9b21f0`), y `move_tierlist_v4.csv` |
+| `data/` | Entradas: las tablas de las tres fases (`attack_tiers.csv`, `bond_tiers.csv`, `species_builds.csv`, `ranking_fase3.csv`, variantes en `species_variants.csv`) y el porqué (`species_why.csv`), `pokedex_export.json`, nombres y textos de ataques en inglés (`species_names_en.csv`, `lang_en_moves.json`), `CREDITS.md` y licencia del juego (copiados del commit `a9b21f0`), y `move_tierlist_v4.csv` |
 | `sprites/` | Los 966 sprites (SpriteCollab, CC BY-NC 4.0). **No van en `site/`**: las páginas los piden a jsDelivr, que sirve este repositorio (`legal.SPRITE_CDN`). `sprites/shiny/` tiene los 958 sprites shiny (ver `build/shiny_sprites.py`) |
 | `src/` | Estáticos escritos a mano: `style.css`, `app.js` (tier list, colección, vista shiny), `collection.js` (lee el comando de la consola y las filas shiny, sin DOM), `share.js` (codec del enlace `#c=`, v1 y v2), `ficha.js` (redirige `/pokemon/?id=N` a la ficha estática), `fonts/`, `img/` (iconos de interfaz y créditos), `_headers` y `_redirects` |
 | `build/catalog.py` | Valida y genera `build/out/` (datos intermedios y `public/`, los JSON del navegador). **Falla** si falta artista o licencia de algún sprite, si los conteos por tier no son los de `data/tiers.json` o si los pools de gacha no suman 966 |
@@ -17,7 +17,8 @@ Web: https://survivortiers.pages.dev
 | `data/tiers.json`, `build/tiers.py` | Tamaño de cada tier y bandas: el único sitio donde viven los cortes |
 | `build/attack_tiers.py` | Fase 1: tier list de ataques. Cada ataque juega solo en 6 Pokémon de referencia de su clase |
 | `build/bond_tiers.py` | Fase 2: tier list de vínculos. Grupos de cuatro huecos con los mejores ataques de la fase 1 |
-| `build/species_builds.py` | Fase 3: la mejor build cuerpo a cuerpo y la mejor a distancia de cada Pokémon, y el ranking que sale de ellas |
+| `build/species_builds.py` | Fase 3: la mejor build cuerpo a cuerpo y la mejor a distancia de cada Pokémon, el ranking que sale de ellas y, con `--variants`, la variante agresiva (sin potenciador de defensa) y la de más cobertura de tipos de cada build |
+| `build/coverage.py` | Cobertura de tipos de una build contra las especies que salen como enemigos (tabla de tipos del juego). La usan la ficha, la página Tipos (`build/tipos.py`) y las variantes |
 | `build/builds.py` | Los grupos posibles de cada Pokémon (su pool, su ataque inicial y las tres formas de cuatro huecos), sin reglas a mano |
 | `build/why.py` | Por qué cada Pokémon está donde está: mínimos cuadrados de la puntuación frente a ocho factores del juego (necesita numpy) |
 | `build/sitefixture.py` | Las pruebas que necesitan el sitio generado lo generan primero (o se saltan con un aviso claro) |
@@ -79,7 +80,7 @@ El sitio es estático y no tiene API: los datos son JSON y CSV en `/data/`, sin 
 ## Actualizar el ranking
 
 1. Si cambia el juego: sube `GAME_COMMIT` en `build/legal.py` y `GAME_REF` en `build/game_moves.py`, y regenera `data/pokedex_export.json` (`build/import_game_combat.py`), `data/game_stats.json` (`node build/export_game_stats.js /ruta/al/juego`), `data/move_pool.json`, `data/move_mechanics.json` y `data/move_icons.json`.
-2. `python3 build/attack_tiers.py --sim` (fase 1, ~2 min), `python3 build/bond_tiers.py --sim` (fase 2, ~30 min) y `python3 build/species_builds.py --sim` (fase 3, ~2 h). Cada fase lee la anterior.
+2. `python3 build/attack_tiers.py --sim` (fase 1, ~2 min), `python3 build/bond_tiers.py --sim` (fase 2, ~30 min) y `python3 build/species_builds.py --sim` (fase 3, ~2 h; después `--variants`, ~25 min). Cada fase lee la anterior.
 3. `python3 build/why.py` rehace el porqué de cada Pokémon (necesita numpy).
 4. `python3 build/catalog.py && python3 build/render.py && python3 build/check_site.py …`. Las cuatro órdenes con `--check` y los tests corren también en GitHub Actions (`.github/workflows/tests.yml`).
 

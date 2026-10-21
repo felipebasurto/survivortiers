@@ -22,7 +22,7 @@ from i18n import EN, ES, TYPE_NAMES, Lang
 
 ROOT = Path(__file__).resolve().parent.parent
 RANKING_SRC = ROOT / "data" / "ranking_fase3.csv"
-PAGES = ["", "novedades.html", "ataques.html", "objetos.html", "pasivas.html", "gachas.html", "coleccion.html", "metodo.html", "acerca.html"]
+PAGES = ["", "novedades.html", "ataques.html", "objetos.html", "pasivas.html", "tipos.html", "gachas.html", "coleccion.html", "metodo.html", "acerca.html"]
 LANG_PREFIX = {"es": "", "en": "en/"}
 
 
@@ -122,6 +122,7 @@ Base URL: {u}
 - [Moves (EN)]({u}/en/ataques): phase 1 move tier list and the best phase 2 groups.
 - [Items (EN)]({u}/en/objetos): what each item does, from the game code. Not ranked.
 - [Passives (EN)]({u}/en/pasivas): the level-up cards and boosts as the game code defines them. Not ranked.
+- [Move types (EN)]({u}/en/tipos): how each move type hits the enemies that spawn, from the game's type chart, plus weather.
 - [What's new (EN)]({u}/en/novedades): game updates and site changes.
 - [Gacha (EN)]({u}/en/gachas): banners and pull odds.
 - [Collection (EN)]({u}/en/coleccion): collection helper.
