@@ -232,6 +232,7 @@
   // Reparte las tarjetas en grupos según el modo y el orden actual. Cada tarjeta enseña el valor del orden.
   function layout() {
     const root = $('#tierlist');
+    const tierNote = $('#tier-s-note');
     const byKey = new Map();
     sortedCards().forEach(el => {
       const k = GROUP_OF[groupMode](state.byDex.get(+el.dataset.dex));
@@ -251,6 +252,7 @@
         head.innerHTML = groupHead(k) + '<span class="n">' + cards.length + '</span>';
         sec.appendChild(head);
       }
+      if (groupMode === 'tier' && k === 'S' && tierNote) sec.appendChild(tierNote.content.firstElementChild.cloneNode(true));
       const grid = document.createElement('div');
       grid.className = 'grid';
       cards.forEach(el => grid.appendChild(el));
@@ -1664,4 +1666,10 @@
       if (el) el.textContent = TEXT.loadFailAll(err.message);
     });
   }
+})();
+
+// En escritorio los filtros se muestran abiertos; el usuario puede plegarlos
+(function () {
+  const f = document.querySelector('details.filters');
+  if (f && window.matchMedia && window.matchMedia('(min-width: 900px)').matches) f.open = true;
 })();

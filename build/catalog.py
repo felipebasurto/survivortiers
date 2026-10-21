@@ -29,6 +29,7 @@ import gamestats  # noqa: E402
 import legal  # noqa: E402
 import tiers  # noqa: E402
 import coverage  # noqa: E402
+import tier_s_note  # noqa: E402
 
 DATA = ROOT / "data"
 SPRITES = ROOT / "sprites"
@@ -458,7 +459,9 @@ def main() -> int:
         counts = check_ranks(entries)
         gachas = build_gachas(entries)
         meta = build_meta(entries, moves, credits, counts)
-    except (CatalogError, credits_mod.CreditsError, ValueError, KeyError, OSError) as exc:
+        v3_moves = json.loads(V3.read_text(encoding="utf8"))["moves"]
+        meta["tierS"] = tier_s_note.compute(entries, moves, v3_moves, tier_s_note.load_pool())
+    except (CatalogError, credits_mod.CreditsError, tier_s_note.TierSError, ValueError, KeyError, OSError) as exc:
         print(f"ERROR de catálogo: {exc}", file=sys.stderr)
         return 1
     shutil.rmtree(OUT, ignore_errors=True)
