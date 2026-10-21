@@ -22,7 +22,10 @@ import sys
 import urllib.request
 from pathlib import Path
 
-from PIL import Image
+try:
+    from PIL import Image
+except ImportError:  # optional: only --fetch and frame writes need it; CI installs Pillow
+    Image = None  # type: ignore[misc, assignment]
 
 ROOT = Path(__file__).resolve().parent.parent
 REPO = "JPTER78/pokesurvivor"
@@ -58,8 +61,10 @@ def shiny_dex(meta: dict[int, dict]) -> list[int]:
     return sorted(d for d, v in meta.items() if v.get("sh"))
 
 
-def crop_frame(sheet: Path, size: dict) -> Image.Image:
+def crop_frame(sheet: Path, size: dict):
     """Fotograma 0 de la fila 0 (abajo) recortado a sus píxeles opacos."""
+    if Image is None:
+        raise ShinyError("Pillow is required to crop sprite frames (pip install Pillow)")
     img = Image.open(sheet).convert("RGBA")
     frame = img.crop((0, 0, size["w"], size["h"]))
     box = frame.getbbox()
@@ -91,6 +96,8 @@ def download(meta: dict[int, dict], dexes: list[int], shiny: list[int]) -> None:
 
 def write_frames(meta: dict[int, dict], dexes: list[int], shiny: list[int]) -> None:
     """Comprueba que el sprite normal sale igual que el de sprites/ y escribe los shiny en sprites/shiny/."""
+    if Image is None:
+        raise ShinyError("Pillow is required to write shiny frames (pip install Pillow)")
     SHINY_DIR.mkdir(parents=True, exist_ok=True)
     bad = []
     for d in dexes:

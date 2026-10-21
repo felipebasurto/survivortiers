@@ -18,10 +18,15 @@ sys.path.insert(0, str(ROOT / "build"))
 
 import agents  # noqa: E402
 import legal  # noqa: E402
+import sitefixture  # noqa: E402
 from i18n import EN, ES  # noqa: E402
 
 SITE = ROOT / "site"
 LD_RE = re.compile(r'<script type="application/ld\+json">\s*(.*?)\s*</script>', re.S)
+
+
+def setUpModule() -> None:
+    sitefixture.ensure_site()
 
 
 def _read(rel: str) -> str:

@@ -34,7 +34,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install numpy
+      - run: pip install numpy Pillow
       - name: attack tier list matches the committed phase 1 output
         run: python3 build/attack_tiers.py --check
       - name: bond tier list matches the committed phase 2 output
