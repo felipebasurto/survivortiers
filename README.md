@@ -133,3 +133,7 @@ El script no corre en el build ni en CI. Solo envía URL del host de `SITE_URL`,
 - Letras: Pixelify Sans (títulos y tiers) y Zen Kaku Gothic New (texto y números), SIL OFL 1.1. Zen Kaku Gothic New va recortada a latino en `src/fonts/ZenKakuGothicNew-400.woff2`, `ZenKakuGothicNew-500.woff2` y `ZenKakuGothicNew-700.woff2`; las licencias están en `src/fonts/`.
 - Pokémon y sus nombres son marcas de Nintendo, Creatures Inc., GAME FREAK y The Pokémon Company; el sitio es de fans y no está afiliado.
 - El texto legal lo ha redactado el autor del sitio, no un abogado.
+
+## Bounded laboratory ranking
+
+The supported simulator workflow is now the [bounded attack laboratory and survival search](docs/simulator/laboratory-runner.md): neutral attack fixtures, measured status/buff interactions and at most 12 legal builds per Pokémon/style/TM branch. The 30-minute Runpod duration is a target to verify on the chosen host. Runs report progress every minute and have no automatic wall-time or spend cutoff. The old exhaustive funnel is archived. Diagnostic outputs do not replace published ranking data automatically.

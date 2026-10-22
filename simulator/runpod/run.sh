@@ -46,230 +46,147 @@ case "$TASK_ACTION" in
     printf 'Quoted machine rate: %s USD/hour; configured compute budget: %s USD\n' "${POKESIM_HOURLY_USD:-1.12}" "${POKESIM_BUDGET_USD:-4.00}"
     printf '%s\n' 'This wrapper does not include pod setup, storage or currency conversion, and does not stop the rented pod.'
     ;;
-  funnel)
-    FUNNEL_PRESET="${1:-}"
+  ranking)
+    RANKING_PRESET="${1:-}"
     if (($#)); then shift; fi
-    FUNNEL_DRY=0
-    if [[ "${1:-}" == "--dry-run" ]]; then
-      FUNNEL_DRY=1
-    fi
-    case "$FUNNEL_PRESET" in
-      smoke) FUNNEL_MANIFEST="$TASK_SCRIPT_DIR/funnel-smoke.json" ;;
-      full) FUNNEL_MANIFEST="$TASK_SCRIPT_DIR/funnel-full.json" ;;
-      *)
-        printf '%s\n' 'Usage: bash simulator/runpod/run.sh funnel smoke|full [--dry-run]' >&2
-        exit 2
-        ;;
-    esac
-    command -v python3 >/dev/null || { printf '%s\n' 'python3 is required.' >&2; exit 2; }
-    if [[ ! -x "$TASK_BINARY" ]]; then
-      printf '%s\n' 'Run prepare first so simulator/sim-rs/target/release/pokesim exists.' >&2
+    RANKING_DRY=0
+    if [[ "${1:-}" == "--dry-run" ]]; then RANKING_DRY=1; shift; fi
+    if (($#)) || [[ "$RANKING_PRESET" != smoke && "$RANKING_PRESET" != pilot && "$RANKING_PRESET" != full ]]; then
+      printf '%s\n' 'Usage: bash simulator/runpod/run.sh ranking smoke|pilot|full [--dry-run]' >&2
       exit 2
     fi
-    if [[ -z "${POKESIM_HOURLY_USD:-}" ]]; then
-      export POKESIM_HOURLY_USD="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["hourlyUsd"])' "$TASK_SCRIPT_DIR/vm-rate.json")"
+    command -v python3 >/dev/null || { printf '%s\n' 'python3 is required.' >&2; exit 2; }
+    [[ -x "$TASK_BINARY" ]] || { printf '%s\n' 'Run prepare first so simulator/sim-rs/target/release/pokesim exists.' >&2; exit 2; }
+    RANKING_MANIFEST="$TASK_SCRIPT_DIR/ranking-$RANKING_PRESET.json"
+    RANKING_OUT="$TASK_SIM_DIR/runpod-ranking/$RANKING_PRESET"
+    mkdir -p -- "$RANKING_OUT"
+    RANKING_LOCK="$RANKING_OUT/.runner.lock"
+    if ! mkdir -- "$RANKING_LOCK" 2>/dev/null; then
+      RANKING_OWNER="$(cat "$RANKING_LOCK/pid" 2>/dev/null || true)"
+      if [[ "$RANKING_OWNER" =~ ^[0-9]+$ ]] && ! kill -0 "$RANKING_OWNER" 2>/dev/null; then
+        rm -- "$RANKING_LOCK/pid"
+        rmdir -- "$RANKING_LOCK"
+        mkdir -- "$RANKING_LOCK" || { printf '%s\n' 'Another ranking runner acquired the preset.' >&2; exit 2; }
+      else
+        printf '%s\n' 'This ranking preset is already locked by another runner.' >&2
+        exit 2
+      fi
     fi
-    if [[ -z "${POKESIM_BUDGET_USD:-}" ]]; then
-      export POKESIM_BUDGET_USD="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["maxUsd"])' "$TASK_SCRIPT_DIR/vm-rate.json")"
-    fi
-    if [[ -z "${POKESIM_MAX_WALL_SECONDS:-}" ]]; then
-      export POKESIM_MAX_WALL_SECONDS="$(python3 -c 'import json,sys; print(int(float(json.load(open(sys.argv[1]))["maxHours"]) * 3600))' "$TASK_SCRIPT_DIR/vm-rate.json")"
-    fi
-    FUNNEL_OUT="$TASK_SIM_DIR/runpod-funnel/$FUNNEL_PRESET"
-    mkdir -p -- "$FUNNEL_OUT"
-    "$TASK_BINARY" funnel plan "$FUNNEL_MANIFEST" "$FUNNEL_OUT/plan.json" > "$FUNNEL_OUT/plan-counts.json"
-    export FUNNEL_WRAPPER_PATH="$FUNNEL_OUT/wrapper-seconds"
-    python3 - "$FUNNEL_OUT/plan-counts.json" "$TASK_SCRIPT_DIR/vm-rate.json" "$FUNNEL_DRY" <<'PY'
-import json, os, re, sys
-counts, rate, dry = json.load(open(sys.argv[1])), json.load(open(sys.argv[2])), sys.argv[3] == "1"
-samples = sorted(float(x) for x in rate["matchesPerSecond"])
-median = samples[len(samples) // 2]
-scaled = median / float(rate["threads"]) * float(rate["targetVcpu"])
-tasks = int(counts["tasksUpperBound"])
-hours = tasks / scaled / 3600.0
-price = float(os.environ.get("POKESIM_HOURLY_USD", rate["hourlyUsd"]))
-budget = float(os.environ.get("POKESIM_BUDGET_USD", rate["maxUsd"]))
-money_cap = min(float(rate["maxUsd"]), budget)
-cost = hours * price
-wall_text = os.environ.get("POKESIM_MAX_WALL_SECONDS", "")
-if wall_text and re.fullmatch(r"[0-9]+(?:[.][0-9]+)?", wall_text) is None:
-    print("ABORT: wall must be a plain positive number", file=sys.stderr)
-    sys.exit(2)
-wall = float(wall_text) if wall_text else float(rate["maxHours"]) * 3600
-dollar = int(budget / price * 3600) - 300
-if dollar < 1 or wall < 1:
-    print("ABORT: budget, price, or wall leaves no wrapper time", file=sys.stderr)
-    sys.exit(2)
-wrapper = dollar if dollar <= wall else int(wall)
-match_s = tasks / scaled
-free_inodes = os.statvfs(".").f_favail
-print(f"tasksUpperBound {tasks}")
-print(f"recallTasksUpper {counts.get('recallTasksUpper', 0)}")
-if "fullGroupCap" in counts:
-    print(f"fullGroupCap {counts['fullGroupCap']} strataFull {counts.get('strataFull', 0)} strataBeam {counts.get('strataBeam', 0)}")
-print(f"measured median {median:.2f} matches/s at {rate['threads']} threads on {rate['hostCores']} cores, {len(samples)} runs, range {samples[0]:.2f}-{samples[-1]:.2f}")
-print(f"inferred {rate['targetVcpu']}-vCPU rate {scaled:.2f} matches/s, linear in the measured per-core rate")
-print(f"ETA {hours:.3f} h, cost {cost:.2f} USD at {price:.2f} USD/h for a cpu5c-sized 32-vCPU host")
-print(f"wrapper wall {wrapper} s after recall, match time {match_s:.0f} s")
-print(f"free inodes {free_inodes}, checkpoint files {tasks}")
-print("The ETA is match time for the plan upper bound. The wrapper clock starts after recall. Checkpoint index reads sit inside the wrapper and are not in the ETA.")
-over = hours > float(rate["maxHours"]) or cost > money_cap or match_s > wrapper
-if over:
-    print(
-        f"ABORT: ETA or cost exceeds {rate['maxHours']} h or {money_cap:.2f} USD, or match time exceeds the wrapper wall of {wrapper} s",
-        file=sys.stderr,
-    )
-    sys.exit(3)
-open(os.environ["FUNNEL_WRAPPER_PATH"], "w").write(f"{wrapper}\n")
-if dry:
-    sys.exit(0)
+    printf '%s\n' "$$" > "$RANKING_LOCK/pid"
+    RANKING_CHILD=""
+    ranking_cleanup() {
+      if [[ -n "$RANKING_CHILD" ]] && kill -0 "$RANKING_CHILD" 2>/dev/null; then
+        kill -TERM "$RANKING_CHILD" 2>/dev/null || true
+        wait "$RANKING_CHILD" 2>/dev/null || true
+      fi
+      rm -- "$RANKING_LOCK/pid"
+      rmdir -- "$RANKING_LOCK"
+    }
+    trap ranking_cleanup EXIT
+    trap 'exit 130' INT
+    trap 'exit 143' TERM
+    trap 'exit 129' HUP
+    RANKING_RUNTIME_MANIFEST="$RANKING_OUT/manifest.runtime.json"
+    RANKING_LAB="$RANKING_OUT/lab.json"
+    RANKING_LAB_CACHE="$RANKING_OUT/lab-cache"
+    RANKING_GUIDE="$RANKING_OUT/lab-with-synergies.json"
+    RANKING_PLAN="$RANKING_OUT/plan.json"
+    RANKING_CACHE="$RANKING_OUT/cache"
+    RANKING_RESULTS="$RANKING_OUT/results.json"
+    RANKING_LOG="$RANKING_OUT/runner.log"
+    RANKING_THREADS="$(python3 - "$RANKING_MANIFEST" <<'PY'
+import json,sys
+print(json.load(open(sys.argv[1]))['threads'])
 PY
-    if (( FUNNEL_DRY )); then
-      printf '%s\n' 'Dry run only. No matches were started.'
+)"
+    RANKING_LAB_SECONDS=60
+    [[ "$RANKING_PRESET" == smoke ]] && RANKING_LAB_SECONDS=15
+    RANKING_FP="$("$TASK_BINARY" fingerprint)"
+    python3 - "$RANKING_MANIFEST" "$RANKING_RUNTIME_MANIFEST" "$RANKING_FP" <<'PY'
+import json, sys
+manifest=json.load(open(sys.argv[1])); manifest['engineFingerprint']=sys.argv[3]
+with open(sys.argv[2], 'w') as f: json.dump(manifest, f, indent=2); f.write('\n')
+PY
+    RANKING_MOVES="$(python3 - "$TASK_REPO_DIR/simulator/data/game.json" <<'PY'
+import json,sys
+game=json.load(open(sys.argv[1]))
+print(','.join(sorted(k for k,v in game['moves'].items() if v.get('kind') != 'buff')))
+PY
+)"
+    RANKING_MOVE_COUNT="$(awk -F, '{print NF}' <<< "$RANKING_MOVES")"
+    RANKING_LAB_TASKS="$((RANKING_MOVE_COUNT * 7 * 2 * 2))"
+    if (( RANKING_DRY )); then
+      printf '%s\n' 'Dry run: no simulations will start.'
+      printf 'Attack lab upper task estimate: %s moves x 7 scenarios x 2 levels x 2 seeds = %s.\n' "$RANKING_MOVE_COUNT" "$RANKING_LAB_TASKS"
+      if [[ -f "$RANKING_LAB" ]] && python3 - "$RANKING_LAB" "$RANKING_FP" <<'PY'
+import json,sys
+try:
+ d=json.load(open(sys.argv[1])); raise SystemExit(0 if d.get('complete') is True and d.get('partialScope') is not True and d.get('scope') == 'all-supported-attacks' and d.get('engineFingerprint')==sys.argv[2] else 1)
+except Exception: raise SystemExit(1)
+PY
+      then
+        "$TASK_BINARY" ranking plan "$RANKING_RUNTIME_MANIFEST" "$RANKING_LAB" "$RANKING_PLAN"
+        python3 - "$RANKING_PLAN" <<'PY'
+import json,sys
+c=json.load(open(sys.argv[1])).get('counts',{})
+print(f"Ranking plan upper bound: {c.get('matchesUpperBound', 'unavailable')} tasks (existing lab artifact).")
+PY
+      else
+        RANKING_DEXES="$(python3 - "$RANKING_MANIFEST" "$TASK_REPO_DIR/simulator/data/game.json" <<'PY'
+import json,sys
+m=json.load(open(sys.argv[1])); g=json.load(open(sys.argv[2]))
+print(len(g['dex']) if m['dex']=='all' else len(m['dex']))
+PY
+)"
+        printf 'Ranking analytic upper estimate: %s species x 4 style/TM strata x [12xA2 + 3xB8 + 1xD16 candidates + 1x(A2+B8+D16) stock control] = %s tasks.\n' "$RANKING_DEXES" "$((RANKING_DEXES * 4 * 90))"
+      fi
+      printf '%s\n' 'Task counts are upper estimates; runtime and cost are unmeasured.'
       exit 0
     fi
-    command -v timeout >/dev/null || { printf '%s\n' 'GNU timeout is required (Ubuntu: coreutils).' >&2; exit 2; }
-    if [[ "$FUNNEL_PRESET" == "full" ]]; then
-      python3 - "$FUNNEL_OUT/plan-counts.json" <<'PY'
-import json, os, sys
-tasks = int(json.load(open(sys.argv[1]))["tasksUpperBound"])
-st = os.statvfs(".")
-free, reported = st.f_favail, st.f_files
-print(f"free inodes {free}, inode counter {reported}, checkpoint files {tasks}")
-if reported > 0 and free < tasks:
-    print(f"ABORT: {free} free inodes is below {tasks} checkpoint files.", file=sys.stderr)
-    sys.exit(3)
-if reported == 0:
-    print("filesystem reported no inode counter. The inode gate did not stop the run.")
-PY
-      FUNNEL_THREADS="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["limits"]["threads"])' "$FUNNEL_MANIFEST")"
-      "$TASK_BINARY" funnel calibrate "$FUNNEL_THREADS" | tee "$FUNNEL_OUT/calibrate.json"
-      python3 - "$FUNNEL_OUT/calibrate.json" "$FUNNEL_OUT/plan-counts.json" "$FUNNEL_OUT/wrapper-seconds" <<'PY'
-import json, os, sys
-cal = json.load(open(sys.argv[1]))
-counts = json.load(open(sys.argv[2]))
-wrapper = int(float(open(sys.argv[3]).read()))
-rate = float(cal["matchesPerSecond"])
-threads = max(1, int(cal["threads"]))
-samples = max(1, int(cal["tasks"]))
-waves = (samples + threads - 1) // threads
-steady = rate * waves / (samples / threads)
-tasks = int(counts["tasksUpperBound"])
-need = tasks / wrapper
-floor_text = os.environ.get("POKESIM_CALIBRATE_FLOOR", "0.9")
+    run_monitored() {
+      local label="$1"; shift
+      local start="$SECONDS" last=0 status=0
+      printf '[%s] starting %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$label" | tee -a "$RANKING_LOG"
+      "$@" >>"$RANKING_LOG" 2>&1 & RANKING_CHILD=$!
+      while kill -0 "$RANKING_CHILD" 2>/dev/null; do
+        sleep 1
+        if (( SECONDS - last >= 60 )); then
+          printf '[%s] heartbeat %s; elapsed %ss; log=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$label" "$((SECONDS - start))" "$RANKING_LOG" | tee -a "$RANKING_LOG" >&2
+          for progress in "$RANKING_RESULTS.progress.json"; do
+            if [[ -f "$progress" ]]; then
+              python3 - "$progress" <<'PY' >&2 || true
+import json,sys
 try:
-    floor = float(floor_text)
-except ValueError:
-    floor = -1.0
-if not 0 < floor <= 1:
-    print("ABORT: POKESIM_CALIBRATE_FLOOR must be a number in (0, 1].", file=sys.stderr)
-    sys.exit(2)
-limit = need * floor
-print(
-    f"calibrate {rate:.2f} matches/s over {samples} tasks on {threads} threads "
-    f"({waves} waves). Full-wave equivalent {steady:.2f}. "
-    f"Gate line {limit:.2f}, {floor:.2f} of the {need:.2f} steady rate the wrapper needs."
-)
-if os.environ.get("POKESIM_SKIP_CALIBRATE_GATE") == "1":
-    print("Calibrate gate skipped because POKESIM_SKIP_CALIBRATE_GATE=1.")
-elif steady < limit:
-    print(
-        f"ABORT: full-wave equivalent {steady:.2f} matches/s is under {limit:.2f}. The upper bound misses the wrapper wall.",
-        file=sys.stderr,
-    )
-    sys.exit(3)
+ d=json.load(open(sys.argv[1])); print(f"progress: stage={d.get('stage')} stage_runs={d.get('stageCompletedConfigurations')}/{d.get('stageConfigurations')} pending_after={','.join(d.get('pendingStagesAfterCurrent') or []) or 'none'} completed_configuration_runs={d.get('completedConfigurationRuns')} elapsed={d.get('elapsedWallSeconds')}s")
+except Exception: print(f"progress {sys.argv[1]}: artifact not readable yet")
 PY
-    fi
-    FUNNEL_RECALL_OK=1
-    if [[ "$FUNNEL_PRESET" == "full" ]]; then
-      while IFS= read -r FUNNEL_DEX; do
-        [[ -n "$FUNNEL_DEX" ]] || continue
-        if ! "$TASK_BINARY" funnel recall "$FUNNEL_DEX" "$FUNNEL_OUT/recall-$FUNNEL_DEX.json" "$FUNNEL_OUT/recall-cache-$FUNNEL_DEX"; then
-          FUNNEL_RECALL_OK=0
-          printf 'Recall for dex %s failed. Continuing the funnel.\n' "$FUNNEL_DEX" >&2
+            fi
+          done
+          last="$SECONDS"
         fi
-      done < <(python3 - "$FUNNEL_OUT/plan.json" <<'PY'
-import json, sys
-needle = b',"recall":'
-with open(sys.argv[1], "rb") as handle:
-    window = b""
-    while True:
-        chunk = handle.read(1 << 20)
-        if not chunk:
-            raise SystemExit("recall list missing from plan")
-        window += chunk
-        at = window.find(needle)
-        if at < 0:
-            window = window[-(len(needle) - 1):]
-            continue
-        buf = window[at + len(needle):]
-        decoder = json.JSONDecoder()
-        while True:
-            try:
-                rows, _ = decoder.raw_decode(buf.decode())
-                break
-            except json.JSONDecodeError:
-                more = handle.read(1 << 20)
-                if not more:
-                    raise
-                buf += more
-        break
-for row in rows:
-    print(row.get("dex"))
+      done
+      wait "$RANKING_CHILD" || status=$?
+      RANKING_CHILD=""
+      return "$status"
+    }
+    run_monitored attack-lab "$TASK_BINARY" attack-lab run "$RANKING_LAB" "$RANKING_LAB_CACHE" "$RANKING_THREADS" "$RANKING_LAB_SECONDS" "$RANKING_MOVES"
+    python3 - "$RANKING_LAB" "$RANKING_FP" <<'PY'
+import json,sys
+lab=json.load(open(sys.argv[1]))
+if lab.get('complete') is not True or lab.get('partialScope') is True or lab.get('scope') != 'all-supported-attacks' or lab.get('engineFingerprint') != sys.argv[2]:
+    raise SystemExit('ranking requires a complete, current-fingerprint all-supported-attacks lab artifact')
 PY
-)
-      python3 - "$FUNNEL_OUT" "$FUNNEL_RECALL_OK" <<'PY'
-import json, pathlib, sys
-out, ok = pathlib.Path(sys.argv[1]), sys.argv[2] == "1"
-rows = []
-for path in sorted(out.glob("recall-*.json")):
-    doc = json.loads(path.read_text())
-    ok = ok and doc.get("ok") is True
-    rows.extend(doc.get("rows") or [])
-(out / "recall.json").write_text(json.dumps({"ok": ok and bool(rows), "rows": rows}) + "\n")
-PY
-    fi
-    TASK_CAP="$(cost_limit)"
-    TASK_STARTED="$SECONDS"
-    FUNNEL_ACTION="run"
-    while true; do
-      TASK_LEFT="$((TASK_CAP - (SECONDS - TASK_STARTED)))"
-      if (( TASK_LEFT < 60 )); then
-        printf '%s\n' 'Compute budget reached with funnel tasks still unfinished. Keep the cache and resume later. Then terminate the pod. This script does not stop billing.' >&2
-        exit 75
-      fi
-      printf 'Funnel %s, about %s seconds left in the wrapper budget.\n' "$FUNNEL_ACTION" "$TASK_LEFT" >&2
-      set +e
-      timeout --foreground --signal=TERM --kill-after=30s "${TASK_LEFT}s" \
-        "$TASK_BINARY" funnel "$FUNNEL_ACTION" "$FUNNEL_OUT/plan.json" "$FUNNEL_OUT/cache" "$FUNNEL_OUT/results.json"
-      TASK_STATUS="$?"
-      set -e
-      if (( TASK_STATUS == 124 || TASK_STATUS == 137 )); then
-        printf '%s\n' 'Outer deadline hit. Keep the cache and resume later. Then terminate the pod.' >&2
-        exit 75
-      fi
-      if (( TASK_STATUS != 0 )); then
-        exit "$TASK_STATUS"
-      fi
-      FUNNEL_MISSING="$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(0 if d.get("complete") else 1)' "$FUNNEL_OUT/results.json")"
-      if [[ "$FUNNEL_MISSING" == 0 ]]; then
-        break
-      fi
-      printf 'Funnel invocation stopped with work remaining (completed %s). Resuming.\n' "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("completedTasks"))' "$FUNNEL_OUT/results.json")" >&2
-      FUNNEL_ACTION="resume"
-    done
-    FUNNEL_REPORT_ARGS=("$FUNNEL_OUT/results.json" "$FUNNEL_OUT/report.md")
-    if [[ -f "$FUNNEL_OUT/recall.json" ]]; then
-      FUNNEL_REPORT_ARGS+=("$FUNNEL_OUT/recall.json")
-    fi
-    "$TASK_BINARY" funnel report "${FUNNEL_REPORT_ARGS[@]}"
-    PYTHONPATH="$TASK_REPO_DIR" python3 "$TASK_REPO_DIR/build/funnel_export.py" "$FUNNEL_OUT/results.json" "$FUNNEL_OUT/web.json"
-    tar -C "$TASK_SIM_DIR/runpod-funnel" -czf "$TASK_SIM_DIR/runpod-funnel/funnel-results.tar.gz" \
-      --exclude="$FUNNEL_PRESET/cache" \
-      --exclude="$FUNNEL_PRESET/plan.json" \
-      --exclude="$FUNNEL_PRESET/recall-cache-*" \
-      "$FUNNEL_PRESET"
-    printf '%s\n' "Funnel $FUNNEL_PRESET finished. Archive: simulator/runpod-funnel/funnel-results.tar.gz. Terminate the pod yourself. This script does not stop billing."
+    run_monitored synergy-lab "$TASK_BINARY" synergy-lab run "$RANKING_LAB" "$RANKING_GUIDE" "$RANKING_OUT/synergy-cache" "$RANKING_THREADS" "$RANKING_LAB_SECONDS"
+    "$TASK_BINARY" ranking plan "$RANKING_RUNTIME_MANIFEST" "$RANKING_GUIDE" "$RANKING_PLAN"
+    RANKING_ACTION=run
+    [[ -f "$RANKING_RESULTS" ]] && RANKING_ACTION=resume
+    run_monitored "ranking-$RANKING_ACTION" "$TASK_BINARY" ranking "$RANKING_ACTION" "$RANKING_PLAN" "$RANKING_CACHE" "$RANKING_RESULTS"
+    POKESIM_ATTACK_LAB="$RANKING_OUT/attacks.json" PYTHONPATH="$TASK_REPO_DIR" python3 -m build.laboratory_export "$RANKING_LAB" "$RANKING_RESULTS" "$TASK_REPO_DIR/simulator/data/game.json" "$RANKING_OUT/attacks.json" "$RANKING_OUT/sim-results.json"
+    printf '%s\n' "Ranking $RANKING_PRESET finished. Results: $RANKING_OUT. Duration is not yet measured on Runpod; results are diagnostic and not a global optimum."
+    ;;
+  funnel)
+    printf '%s\n' 'The exhaustive funnel path is retired. Migrate to: bash simulator/runpod/run.sh ranking smoke|pilot|full [--dry-run]. Explicit legacy production commands remain available.' >&2
+    exit 2
     ;;
   run|resume)
     command -v timeout >/dev/null || { printf '%s\n' 'GNU timeout is required (Ubuntu: coreutils).' >&2; exit 2; }
@@ -310,10 +227,11 @@ PY
     ;;
   *)
     printf '%s\n' \
-      'Usage: bash simulator/runpod/run.sh prepare|plan|benchmark|cost|run|resume|funnel' \
+      'Usage: bash simulator/runpod/run.sh prepare|plan|benchmark|cost|run|resume|ranking|funnel' \
       'prepare: compile and test only; plan: write a finite ledger without matches.' \
       'benchmark: bounded mature scenes only; run/resume: explicit production execution.' \
-      'funnel smoke|full [--dry-run]: staged search. full --dry-run prints the ETA and does not simulate.' \
+      'ranking smoke|pilot|full [--dry-run]: bounded lab plus ranking; pilot is 41 species at full length to time the real run; dry-run reports task-count estimates only.' \
+      'funnel: retired; use ranking smoke|pilot|full.' \
       'Cloud compute is not released automatically: save results, then terminate your pod.'
     ;;
 esac

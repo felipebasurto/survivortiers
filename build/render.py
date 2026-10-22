@@ -527,6 +527,52 @@ def best_groups(L: Lang, moves_by: dict[str, dict]) -> str:
             f'<p class="lede">{esc(L.t("mv_groups_lede", n=GROUP_TOP))}</p><div class="bg-grid">{"".join(cards)}</div></section>')
 
 
+LAB_GROUPS = (("lab_boss", ("boss-1",)),
+              ("lab_groups", ("line-3", "line-12", "surround-3", "surround-12")),
+              ("lab_entering", ("approach-3", "approach-12")))
+
+
+def _lab_dps(lab: dict, ids: tuple[str, ...], phase: str) -> float:
+    rows = [r["damagePerSecond"] for r in lab["scenarios"] if r["id"] in {f"{i}-{phase}" for i in ids}]
+    return sum(rows) / len(rows)
+
+
+def laboratory_table(L: Lang, moves: list[dict]) -> str:
+    """Measured damage on the laboratory fixtures. Boss, group and approaching-enemy damage stay separate columns:
+    the single mean score hides moves that are only good in one of those situations."""
+    measured = sorted((m for m in moves if "laboratory" in m),
+                      key=lambda m: (-m["laboratory"]["score"], m["id"]))
+    if not measured:
+        return ""
+    types = TYPE_NAMES["en" if L.en else "es"]
+    rows = []
+    for rank, move in enumerate(measured, 1):
+        lab = move["laboratory"]
+        name = move["en"]["name"] if L.en else move["name"]
+        kind = L.t("mv_kind_" + game_moves.shape_key(move))
+        shape = "" if move["kind"] == "melee" else f'<span class="mv-kind">{esc(kind)}</span>'
+        effects = "".join(f'<span class="lab-fx">{esc(L.t("fx_" + e))}</span>' for e in lab.get("effects", []))
+        cells = "".join(
+            f'<td class="lab-dps"><span>{esc(L.dec(_lab_dps(lab, ids, "initial"), 1))}</span>'
+            f'<span class="lab-arrow" aria-hidden="true">→</span>'
+            f'<b>{esc(L.dec(_lab_dps(lab, ids, "maximum"), 1))}</b></td>'
+            for _, ids in LAB_GROUPS)
+        scenarios = ", ".join(f"{r['id']} ({r['level']}): {L.dec(r['damagePerSecond'], 1)}"
+                              for r in lab["scenarios"])
+        search = " ".join([move["name"], move["en"]["name"] or "", types[move["type"]], kind]).lower()
+        rows.append(f'<tr class="lab-row" data-q="{esc(search)}"><td>{rank}</td>'
+                    f'<th scope="row"><span class="lab-name">{esc(name)}</span>'
+                    f'<span class="mv-tags">{type_pill(L, move["type"])}{static_ficha.range_html(L, move)}{shape}{effects}</span>'
+                    f'<details><summary>{esc(L.t("lab_scenarios"))}</summary>{esc(scenarios)}</details></th>'
+                    f'{cells}<td class="lab-score">{esc(L.dec(lab["score"], 1))}</td></tr>')
+    heads = "".join(f'<th scope="col">{esc(L.t(key))}<small>{esc(L.t("lab_ini_max"))}</small></th>' for key, _ in LAB_GROUPS)
+    return (f'<section id="laboratorio" class="lab"><h2>{esc(L.t("lab_title"))}</h2>'
+            f'<p class="lede">{esc(L.t("lab_description", n=len(measured)))}</p>'
+            f'<div class="tablewrap"><table class="lab-table"><thead><tr><th scope="col">#</th>'
+            f'<th scope="col">{esc(L.t("lab_move"))}</th>{heads}'
+            f'<th scope="col">{esc(L.t("lab_score"))}</th></tr></thead><tbody>{"".join(rows)}</tbody></table></div></section>')
+
+
 def render_ataques(c: Ctx, moves: list[dict], meta: dict, unranked: list[dict]) -> str:
     L = c.L
     moves_by = {m["id"]: m for m in moves + unranked}
@@ -551,12 +597,24 @@ def render_ataques(c: Ctx, moves: list[dict], meta: dict, unranked: list[dict]) 
     search_icon = ('<svg class="search-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><circle cx="7" cy="7" '
                    'r="4.6" fill="none" stroke="currentColor" stroke-width="2"/><path d="M10.6 10.6 14.5 14.5" '
                    'stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>')
+    lab = laboratory_table(L, moves)
+    if lab:
+        toc.insert(0, f'<li><a href="#laboratorio">{icon("sword")}{esc(L.t("lab_title"))}</a></li>')
+
+    def finder_block() -> str:
+        return (f'<div class="search-field mv-finder">{search_icon}<input id="mv-q" type="search" autocomplete="off" '
+                f'placeholder="{esc(L.t("mv_search"))}" aria-label="{esc(L.t("mv_search"))}"></div>\n'
+                f'<p id="mv-none" class="mv-none" hidden>{esc(L.t("mv_none"))}</p>\n'
+                f'<ul class="toc">{"".join(toc)}</ul>')
+    lede = f'<p class="lede">{esc(L.t("mv_lede", refs=p1["refs"], seeds=p1["seeds"]))}</p>'
+    if lab:
+        # The finder serves both tables, so it comes first; the historical heading covers only what follows it.
+        head = f'{finder_block()}\n{lab}\n<h2 id="historico">{esc(L.t("lab_historical"))}</h2>\n{lede}'
+    else:
+        head = f"{lede}\n{finder_block()}"
     content = f"""
 <h1>{esc(L.t("ataques_h1"))}</h1>
-<p class="lede">{esc(L.t("mv_lede", refs=p1["refs"], seeds=p1["seeds"]))}</p>
-<div class="search-field mv-finder">{search_icon}<input id="mv-q" type="search" autocomplete="off" placeholder="{esc(L.t("mv_search"))}" aria-label="{esc(L.t("mv_search"))}"></div>
-<p id="mv-none" class="mv-none" hidden>{esc(L.t("mv_none"))}</p>
-<ul class="toc">{"".join(toc)}</ul>
+{head}
 <details class="more">
 <summary>{esc(L.t("mv_read_h"))}</summary>
 {damage_legend(L)}

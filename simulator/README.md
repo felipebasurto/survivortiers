@@ -1,5 +1,7 @@
 # Rust simulator
 
+The supported ranking path is now the bounded attack laboratory and survival search. See [the runner guide](../docs/simulator/laboratory-runner.md). It uses a neutral laboratory Pokémon, fixed enemy fixtures, and at most 12 proposals per species/style/TM branch. The 30-minute runtime is a target to measure on the intended Pod, not an enforced timeout. The old exhaustive funnel is archived under `legacy-funnel`; `funnel` refuses to launch it.
+
 The only simulation engine and the only game-data importer are Rust. There is no JavaScript simulator, JS interpreter, vendored JS, Node validator or parity mode in this directory.
 
 The current engine uses PokéSurvivor **ce5785313b0205af8b9477423f64b0a7b7039dcd** (21 October 2026). It is prepared for diagnostics, **not for publishing a new ranking**. The existing website and CSVs still describe the previous `5a23d49` model.

@@ -1,13 +1,18 @@
 //! Rust-only PokéSurvivor diagnostics. See simulator/README.md for current commands.
 //! Historical ranking entrypoints are disabled until calibration and readiness review.
 
+mod combat_runner;
+mod cache_lock;
+mod synergy_lab;
+mod attack_lab;
 mod batch;
 mod data;
 mod engine;
-mod math;
 mod funnel;
+mod math;
 mod production;
 mod radii;
+mod ranking;
 mod repertorio;
 mod research;
 mod rng;
@@ -1889,6 +1894,13 @@ fn main() {
     if !cfg.bot_set && (cfg.status || cfg.xkinds || cfg.group > 0) {
         cfg.bot = Bot::Play;
     }
+    if matches!(cfg.rest.first().map(String::as_str), Some("attack-lab" | "synergy-lab" | "ranking" | "fingerprint")) {
+        let runtime_game = std::fs::read("data/game.json").expect("read current game data");
+        if runtime_game.as_slice() != include_bytes!("../../data/game.json") {
+            eprintln!("Game data changed since this binary was built. Rebuild before laboratory or ranking commands so provenance and cache dependencies match the actual simulation.");
+            std::process::exit(2);
+        }
+    }
     let data = Data::load("data/game.json");
     eprintln!(
         "game={} engine=4 nature={} ability={} tms={} second={}",
@@ -1913,7 +1925,29 @@ fn main() {
     let t0 = Instant::now();
     match cfg.rest.first().map(String::as_str) {
         Some("production") => production::command(&data, &cfg.rest[1..]),
-        Some("funnel") => funnel::command(&data, &cfg.rest[1..]),
+        Some("attack-lab") => {
+            if let Err(error) = attack_lab::command(&data, &cfg.rest[1..]) {
+                eprintln!("{error}");
+                std::process::exit(2);
+            }
+        },
+        Some("synergy-lab") => {
+            if let Err(error) = synergy_lab::command(&data, &cfg.rest[1..]) {
+                eprintln!("{error}");
+                std::process::exit(2);
+            }
+        },
+        Some("ranking") => {
+            if let Err(error) = ranking::command(&data, &cfg.rest[1..]) {
+                eprintln!("{error}");
+                std::process::exit(2);
+            }
+        },
+        Some("funnel") => {
+            eprintln!("The exhaustive funnel is archived. Use attack-lab and ranking; see docs/simulator/laboratory-runner.md. Historical diagnostics require legacy-funnel explicitly.");
+            std::process::exit(2);
+        },
+        Some("legacy-funnel") => funnel::command(&data, &cfg.rest[1..]),
         Some("fingerprint") => println!("{}", research::fingerprint()),
         Some("candidates") => {
             research::candidates(&data, cfg.rest[1].parse().expect("dex"), cfg.list, false)

@@ -1,3 +1,6 @@
+> Superseded for normal rankings by [the bounded laboratory workflow](laboratory-runner.md).
+> The production beam and funnel v1 below document historical diagnostics. They are not the default ranking path; `funnel` no longer launches the exhaustive search.
+
 # Production simulator funnel
 
 The production command builds a reproducible, bounded heuristic search plan. Planning executes no matches. `production plan simulator/runpod/production.json <plan.json>` validates the pinned game commit and engine fingerprint, creates a deterministic candidate roster, and writes a task budget before execution. `production run <plan.json> <cache-dir> <results.json>` starts it; `resume` uses the same plan and cache. Each completed match is an atomic JSON checkpoint identified by plan, configuration, stage, and seed. The internal wall-time limit is 900 seconds per invocation, so callers can resume after a budget stop. A cache lock prevents simultaneous writers.

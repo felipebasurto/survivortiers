@@ -1,11 +1,13 @@
 //! Current Rust match engine. One combat ruleset, pinned to PokéSurvivor ce57853.
 use crate::data::*;
 mod abilities;
+mod laboratory;
 use crate::math::{Libm, MathFns};
 use crate::rng::Rng;
 use crate::terrain::{steer, tile_of, Block, Liquid, Path, World, PATH_EVERY};
 pub use abilities::{ranking_prior, ranking_speed, PriorAttack};
 use abilities::{Ability, AbilityFrame};
+pub use laboratory::laboratory_scene;
 use std::cell::RefCell;
 use std::f64::consts::PI;
 pub const DT: f64 = 1.0 / 20.0;

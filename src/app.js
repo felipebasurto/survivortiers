@@ -1633,14 +1633,17 @@
     const q = $('#mv-q');
     if (!q) return;
     const cards = $$('.mv-card');
+    const labRows = $$('.lab-row');
     const none = $('#mv-none');
     const visible = el => $$('.mv-card', el).some(c => !c.hidden);
     q.addEventListener('input', () => {
       const s = q.value.trim().toLowerCase();
       cards.forEach(c => { c.hidden = !!s && !c.dataset.q.includes(s); });
+      labRows.forEach(r => { r.hidden = !!s && !r.dataset.q.includes(s); });
+      $$('.lab').forEach(sec => { sec.hidden = !labRows.some(r => !r.hidden); });
       $$('.mv-tier').forEach(g => { g.hidden = !visible(g); });
       $$('.mv-section').forEach(sec => { sec.hidden = !visible(sec); });
-      none.hidden = cards.some(c => !c.hidden);
+      none.hidden = cards.some(c => !c.hidden) || labRows.some(r => !r.hidden);
     });
   }
   if (page === 'ataques') initMoves();

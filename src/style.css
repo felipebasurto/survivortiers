@@ -653,7 +653,7 @@ summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
 .mv-tier { margin: 22px 0 34px; }
 .mv-tier > h3 { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
 .mv-tier > h3 small { color: var(--ink-2); font: .8rem var(--sans); }
-.mv-section[hidden], .mv-tier[hidden], .mv-card[hidden], .mv-none[hidden] { display: none; }
+.mv-section[hidden], .mv-tier[hidden], .mv-card[hidden], .mv-none[hidden], .lab[hidden], .lab-row[hidden] { display: none; }
 .mv-finder { max-width: 36rem; margin: 0 0 12px; }
 .mv-none { font: .9375rem var(--sans); color: var(--ink-2); }
 .mv-grid { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(272px, 1fr)); gap: 18px; }
@@ -663,6 +663,17 @@ summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
 .mv-title h4 { margin: 0 0 6px; font: 600 1.02rem/1.2 var(--ui); }
 .mv-tags { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; }
 .mv-kind { font: 600 .75rem var(--sans); text-transform: uppercase; letter-spacing: .04em; color: var(--ink-2); }
+/* Laboratorio: daño medido por situación. La tabla se desplaza en horizontal en pantallas estrechas. */
+.lab-table { min-width: 44rem; }
+.lab-table th, .lab-table td { padding: 8px 10px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--rule-soft); }
+.lab-table thead th small { display: block; font-weight: 500; color: var(--ink-2); }
+.lab-name { display: block; font-weight: 600; }
+.lab-table .mv-tags { margin-top: 4px; }
+.lab-fx { font: 600 .75rem var(--sans); color: var(--ink-2); }
+.lab-table details { margin-top: 4px; font-weight: 400; color: var(--ink-2); }
+.lab-dps { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.lab-arrow { margin: 0 4px; color: var(--ink-2); }
+.lab-score { font-variant-numeric: tabular-nums; font-weight: 700; }
 .mv-meter .mb { max-width: none; }
 .mv-meter .mb-row { grid-template-columns: 1fr auto; row-gap: 6px; padding: 4px 0 8px; }
 .mv-meter .mb-name { grid-column: 1; grid-row: 1; }
