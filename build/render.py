@@ -54,7 +54,7 @@ SCALE_LIST = 2
 TIERS = ["S", "A", "B", "C", "D"]
 CATEGORIES = [("melee", "cuerpo a cuerpo"), ("ranged", "distancia"), ("stat", "estadística")]  # (id, valor del CSV)
 NAV_TOP = [("index", "index.html", "nav_tiers"), ("ataques", "ataques.html", "nav_ataques"),
-           ("objetos", "objetos.html", "nav_objetos"), ("gachas", "gachas.html", "nav_gachas")]
+           ("objetos", "objetos.html", "nav_objetos"), ("coleccion", "coleccion.html", "nav_coleccion")]
 NAV_GROUPS = [
     ("nav_more", [("novedades", "novedades.html", "nav_novedades"), ("planificador", "@planner", "nav_planificador"),
                   ("pasivas", "pasivas.html", "nav_pasivas"), ("habilidades", "habilidades.html", "nav_habilidades"), ("naturalezas", "naturalezas.html", "nav_naturalezas"),
@@ -390,12 +390,12 @@ def render_ficha(c: Ctx, index: list[dict], meta: dict) -> str:
 
 
 def render_species(c: Ctx, entry: dict, moves: dict, prev: dict | None, nxt: dict | None, odds: tuple[float, int],
-                   meta: dict) -> str:
+                   meta: dict, ranges: dict) -> str:
     L = c.L
     title, desc = static_ficha.head_texts(L, entry, moves)
     html, ld = static_ficha.build(L, c.home, SPRITES, EXT, entry, moves, meta, entry["start"], prev, nxt, odds,
                                   guides=landing.guides_nav(L, c.home, types=entry["types"]), url=page_url(c),
-                                  title=title, assets=c.assets)
+                                  title=title, assets=c.assets, ranges=ranges)
     html += learnsets.tm_section(L, entry["dex"], moves)
     return page(c, "ficha", title, desc, html + balls.defs(), meta, extra_head=ld,
                 head_links=static_ficha.alternates(species_path(entry["dex"], entry["nameEn"])), og_type="article")
@@ -676,31 +676,34 @@ def render_tipos(c: Ctx, meta: dict) -> str:
                 L.t("tp_desc", game=legal.GAME_NAME), tipos.content(L, c.home), meta)
 
 
-GACHA_STARS = (5, 4, 4, 3, 3, 3, 2, 2, 1)  # estrellas de cada banner, del mejor al peor
-
-
-def gacha_card(c: Ctx, i: int, g: dict, last: int, by_banner: dict[int, list[dict]], by_dex: dict[int, dict]) -> str:
+def gacha_card(c: Ctx, g: dict, best: bool, by_banner: dict[int, list[dict]], by_dex: dict[int, dict],
+               odds: dict[int, tuple[float, int]]) -> str:
     L = c.L
     name = L.banner(g["name"])
-    best = sorted(by_banner[g["gen"]], key=lambda p: p["r"][0])[:3]
-    pulls = "".join(
-        f'<a class="gc-mon" href="{mon_href(c, p)}" title="{esc(L.mon(p))}">'
-        f'<img class="px" src="{SPRITES}{p["dex"]}{EXT}" width="{p["w"] * k}" height="{p["h"] * k}" '
-        f'alt="{esc(L.mon(p))}" loading="lazy" decoding="async"></a>'
-        for p in best for k in [max(1, min(4, 56 // max(p["w"], p["h"])))])
-    stars_n = GACHA_STARS[i]
-    verdict = ""
-    if i == 0:
-        verdict = f'<b class="gc-tag go" role="img" aria-label="{esc(L.t("g_best"))}">{icon("crown")}</b>'
-    elif i == last:
-        verdict = f'<b class="gc-tag stop">{esc(L.t("g_worst"))}</b>'
-    cls = "gc best" if i == 0 else "gc worst" if i == last else "gc"
-    return (f'<li class="{cls}" style="--i:{i}">{regions.badge(L, SPRITES, g["gen"], name, by_dex)}'
-            f'<div class="gc-main"><span class="stars big" role="img" aria-label="{esc(L.t("stars_alt", n=stars_n))}">'
-            f'{"★" * stars_n}{"☆" * (5 - stars_n)}</span>{verdict}'
-            f'<span class="gc-one">{esc(L.t("g_one_in", n=round(100 / g["sPlusARate"])))}</span>'
-            f'<span class="gc-own" data-gen="{g["gen"]}"></span></div>'
-            f'<div class="gc-pulls" role="group" aria-label="{esc(L.t("g_pulls", name=name))}">{pulls}</div></li>')
+    mons = by_banner[g["gen"]]
+    bar = "".join(f'<i class="t-{t}" style="flex:{g["tiers"][t]}"></i>' for t in TIERS if g["tiers"].get(t))
+    bar_label = ", ".join(f"{t} {g['tiers'][t]}" for t in TIERS if g["tiers"].get(t))
+    pulls = []
+    for t in TIERS:
+        pool = [p for p in mons if p["r"][1] == t]
+        if not pool:
+            continue
+        p = min(pool, key=lambda m: m["r"][0])
+        k = max(1, min(3, 48 // max(p["w"], p["h"])))
+        n = odds[p["dex"]][1]
+        alt = L.t("g_pull_alt", name=L.mon(p), t=t, n=L.num(n))
+        pulls.append(f'<a class="gc-pull" href="{mon_href(c, p)}" aria-label="{esc(alt)}">'
+                     f'<img class="px" src="{SPRITES}{p["dex"]}{EXT}" width="{p["w"] * k}" height="{p["h"] * k}" alt="" '
+                     f'loading="lazy" decoding="async"><span class="tier-badge mini {t}">{t}</span>'
+                     f'<small>~{esc(L.num(n))}</small></a>')
+    crown = (f'<i class="ico ico-crown" role="img" aria-label="{esc(L.t("g_best"))}"></i>' if best else "")
+    cls = "gc is-best" if best else "gc"
+    return (f'<li class="{cls}">{regions.badge(L, SPRITES, g["gen"], name, by_dex)}'
+            f'<div class="gc-main">'
+            f'<span class="gc-one">{crown}{esc(L.t("g_sa", p=L.dec(g["pullChance"], 1)))}</span>'
+            f'<span class="gc-own" data-gen="{g["gen"]}"></span>'
+            f'<span class="gc-bar" role="img" aria-label="{esc(bar_label)}">{bar}</span></div>'
+            f'<div class="gc-mons" role="group" aria-label="{esc(L.t("g_pulls", name=name))}">{"".join(pulls)}</div></li>')
 
 
 def banners_script(L: Lang, gachas: list[dict]) -> str:
@@ -736,47 +739,36 @@ def collection_panel(L: Lang, hidden: bool) -> str:
 </section>"""
 
 
-def gacha_page(c: Ctx, gachas: list[dict], pokemon: list[dict], meta: dict, tab: str, title: str, desc: str,
-               canonical: str | None = None) -> str:
-    """Gacha y colección en una página. Las dos pestañas comparten la colección guardada: al importarla, las
-    tarjetas de gacha muestran cuántos Pokémon te faltan en cada banner (app.js)."""
+def gacha_page(c: Ctx, gachas: list[dict], pokemon: list[dict], meta: dict) -> str:
+    """Banners y la colección guardada en el navegador. Al importarla, cada banner dice cuántos te faltan."""
     L = c.L
-    ordered = sorted(gachas, key=lambda g: -g["sPlusARate"])
+    ordered = sorted(gachas, key=lambda g: (-g["pullChance"], -g["sPlusARate"], g["gen"]))
     by_banner: dict[int, list[dict]] = {}
     for p in pokemon:
         by_banner.setdefault(p["bannerId"], []).append(p)
     by_dex = {p["dex"]: p for p in pokemon}
-    cards = "".join(gacha_card(c, i, g, len(ordered) - 1, by_banner, by_dex) for i, g in enumerate(ordered))
+    odds = static_ficha.odds_table(pokemon)
+    cards = "".join(gacha_card(c, g, i == 0, by_banner, by_dex, odds) for i, g in enumerate(ordered))
     tabs = "".join(
-        f'<button class="seg" type="button" data-tab="{key}" aria-pressed="{"true" if key == tab else "false"}">'
+        f'<button class="seg" type="button" data-tab="{key}" aria-pressed="{"true" if key == "gacha" else "false"}">'
         f'{esc(L.t("tab_" + key))}</button>'
         for key in ("gacha", "coleccion"))
     content = f"""{balls.defs()}
-<h1>{esc(L.t("gachas_h1", game=legal.GAME_NAME))}</h1>
+<h1>{esc(L.t("col_h1"))}</h1>
 {banners_script(L, gachas)}
-<div class="gc-tabs" id="gc-tabs" data-tab="{tab}" role="group" aria-label="{esc(L.t("gc_tabs"))}">{tabs}</div>
-<section class="gc-panel" data-panel="gacha"{" hidden" if tab != "gacha" else ""}>
+<div class="gc-tabs" id="gc-tabs" data-tab="gacha" role="group" aria-label="{esc(L.t("gc_tabs"))}">{tabs}</div>
+<section class="gc-panel" data-panel="gacha">
 <p class="gc-go-row"><button class="gc-link" type="button" data-go-tab="coleccion">{icon("dice")}{esc(L.t("g_yours"))}</button></p>
 <ol class="gacha">{cards}</ol>
 </section>
-{collection_panel(L, hidden=tab != "coleccion")}
+{collection_panel(L, hidden=True)}
 """
-    return page(c, "gachas", title, desc, content, meta, canonical=canonical)
-
-
-def render_gachas(c: Ctx, gachas: list[dict], pokemon: list[dict], meta: dict) -> str:
-    L = c.L
-    return gacha_page(c, gachas, pokemon, meta, "gacha", L.t("gachas_title", site=legal.SITE_NAME),
-                      L.t("gachas_desc", game=legal.GAME_NAME))
+    return page(c, "coleccion", L.t("col_title", site=legal.SITE_NAME), L.t("col_desc", game=legal.GAME_NAME),
+                content, meta)
 
 
 def render_coleccion(c: Ctx, gachas: list[dict], pokemon: list[dict], meta: dict) -> str:
-    """Enlaces viejos a coleccion.html (también con #c= compartido): la misma página con la pestaña de colección
-    abierta. La canónica es gachas.html, que es la URL que se indexa."""
-    L = c.L
-    canonical = f"{legal.SITE_URL}/{'en/' if L.en else ''}gachas"
-    return gacha_page(c, gachas, pokemon, meta, "coleccion", L.t("col_title", site=legal.SITE_NAME),
-                      L.t("col_desc", game=legal.GAME_NAME), canonical=canonical)
+    return gacha_page(c, gachas, pokemon, meta)
 
 
 def render_landing(c: Ctx, built: landing.Built, meta: dict) -> str:
@@ -800,15 +792,10 @@ def render_metodo(c: Ctx, meta: dict) -> str:
             ("m3_k_groups", L.num(p2["groups"] + p3["groups"][0])), ("m3_k_mons", L.num(meta["total"])))
     kpi_html = "".join(f'<div><dt>{esc(L.t(k))}</dt><dd>{esc(v)}</dd></div>' for k, v in kpis)
     steps = (
-        ("m3_p1_h", L.t("m3_p1", attacks=p1["attacks"], refs=p1["refs"], seeds=p1["seeds"], games=L.num(p1["games"]))),
-        ("m3_p2_h", L.t("m3_p2", groups=L.num(p2["groups"]), s1=p2["seeds"][0], s2=p2["seeds"][1], s3=p2["seeds"][2],
-                        games=L.num(p2["games"]))),
-        ("m3_p3_h", L.t("m3_p3", g1=L.num(p3["groups"][0]), g2=L.num(p3["groups"][1]), g3=L.num(p3["groups"][2]),
-                        s1=p3["seeds"][0], s2=p3["seeds"][1], s3=p3["seeds"][2], games=L.num(p3["games"]))
-         + " " + L.t("m3_p3_var", variants=L.num(p3["variants"]), seeds=p3["seeds"][2], duels=L.num(p3["duels"]),
-                     promoted=L.num(p3["promoted"]))),
         ("m3_rank_h", L.t("m3_rank", seeds=meta["seeds"], sizes=sizes, dps=L.num(m["score"]["dpsRef"]),
                           kpm=L.num(m["score"]["kpmRef"]))),
+        ("m3_rules_h", L.t("m3_rules")),
+        ("m3_prov_h", L.t("m3_prov", games=L.num(m["games"]), sha=legal.UPDATED_COMMIT)),
         ("m3_why_h", L.t("m3_why", r2=L.pcts(meta["why"]["r2"] * 100))),
         ("m3_limits_h", L.t("m3_limits")),
     )
@@ -908,6 +895,7 @@ def main() -> int:
         if "icon" in m:
             write(f"img/moves/{mid}.svg", move_icon_svg(m["icon"], standalone=True))
     odds = static_ficha.odds_table(full)
+    ranges = static_ficha.stat_ranges(full)
     sheet_paths = [f"pokemon/{species_path(e['dex'], e['nameEn'])}/" for e in ordered]
     by_dex = {p["dex"]: p for p in full}
     for L in LANGS:
@@ -928,7 +916,6 @@ def main() -> int:
         put("habilidades.html", lambda c: render_habilidades(c, meta, index))
         put("naturalezas.html", lambda c: render_naturalezas(c, meta))
         put("tipos.html", lambda c: render_tipos(c, meta))
-        put("gachas.html", lambda c: render_gachas(c, gachas, index, meta))
         put("coleccion.html", lambda c: render_coleccion(c, gachas, index, meta))
         put("metodo.html", lambda c: render_metodo(c, meta))
         for key, render_tool in (("finder", render_finder), ("planner", render_planner)):
@@ -941,7 +928,7 @@ def main() -> int:
             prev = ordered[i - 1] if i else None
             nxt = ordered[i + 1] if i + 1 < len(ordered) else None
             rel = f"pokemon/{species_path(entry['dex'], entry['nameEn'])}/index.html"
-            put(rel, lambda c, e=entry, pv=prev, nx=nxt: render_species(c, e, moves_by, pv, nx, odds[e["dex"]], meta))
+            put(rel, lambda c, e=entry, pv=prev, nx=nxt: render_species(c, e, moves_by, pv, nx, odds[e["dex"]], meta, ranges))
     write("data/game-stats.json", json.dumps(gamestats.site_json(), ensure_ascii=False, separators=(",", ":")) + "\n")
     write("404.html", render_404(meta))
     share_image.save(SITE / "og.png")

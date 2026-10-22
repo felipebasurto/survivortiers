@@ -114,6 +114,15 @@ check('avisos de potenciadores: dos danzas, y danza sin ataque de su categoría'
   assert.deepEqual(fine, []);
 });
 
+check('cada especie ofrece su grupo, sus MT y el inicial', () => {
+  const zard = byDex.get(6);
+  const ids = tools.legalMoves(game, zard);
+  assert.ok(ids.has('bulldoze'), 'falta bulldoze');
+  assert.ok(ids.has('dragon-dance'), 'falta dragon-dance');
+  assert.ok(ids.has('ember'), 'falta ember');
+  for (const p of index) assert.ok(tools.legalMoves(game, p).size > 0, String(p.dex));
+});
+
 check('la categoría de cada movimiento viene del juego (físico o especial)', () => {
   for (const [id, m] of Object.entries(game.moves)) {
     if (m.b) assert.equal(m.c, null, id);

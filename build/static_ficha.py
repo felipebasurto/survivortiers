@@ -218,8 +218,7 @@ def why(L: Lang, entry: dict, moves: dict[str, dict]) -> str:
                     f'{_pct_bar(w["pct"], L.t("pct_alt", pct=w["pct"]))}</li>')
     body = f'<ul class="why-list">{"".join(rows)}</ul>' if rows else f'<p>{esc(L.t("why_flat"))}</p>'
     return (f'<section class="why" id="porque" aria-labelledby="why-h">'
-            f'<h2 id="why-h">{esc(L.t("why_h", rank=entry["r"]["rank"]))}</h2>{body}'
-            f'<p class="why-note">{esc(L.t("why_note"))}</p></section>')
+            f'<h2 id="why-h">{esc(L.t("why_h", rank=entry["r"]["rank"]))}</h2>{body}</section>')
 
 
 # ---------------------------------------------------------------- builds
@@ -233,20 +232,67 @@ def _build_answer(L: Lang, moves: dict[str, dict], dex: int) -> str:
 
 
 # ---------------------------------------------------------------- estadísticas
-STAT_ROWS = (("pa", "cb_pa", 2, "×"), ("sa", "cb_sa", 2, "×"), ("hp", "st_hp", 0, ""), ("df", "cb_df", 0, ""),
-             ("sd", "cb_sd", 0, ""), ("spd", "st_spd", 0, ""), ("size", "st_size", 1, ""), ("types", "st_types", 2, "×"))
+# Orden del hexágono de los juegos: PS arriba y luego, en sentido horario, Ataque, Defensa, Velocidad, Def. Esp., At. Esp.
+_HEX = (("hp", "st_hp", 0, ""), ("pa", "cb_pa", 2, "×"), ("df", "cb_df", 0, ""),
+        ("spd", "st_spd", 0, ""), ("sd", "cb_sd", 0, ""), ("sa", "cb_sa", 2, "×"))
+_HEX_SHORT = {"hp": ("PS", "HP"), "pa": ("Ataque", "Attack"), "df": ("Defensa", "Defense"),
+              "spd": ("Velocidad", "Speed"), "sd": ("Def. Esp.", "Sp. Def."), "sa": ("At. Esp.", "Sp. Atk")}
+_EXTRA = (("size", "st_size", 1, ""), ("types", "st_types", 2, "×"))
 
 
-def stats(L: Lang, entry: dict) -> str:
-    rows = []
-    for key, label, digits, pre in STAT_ROWS:
-        v, pct = entry["game"][key], entry["pct"][key]
-        shown = pre + (L.dec(v, digits) if digits else str(round(v)))
-        rows.append(f'<li><span class="st-name">{esc(L.t(label))}</span><output>{esc(shown)}</output>'
-                    f'{_pct_bar(pct, L.t("pct_alt", pct=pct))}</li>')
+def stat_ranges(entries: list[dict]) -> dict[str, tuple[float, float]]:
+    return {k: (min(e["game"][k] for e in entries), max(e["game"][k] for e in entries)) for k, *_ in _EXTRA}
+
+
+def _shown(L: Lang, v: float, digits: int, pre: str) -> str:
+    return pre + (L.dec(v, digits) if digits else str(round(v)))
+
+
+def _hex_xy(i: int, r: float, cx: float, cy: float) -> tuple[float, float]:
+    a = math.radians(-90 + i * 60)
+    return cx + r * math.cos(a), cy + r * math.sin(a)
+
+
+def _radar(L: Lang, entry: dict) -> str:
+    cx, cy, radius = 180, 168, 78
+    rings = []
+    for k in (0.25, 0.5, 0.75, 1):
+        pts = " ".join(f"{x:.1f},{y:.1f}" for i in range(6) for x, y in [_hex_xy(i, radius * k, cx, cy)])
+        rings.append(f'<polygon class="hx-grid" points="{pts}"/>')
+    axes, labels, poly, aria = [], [], [], []
+    for i, (key, lab, digits, pre) in enumerate(_HEX):
+        x, y = _hex_xy(i, radius, cx, cy)
+        axes.append(f'<line class="hx-axis" x1="{cx}" y1="{cy}" x2="{x:.1f}" y2="{y:.1f}"/>')
+        px, py = _hex_xy(i, radius * entry["pct"][key] / 100, cx, cy)
+        poly.append(f"{px:.1f},{py:.1f}")
+        shown = _shown(L, entry["game"][key], digits, pre)
+        aria.append(f"{L.t(lab)} {shown}")
+        lx, ly = _hex_xy(i, radius + 36, cx, cy)
+        anchor = "middle" if i in (0, 3) else ("start" if i in (1, 2) else "end")
+        short = _HEX_SHORT[key][1 if L.en else 0]
+        labels.append(f'<text x="{lx:.1f}" y="{ly - 2:.1f}" text-anchor="{anchor}">{esc(short)}</text>'
+                      f'<text class="hx-val" x="{lx:.1f}" y="{ly + 13:.1f}" text-anchor="{anchor}">{esc(shown)}</text>')
+    return (f'<svg class="hx-svg" viewBox="0 0 360 336" role="img" aria-label="{esc(", ".join(aria))}">'
+            f'{"".join(rings)}{"".join(axes)}<polygon class="hx-poly" points="{" ".join(poly)}"/>'
+            f'{"".join(labels)}</svg>')
+
+
+def _range_row(L: Lang, entry: dict, ranges: dict[str, tuple[float, float]], key: str, lab: str, digits: int,
+               pre: str) -> str:
+    lo, hi = ranges[key]
+    v = entry["game"][key]
+    t = 0.5 if hi == lo else max(0.0, min(1.0, (v - lo) / (hi - lo)))
+    shown = _shown(L, v, digits, pre)
+    return (f'<li><span>{esc(L.t(lab))}</span><b>{esc(shown)}</b>'
+            f'<svg class="hx-range" viewBox="0 0 80 12" aria-hidden="true"><line x1="1" y1="6" x2="79" y2="6"/>'
+            f'<circle cx="{2 + t * 76:.1f}" cy="6" r="2.5"/></svg></li>')
+
+
+def stats(L: Lang, entry: dict, ranges: dict[str, tuple[float, float]]) -> str:
+    extra = "".join(_range_row(L, entry, ranges, *row) for row in _EXTRA)
     return (f'<section class="sheet stats" id="stats" aria-labelledby="stats-h">'
-            f'<h2 id="stats-h">{esc(L.t("st_h"))}</h2><ul class="st-list">{"".join(rows)}</ul>'
-            f'<p class="why-note">{esc(L.t("st_note", n=catalog.TOTAL))}</p></section>')
+            f'<h2 id="stats-h">{esc(L.t("st_h"))}</h2>'
+            f'<div class="hx">{_radar(L, entry)}<ul class="hx-extra">{extra}</ul></div></section>')
 
 
 # ---------------------------------------------------------------- página
@@ -262,7 +308,7 @@ def head_texts(L: Lang, entry: dict, moves: dict[str, dict]) -> tuple[str, str]:
 
 def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, moves: dict[str, dict], meta: dict,
           start_move: str, prev: dict | None, nxt: dict | None, odds: tuple[float, int], *,
-          guides: str, url: str, title: str, assets: str) -> tuple[str, str]:
+          guides: str, url: str, title: str, assets: str, ranges: dict[str, tuple[float, float]]) -> tuple[str, str]:
     """Devuelve el HTML visible (sin <head>) y el JSON-LD de las preguntas. start_move es el ataque con el que empieza de
     serie en el juego; guides, el bloque de enlaces a las listas."""
     name = L.mon(entry)
@@ -307,12 +353,12 @@ def build(L: Lang, home: str, sprites: str, ext: str, entry: dict, moves: dict[s
 </header>
 {bounded_view.builds_section(L, entry["dex"], moves)}
 {why(L, entry, moves)}
-{stats(L, entry)}
+{stats(L, entry, ranges)}
 <nav class="pager" aria-label="{esc(L.t("pager_aria"))}">{pager}</nav>
 </article>
 <section class="sheet" id="obtain" aria-labelledby="obtain-h">
 <h2 id="obtain-h">{esc(L.t("sheet_obtain_h"))}</h2>
-<p>{esc(faqs[-1][1])} <a href="{home}gachas.html">{esc(L.t("nav_gachas"))}</a></p>
+<p>{esc(faqs[-1][1])} <a href="{home}coleccion.html">{esc(L.t("nav_coleccion"))}</a></p>
 </section>
 <section class="sheet faq" id="faq" aria-labelledby="faq-h">
 <h2 id="faq-h">{esc(L.t("sheet_faq_h"))}</h2>

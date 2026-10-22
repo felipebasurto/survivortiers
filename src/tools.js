@@ -63,6 +63,12 @@
     return ids;
   }
 
+  function legalMoves(game, mon) {
+    const raw = game.learn && game.learn[String(mon.dex)];
+    if (raw && raw.length) return new Set(raw);
+    return poolOf(mon.types, game.pool);
+  }
+
   // Cobertura sobre todos los Pokémon, con la regla de build/combos.py (SUPER y NEUTRAL de ahí).
   function coverage(defenders, attackTypes, chart) {
     if (!attackTypes.length) return { super: 0, neutral: 0 };
@@ -135,8 +141,7 @@
     const known = index.some(p => p.dex === dex);
     const start = known ? dex : fallbackDex;
     const mon = index.find(p => p.dex === start);
-    const pool = poolOf(mon.types, game.pool);
-    // The published builds can include this species' own start move, which is not always in the type pool.
+    const pool = legalMoves(game, mon);
     for (const b of publishedBuilds(species, start)) for (const id of b.moves) pool.add(id);
     const seen = new Set();
     const group = (q.get(PARAM.group) || '').split(',').slice(0, PLAN_SLOTS).map(id => {
@@ -156,7 +161,7 @@
   }
 
   const toolsApi = {
-    slugOf, comboMult, weaknessMap, groupWeak, sideOf, poolOf, coverage, boostWarnings, recommended,
+    slugOf, comboMult, weaknessMap, groupWeak, sideOf, poolOf, legalMoves, coverage, boostWarnings, recommended,
     encodeState, decodeState, attackTypesOf, boostsOf, attacksOf, rnd, SUPER, NEUTRAL, PLAN_SLOTS, BOOST_CAP,
   };
 
@@ -342,7 +347,9 @@
     }
 
     function poolIds() {
-      return poolOf(byDex.get(st.dex).types, game.pool);
+      const ids = legalMoves(game, byDex.get(st.dex));
+      for (const b of publishedBuilds(species, st.dex)) for (const id of b.moves) ids.add(id);
+      return ids;
     }
 
     function boostCount(exclude) {

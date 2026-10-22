@@ -67,7 +67,7 @@
       forgot: 'Borrada de este navegador. Pega el resultado otra vez cuando quieras.',
       storageOff: 'Este navegador no deja guardar la colección. Solo se verá mientras la página esté abierta.',
       ownedIn: (a, b) => 'Tienes ' + a + ' de ' + b,
-      planH: 'Qué gacha tirar',
+      planH: 'Qué banner tirar',
       planLede: 'Cada tirada da un Pokémon que te falta con la probabilidad de «Nuevo por tirada».',
       planNote: '«Tiradas para completarlo» es una estimación de 150 simulaciones de tiradas normales (×1).',
       planOdds: n => '1 de cada ' + n + ' tiradas da un Pokémon que te falta.',
@@ -84,12 +84,12 @@
       siteHost: 'survivortiers.pages.dev',
       viewLabel: 'Vista de la colección', viewNormal: 'Normal', viewShiny: 'Shiny',
       hunted: 'cazados en salvaje', shinyTotal: 'shiny en total', shinyHunter: 'Cazador de shiny',
-      gachaCount: n => n + ' de gacha', unknownOrigin: n => n + ' sin origen',
+      gachaCount: n => n + ' de banner', unknownOrigin: n => n + ' sin origen',
       legacyNote: 'Este JSON no dice de dónde sale cada shiny. Pega otra vez el comando de esta página para verlo.',
-      odds: () => '1 de cada ' + grouped(4096, '.') + ' Pokémon salvajes · 1 de cada 100 tiradas de gacha',
+      odds: () => '1 de cada ' + grouped(4096, '.') + ' Pokémon salvajes · 1 de cada 100 tiradas de banner',
       shinydex: 'Shinydex', filterLabel: 'Filtro', sortLabel: 'Orden',
       filterAll: 'Todos', filterWild: 'Solo salvaje', sortNew: 'Recientes', sortDex: 'Pokédex',
-      badgeWild: 'Salvaje', badgeGacha: 'Gacha',
+      badgeWild: 'Salvaje', badgeGacha: 'Banner',
       attackKind: { phys: 'físico', spec: 'especial', mix: 'mixto' },
       shEmpty: 'Todavía no tienes ningún shiny.', shEmptyWild: 'Ningún shiny cazado en salvaje todavía.',
     },
@@ -151,12 +151,12 @@
       siteHost: 'survivortiers.pages.dev',
       viewLabel: 'Collection view', viewNormal: 'Normal', viewShiny: 'Shiny',
       hunted: 'hunted in the wild', shinyTotal: 'shiny in total', shinyHunter: 'Shiny hunter',
-      gachaCount: n => n + ' from gacha', unknownOrigin: n => n + ' unknown origin',
+      gachaCount: n => n + ' from a banner', unknownOrigin: n => n + ' unknown origin',
       legacyNote: 'This JSON does not say where each shiny came from. Paste this page\'s command again to see it.',
-      odds: () => '1 in ' + grouped(4096, ',') + ' wild Pokémon · 1 in 100 gacha pulls',
+      odds: () => '1 in ' + grouped(4096, ',') + ' wild Pokémon · 1 in 100 banner pulls',
       shinydex: 'Shinydex', filterLabel: 'Filter', sortLabel: 'Sort',
       filterAll: 'All', filterWild: 'Wild only', sortNew: 'Newest', sortDex: 'Pokédex',
-      badgeWild: 'Wild', badgeGacha: 'Gacha',
+      badgeWild: 'Wild', badgeGacha: 'Banner',
       attackKind: { phys: 'physical', spec: 'special', mix: 'mixed' },
       shEmpty: 'You have no shiny yet.', shEmptyWild: 'No shiny hunted in the wild yet.',
     },
@@ -1596,7 +1596,7 @@
   }
 
   // Aviso del ranking: se muestra hasta que alguien lo cierra; la marca va en localStorage y cambia con la actualización.
-  const PATCH_KEY = 'survivortiers.novedades.20261019';
+  const PATCH_KEY = 'survivortiers.novedades.20261022';
   function initPatchNote() {
     const note = $('#patch-note');
     if (!note) return;

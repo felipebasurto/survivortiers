@@ -60,17 +60,6 @@ def game_cards() -> list[dict]:
 
 CARDS = game_cards()
 
-# Qué cartas salen al subir de nivel. levelup.js:58-59: los movimientos de su lado fuerte pesan el doble al elegir
-# (y los empatados y los potenciadores, que no tienen lado, también). El tope de dos potenciadores ya lo explica
-# la sección de potenciadores (levelup.js:47-49 y :56).
-OFFER = (
-    "En las cartas de movimiento nuevo, los ataques de tu lado fuerte salen el doble de veces que los demás. Tu lado "
-    "fuerte es el físico o el especial, el que tenga más ataque. Los empatados y los potenciadores también cuentan doble.",
-    "On new-move cards, attacks on your strong side come up twice as often as the rest. Your strong side is physical "
-    "or special, whichever has more attack. Ties and boosts count double too.",
-)
-
-
 def _t(pair: tuple[str, str], L: Lang) -> str:
     if L.en:
         return pair[1]
@@ -109,31 +98,25 @@ def _icon(kind: str, item_id: str, big: bool = False) -> str:
 
 
 def _cards(L: Lang) -> str:
-    rows = "".join(
-        f'<tr><th scope="row"><span class="pv-cref">{_icon("card", c["id"])}{escape(_t(c["name"], L))}</span></th>'
-        f'<td data-label="{escape(L.t("pv_th_effect"))}">{escape(_t(c["effect"], L))}</td>'
-        f'<td class="num" data-label="{escape(L.t("pv_th_max"))}">'
-        f'{escape(str(c["max"]) if c["max"] else L.t("pv_no_max"))}</td></tr>'
+    items = "".join(
+        f'<li class="pv-card">{_icon("card", c["id"], big=True)}<div><h3>{escape(_t(c["name"], L))}</h3>'
+        f'<p>{escape(_t(c["effect"], L))}</p>'
+        f'<b>{escape(str(c["max"]) if c["max"] else L.t("pv_no_max"))}</b></div></li>'
         for c in CARDS)
-    head = (f'<th scope="col">{escape(L.t("pv_th_card"))}</th><th scope="col">{escape(L.t("pv_th_effect"))}</th>'
-            f'<th scope="col" class="num">{escape(L.t("pv_th_max"))}</th>')
     return (f'<section class="pv-boosts" id="cartas" aria-labelledby="pv-cards-h">'
             f'<h2 id="pv-cards-h">{escape(L.t("pv_cards_h"))}</h2>'
-            f'<div class="pv-tablewrap"><table class="pv-buffs"><thead><tr>{head}</tr></thead>'
-            f'<tbody>{rows}</tbody></table></div>'
-            f'<p class="pv-cap">{escape(L.t("pv_cards_note"))}</p>'
-            f'<p class="pv-why">{escape(_t(OFFER, L))}</p></section>')
+            f'<ul class="pv-cards">{items}</ul></section>')
 
 
-# Los potenciadores y su tope vienen de data/game_stats.json (commit 5a23d49). Tope de dos potenciadores:
-# js/systems/levelup.js:46-56. Danza Espada y Danza Dragón comparten el contador de ataque físico (patk) y Maquinación
-# el de especial (satk): js/entities/player.js:42-50 y :99-102, y js/systems/combat.js:201-202.
-NUM_HEAD = ("pv_buff_th_cd", "pv_buff_th_dur", "pv_buff_th_max", "pv_buff_th_top")
+_BOOST_NOTE = (
+    "Como máximo 2. Danza Espada y Danza Dragón comparten contador.",
+    "At most 2. Swords Dance and Dragon Dance share a counter.",
+)
 
 
-def _boost_rows(L: Lang) -> str:
-    rows = []
+def _boost_cards(L: Lang) -> str:
     sec = NBSP if not L.en else " "
+    items = []
     for mid in gamestats.BOOST_ORDER:
         m = gamestats.move(mid)
         b, top = m["buff"], m["buff"]["max"]
@@ -142,31 +125,25 @@ def _boost_rows(L: Lang) -> str:
         full = gamestats.boost_amount(L, b["amount"] * b["stacks"], b["stat"])
         upgraded = L.t("pv_buff_top", amt=gamestats.boost_amount(L, top["amount"] * top["stacks"], b["stat"]),
                        dur=L.dec(top["dur"], 1))
-        rows.append(
-            f'<tr><th scope="row">{escape(name)}</th>'
-            f'<td data-label="{escape(L.t("pv_buff_th_stat"))}">{escape(L.t(gamestats.BOOST_LABEL[b["stat"]]))} {escape(per)}</td>'
-            f'<td class="num" data-label="{escape(L.t("pv_buff_th_cd"))}">{L.dec(b["cd"], 2)}{sec}s</td>'
-            f'<td class="num" data-label="{escape(L.t("pv_buff_th_dur"))}">{b["dur"]}{sec}s</td>'
-            f'<td class="num" data-label="{escape(L.t("pv_buff_th_max"))}">{escape(full)}</td>'
-            f'<td class="num" data-label="{escape(L.t("pv_buff_th_top"))}">{escape(upgraded)}</td></tr>')
-    return "".join(rows)
+        stat = f'{L.t(gamestats.BOOST_LABEL[b["stat"]])} {per}'
+        nums = "".join(
+            f'<span><i>{escape(L.t(key))}</i> {val}</span>'
+            for key, val in (
+                ("pv_buff_th_cd", f"{L.dec(b['cd'], 2)}{sec}s"),
+                ("pv_buff_th_dur", f"{b['dur']}{sec}s"),
+                ("pv_buff_th_max", escape(full)),
+                ("pv_buff_th_top", escape(upgraded)),
+            ))
+        items.append(f'<li class="pv-card"><div><h3>{escape(name)}</h3><p>{escape(stat)}</p>'
+                     f'<p class="pv-nums">{nums}</p></div></li>')
+    return "".join(items)
 
 
 def _boosts(L: Lang, home: str) -> str:
-    cells = []
-    for k in ("pv_buff_th_boost", "pv_buff_th_stat", "pv_buff_th_cd", "pv_buff_th_dur", "pv_buff_th_max",
-              "pv_buff_th_top"):
-        cls = ' class="num"' if k in NUM_HEAD else ""
-        cells.append(f'<th scope="col"{cls}>{escape(L.t(k))}</th>')
-    head = "".join(cells)
-    rules = "".join(f"<li>{escape(L.t(k))}</li>" for k in ("pv_buff_r1", "pv_buff_r2", "pv_buff_r3"))
     return (f'<section class="pv-boosts" id="potenciadores" aria-labelledby="pv-boosts-h">'
             f'<h2 id="pv-boosts-h">{escape(L.t("pv_buff_h"))}</h2>'
-            f'<p class="pv-lede-sm">{escape(L.t("pv_buff_lede"))}</p>'
-            f'<div class="pv-tablewrap"><table class="pv-buffs"><thead><tr>{head}</tr></thead>'
-            f'<tbody>{_boost_rows(L)}</tbody></table></div>'
-            f'<p class="pv-cap">{escape(L.t("pv_buff_cap_note", commit=gamestats.COMMIT))}</p>'
-            f'<ul class="pv-rules">{rules}</ul>'
+            f'<ul class="pv-cards">{_boost_cards(L)}</ul>'
+            f'<p>{escape(_BOOST_NOTE[1] if L.en else _BOOST_NOTE[0])}</p>'
             f'<p class="pv-link"><a href="{home}{toolpages.folder(L, "planner")}">'
             f'{escape(L.t("pv_buff_link"))}</a></p></section>')
 
@@ -175,7 +152,6 @@ def content(L: Lang, home: str) -> str:
     return (_symbols()
             + '<div class="pv">'
             + f'<h1>{escape(L.t("pv_h1"))}</h1>'
-            + f'<p class="lede">{escape(L.t("pv_lede"))}</p>'
             + _cards(L)
             + _boosts(L, home)
             + bounded_view.abilities_section(L, home)
