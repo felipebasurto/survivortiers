@@ -51,8 +51,8 @@ case "$TASK_ACTION" in
     if (($#)); then shift; fi
     RANKING_DRY=0
     if [[ "${1:-}" == "--dry-run" ]]; then RANKING_DRY=1; shift; fi
-    if (($#)) || [[ "$RANKING_PRESET" != smoke && "$RANKING_PRESET" != full ]]; then
-      printf '%s\n' 'Usage: bash simulator/runpod/run.sh ranking smoke|full [--dry-run]' >&2
+    if (($#)) || [[ "$RANKING_PRESET" != smoke && "$RANKING_PRESET" != pilot && "$RANKING_PRESET" != full ]]; then
+      printf '%s\n' 'Usage: bash simulator/runpod/run.sh ranking smoke|pilot|full [--dry-run]' >&2
       exit 2
     fi
     command -v python3 >/dev/null || { printf '%s\n' 'python3 is required.' >&2; exit 2; }
@@ -157,7 +157,7 @@ PY
               python3 - "$progress" <<'PY' >&2 || true
 import json,sys
 try:
- d=json.load(open(sys.argv[1])); print(f"progress: stage={d.get('stage')} completed_configuration_runs={d.get('completedConfigurationRuns')} elapsed={d.get('elapsedWallSeconds')}s")
+ d=json.load(open(sys.argv[1])); print(f"progress: stage={d.get('stage')} stage_runs={d.get('stageCompletedConfigurations')}/{d.get('stageConfigurations')} pending_after={','.join(d.get('pendingStagesAfterCurrent') or []) or 'none'} completed_configuration_runs={d.get('completedConfigurationRuns')} elapsed={d.get('elapsedWallSeconds')}s")
 except Exception: print(f"progress {sys.argv[1]}: artifact not readable yet")
 PY
             fi
@@ -185,7 +185,7 @@ PY
     printf '%s\n' "Ranking $RANKING_PRESET finished. Results: $RANKING_OUT. Duration is not yet measured on Runpod; results are diagnostic and not a global optimum."
     ;;
   funnel)
-    printf '%s\n' 'The exhaustive funnel path is retired. Migrate to: bash simulator/runpod/run.sh ranking smoke|full [--dry-run]. Explicit legacy production commands remain available.' >&2
+    printf '%s\n' 'The exhaustive funnel path is retired. Migrate to: bash simulator/runpod/run.sh ranking smoke|pilot|full [--dry-run]. Explicit legacy production commands remain available.' >&2
     exit 2
     ;;
   run|resume)
@@ -230,8 +230,8 @@ PY
       'Usage: bash simulator/runpod/run.sh prepare|plan|benchmark|cost|run|resume|ranking|funnel' \
       'prepare: compile and test only; plan: write a finite ledger without matches.' \
       'benchmark: bounded mature scenes only; run/resume: explicit production execution.' \
-      'ranking smoke|full [--dry-run]: bounded lab plus ranking; dry-run reports task-count estimates only.' \
-      'funnel: retired; use ranking smoke|full.' \
+      'ranking smoke|pilot|full [--dry-run]: bounded lab plus ranking; pilot is 41 species at full length to time the real run; dry-run reports task-count estimates only.' \
+      'funnel: retired; use ranking smoke|pilot|full.' \
       'Cloud compute is not released automatically: save results, then terminate your pod.'
     ;;
 esac

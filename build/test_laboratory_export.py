@@ -71,6 +71,9 @@ class LaboratoryExportTests(unittest.TestCase):
         self.assertEqual(out["ranking_method"]["status"], "diagnostic_only")
         self.assertEqual(out["experiment"]["seed_sets"]["screening"]["count"], 10)
         self.assertEqual(out["experiment"]["seed_sets"]["confirmation"]["count"], 16)
+        # The paired confirmation was played on the independent D seeds, not on the B screening seeds.
+        self.assertEqual(out["experiment"]["seed_sets"]["paired_confirmation"],
+                         out["experiment"]["seed_sets"]["confirmation"])
         self.assertEqual(out["results"][0]["score"]["version"], "bounded-ranking-v2")
         self.assertEqual(out["results"][0]["score"]["metrics"]["damagePerSecond"], 4.25)
         self.assertEqual(out["results"][0]["score"]["metrics"]["meanKills"], 6.5)

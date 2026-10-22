@@ -146,7 +146,7 @@ def export_ranking(ranking: dict[str, Any], game: dict[str, Any]) -> dict[str, A
     document["experiment"]["seed_sets"] = {
         "screening": seed_set(list(seed_sets.get("A") or []) + list(seed_sets.get("B") or [])),
         "confirmation": seed_set(list(seed_sets.get("D") or [])),
-        "paired_confirmation": seed_set(list(seed_sets.get("B") or [])),
+        "paired_confirmation": seed_set(list(seed_sets.get("D") or [])),
     }
     document["experiment"]["score_version"] = "bounded-ranking-v2"
     # Keep the additional measured quantities that the legacy funnel adapter

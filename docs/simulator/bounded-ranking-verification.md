@@ -2,24 +2,31 @@
 
 Status: FINAL
 
-Verified locally on 2026-10-22. No Runpod resource was created or charged. The approximately 30-minute Runpod target remains unmeasured; there is no automatic runtime cutoff.
+Verified locally on 2026-10-22, revised after review. No Runpod resource was created or charged. The approximately 30-minute Runpod target remains unmeasured; there is no automatic runtime cutoff.
 
 ## Real artifact and planning checks
 
-The release binary ran all 97 damaging moves, each at initial and maximum move level, across seven enemy scenes for 60 simulated seconds on two seeds: 2,716 short laboratory matches. The follow-up measured 15 selected status/buff groups: another 420 short matches. The output was consumed by the actual all-species planner; no survival matches were played for this full-roster count.
+The release binary ran all 97 damaging moves, each at initial and maximum move level, across seven enemy scenes for 60 simulated seconds on two seeds: 2,716 short laboratory matches. The follow-up measured offensive-buff groups against the best other attack in the same slot, and Hex/status pairs against their solo scores. The output was consumed by the actual all-species planner; no survival matches were played for this full-roster count.
 
-- Engine fingerprint: `0ac15cecff2ccdc93f7f0fcee834b76736b4ef9bd1658cd2ee1f750917aa8e4a`.
-- Full plan hash: `017ec2c32280784403c03c0af8f6562c383b06a636fe199488453a6e42ddf8e1`.
 - 966 species; 3,010 active style/TM strata out of 3,864 possible cohorts.
-- 25,579 candidate configurations, at most 12 per stratum; 966 distinct stock controls.
-- Stage A ceiling: 53,090 observation matches, including stock controls.
-- Stage B ceiling: 79,104.
+- 29,599 candidate configurations, at most 12 per stratum; 966 distinct stock controls (stock opener, default ability).
+- Stage A ceiling: 61,130 observation matches, including stock controls.
+- Stage B ceiling: 79,160.
 - Independent confirmation ceiling: 63,616.
-- Survival-search ceiling: **195,810**, compared with the historical 12,068,512-task funnel ledger.
+- Survival-search ceiling: **203,906**, compared with the historical 12,068,512-task funnel ledger.
 
-These are structural task counts, not a measured runtime improvement. A laboratory scene is not equivalent in cost to a full survival match. The generic dry-run estimate without measured laboratory data is deliberately more conservative: 347,760 survival matches.
+These are structural task counts. The planner now also proposes Harden/Agility groups, which is why the candidate count grew from the first draft (25,579).
 
-Puño Meteoro had the highest equal-weight solo fixture mean in this run. This is an observation under these fixtures, not a universal move ranking or a claim that it wins every species build.
+## Local timing evidence (not a Pod measurement)
+
+On a 10-core development machine, with 900 seconds as the match cap:
+
+- A 6-species sample (25, 6, 94, 149, 248, 9; 1,342 matches) finished in 5.5 s wall, 17.4 s CPU. Mean survival was 138 s and no match reached the cap, so a match cost about 13 ms of CPU on average.
+- The real all-roster run was started locally and stopped in stage A: 22,244 of 29,599 candidate configurations (two seeds each) were done after 181 s. It was not run to completion, so no end-to-end figure exists.
+
+Extrapolating the sample gives about 2,700 CPU-seconds for 203,906 matches, but survival lengthens in later rounds because the best builds survive longest, so this is a lower bound. The roughly 30-minute target is **not** established. Use `bash simulator/runpod/run.sh ranking pilot` (41 species at full length) on the chosen host first; `full` takes about its wall time × 966 / 41 plus the laboratory.
+
+Puño Meteoro had the highest equal-weight solo fixture mean in the first draft's run. This is an observation under these fixtures, not a universal move ranking or a claim that it wins every species build.
 
 ## Executed checks
 

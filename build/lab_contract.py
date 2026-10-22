@@ -6,6 +6,7 @@ from typing import Any
 
 SCENARIOS = [("boss", 1)] + [(shape, count) for shape in ("line", "surround", "approach") for count in (3, 12)]
 PHASES = ("initial", "maximum")
+EFFECTS = ("burn", "poison", "slow", "hex", "stun", "knockback", "pull", "drain", "bounce")
 
 
 def nonnegative(value: Any, label: str) -> float:
@@ -43,6 +44,9 @@ def validated_moves(document: dict[str, Any]) -> list[dict[str, Any]]:
         seen.add(mid)
         for key in ("score", "earlyScore", "lateScore"):
             nonnegative(row.get(key), f"{mid} {key}")
+        effects = row.get("effects", [])
+        if not isinstance(effects, list) or any(e not in EFFECTS for e in effects) or len(set(effects)) != len(effects):
+            raise ValueError(f"{mid}: invalid effects")
         scenarios = row.get("scenarios")
         if not isinstance(scenarios, list) or len(scenarios) != 14:
             raise ValueError(f"{mid}: expected seven scenarios at two move levels")

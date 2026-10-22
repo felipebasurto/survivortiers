@@ -245,8 +245,8 @@ fn lab_enemy(
     e.boss = scene == "boss";
     e.g_phys = 1.0;
     e.g_spec = 1.0;
-    if ix % foes == 0 {
-        // One resistant target per scene: higher guard, while type chart remains neutral.
+    if scene == "boss" {
+        // The single resistant target measures boss damage; crowd scenes use ordinary guard.
         e.g_phys = 0.35;
         e.g_spec = 0.35;
     }

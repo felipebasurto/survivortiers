@@ -280,8 +280,11 @@ fn config(
     };
     let nature = "hardy";
     let eq = selection::nature_equivalence(data, base, nature)?;
-    let ability = base
-        .abilities
+    // The stock control keeps the species' own default ability; only candidates choose by prior.
+    let ability = if branch == "control" {
+        None
+    } else {
+        base.abilities
         .iter()
         .flatten()
         .max_by(|a, b| {
@@ -314,7 +317,8 @@ fn config(
             };
             prior(a).total_cmp(&prior(b)).then_with(|| a.cmp(b))
         })
-        .cloned();
+        .cloned()
+    };
     let dex = base.dex;
     let moves = ids.clone();
     let id = format!(
@@ -422,7 +426,25 @@ fn propose(
         }
     };
 
-    // Reserve slots for disjoint proposal families before filling any remaining capacity.
+    // `add` keeps insertion order and the stratum is cut at the candidate ceiling, so the
+    // families below are listed by priority: each must reach the frontier before the fillers.
+    let has_move =
+        |ix: usize| base.pool.contains(&ix) || base.start == ix || (taught && base.tms.contains(&ix));
+    // First legal physical (Swords/Dragon Dance) or special (Nasty Plot) offensive buff.
+    let attack_buff = |cat: u8| -> Option<usize> {
+        let options: &[usize] = match cat {
+            1 => &[data.swords_dance, data.dragon_dance],
+            2 => &[data.nasty_plot],
+            _ => &[],
+        };
+        options.iter().copied().find(|&b| has_move(b))
+    };
+    // Fortaleza/Agilidad are only ever judged by survival matches (the laboratory player is
+    // immune), so they must be proposed here for the rounds to see them at all.
+    let defense_buffs = [data.harden, data.agility]
+        .into_iter()
+        .filter(|&b| has_move(b))
+        .collect::<Vec<_>>();
     // The leading pure-damage candidate is a four-attack bonded group when legal.
     if ranked.len() >= 4 {
         add(ranked.iter().take(4).map(|x| x.0).collect());
@@ -447,19 +469,22 @@ fn propose(
             add(group);
         }
     }
-    // Measurements nominate a few legal interactions; survival still decides the winner.
+    // Measured interactions nominate legal groups, ordered by their gain over the baseline
+    // (components played together, or the slot filled by the best other attack). Survival
+    // still decides the winner.
     let mut hints = lab["measuredSynergies"]
         .as_array()
         .into_iter()
         .flatten()
+        .filter(|h| h["relativeGain"].as_f64().is_some_and(|g| g > 1.0))
         .collect::<Vec<_>>();
     hints.sort_by(|a, b| {
-        b["score"]
+        b["relativeGain"]
             .as_f64()
             .unwrap_or(0.)
-            .total_cmp(&a["score"].as_f64().unwrap_or(0.))
+            .total_cmp(&a["relativeGain"].as_f64().unwrap_or(0.))
     });
-    for hint in hints
+    let hint_groups = hints
         .into_iter()
         .filter_map(|h| {
             let attacks = h["attacks"].as_array()?;
@@ -473,23 +498,91 @@ fn propose(
                 if data.moves[*i].is_attack() {
                     candidates.contains(i)
                 } else {
-                    base.pool.contains(i) || (taught && base.tms.contains(i))
+                    has_move(*i)
                 }
             });
             allowed.then_some(ids)
         })
-        .take(1)
-    {
-        let mut assembled = hint;
-        for &(i, _) in &ranked {
-            if assembled.len() >= 4 {
+        .take(3)
+        .map(|mut assembled| {
+            for &(i, _) in &ranked {
+                if assembled.len() >= 4 {
+                    break;
+                }
+                if !assembled.contains(&i) {
+                    assembled.push(i);
+                }
+            }
+            assembled
+        })
+        .collect::<Vec<_>>();
+    if let Some(first) = hint_groups.first() {
+        add(first.clone());
+    }
+    // Three attacking moves plus a matching physical/special attack buff. Buff legality
+    // comes from this species' actual natural pool or TM list; never inject global buffs.
+    for (buff, cat) in [
+        (data.swords_dance, 1u8),
+        (data.dragon_dance, 1u8),
+        (data.nasty_plot, 2u8),
+    ] {
+        if !has_move(buff) {
+            continue;
+        }
+        let mut group = ranked
+            .iter()
+            .filter(|x| data.moves[x.0].levels[0].cat == cat)
+            .take(3)
+            .map(|x| x.0)
+            .collect::<Vec<_>>();
+        if !group.is_empty() {
+            group.push(buff);
+            add(group);
+        }
+    }
+    // Defensive buffs: three attacks plus Harden or Agility, and the two-attack shape with
+    // one offensive and one defensive buff that the site's builds describe.
+    for &buff in &defense_buffs {
+        let mut group = ranked.iter().take(3).map(|x| x.0).collect::<Vec<_>>();
+        if !group.is_empty() {
+            group.push(buff);
+            add(group);
+        }
+    }
+    if let (Some(&(lead, _)), Some(&defense)) = (ranked.first(), defense_buffs.first()) {
+        if let Some(buff) = attack_buff(data.moves[lead].levels[0].cat) {
+            let mut group = ranked.iter().take(2).map(|x| x.0).collect::<Vec<_>>();
+            group.extend([buff, defense]);
+            add(group);
+        }
+    }
+    // Engine-supported hex/status pairs and their companion group. Hex needs a burning,
+    // poisoned or slowed target; the first pair in damage order is kept early and a second
+    // distinct pair after the scene specialists.
+    let mut pairs = Vec::<(usize, usize)>::new();
+    'pairs: for &(i, _) in &ranked {
+        for &(j, _) in ranked.iter().filter(|x| x.0 != i) {
+            if compatible(data, i, j) && !pairs.contains(&(j, i)) {
+                pairs.push((i, j));
+                if pairs.len() == 2 {
+                    break 'pairs;
+                }
                 break;
             }
-            if !assembled.contains(&i) {
-                assembled.push(i);
-            }
         }
-        add(assembled);
+    }
+    let add_pair = |add: &mut dyn FnMut(Vec<usize>), (i, j): (usize, usize)| {
+        add(vec![i, j]);
+        if let Some(&(k, _)) = ranked.iter().find(|x| x.0 != i && x.0 != j) {
+            let mut combo = vec![i, j, k];
+            if let Some(b) = attack_buff(data.moves[k].levels[0].cat) {
+                combo.push(b);
+            }
+            add(combo);
+        }
+    };
+    if let Some(&pair) = pairs.first() {
+        add_pair(&mut add, pair);
     }
     // Keep specialists for each enemy geometry, rather than relying only on headline DPS.
     let scene_score = |ix: usize, scene: &str| -> f64 {
@@ -526,6 +619,7 @@ fn propose(
             add(group);
         }
     }
+    // Complementary pair: the best early-level attack with the best late-level attack.
     let mut early = ranked.clone();
     early.sort_by(|a, b| {
         b.1 .1
@@ -541,69 +635,11 @@ fn propose(
     if let (Some((e, _)), Some((l, _))) = (early.first(), late.iter().find(|x| x.0 != early[0].0)) {
         add(vec![*e, *l]);
     }
-    // Complementary early/late pair and a second disjoint scene representative.
-    // Two reserved scene builds maximum: the cross-scene pair and its best third attack.
-    // Keep a small set of explicitly supported hex/status pairs, including a companion attack.
-    let mut synergy_count = 0;
-    'synergy: for &(i, _) in &ranked {
-        for &(j, _) in ranked.iter().filter(|x| x.0 != i) {
-            if compatible(data, i, j) {
-                add(vec![i, j]);
-                if let Some((k, _)) = ranked.iter().find(|x| x.0 != i && x.0 != j) {
-                    let mut combo = vec![i, j, *k];
-                    let cat = data.moves[*k].levels[0].cat;
-                    let buff = match cat {
-                        1 if base.pool.contains(&data.swords_dance)
-                            || base.tms.contains(&data.swords_dance) =>
-                        {
-                            Some(data.swords_dance)
-                        }
-                        1 if base.pool.contains(&data.dragon_dance)
-                            || base.tms.contains(&data.dragon_dance) =>
-                        {
-                            Some(data.dragon_dance)
-                        }
-                        2 if base.pool.contains(&data.nasty_plot)
-                            || base.tms.contains(&data.nasty_plot) =>
-                        {
-                            Some(data.nasty_plot)
-                        }
-                        _ => None,
-                    };
-                    if let Some(b) = buff {
-                        combo.push(b);
-                    }
-                    add(combo);
-                }
-                synergy_count += 1;
-                if synergy_count == 1 {
-                    break 'synergy;
-                }
-            }
-        }
+    for group in hint_groups.iter().skip(1) {
+        add(group.clone());
     }
-    // Three attacking moves plus a matching physical/special attack buff. Buff legality
-    // comes from this species' actual natural pool or TM list; never inject global buffs.
-    for (buff, cat) in [
-        (data.swords_dance, 1u8),
-        (data.dragon_dance, 1u8),
-        (data.nasty_plot, 2u8),
-    ] {
-        let buff_legal =
-            base.pool.contains(&buff) || base.tms.contains(&buff) || base.start == buff;
-        if buff_legal {
-            let compatible_attacks = ranked
-                .iter()
-                .filter(|x| data.moves[x.0].levels[0].cat == cat)
-                .take(3)
-                .map(|x| x.0)
-                .collect::<Vec<_>>();
-            if !compatible_attacks.is_empty() {
-                let mut group = compatible_attacks;
-                group.push(buff);
-                add(group);
-            }
-        }
+    if let Some(&pair) = pairs.get(1) {
+        add_pair(&mut add, pair);
     }
     // Deterministic one-slot substitutions explore distinct top attacks without a cartesian scan.
     if ranked.len() >= 4 {
@@ -814,7 +850,8 @@ fn build_plan(data: &Data, mv: &Value, lab: &Value) -> Result<Value, String> {
                 for (rank, c) in cs.drain(..).enumerate() {
                     rows.push(json!({"stratum":key,"rank":rank,"branch":published,"config":config_json(&c)}));
                 }
-                // Paired stock baseline per branch/style, skipped only when no legal stock opener exists.
+                // One stock control per species (stock opener, default ability, neutral nature). It does not
+                // depend on branch or style, so every stratum of the species is compared against it.
                 let stock = base.start;
                 if attack(data, stock)
                     && !controls
@@ -985,31 +1022,73 @@ fn rank_rows(rows: &mut [Value]) {
     });
 }
 
+/// Live counters shared with the heartbeat thread. Stage sizes after A depend on earlier
+/// results, so the file reports the current stage and what the plan still has to play.
+struct Progress {
+    completed: AtomicU64,
+    stage_total: AtomicU64,
+    stage_done: AtomicU64,
+    stage: Mutex<String>,
+    started: Instant,
+}
+impl Progress {
+    fn snapshot(&self) -> Value {
+        let stage = self
+            .stage
+            .lock()
+            .map(|s| s.clone())
+            .unwrap_or_else(|_| "unknown".into());
+        let remaining: &[&str] = match stage.as_str() {
+            "initializing" => &["A", "B", "D"],
+            "A" => &["B", "D"],
+            "B" => &["D"],
+            _ => &[],
+        };
+        json!({"kind":"bounded-ranking-progress","stage":stage,
+            "completedConfigurationRuns":self.completed.load(AtomicOrdering::Relaxed),
+            "stageConfigurations":self.stage_total.load(AtomicOrdering::Relaxed),
+            "stageCompletedConfigurations":self.stage_done.load(AtomicOrdering::Relaxed),
+            "pendingStagesAfterCurrent":remaining,
+            "elapsedWallSeconds":self.started.elapsed().as_secs_f64()})
+    }
+    fn write(&self, path: &str) -> Value {
+        let row = self.snapshot();
+        let _ = atomic_json(Path::new(path), &row);
+        row
+    }
+}
+
 fn run(data: &Data, plan_path: &str, cache_path: &str, result_path: &str) -> Result<(), String> {
     let stop = Arc::new(AtomicBool::new(false));
-    let completed = Arc::new(AtomicU64::new(0));
-    let stage = Arc::new(Mutex::new(String::from("initializing")));
+    let progress = Arc::new(Progress {
+        completed: AtomicU64::new(0),
+        stage_total: AtomicU64::new(0),
+        stage_done: AtomicU64::new(0),
+        stage: Mutex::new(String::from("initializing")),
+        started: Instant::now(),
+    });
     let stop_bg = stop.clone();
-    let count_bg = completed.clone();
-    let stage_bg = stage.clone();
+    let progress_bg = progress.clone();
     let path = format!("{result_path}.progress.json");
-    let started = Instant::now();
     let heartbeat = thread::spawn(move || {
         let mut last = Instant::now();
         while !stop_bg.load(AtomicOrdering::Relaxed) {
             if last.elapsed() >= std::time::Duration::from_secs(60) {
-                let row = json!({"kind":"bounded-ranking-progress","stage":stage_bg.lock().map(|s|s.clone()).unwrap_or_else(|_|"unknown".into()),"completedConfigurationRuns":count_bg.load(AtomicOrdering::Relaxed),"elapsedWallSeconds":started.elapsed().as_secs_f64()});
-                let _ = atomic_json(Path::new(&path), &row);
+                let row = progress_bg.write(&path);
                 eprintln!(
-                    "bounded-ranking heartbeat: stage={}, runs={}, elapsed={}s",
-                    row["stage"], row["completedConfigurationRuns"], row["elapsedWallSeconds"]
+                    "bounded-ranking heartbeat: stage={}, stage runs={}/{}, runs={}, elapsed={}s",
+                    row["stage"],
+                    row["stageCompletedConfigurations"],
+                    row["stageConfigurations"],
+                    row["completedConfigurationRuns"],
+                    row["elapsedWallSeconds"]
                 );
                 last = Instant::now();
             }
             thread::sleep(std::time::Duration::from_secs(1));
         }
     });
-    let result = run_inner(data, plan_path, cache_path, result_path, &completed, &stage);
+    let result = run_inner(data, plan_path, cache_path, result_path, &progress);
     stop.store(true, AtomicOrdering::Relaxed);
     let _ = heartbeat.join();
     result
@@ -1019,9 +1098,9 @@ fn run_inner(
     plan_path: &str,
     cache_path: &str,
     result_path: &str,
-    completed: &AtomicU64,
-    active_stage: &Mutex<String>,
+    progress: &Progress,
 ) -> Result<(), String> {
+    let progress_path = format!("{result_path}.progress.json");
     let plan = read(plan_path)?;
     if plan["kind"].as_str() != Some("bounded-ranking-plan")
         || plan["schema"].as_u64() != Some(1)
@@ -1080,9 +1159,14 @@ fn run_inner(
     let mut candidate_obs = Vec::<Value>::new();
     let mut control_obs = Vec::<Value>::new();
     let run_stage = |stage: &str, rows: &[Value], seeds: &[u32]| -> Result<Vec<Value>, String> {
-        if let Ok(mut s) = active_stage.lock() {
+        if let Ok(mut s) = progress.stage.lock() {
             *s = stage.to_owned();
         }
+        progress
+            .stage_total
+            .store(rows.len() as u64, AtomicOrdering::Relaxed);
+        progress.stage_done.store(0, AtomicOrdering::Relaxed);
+        progress.write(&progress_path);
         eprintln!(
             "bounded-ranking round {stage}: {} configurations x {} seeds",
             rows.len(),
@@ -1101,7 +1185,8 @@ fn run_inner(
                         seconds,
                         &fingerprints,
                     );
-                    completed.fetch_add(1, AtomicOrdering::Relaxed);
+                    progress.completed.fetch_add(1, AtomicOrdering::Relaxed);
+                    progress.stage_done.fetch_add(1, AtomicOrdering::Relaxed);
                     r
                 })
                 .collect::<Result<Vec<_>, _>>()
@@ -1185,6 +1270,10 @@ fn run_inner(
     let unavailable=plan["counts"]["strata"].as_object().into_iter().flatten().filter_map(|(key,n)|{if n.as_u64().unwrap_or(0)>0{return None}let mut p=key.split('|');let dex=p.next()?.parse::<u32>().ok()?;let branch=p.next()?;let style=p.next()?;Some(json!({"dex":dex,"variantId":format!("{style}:base:{branch}"),"reason":"no legal candidate in bounded proposal frontier"}))}).collect::<Vec<_>>();
     let result = json!({"schema":1,"kind":"bounded-ranking-results","complete":true,"rankingReady":false,"policyVersion":POLICY,"gameCommit":research::GAME_COMMIT,"engineFingerprint":research::fingerprint(),"planHash":ph,"seedSets":{"A":a,"B":b,"D":d,"screening":a.iter().chain(&b).copied().collect::<BTreeSet<_>>(),"confirmation":d},"elapsedWallSeconds":start.elapsed().as_secs_f64(),"candidateObservations":candidate_obs,"controlObservations":control_obs,"winners":winner_rows,"controls":control_rows,"unavailable":unavailable,"counts":{"candidateMatchesCompleted":candidate_obs.iter().map(|r| r["seeds"].as_array().map_or(0, Vec::len)).sum::<usize>(),"controlMatchesCompleted":control_obs.iter().map(|r| r["seeds"].as_array().map_or(0, Vec::len)).sum::<usize>()}});
     save(result_path, &result)?;
+    if let Ok(mut s) = progress.stage.lock() {
+        *s = "complete".into();
+    }
+    progress.write(&progress_path);
     Ok(())
 }
 
@@ -1226,6 +1315,11 @@ mod tests {
         let mut retained_status = false;
         let mut retained_buff = false;
         let mut retained_taught_buff = false;
+        let mut retained_defense = false;
+        let defense_ids = [
+            data.moves[data.harden].id.clone(),
+            data.moves[data.agility].id.clone(),
+        ];
         assert!(p["counts"]["matchesUpperBound"].as_u64().unwrap() < 300_000);
         for row in rows {
             *counts
@@ -1277,6 +1371,10 @@ mod tests {
                 .iter()
                 .filter(|&&i| !data.moves[i].is_attack())
                 .count();
+            assert!(buffs <= 2, "the engine admits at most two planned buffs");
+            if group.iter().any(|id| defense_ids.contains(id)) {
+                retained_defense = true;
+            }
             if buffs > 0
                 && indices
                     .iter()
@@ -1302,6 +1400,71 @@ mod tests {
             retained_taught_buff,
             "at least one retained buff group must be genuinely taught"
         );
+        assert!(
+            retained_defense,
+            "Harden/Agility proposals must reach the survival rounds"
+        );
+    }
+
+    #[test]
+    fn stock_control_keeps_the_default_ability_while_candidates_choose_one() {
+        let data = data();
+        let base = data
+            .dex
+            .iter()
+            .find(|m| m.abilities.iter().flatten().count() > 1)
+            .expect("a species with a choice of abilities");
+        let control = config(&data, base, &[base.start], "control", "ranged").unwrap();
+        assert_eq!(control.ability, None);
+        let candidate = config(&data, base, &[base.start], "natural", "ranged").unwrap();
+        assert!(candidate.ability.is_some());
+    }
+
+    #[test]
+    fn only_measured_gains_nominate_a_hint_group() {
+        let data = data();
+        let lab = lab(&data);
+        let (base, st, ranked) = data
+            .dex
+            .iter()
+            .find_map(|base| {
+                ["melee", "ranged"].into_iter().find_map(|st| {
+                    let mut legal = base
+                        .pool
+                        .iter()
+                        .copied()
+                        .chain(std::iter::once(base.start))
+                        .filter(|&i| attack(&data, i) && style(&data, i) == (st == "melee"))
+                        .collect::<Vec<_>>();
+                    legal.sort_unstable();
+                    legal.dedup();
+                    let mut ranked = legal
+                        .into_iter()
+                        .map(|i| (i, lab_move_rank(&data, base, &lab, i).0))
+                        .collect::<Vec<_>>();
+                    ranked.sort_by(|a, b| {
+                        b.1.total_cmp(&a.1)
+                            .then_with(|| data.moves[a.0].id.cmp(&data.moves[b.0].id))
+                    });
+                    (ranked.len() >= 8)
+                        .then(|| (base.clone(), st, ranked.iter().map(|x| x.0).collect::<Vec<_>>()))
+                })
+            })
+            .expect("a species with enough attacks of one style");
+        let (a, b) = (data.moves[ranked[5]].id.clone(), data.moves[ranked[6]].id.clone());
+        let propose_with = |gain: f64| {
+            let mut guided = lab.clone();
+            guided["measuredSynergies"] =
+                json!([{"attacks":[a, b],"buffs":[],"score":1e9,"relativeGain":gain}]);
+            propose(&data, &base, &guided, "natural", st, None, 12).unwrap()
+        };
+        let has_pair = |groups: &[Configuration]| {
+            groups
+                .iter()
+                .any(|c| c.moves.contains(&a) && c.moves.contains(&b))
+        };
+        assert!(has_pair(&propose_with(2.0)));
+        assert!(!has_pair(&propose_with(0.8)));
     }
 
     #[test]
@@ -1399,6 +1562,9 @@ mod tests {
             second["winners"][0]["meanDamagePerSecond"]
         );
         assert_eq!(first["complete"], true);
+        let progress = read(&format!("{}.progress.json", result_path.display())).unwrap();
+        assert_eq!(progress["stage"], "complete");
+        assert_eq!(progress["pendingStagesAfterCurrent"], json!([]));
         let _ = fs::remove_dir_all(dir);
     }
 }

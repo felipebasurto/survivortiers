@@ -49,7 +49,8 @@ The rough planning target is about 30 minutes, to be measured on a future run;
 the runner does not stop or abort at that target.
 
 During execution, the wrapper emits a heartbeat every 60 seconds, reports
-readable progress artifacts when available, and runs until the Rust command
+readable progress artifacts when available (current stage, configurations done
+in it, stages still pending), and runs until the Rust command
 finishes. It has no automatic wall-time/cost cutoff, calibration abort, or
 timeout/relaunch loop. On shell exit or a termination signal it cleans up its
 child process and preserves the command's exit status. Keep the cache and
@@ -74,11 +75,16 @@ Between solo measurements and species planning, the wrapper runs
 `pokesim synergy-lab run <lab.json> <guide.json> <cache-dir> [threads] [seconds]`.
 It measures at most 24 selected interactions, including Hex with supported
 status applicators and the strongest attacks with a matching offensive buff.
-The guide preserves solo results and adds `measuredSynergies`. A pair's
-comparison with the sum of solo DPS is descriptive: it is not a guarantee that
-its relative gain transfers to every species. Species planning reserves a
-candidate for a legal measured interaction, alongside unmeasured supported
-status combinations and complementary enemy-scene specialists.
+Hex pairs are compared with the sum of their solo scores. A buff group is
+compared with the best other attack measured in the same slot, since the buff
+occupies a place an attack could have had (`baselineKind`, `slotAlternative`).
+The guide preserves solo results and adds `measuredSynergies`. A relative gain
+is descriptive: it is not a guarantee that it transfers to every species.
+Species planning nominates legal groups whose measured gain exceeds 1 (best
+first, at most three), and reserves candidates for unmeasured supported status
+combinations, complementary enemy-scene specialists, and Harden/Agility groups.
+The laboratory player is immune, so defensive buffs cannot be measured there;
+only the survival rounds judge them.
 
 The site can show the separate laboratory table on the moves page with:
 
@@ -87,11 +93,15 @@ POKESIM_ATTACK_LAB=simulator/runpod-ranking/full/attacks.json python3 build/cata
 python3 build/render.py
 ```
 
-The display requires every attack, all fourteen scene/level rows, two seeds,
-and an actual duration of 60 seconds. Filtered and smoke artifacts remain
-useful diagnostics, but cannot appear as the full laboratory table. Existing
-historical ranking data remains labelled separately. Exporting these diagnostic
-artifacts does not deploy the site or replace the published species ranking.
+The table keeps damage against a boss, against groups (line and surround) and
+against approaching enemies as separate columns, each from initial to maximum
+move level, beside the move's range, shape and relevant effects. The single mean
+score is only the ordering. The display requires every attack, all fourteen
+scene/level rows, two seeds, and an actual duration of 60 seconds. Filtered and
+smoke artifacts remain useful diagnostics, but cannot appear as the full
+laboratory table. Existing historical ranking data remains labelled separately,
+under its own heading. Exporting these diagnostic artifacts does not deploy the
+site or replace the published species ranking.
 
 ## Cache dependency boundaries
 

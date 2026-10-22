@@ -1,6 +1,6 @@
 //! Bounded, deterministic attack lab. Results are fixture measurements, not global rankings.
 use crate::{
-    data::{Data, Move},
+    data::{Data, Move, MoveLvl},
     engine::laboratory_scene,
     research,
 };
@@ -21,7 +21,7 @@ use std::{
 const POLICY: &str = "attack-lab-v1";
 // Cache identity for this deliberately synthetic scene contract; update when any fixture constant
 // or formation changes. This excludes reporting, ordering, CLI, ranking, and main.rs behavior.
-const FIXTURE_POLICY: &str = "neutral-mon-v1;types=normal+fire;stats=1;hp=100000;player=stationary-immune;foe-hp=120;boss-hp=600;resistant-guard=0.35;line=32+12i;surround=35+17(i%3);approach=260+36(i%3);boss-distance=35;move-level-only;bonded-group;status-dot-on";
+const FIXTURE_POLICY: &str = "neutral-mon-v2;types=normal+fire;stats=1;hp=100000;player=stationary-immune;foe-hp=120;boss-hp=600;boss-guard=0.35;crowd-guard=1;line=32+12i;surround=35+17(i%3);approach=260+36(i%3);boss-distance=35;move-level-only;bonded-group;status-dot-on";
 const SEEDS: [u32; 2] = [11014, 25025];
 const SCENES: [(&str, usize); 7] = [
     ("line", 3),
@@ -189,7 +189,7 @@ pub fn command(data: &Data, args: &[String]) -> Result<(), String> {
             let early = mean(scenarios.iter().filter(|s| s["phase"] == "initial").filter_map(|s| s["damagePerSecond"].as_f64()))?;
             let late = mean(scenarios.iter().filter(|s| s["phase"] == "maximum").filter_map(|s| s["damagePerSecond"].as_f64()))?;
             let score = mean(scenarios.iter().filter_map(|s| s["damagePerSecond"].as_f64()))?;
-            Ok(json!({"id": id, "maxLevel": mv.max_lvl, "score": score, "earlyScore": early, "lateScore": late, "scenarios": scenarios}))
+            Ok(json!({"id": id, "maxLevel": mv.max_lvl, "effects": effects(mv), "score": score, "earlyScore": early, "lateScore": late, "scenarios": scenarios}))
         }).collect()
     });
     let _ = heartbeat_tx.send(());
@@ -213,12 +213,31 @@ pub fn command(data: &Data, args: &[String]) -> Result<(), String> {
         "engineFingerprint": research::fingerprint(),
         "cacheFingerprint": core_fingerprint,
         "scoreMeaning": "equal-weight mean scenario damage per second over this deterministic synthetic fixture; not a global ranking",
-        "fixture": {"player": "neutral balanced synthetic Mon; stationary; immune to death, status and knockback", "foes": "finite HP; one resistant target in crowd scenes; one finite boss in boss scene; deterministic replenishment", "styles": ["line", "surround", "approach", "boss"], "foeCounts": [1, 3, 12], "levels": ["initial", "maximum"], "seeds": SEEDS, "defaultSeconds": 60.0},
+        "fixture": {"player": "neutral balanced synthetic Mon; stationary; immune to death, status and knockback", "foes": "finite HP; ordinary targets in crowd scenes; one resistant finite boss in boss scene; deterministic replenishment", "styles": ["line", "surround", "approach", "boss"], "foeCounts": [1, 3, 12], "levels": ["initial", "maximum"], "seeds": SEEDS, "defaultSeconds": 60.0},
         "secondsPerScenario": seconds,
         "moveIds": move_ids,
         "moves": moves,
     });
     atomic_json(&out_path, &doc)
+}
+
+/// Relevant side effects any level of the move can apply, for display beside its DPS.
+fn effects(mv: &Move) -> Vec<&'static str> {
+    let any = |field: fn(&MoveLvl) -> f64| mv.levels.iter().any(|l| field(l) > 0.0);
+    [
+        ("burn", any(|l| l.burn)),
+        ("poison", any(|l| l.poison)),
+        ("slow", any(|l| l.slow)),
+        ("hex", any(|l| l.hex)),
+        ("stun", any(|l| l.stun)),
+        ("knockback", any(|l| l.knock)),
+        ("pull", any(|l| l.pull)),
+        ("drain", any(|l| l.drain)),
+        ("bounce", any(|l| l.bounce)),
+    ]
+    .into_iter()
+    .filter_map(|(name, present)| present.then_some(name))
+    .collect()
 }
 
 fn parse_usize(value: &str, name: &str) -> Result<usize, String> {

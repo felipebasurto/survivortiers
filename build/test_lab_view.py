@@ -42,15 +42,39 @@ class LaboratoryViewTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 laboratory_rows(data, "game")
 
-    def test_moves_page_labels_measurements_separately(self):
+    def test_effects_must_be_known_and_unique(self):
+        for effects in (["fire"], ["burn", "burn"], "burn"):
+            data = fixture()
+            data["moves"][0]["effects"] = effects
+            with self.assertRaises(ValueError):
+                laboratory_rows(data, "game")
+
+    def test_moves_page_keeps_boss_group_and_approach_damage_apart(self):
         from build.render import laboratory_table
         from build.i18n import Lang
-        move = {"id": "ember", "name": "Ascuas", "en": {"name": "Ember"},
-                "laboratory": fixture()["moves"][0]}
+        lab = fixture()["moves"][0]
+        lab["effects"] = ["burn", "slow"]
+        # Distinct values per situation, so a merged column could not pass.
+        values = {"boss-1": 10.0, "line-3": 20.0, "line-12": 40.0, "surround-3": 60.0,
+                  "surround-12": 80.0, "approach-3": 100.0, "approach-12": 300.0}
+        for row in lab["scenarios"]:
+            base = values[row["id"].rsplit("-", 1)[0]]
+            row["damagePerSecond"] = base if row["phase"] == "initial" else base * 2
+        move = {"id": "ember", "name": "Ascuas", "en": {"name": "Ember"}, "kind": "projectile",
+                "type": "fire", "mech": {"homing": 0, "pierce": 0, "count": 1}, "laboratory": lab}
         es = laboratory_table(Lang("es"), [move])
         en = laboratory_table(Lang("en"), [move])
         self.assertIn("Ascuas", es)
-        self.assertIn("Clasificación histórica", es)
-        self.assertIn("Initial DPS", en)
-        self.assertIn("Maximum-level DPS", en)
+        self.assertIn("Contra jefe", es)
+        self.assertIn("Contra grupos", es)
+        self.assertIn("Con enemigos entrando", es)
+        self.assertIn("Against a boss", en)
+        self.assertIn("With enemies approaching", en)
+        self.assertIn("Quemadura", es)
+        self.assertIn("Burn", en)
+        # boss 10 → 20, groups (20+40+60+80)/4 = 50 → 100, approaching (100+300)/2 = 200 → 400.
+        for cell in ("10,0", "20,0", "50,0", "100,0", "200,0", "400,0"):
+            self.assertIn(cell, es)
+        self.assertIn('class="lab-row" data-q="ascuas ember', es)
+        self.assertNotIn("Clasificación histórica", es)
         self.assertEqual(laboratory_table(Lang("es"), []), "")

@@ -35,6 +35,10 @@ class BoundedCliTests(unittest.TestCase):
             self.assertTrue(lab["complete"])
             self.assertTrue(lab["measuredSynergies"])
             self.assertLessEqual(len(lab["measuredSynergies"]), 24)
+            for row in lab["measuredSynergies"]:
+                # A buff is judged against the attack that would take its slot, a pair against its solo scores.
+                self.assertEqual(row["baselineKind"], "slot-alternative-measured" if row["buffs"] else "solo-score-sum")
+            self.assertTrue(any(row["effects"] for row in lab["moves"]))
             self.assertEqual(len(lab["moves"]), sum(m["kind"] != "buff" for m in game["moves"].values()))
             manifest = json.loads((SIM / "runpod/ranking-smoke.json").read_text())
             manifest.update(engineFingerprint=self.command("fingerprint").stdout.strip(),

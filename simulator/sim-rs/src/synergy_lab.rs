@@ -160,7 +160,7 @@ pub fn command(data: &Data, args: &[String]) -> Result<(), String> {
         .ok_or("lab artifact must be an object")?;
     obj.insert("synergyPolicyVersion".into(), json!(POLICY));
     obj.insert("synergySecondsPerScenario".into(), json!(seconds));
-    obj.insert("synergyScoreMeaning".into(), json!("descriptive equal-weight mean DPS across the fixed synergy scenes; baselineScore is the sum of attack-lab solo scores and relativeGain is not a causal independence estimate"));
+    obj.insert("synergyScoreMeaning".into(), json!("descriptive equal-weight mean DPS across the fixed synergy scenes; attack pairs are compared with the sum of their attack-lab solo scores, and attack+buff groups with the best other attack measured in the same slot (baselineKind). relativeGain is not a causal independence estimate"));
     obj.insert("measuredSynergies".into(), Value::Array(rows));
     atomic_json(&out_path, &output)
 }
@@ -221,6 +221,9 @@ fn validate_lab(data: &Data, v: &Value) -> Result<(), String> {
 struct Proposal {
     attacks: Vec<usize>,
     buffs: Vec<usize>,
+    /// Attacks that would fill the same slots without the buff: the baseline an offensive
+    /// buff has to beat, since it takes a place an attack could have had.
+    slot_alternative: Option<Vec<usize>>,
 }
 fn propose(data: &Data, v: &Value) -> Result<Vec<Proposal>, String> {
     let rows = v["moves"].as_array().unwrap();
@@ -259,7 +262,7 @@ fn propose(data: &Data, v: &Value) -> Result<Vec<Proposal>, String> {
     for a in hex {
         for &b in &status {
             if a != b {
-                add(&mut out, &mut seen, vec![a, b], vec![]);
+                add(&mut out, &mut seen, vec![a, b], vec![], None);
             }
         }
     }
@@ -281,7 +284,14 @@ fn propose(data: &Data, v: &Value) -> Result<Vec<Proposal>, String> {
             .map(|x| x.0)
             .collect::<Vec<_>>();
         for a in attacks {
-            add(&mut out, &mut seen, vec![a], vec![b]);
+            let filler = ranked.iter().map(|x| x.0).find(|&x| x != a);
+            add(
+                &mut out,
+                &mut seen,
+                vec![a],
+                vec![b],
+                filler.map(|x| vec![a, x]),
+            );
         }
     }
     out.truncate(MAX_GROUPS);
@@ -292,6 +302,7 @@ fn add(
     seen: &mut BTreeSet<(Vec<usize>, Vec<usize>)>,
     a: Vec<usize>,
     b: Vec<usize>,
+    slot_alternative: Option<Vec<usize>>,
 ) {
     let mut canonical = a.clone();
     canonical.sort_unstable();
@@ -300,6 +311,7 @@ fn add(
         out.push(Proposal {
             attacks: a,
             buffs: b,
+            slot_alternative,
         });
     }
 }
@@ -322,7 +334,7 @@ fn measure(
         .iter()
         .map(|&i| data.moves[i].id.clone())
         .collect::<Vec<_>>();
-    let baseline = p
+    let solo_sum = p
         .attacks
         .iter()
         .map(|&i| {
@@ -334,8 +346,41 @@ fn measure(
         .collect::<Result<Vec<_>, _>>()?
         .iter()
         .sum::<f64>();
-    let level = p
-        .attacks
+    let (score, scenarios) = measure_group(
+        data,
+        &p.attacks,
+        &p.buffs,
+        seconds,
+        cache,
+        simulation_fingerprint,
+    )?;
+    // An offensive buff is compared with the best other attack in its slot, measured in the
+    // same scenes; pairs of attacks are compared with their solo scores added.
+    let (baseline, baseline_kind, alternative) = match &p.slot_alternative {
+        Some(attacks) => {
+            let (alt, _) =
+                measure_group(data, attacks, &[], seconds, cache, simulation_fingerprint)?;
+            (
+                alt,
+                "slot-alternative-measured",
+                json!(attacks.iter().map(|&i| &data.moves[i].id).collect::<Vec<_>>()),
+            )
+        }
+        None => (solo_sum, "solo-score-sum", Value::Null),
+    };
+    Ok(
+        json!({"attacks":attacks,"buffs":buffs,"score":score,"baselineScore":baseline,"baselineKind":baseline_kind,"slotAlternative":alternative,"soloScoreSum":solo_sum,"relativeGain":if baseline>0.0{score/baseline}else{0.0},"scenarios":scenarios}),
+    )
+}
+fn measure_group(
+    data: &Data,
+    attacks: &[usize],
+    buffs: &[usize],
+    seconds: f64,
+    cache: &Path,
+    simulation_fingerprint: &str,
+) -> Result<(f64, Vec<Value>), String> {
+    let level = attacks
         .iter()
         .map(|&i| data.moves[i].max_lvl)
         .max()
@@ -352,7 +397,7 @@ fn measure(
     let scenarios: Vec<Value> = tasks.par_iter().map(|&(scene,foes,phase_level,phase)| -> Result<Value,String> {
         let mut ds=Vec::new(); let mut ks=Vec::new();
         for seed in SEEDS {
-            let r=run_cached(data,&p.attacks,&p.buffs,scene,foes,phase_level,seconds,seed,cache,simulation_fingerprint)?;
+            let r=run_cached(data,attacks,buffs,scene,foes,phase_level,seconds,seed,cache,simulation_fingerprint)?;
             ds.push(r.0); ks.push(r.1);
         }
         Ok(json!({"id":format!("{scene}-{foes}-{phase}"),"phase":phase,"level":phase_level,"seeds":SEEDS,"damagePerSecond":mean(&ds),"killsPerMinute":mean(&ks)}))
@@ -363,9 +408,7 @@ fn measure(
             .map(|x| x["damagePerSecond"].as_f64().unwrap_or(0.))
             .collect::<Vec<_>>(),
     );
-    Ok(
-        json!({"attacks":attacks,"buffs":buffs,"score":score,"baselineScore":baseline,"relativeGain":if baseline>0.0{score/baseline}else{0.0},"scenarios":scenarios}),
-    )
+    Ok((score, scenarios))
 }
 fn run_cached(
     data: &Data,
@@ -476,6 +519,13 @@ mod tests {
         assert!(groups
             .iter()
             .any(|p| p.buffs == [data.nasty_plot] && data.moves[p.attacks[0]].levels[0].cat == 2));
+        assert!(
+            groups
+                .iter()
+                .filter(|p| !p.buffs.is_empty())
+                .all(|p| p.slot_alternative.as_ref().is_some_and(|alt| alt.len() == 2)),
+            "an offensive buff is measured against the attack that would take its slot"
+        );
         let selected = groups
             .iter()
             .find(|p| p.attacks.contains(&hex) && p.attacks.len() == 2)
