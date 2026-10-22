@@ -48,7 +48,7 @@ def dataset_jsonld(L: Lang, meta: dict) -> str:
              ("application/json", "data/pokemon-index.json", "Pokémon index (JSON)"),
              ("application/json", "data/species.json", "Builds per Pokémon (JSON)"),
              ("application/json", "data/moves.json", "Moves (JSON)"),
-             ("application/json", "data/gachas.json", "Banners (JSON)"),
+             ("application/json", "data/gachas.json", "Gachas (JSON)"),
              ("application/json", "data/meta.json", "Method and metadata (JSON)")]
     doc = {
         "@context": "https://schema.org",
@@ -106,7 +106,7 @@ Base URL: {u}
 - [Pokémon index (JSON)]({u}/data/pokemon-index.json): all {meta['total']} Pokémon with rank, tier and sort values.
 - [Builds per Pokémon (JSON)]({u}/data/species.json): the best melee and the best ranged build of each Pokémon, with their medians.
 - [Moves (JSON)]({u}/data/moves.json): every attack, with its phase 1 tier, type, kind and game parameters. The six boosts are in [moves_unranked.json]({u}/data/moves_unranked.json).
-- [Banners (JSON)]({u}/data/gachas.json): the nine banners, pool sizes, S and A rates and the chance of an S or A pull.
+- [Gachas (JSON)]({u}/data/gachas.json): the nine gachas, pool sizes, S and A rates and the chance of an S or A pull.
 - [Method and metadata (JSON)]({u}/data/meta.json): tier cut-offs, tier counts, survival times, run counts per phase and the weights behind each page's "why".
 
 ## Docs
@@ -125,7 +125,7 @@ Base URL: {u}
 - [Passives (EN)]({u}/en/pasivas): the level-up cards, boosts and abilities as the game code defines them, plus the natures that raise each stat with their win counts in the bounded ranking.
 - [Move types (EN)]({u}/en/tipos): how each move type hits the enemies that spawn, from the game's type chart, plus weather.
 - [What's new (EN)]({u}/en/novedades): game updates and site changes.
-- [Collection (EN)]({u}/en/coleccion): banners, pull odds and your own collection.
+- [Collection (EN)]({u}/en/coleccion): gachas, pull odds and your own collection.
 - [Method (EN)]({u}/en/metodo): how the ranking is built, with the numbers.
 - [About (EN)]({u}/en/acerca): fan-site notice, sprite credits and licences.
 - [Type finder (EN)]({u}/en/type-finder/): pick one or two types and see which Pokémon have them, with their weaknesses.
@@ -200,7 +200,7 @@ def llms_full_txt(meta: dict) -> str:
         "",
         "### data/gachas.json",
         "",
-        "Array of nine banners: gen, name, poolSize, legendaryCount, tiers (Pokémon per tier), sCount, aCount, sPlusARate (percent of the pool in S or A), pullChance (percent chance that a single pull is S or A, ignoring pity guarantees).",
+        "Array of nine gachas (one per region): gen, name, poolSize, legendaryCount, tiers (Pokémon per tier), sCount, aCount, sPlusARate (percent of the pool in S or A), pullChance (percent chance that a single pull is S or A, ignoring pity guarantees).",
         "",
         "### data/meta.json",
         "",

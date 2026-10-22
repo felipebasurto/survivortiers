@@ -73,5 +73,4 @@ def tm_section(L, dex: int, moves_by: dict) -> str:
         for mid in tms)
     return (f'<section class="learn" aria-labelledby="learn-h">'
             f'<h2 id="learn-h">{escape(L.t("mt_h"))}</h2>'
-            f'<details><summary>{escape(L.t("mt_lede", n=len(tms)))}</summary>'
-            f'<ul class="tm-list">{items}</ul></details></section>')
+            f'<ul class="tm-list">{items}</ul></section>')

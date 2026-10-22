@@ -11,7 +11,6 @@ import re
 from html import escape
 from pathlib import Path
 
-import bounded_view
 import gamestats
 import toolpages
 from i18n import Lang, NBSP
@@ -154,6 +153,4 @@ def content(L: Lang, home: str) -> str:
             + f'<h1>{escape(L.t("pv_h1"))}</h1>'
             + _cards(L)
             + _boosts(L, home)
-            + bounded_view.abilities_section(L, home)
-            + bounded_view.natures_by_stat_section(L, home)
             + '</div>')

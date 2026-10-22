@@ -67,13 +67,13 @@
       forgot: 'Borrada de este navegador. Pega el resultado otra vez cuando quieras.',
       storageOff: 'Este navegador no deja guardar la colección. Solo se verá mientras la página esté abierta.',
       ownedIn: (a, b) => 'Tienes ' + a + ' de ' + b,
-      planH: 'Qué banner tirar',
+      planH: 'Qué gacha tirar',
       planLede: 'Cada tirada da un Pokémon que te falta con la probabilidad de «Nuevo por tirada».',
       planNote: '«Tiradas para completarlo» es una estimación de 150 simulaciones de tiradas normales (×1).',
       planOdds: n => '1 de cada ' + n + ' tiradas da un Pokémon que te falta.',
-      planSee: 'Ver todos los banners',
-      planDone: 'Ya tienes todos los Pokémon de los banners.',
-      colBanner: 'Banner', colMissing: 'Te faltan', colHave: 'Tienes', colNew: 'Por tirada', colPulls: 'Tiradas', pullsAvg: '≈ media de 150 simulaciones',
+      planSee: 'Ver todas las gachas',
+      planDone: 'Ya tienes todos los Pokémon de las gachas.',
+      colBanner: 'Región', colMissing: 'Te faltan', colHave: 'Tienes', colNew: 'Por tirada', colPulls: 'Tiradas', pullsAvg: '≈ media de 150 simulaciones',
       pullHere: 'Tira aquí', complete: 'Completo',
       share: 'Compartir', download: 'Descargar imagen',
       otherCollection: 'Colección de otro jugador', backToMine: 'Volver a la mía',
@@ -84,12 +84,12 @@
       siteHost: 'survivortiers.pages.dev',
       viewLabel: 'Vista de la colección', viewNormal: 'Normal', viewShiny: 'Shiny',
       hunted: 'cazados en salvaje', shinyTotal: 'shiny en total', shinyHunter: 'Cazador de shiny',
-      gachaCount: n => n + ' de banner', unknownOrigin: n => n + ' sin origen',
+      gachaCount: n => n + ' de gacha', unknownOrigin: n => n + ' sin origen',
       legacyNote: 'Este JSON no dice de dónde sale cada shiny. Pega otra vez el comando de esta página para verlo.',
-      odds: () => '1 de cada ' + grouped(4096, '.') + ' Pokémon salvajes · 1 de cada 100 tiradas de banner',
+      odds: () => '1 de cada ' + grouped(4096, '.') + ' Pokémon salvajes · 1 de cada 100 tiradas de gacha',
       shinydex: 'Shinydex', filterLabel: 'Filtro', sortLabel: 'Orden',
       filterAll: 'Todos', filterWild: 'Solo salvaje', sortNew: 'Recientes', sortDex: 'Pokédex',
-      badgeWild: 'Salvaje', badgeGacha: 'Banner',
+      badgeWild: 'Salvaje', badgeGacha: 'Gacha',
       attackKind: { phys: 'físico', spec: 'especial', mix: 'mixto' },
       shEmpty: 'Todavía no tienes ningún shiny.', shEmptyWild: 'Ningún shiny cazado en salvaje todavía.',
     },
@@ -138,9 +138,9 @@
       planLede: 'Each pull gives a Pokémon you are missing, with the chance in "New per pull".',
       planNote: '"Pulls to complete" is an estimate from 150 simulations of single pulls (×1).',
       planOdds: n => '1 in ' + n + ' pulls gives a Pokémon you are missing.',
-      planSee: 'See every banner',
-      planDone: 'You already have every Pokémon in the banners.',
-      colBanner: 'Banner', colMissing: 'Missing', colHave: 'You have', colNew: 'Per pull', colPulls: 'Pulls', pullsAvg: '≈ average of 150 simulations',
+      planSee: 'See every gacha',
+      planDone: 'You already have every Pokémon in the gachas.',
+      colBanner: 'Region', colMissing: 'Missing', colHave: 'You have', colNew: 'Per pull', colPulls: 'Pulls', pullsAvg: '≈ average of 150 simulations',
       pullHere: 'Pull here', complete: 'Complete',
       share: 'Share', download: 'Download image',
       otherCollection: 'Another player\'s collection', backToMine: 'Back to mine',
@@ -151,12 +151,12 @@
       siteHost: 'survivortiers.pages.dev',
       viewLabel: 'Collection view', viewNormal: 'Normal', viewShiny: 'Shiny',
       hunted: 'hunted in the wild', shinyTotal: 'shiny in total', shinyHunter: 'Shiny hunter',
-      gachaCount: n => n + ' from a banner', unknownOrigin: n => n + ' unknown origin',
+      gachaCount: n => n + ' from a gacha', unknownOrigin: n => n + ' unknown origin',
       legacyNote: 'This JSON does not say where each shiny came from. Paste this page\'s command again to see it.',
-      odds: () => '1 in ' + grouped(4096, ',') + ' wild Pokémon · 1 in 100 banner pulls',
+      odds: () => '1 in ' + grouped(4096, ',') + ' wild Pokémon · 1 in 100 gacha pulls',
       shinydex: 'Shinydex', filterLabel: 'Filter', sortLabel: 'Sort',
       filterAll: 'All', filterWild: 'Wild only', sortNew: 'Newest', sortDex: 'Pokédex',
-      badgeWild: 'Wild', badgeGacha: 'Banner',
+      badgeWild: 'Wild', badgeGacha: 'Gacha',
       attackKind: { phys: 'physical', spec: 'special', mix: 'mixed' },
       shEmpty: 'You have no shiny yet.', shEmptyWild: 'No shiny hunted in the wild yet.',
     },
@@ -532,10 +532,7 @@
       : state.view === 'legend' ? legendView(c, owned)
       : collectionBody(c, owned, known, unknown, total, guest);
     const result = $('#result');
-    const pull = result.querySelector('.pull-more');
-    const wasOpen = !!(pull && pull.open);
     result.innerHTML = viewTabs() + heading + body;
-    if (wasOpen) { const again = result.querySelector('.pull-more'); if (again) again.open = true; }
     if (state.view === 'shiny') paintShinyGrid(c, guest);
   }
 
@@ -625,7 +622,7 @@
 
   // ---------------------------------------------------------------- gacha: qué tirar
   // Mismo modelo que systems/gacha.js del juego: 1★ 45 % · 2★ 30 % · 3★ 17 % · 4★ 6,5 % · 5★ 1,5 %. Cada tirada saca un
-  // Pokémon al azar del pool de su rareza en el banner (o del más cercano si ese pool está vacío). A las 70 tiradas sin
+  // Pokémon al azar del pool de su rareza en la gacha (o del más cercano si ese pool está vacío). A las 70 tiradas sin
   // 5★, la siguiente es 5★ (pity). Las garantías de la ×10 no se cuentan.
   const GACHA_RATES = [[1, 45], [2, 30], [3, 17], [4, 6.5], [5, 1.5]];
   const GACHA_NEAR = [0, -1, 1, -2, 2, -3, 3, -4, 4];
@@ -645,7 +642,7 @@
     return pools;
   }
 
-  // Pool de una rareza en el banner, o el no vacío más cercano (como poolNear() del juego).
+  // Pool de una rareza en la gacha, o el no vacío más cercano (como poolNear() del juego).
   function nearPool(b, rarity) {
     for (const d of GACHA_NEAR) {
       const r = rarity + d;
@@ -681,7 +678,7 @@
     return 5;
   }
 
-  // Tiradas esperadas (media de SIM_RUNS partidas) hasta tener todos los que te faltan del banner.
+  // Tiradas esperadas (media de SIM_RUNS partidas) hasta tener todos los que te faltan de la gacha.
   function pullsToComplete(b, missing) {
     const near = [];
     for (let r = 1; r <= 5; r++) near[r] = nearPool(b, r);
@@ -708,7 +705,7 @@
     return el ? JSON.parse(el.textContent) : [];
   }
 
-  // La respuesta (en qué banner tirar) va arriba. La lista, con el mismo cálculo, queda plegada debajo.
+  // La respuesta (en qué gacha tirar) va arriba. La lista, con el mismo cálculo, queda plegada debajo.
   function planHtml(owned) {
     const pools = bannerPools(state.mons);
     const rows = bannerNames().map(bn => {
@@ -737,11 +734,11 @@
     return '<section class="pull" id="pull">' +
       '<h3 class="pull-h"><i class="ico ico-dice" aria-hidden="true"></i>' + esc(TEXT.planH) + '</h3>' +
       (top ? planBoard(top, next) : '<p class="pull-done"><i class="ico ico-trophy" aria-hidden="true"></i>' + esc(TEXT.planDone) + '</p>') +
-      '<details class="pull-more"><summary>' + esc(TEXT.planSee) + '<i class="pull-chev" aria-hidden="true"></i></summary>' +
-      '<div class="pull-body"><p class="pull-lede">' + esc(TEXT.planLede) + '</p>' + list + '</div></details></section>';
+      '<div class="pull-more"><h3 class="pull-h">' + esc(TEXT.planSee) + '</h3>' +
+      '<div class="pull-body"><p class="pull-lede">' + esc(TEXT.planLede) + '</p>' + list + '</div></div></section>';
   }
 
-  // Tarjeta del banner que más te acerca, y los dos siguientes en pequeño.
+  // Tarjeta de la gacha que más te acerca, y los dos siguientes en pequeño.
   function planBoard(top, next) {
     const odds = n => esc(TEXT.planOdds(n));
     const alts = next.map((r, i) => {
