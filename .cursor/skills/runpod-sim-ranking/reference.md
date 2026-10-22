@@ -12,6 +12,7 @@ All runs used commit `d6c7592` on `main`, the game pin `ce5785313b0205af8b947742
 | smoke, pod | cpu3c 32 vCPU | 2 | 97 | n/a | 4 s | n/a | included | passed |
 | pilot | cpu5c 32 vCPU, EUR-IS-1 | 41 | 97 | 8.884 | 9,75 s | ≈911 | ≈0,29 USD | complete |
 | full | cpu3c 32 vCPU, EUR-IS-1 | 966 | 97 | 203.902 | 333,35 s | ≈612 | ≈0,16 USD | complete |
+| full, nature search (`feat/ranking-nature-search`, aa98123) | cpu3c 32 vCPU, no DC filter | 966 | 97 | 441.486 | 1.717 s | ≈257 | ≈0,6 USD (39 min pod) | complete, rankingReady false |
 
 Notes on the table:
 

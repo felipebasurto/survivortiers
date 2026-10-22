@@ -35,6 +35,8 @@ The wrapper takes only the preset name. The manifests are fixed files: `simulato
 - `pilot`: 41 species (1 in 24 of the roster), 900 s matches.
 - `full`: all 966 species, 900 s matches.
 
+Since `aa98123` (PR #64) the ranking also searches natures. Each move group (up to 12 per stratum) fans out to neutral plus the four natures that raise the dominant offensive stat. The full plan has 441.486 matches, about 2,2 times the earlier 203.902. Abilities are still picked by `ranking_prior`, not simulated.
+
 There is no species-list argument. Changing the subset means editing the manifest, which changes the plan. Do that only on a branch.
 
 `ranking` ignores `POKESIM_BUDGET_USD` and `POKESIM_MAX_WALL_SECONDS`. Those only affect `run`/`resume`. Enforce a cap yourself, for example `timeout --kill-after=60s 1800s bash simulator/runpod/run.sh ranking full`.
@@ -177,3 +179,10 @@ Gate 2 is the open item that blocks the ranking. Source: [`docs/simulator/readin
 - The web deploy form and the API can disagree on flavor. Check the flavor on the pod (`cpu.id`, `vcpuCount`) after it is created.
 - A pod deployed from the web is billed the same way. If you see one in the web and it is not yours, check before you delete it.
 - zsh does not expand `--include=*.rs` the way bash does. Quote globs in `rg` and `grep`.
+- `ranking.rs` is inside the engine fingerprint. Any change to ranking logic changes `pokesim fingerprint`, which makes the attack lab stale. `ranking plan` refuses a lab whose fingerprint does not match. Regenerate the lab (`attack-lab run`, then `synergy-lab run`). Do not relabel `engineFingerprint` by hand, because that breaks provenance. A relabel is acceptable only as a control test in `/tmp` when the lab is verified identical.
+- The attack lab is not bit-identical across machines. A pod lab and a local lab on the same code differed in 59 of 97 scores (third decimal). That changes move groups and the plan's match count by a few dozen. Compare plans by their own `matchesUpperBound`, and never mix plan and lab from different machines.
+- Winners are chosen by mean survival, then damage per second (`rank_rows`). The canvas and the site sort by kills per minute. Do not read the table's order as "best kills/min" without saying so.
+- Stage A keeps only the top 3 per stratum for stage B, with 2 seeds. More candidates per stratum (for example, nature variants) can push out a previous winner that stage B would have confirmed. Check this when you change the candidate count.
+- Pod setup gotcha: `ssh ... 'cat > file && nohup ... &' <<EOF` backgrounds the whole list, so `cat` reads a closed stdin and the file ends up empty. Write the file in the foreground, then start the job in a separate command.
+- The setup must check out the branch you are testing, not `main`. Otherwise the pod runs old code and the numbers do not match the PR.
+- A 1800 s cap was tight for the nature run. Ranking took 1.642 s, with results `elapsedWallSeconds` 1.717 s, against a rough estimate of about 1.370 s. Stage A ran at about 150 configurations/s, stage B slower, and stage D about 9/s. Size the cap at 2 to 3 times the expected time, as section 5 says, not at the estimate.
