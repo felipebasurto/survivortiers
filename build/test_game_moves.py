@@ -149,6 +149,14 @@ class BuildOutputTests(unittest.TestCase):
         if not (OUT / "moves.json").exists():
             self.skipTest("build/out no existe (ejecuta build/catalog.py)")
 
+    def test_catalog_lists_every_game_move(self):
+        game = json.loads((ROOT / "simulator/data/game.json").read_text(encoding="utf8"))["moves"]
+        ranked = {m["id"] for m in catalog.load_moves()}
+        boosts = {m["id"] for m in catalog.load_unranked()}
+        self.assertEqual(ranked & boosts, set())
+        self.assertEqual(ranked | boosts, set(game))
+        self.assertEqual(len(game), 103)
+
     def test_every_move_has_damage_class(self):
         moves = json.loads((OUT / "moves.json").read_text(encoding="utf8"))
         game = json.loads((DATA / "game_stats.json").read_text(encoding="utf8"))["moves"]

@@ -19,7 +19,42 @@ SPRITES = ROOT / "sprites"
 PREFIX = "/_sprites/"
 
 
+def _redirects() -> dict[str, str]:
+    out = {}
+    for line in (ROOT / "src" / "_redirects").read_text(encoding="utf8").splitlines():
+        line = line.split("#", 1)[0].strip()
+        if not line:
+            continue
+        parts = line.split()
+        if len(parts) >= 2:
+            out[parts[0]] = parts[1]
+    return out
+
+
+REDIRECTS = _redirects()
+
+
 class Handler(SimpleHTTPRequestHandler):
+    def _go(self) -> bool:
+        path = self.path.split("?", 1)[0]
+        dest = REDIRECTS.get(path)
+        if not dest:
+            return False
+        qs = self.path.split("?", 1)[1] if "?" in self.path else ""
+        self.send_response(301)
+        self.send_header("Location", dest + ("?" + qs if qs else ""))
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+        return True
+
+    def do_GET(self):
+        if not self._go():
+            super().do_GET()
+
+    def do_HEAD(self):
+        if not self._go():
+            super().do_HEAD()
+
     def translate_path(self, path: str) -> str:
         clean = path.split("?", 1)[0].split("#", 1)[0]
         if clean.startswith(PREFIX):

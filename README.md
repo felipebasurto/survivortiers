@@ -30,7 +30,7 @@ Web: https://survivortiers.pages.dev
 | `build/agents.py` | Archivos para agentes de IA y buscadores: `llms.txt`, `llms-full.txt` (diccionario de datos y método), `robots.txt`, `sitemap.xml`, `data/ranking.csv`, `data/meta.json`, `data/gachas.json` y el JSON-LD `Dataset` de la portada |
 | `build/static_ficha.py` | La ficha de cada Pokémon: por qué está ahí, cuánto aguanta, sus dos builds, sus stats del juego y cómo conseguirlo |
 | `build/objetos.py`, `build/pasivas.py` | Objetos y cartas de nivel tal cual los define el código del juego, sin tiers: no se han simulado |
-| `build/regions.py` | Insignias de región de la página Gacha (SVG propio y sprites de los legendarios de portada) |
+| `build/regions.py` | Insignias de región de la página Colección (SVG propio y sprites de los legendarios de portada) |
 | `build/serve.py` | Servidor local con el mismo comportamiento que el hosting: 404.html con estado 404 y `/_sprites/` |
 | `build/shiny_sprites.py` | Deriva qué especies pueden ser shiny (`data/shiny_species.json`) desde los metadatos de sprites del juego, en un commit fijo, y recorta sus sprites shiny a `sprites/shiny/`. Sin argumentos comprueba el repositorio del juego en caché; `--fetch` lo descarga |
 | `build/import_game_combat.py` | Añade a `data/pokedex_export.json` `pa`, `sa`, `df` y `sd` (ataque físico y especial, Defensa y Def. Especial) desde `js/data/pokedex.js` del juego en el commit `5a23d49`. Comprueba que hp, spd, atk, tipos, rareza y generación no hayan cambiado |

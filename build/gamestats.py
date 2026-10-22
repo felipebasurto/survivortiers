@@ -12,8 +12,10 @@ from pathlib import Path
 import legal
 from i18n import NBSP, TYPE_NAMES, Lang
 
-DATA = Path(__file__).resolve().parent.parent / "data"
+ROOT = Path(__file__).resolve().parent.parent
+DATA = ROOT / "data"
 GAME = json.loads((DATA / "game_stats.json").read_text(encoding="utf8"))
+GAME_JSON = json.loads((ROOT / "simulator/data/game.json").read_text(encoding="utf8"))
 MOVE_ICONS = json.loads((DATA / "move_icons.json").read_text(encoding="utf8"))
 TYPE_MATRIX = json.loads((DATA / "type_matrix.json").read_text(encoding="utf8"))
 
@@ -55,6 +57,22 @@ def single_chart() -> dict[str, dict[str, float]]:
     return {atk: {d: TYPE_MATRIX[atk][d] for d in TYPE_KEYS} for atk in TYPE_KEYS}
 
 
+def learnsets() -> dict[str, list[str]]:
+    """Movimientos que cada especie puede usar: su grupo de tipos, sus MT y el inicial."""
+    known = set(GAME["moves"])
+    out = {}
+    for mon in GAME_JSON["dex"]:
+        start = mon["start"]
+        seq = list(mon["pool"]) + list(mon["tms"]) + ([start] if isinstance(start, str) else list(start))
+        ids, seen = [], set()
+        for mid in seq:
+            if mid in known and mid not in seen:
+                seen.add(mid)
+                ids.append(mid)
+        out[str(mon["dex"])] = ids
+    return out
+
+
 def site_json() -> dict:
     moves = {}
     for mid, m in GAME["moves"].items():
@@ -64,4 +82,5 @@ def site_json() -> dict:
         if mid in MOVE_ICONS:
             entry["i"] = MOVE_ICONS[mid]
         moves[mid] = entry
-    return {"commit": COMMIT, "chart": single_chart(), "moves": moves, "pool": GAME["pool"], "dex": GAME["dex"]}
+    return {"commit": COMMIT, "chart": single_chart(), "moves": moves, "pool": GAME["pool"],
+            "dex": GAME["dex"], "learn": learnsets()}

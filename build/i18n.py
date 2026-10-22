@@ -47,7 +47,7 @@ STR: dict[str, tuple[str, str]] = {
     "nav_ataques": ("Ataques", "Moves"),
     "nav_objetos": ("Objetos", "Items"),
     "nav_pasivas": ("Pasivas", "Passives"),
-    "nav_gachas": ("Gacha", "Gacha"),
+    "nav_coleccion": ("Colección", "Collection"),
     "nav_acerca": ("Info", "About"),
     "lang_label": ("Idioma", "Language"),
     "theme_btn": ("Tema claro u oscuro", "Light or dark theme"),
@@ -463,22 +463,26 @@ STR: dict[str, tuple[str, str]] = {
                       "We do not rank them: the simulation takes them in a fixed order and does not measure which is better."),
 
     # ------------------------------------------------------------ gacha
-    "gachas_title": ("Gacha de {game} · {site}", "Gacha for {game} · {site}"),
-    "gachas_desc": ("Qué banner de gacha de {game} da más Pokémon top.",
-                    "Which {game} gacha banner gives the most top Pokémon."),
-    "gachas_h1": ("Gacha y colección de {game}", "Gacha and collection for {game}"),
-    "gc_tabs": ("Gacha o colección", "Gacha or collection"),
-    "tab_gacha": ("Gacha", "Gacha"),
-    "tab_coleccion": ("Mi colección", "My collection"),
+    "gachas_title": ("Colección de {game} · {site}", "Collection for {game} · {site}"),
+    "gachas_desc": ("Qué hay en cada banner de {game}, las probabilidades y las tiradas esperadas.",
+                    "What each {game} banner holds, the odds and the expected pulls."),
+    "gachas_h1": ("Colección", "Collection"),
+    "gc_tabs": ("Banners o la tuya", "Banners or yours"),
+    "tab_gacha": ("Banners", "Banners"),
+    "tab_coleccion": ("La tuya", "Yours"),
     "g_yours": ("Ver qué te falta en cada banner", "See what you're missing in each banner"),
     "g_one_in": ("1 de cada {n} es top", "1 in {n} is top"),
+    "g_sa": ("{p} % S o A", "{p}% S or A"),
+    "g_pull_alt": ("{name}, tier {t}, {n} tiradas", "{name}, tier {t}, {n} pulls"),
     "g_best": ("Mejor banner", "Best banner"),
     "g_worst": ("Mejor no", "Skip"),
-    "g_pulls": ("Mejores Pokémon de {name}", "Best Pokémon in {name}"),
+    "g_pulls": ("Mejor de cada tier en {name}", "Best of each tier in {name}"),
 
     # ------------------------------------------------------------ colección
-    "col_title": ("Mi colección de {game} · {site}", "My {game} collection · {site}"),
-    "col_desc": ("Mira tu colección de {game} por tier.", "See your {game} collection by tier."),
+    "col_h1": ("Colección", "Collection"),
+    "col_title": ("Colección de {game} · {site}", "Collection for {game} · {site}"),
+    "col_desc": ("Qué hay en cada banner de {game}, las probabilidades y las tiradas esperadas.",
+                 "What each {game} banner holds, the odds and the expected pulls."),
     "col_step1_html": ("<strong>Abre el juego</strong> con tu cuenta. El modo invitado no guarda nada.",
                        "<strong>Open the game</strong> signed in. Guest mode saves nothing."),
     "col_step2_html": ("<strong>Pega esto en la consola</strong> (F12). Si te lo pide, escribe "
@@ -632,7 +636,7 @@ STR: dict[str, tuple[str, str]] = {
     # ------------------------------------------------------------ nota del Repertorio
 
     # ------------------------------------------------------------ potenciadores (pasivas)
-    "pv_buff_h": ("Potenciadores: el tope de dos y la categoría", "Boosts: the two-boost cap and the category"),
+    "pv_buff_h": ("Potenciadores", "Boosts"),
     "pv_buff_lede": ("Un potenciador no hace daño: sube una estadística mientras dura. Con dos potenciadores en el grupo, "
                      "las cartas de movimiento nuevo ya no ofrecen más potenciadores. Las mejoras de los que ya tienes siguen saliendo.",
                      "A boost does no damage: it raises one stat while it lasts. With two boosts in your group, new-move cards "
@@ -641,8 +645,8 @@ STR: dict[str, tuple[str, str]] = {
     "pv_buff_th_stat": ("Sube", "Raises"),
     "pv_buff_th_cd": ("Recarga", "Cooldown"),
     "pv_buff_th_dur": ("Dura", "Lasts"),
-    "pv_buff_th_max": ("Máximo sin mejoras", "Max, no upgrades"),
-    "pv_buff_th_top": ("Con todas las mejoras", "Fully upgraded"),
+    "pv_buff_th_max": ("Sin mejoras", "No upgrades"),
+    "pv_buff_th_top": ("Mejorado", "Upgraded"),
     "pv_buff_top": ("{amt}, {dur} s", "{amt}, {dur} s"),
     "pv_buff_cat_phys": ("ataque físico", "physical attack"),
     "pv_buff_cat_spec": ("ataque especial", "special attack"),
@@ -758,6 +762,23 @@ STR: dict[str, tuple[str, str]] = {
 
 # Ranking acotado: textos que sustituyen a los de la fase 3.
 STR.update({'m3_desc': ('Cómo se hace el ranking de {game}: {games} partidas simuladas con el código del juego en el ranking acotado, sin reglas a mano.', "How the {game} ranking is made: {games} runs simulated with the game's code in the bounded ranking, with no hand-made rules."), 'm3_notice': ('Cada Pokémon prueba ataques, habilidad y naturaleza, y se ordena por lo que aguanta su mejor build sin MT. Muchos puestos han cambiado.', 'Each Pokémon tries moves, ability and nature, and is sorted by how long its best no-TM build survives. Many ranks have changed.'), 'm3_lede': ('{games} partidas de un bot con el código del juego, de hasta {minutes} minutos cada una. Las fases 1 y 2 siguen dando la tier list de ataques; el puesto de cada Pokémon sale del ranking acotado.', "{games} runs by a bot using the game's code, up to {minutes} minutes each. Phases 1 and 2 still give the move tier list; each Pokémon's rank comes from the bounded ranking."), 'm3_p3': ('Ranking acotado (bounded-ranking-v2): cada Pokémon prueba hasta 12 grupos por estilo (cuerpo a cuerpo y distancia), con y sin MT, con la naturaleza neutra y las cuatro que suben su ataque dominante, y la habilidad que elige el juego. Ronda A con 2 semillas, los 3 mejores pasan a la ronda B y el ganador se confirma con 16 semillas nuevas: 441.486 partidas.', 'Bounded ranking (bounded-ranking-v2): each Pokémon tries up to 12 groups per style (melee and ranged), with and without TMs, with the neutral nature and the four that raise its dominant attack, and the ability the game picks. Round A with 2 seeds, the top 3 go to round B and the winner is confirmed with 16 new seeds: 441,486 runs.'), 'm3_p3_var': ('No hay variantes ni desempates aparte: se publica una build por estilo. Las builds con MT salen en la ficha, pero no cuentan para el puesto, para comparar a todos igual.', 'There are no separate variants or tie-breaks: one build per style is published. TM builds are shown on each page but do not count for the rank, so everyone is compared the same way.'), 'm3_rank': ('El puesto ordena cada Pokémon por la mediana de supervivencia, en segundos, de su build confirmada sin MT (16 partidas), la mejor de los dos estilos. Las builds de 2 y 8 partidas no cuentan para el orden. Las builds de la ficha, con y sin MT, llevan 4 movimientos, Danza Espada o Maquinación (o Fortaleza si rinde más) y, salvo en los de tipo Normal, ni Placaje, ni Ataque Rápido ni Golpe Cuerpo; se prefiere la confirmada, luego la de 8 partidas y luego la de 2. Si ninguna cumple, se enseña la mejor que hay. Tiers por puesto: {sizes}.', "The rank sorts each Pokémon by the median survival, in seconds, of its confirmed no-TM build (16 runs), the better of the two styles. Builds with 2 and 8 runs do not count for the order. The builds on each page, with and without TMs, have 4 moves, Swords Dance or Nasty Plot (or Harden if it does better) and, except for Normal types, no Tackle, Quick Attack or Body Slam; the confirmed one is preferred, then the 8-run one, then the 2-run one. If none meets the rules, the best available one is shown. Tiers by rank: {sizes}."), 'm3_why': ('Un ajuste sobre los 966 dice cuánto pesa cada factor en la supervivencia: el ataque del Pokémon, lo bueno que es su grupo, PS, Defensa, Def. Especial, velocidad, tamaño y el daño que le hacen por sus tipos. Explica el {r2} de las diferencias (R²). La ficha nombra los factores que más le suman y le restan.', "A fit over all 966 says how much each factor weighs on survival: the Pokémon's attack, how good its group is, HP, Defense, Sp. Def., speed, size and the damage its types take. It explains {r2} of the differences (R²). Each page names the factors that add and subtract the most."), 'surv_text': ('Un bot juega partidas de hasta {minutes} minutos sin objetos. Con la build {kind} aguanta {t} de mediana; la mediana de los 966 es {med}. Sirve para comparar Pokémon, no es lo que durará tu partida.', 'A bot plays runs of up to {minutes} minutes with no items. With the {kind} build it lasts {t} on median; the median of all 966 is {med}. It is for comparing Pokémon, not how long your run will last.'), 'bd_score': ('Supervivencia (s)', 'Survival (s)'), 'why_note': ('Cuánto sube o baja su supervivencia cada factor frente a un Pokémon en la media. La barra es su percentil.', 'How much each factor raises or lowers its survival against an average Pokémon. The bar is its percentile.'), 'why_flat': ('Está cerca de la media en todo: ningún factor le mueve la supervivencia más de un 2 %.', 'It is close to average in everything: no factor moves its survival by more than 2%.')})
+
+STR.update({
+    "m3_desc": ("Cómo se ordena el ranking de {game}: la mediana de las builds confirmadas a 16 partidas.",
+                "How the {game} ranking is ordered: the median of the builds confirmed over 16 runs."),
+    "m3_notice": ("El puesto es la mediana de supervivencia de la build sin MT confirmada a 16 partidas.",
+                  "Rank is the median survival of the confirmed 16-run no-TM build."),
+    "m3_lede": ("Cada Pokémon se ordena por esa mediana, la mejor de cuerpo a cuerpo y distancia.",
+                "Each Pokémon is sorted by that median, the better of melee and ranged."),
+    "m3_rank": ("El puesto ordena cada Pokémon por la mediana de supervivencia, en segundos, de su build confirmada sin MT (16 partidas), la mejor de los dos estilos. Las de 2 y de 8 partidas no ordenan. Tiers por puesto: {sizes}.",
+                "Rank sorts each Pokémon by the median survival, in seconds, of its confirmed no-TM build (16 runs), the better of the two styles. Builds with 2 and 8 runs do not set the order. Tiers by rank: {sizes}."),
+    "m3_rules_h": ("Reglas de las builds", "Build rules"),
+    "m3_rules": ("Cuatro huecos y los potenciadores cuentan. Danza Espada o Maquinación. Fortaleza solo si aguanta más. Placaje, Ataque Rápido y Golpe Cuerpo no entran salvo en tipo Normal. Se prefiere la confirmada, luego la de 8 partidas y luego la de 2. Si ninguna cumple, se enseña la mejor que hay.",
+                 "Four slots and boosts count. Swords Dance or Nasty Plot. Harden only if it lasts longer. Tackle, Quick Attack and Body Slam stay out unless the type is Normal. The confirmed build is preferred, then the 8-run one, then the 2-run one. If none qualifies, the best available build is shown."),
+    "m3_prov_h": ("De dónde salen las cifras", "Where the numbers come from"),
+    "m3_prov": ("Ranking acotado (bounded-ranking-v2), {games} partidas: ronda A con 2, los 3 mejores a la ronda B con 8, y el ganador se confirma con 16. Las fases 1 y 2 ordenan la lista de ataques y no fijan el puesto. Código del juego: commit {sha}.",
+                "Bounded ranking (bounded-ranking-v2), {games} runs: round A with 2, the top 3 go to round B with 8, and the winner is confirmed with 16. Phases 1 and 2 order the move list and do not set rank. Game code: commit {sha}."),
+})
 
 TYPE_NAMES = {
     "es": {"normal": "Normal", "fire": "Fuego", "water": "Agua", "grass": "Planta", "electric": "Eléctrico",

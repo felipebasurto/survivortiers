@@ -106,6 +106,9 @@ class StaticMewtwo(unittest.TestCase):
             self.assertIn(f'<section class="why" id="porque"', html)
             self.assertIn(f'<section class="sheet stats" id="stats"', html)
             self.assertIn('<section class="bx" id="build"', html)
+            self.assertEqual(html.count('class="bx-card is-best"'), 1)
+            self.assertNotIn('class="why-note"', html)
+            self.assertIn('class="hx-svg"', html)
             self.assertNotIn(legal.UPDATED_COMMIT, text)
             self.assertIn("FAQPage", html)
             self.assertIn(f'rel="canonical" href="{legal.SITE_URL}/', html)
@@ -125,6 +128,20 @@ class StaticMewtwo(unittest.TestCase):
         pages = len(agents.PAGES) + 966 + len(landing.pages()) + len(toolpages.FOLDERS)
         self.assertEqual(sitemap.count("<url>"), pages * 2)
         self.assertIn("/en/pokemon/150-mewtwo/", sitemap)
+
+    def test_attacks_page_lists_every_game_move_and_collection_replaces_gacha(self) -> None:
+        game = json.loads((ROOT / "simulator/data/game.json").read_text(encoding="utf8"))["moves"]
+        html = (SITE / "ataques.html").read_text(encoding="utf8")
+        missing = [mid for mid, m in game.items() if f"<h4>{html_lib.escape(m['levels'][0]['name'])}</h4>" not in html]
+        self.assertEqual(missing, [])
+        self.assertEqual(html.count("<h4>"), 103)
+        self.assertFalse((SITE / "gachas.html").exists())
+        es = (SITE / "coleccion.html").read_text(encoding="utf8")
+        en = (SITE / "en" / "coleccion.html").read_text(encoding="utf8")
+        self.assertIn("<h1>Colección</h1>", es)
+        self.assertIn("<h1>Collection</h1>", en)
+        self.assertNotIn(">Gacha<", es)
+        self.assertNotIn(">Gacha<", en)
 
     def test_no_cards_or_items_are_recommended(self) -> None:
         for rel in ("pokemon/150-mewtwo/index.html", "en/pokemon/150-mewtwo/index.html"):

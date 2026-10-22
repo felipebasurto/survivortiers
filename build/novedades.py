@@ -13,13 +13,11 @@ from i18n import Lang
 
 PATCH_COMMIT = "5a23d49"
 GAME_REPO = "https://github.com/JPTER78/pokesurvivor"
-BANNER_KEY = "survivortiers.novedades.20261019b"
+BANNER_KEY = "survivortiers.novedades.20261022"
 
 LEDE = (
-    "El 21 de octubre cambiamos cómo se hace el ranking. Antes, dos actualizaciones del juego seguidas: la del 18 de octubre de 2026 (físico y especial) y la del 19 (38 ataques nuevos). "
-    "El ranking se recalcula con las dos: los puestos de antes ya no valen.",
-    "On October 21 we changed how the ranking is made. Before that, two game updates in a row: October 18, 2026 (physical and special) and October 19 (38 new moves). "
-    "The ranking is recalculated with both: the old positions no longer count.",
+    "El 22 de octubre el puesto pasa a ser la mediana de 16 partidas. También cambian las builds, la ficha y la página de colección.",
+    "On October 22 rank becomes the median of 16 runs. Builds, each page and the collection page change too.",
 )
 
 H1 = ("Novedades", "What's new")
@@ -117,6 +115,22 @@ SECTIONS_19 = [
 
 # Cambio del sitio, no del juego: el método del ranking (build/attack_tiers.py, bond_tiers.py, species_builds.py).
 SECTIONS_SITE = [
+    {
+        "id": "hoy",
+        "h": ("22 oct 2026", "Oct 22, 2026"),
+        "list": [
+            ("El puesto es la mediana de la build sin MT confirmada a 16 partidas.",
+             "Rank is the median of the confirmed 16-run no-TM build."),
+            ("Builds de 4 huecos: Danza Espada o Maquinación, Fortaleza solo si aguanta más, y Placaje, Ataque Rápido y Golpe Cuerpo solo en tipo Normal.",
+             "4-slot builds: Swords Dance or Nasty Plot, Harden only if it lasts longer, and Tackle, Quick Attack and Body Slam only on Normal types."),
+            ("La ficha marca la build que más aguanta y enseña las estadísticas en un hexágono.",
+             "Each page marks the build that lasts longest and shows the stats on a hexagon."),
+            ("Habilidades, naturalezas y la página de banners, que ahora se llama Colección.",
+             "Abilities, natures and the banner page, now called Collection."),
+            ("Tabla de tipos y menos texto en las páginas.",
+             "A type chart, and less text on the pages."),
+        ],
+    },
     {
         "id": "tipos-y-variantes",
         "h": ("21 oct 2026: tipos y variantes de cada build", "Oct 21, 2026: types and variants of each build"),
@@ -299,15 +313,14 @@ FOOT = (
 )
 
 BANNER = {
-    "text": ("38 ataques nuevos y el ranking se rehizo. Los puestos de antes ya no valen.",
-             "38 new moves and the ranking was rebuilt. The old positions no longer count."),
+    "text": ("Mediana de 16 partidas, ficha nueva y Colección.",
+             "16-run median, a new page layout and Collection."),
     "link": ("Qué ha cambiado", "What changed"),
     "close": ("Cerrar aviso", "Dismiss notice"),
     "title": ("Novedades de {game} · {site}", "What's new in {game} · {site}"),
-    "desc": ("Qué cambia en {game} con las actualizaciones del 18 y el 19 de octubre de 2026: 38 ataques nuevos, "
-             "Movimiento inicial, ataques físicos y especiales, Maquinación, jefes y la Sentencia de Arceus.",
-             "What changes in {game} with the October 18 and 19, 2026 updates: 38 new moves, Starting move, physical "
-             "and special moves, Nasty Plot, bosses and Arceus' Judgment."),
+    "desc": ("Cambios del 22 de octubre de 2026 en el ranking de {game}: mediana de 16 partidas, reglas de build, "
+             "ficha nueva y Colección.",
+             "October 22, 2026 changes to the {game} ranking: a 16-run median, build rules, a new page layout and Collection."),
 }
 
 

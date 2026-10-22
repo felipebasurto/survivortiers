@@ -59,8 +59,18 @@ class ToolsDataTest(unittest.TestCase):
 
     def test_site_json_shape(self):
         js = gamestats.site_json()
-        self.assertEqual(set(js), {"commit", "chart", "moves", "pool", "dex"})
+        self.assertEqual(set(js), {"commit", "chart", "moves", "pool", "dex", "learn"})
         self.assertEqual(len(js["chart"]), 18)
+        self.assertEqual(len(js["learn"]), 966)
+        self.assertIn("bulldoze", js["learn"]["6"])
+        self.assertIn("dragon-dance", js["learn"]["6"])
+        self.assertIn("ember", js["learn"]["6"])
+        known = set(js["moves"])
+        covered = set()
+        for ids in js["learn"].values():
+            self.assertTrue(set(ids) <= known)
+            covered.update(ids)
+        self.assertEqual(covered, known)
         self.assertEqual(js["moves"]["swords-dance"]["b"]["stat"], "patk")
         self.assertIn("i", js["moves"]["nasty-plot"])
 
@@ -123,7 +133,7 @@ class ToolsHtmlTest(unittest.TestCase):
         self.assertIn('id="potenciadores"', html)
         self.assertIn("Danza Espada", html)
         self.assertIn("+13\u00a0%", html)
-        self.assertIn(gamestats.COMMIT, html)
+        self.assertNotIn(gamestats.COMMIT, html)
 
     def test_tool_folders_match_between_languages(self):
         self.assertEqual(toolpages.twin(ES, "finder"), "type-finder/index.html")

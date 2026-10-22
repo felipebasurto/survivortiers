@@ -22,7 +22,7 @@ from i18n import EN, ES, TYPE_NAMES, Lang
 
 ROOT = Path(__file__).resolve().parent.parent
 RANKING_SRC = ROOT / "data" / "ranking_fase3.csv"
-PAGES = ["", "novedades.html", "ataques.html", "objetos.html", "pasivas.html", "habilidades.html", "naturalezas.html", "tipos.html", "gachas.html", "coleccion.html", "metodo.html", "acerca.html"]
+PAGES = ["", "novedades.html", "ataques.html", "objetos.html", "pasivas.html", "habilidades.html", "naturalezas.html", "tipos.html", "coleccion.html", "metodo.html", "acerca.html"]
 LANG_PREFIX = {"es": "", "en": "en/"}
 
 
@@ -48,7 +48,7 @@ def dataset_jsonld(L: Lang, meta: dict) -> str:
              ("application/json", "data/pokemon-index.json", "Pokémon index (JSON)"),
              ("application/json", "data/species.json", "Builds per Pokémon (JSON)"),
              ("application/json", "data/moves.json", "Moves (JSON)"),
-             ("application/json", "data/gachas.json", "Gacha banners (JSON)"),
+             ("application/json", "data/gachas.json", "Banners (JSON)"),
              ("application/json", "data/meta.json", "Method and metadata (JSON)")]
     doc = {
         "@context": "https://schema.org",
@@ -106,7 +106,7 @@ Base URL: {u}
 - [Pokémon index (JSON)]({u}/data/pokemon-index.json): all {meta['total']} Pokémon with rank, tier and sort values.
 - [Builds per Pokémon (JSON)]({u}/data/species.json): the best melee and the best ranged build of each Pokémon, with their medians.
 - [Moves (JSON)]({u}/data/moves.json): every attack, with its phase 1 tier, type, kind and game parameters. The six boosts are in [moves_unranked.json]({u}/data/moves_unranked.json).
-- [Gacha banners (JSON)]({u}/data/gachas.json): the nine banners, pool sizes, S and A rates and the chance of an S or A pull.
+- [Banners (JSON)]({u}/data/gachas.json): the nine banners, pool sizes, S and A rates and the chance of an S or A pull.
 - [Method and metadata (JSON)]({u}/data/meta.json): tier cut-offs, tier counts, survival times, run counts per phase and the weights behind each page's "why".
 
 ## Docs
@@ -125,8 +125,7 @@ Base URL: {u}
 - [Passives (EN)]({u}/en/pasivas): the level-up cards, boosts and abilities as the game code defines them, plus the natures that raise each stat with their win counts in the bounded ranking.
 - [Move types (EN)]({u}/en/tipos): how each move type hits the enemies that spawn, from the game's type chart, plus weather.
 - [What's new (EN)]({u}/en/novedades): game updates and site changes.
-- [Gacha (EN)]({u}/en/gachas): banners and pull odds.
-- [Collection (EN)]({u}/en/coleccion): collection helper.
+- [Collection (EN)]({u}/en/coleccion): banners, pull odds and your own collection.
 - [Method (EN)]({u}/en/metodo): how the ranking is built, with the numbers.
 - [About (EN)]({u}/en/acerca): fan-site notice, sprite credits and licences.
 - [Type finder (EN)]({u}/en/type-finder/): pick one or two types and see which Pokémon have them, with their weaknesses.

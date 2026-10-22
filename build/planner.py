@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from html import escape
 
-import gamestats
 import toolpages
 from i18n import Lang
 
@@ -24,8 +23,6 @@ TOOL_KEYS = (
 
 def content(L: Lang) -> str:
     finder = "../" + toolpages.folder(L, "finder")
-    source = L.t("bp_source", url=escape(gamestats.game_url("js/data/moves.js")),
-                 stats=escape(gamestats.game_url("js/data/pokedex.js")), sha=gamestats.COMMIT)
     return f"""
 <div class="bp tool" id="bp-app" hidden>
 <h1>{escape(L.t("bp_h1"))}</h1>
@@ -52,7 +49,6 @@ def content(L: Lang) -> str:
   <h2 id="bp-how-h">{escape(L.t("bp_boost_guide"))}</h2>
   <p>{escape(L.t("bp_how"))}</p>
   <p><a href="../pasivas.html#potenciadores">{escape(L.t("pv_buff_link"))}</a> · <a href="{escape(finder)}">{escape(L.t("guide_finder"))}</a></p>
-  <p class="muted small">{source}</p>
 </section>
 {toolpages.blob(L, TOOL_KEYS)}
 </div>

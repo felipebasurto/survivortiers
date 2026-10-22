@@ -22,8 +22,6 @@ if BOUNDED["gameCommit"] != GAME["gameCommit"]:
 
 T = {
     "h": ("Mejores builds", "Best builds"),
-    "lede": ("La build que más aguanta en la simulación con cada estilo.",
-             "The build that survives longest in the simulation with each style."),
     "melee": ("Cuerpo a cuerpo", "Melee"), "ranged": ("A distancia", "Ranged"),
     "no_tm": ("Sin MT", "No TMs"), "optimized": ("Con MT", "With TMs"),
     "line": ("Empieza con {start} · Habilidad {ability} · Naturaleza {nature}",
@@ -57,7 +55,7 @@ T = {
     "ns_link": ("Tabla completa de naturalezas", "Full nature table"),
     "ns_col_n": ("Naturaleza", "Nature"), "ns_col_d": ("Baja", "Lowers"),
     "ns_col_w": ("Veces elegida (cuerpo a cuerpo / distancia)", "Times picked (melee / ranged)"),
-    "ns_neutral": ("Neutras (sin cambios), veces elegidas: {m} / {r}", "Neutral (no change), times picked: {m} / {r}"),
+    "ns_neutral": ("Neutras {m} / {r}", "Neutral {m} / {r}"),
 }
 STAT = {"pa": ("Ataque", "Attack"), "sa": ("Ataque especial", "Special attack"), "df": ("Defensa", "Defense"),
         "sd": ("Defensa especial", "Special defense"), "spd": ("Velocidad", "Speed")}
@@ -106,7 +104,7 @@ def _chip(L, mid: str, moves_by: dict) -> str:
             f'{escape(move_name(L, mid, moves_by))}</li>')
 
 
-def _card(L, style: str, b: dict, moves_by: dict) -> str:
+def _card(L, style: str, b: dict, moves_by: dict, best: bool) -> str:
     start = ", ".join(move_name(L, m, moves_by) for m in b["start"])
     nat = NAT[b["nature"]]
     line = t(L, "line", start=start, ability=ability_name(L, b["ability"]), nature=nat["n"][_i(L)])
@@ -114,21 +112,39 @@ def _card(L, style: str, b: dict, moves_by: dict) -> str:
     if b["tms"]:
         names = ", ".join(f'{move_name(L, m, moves_by)} ({L.num(GAME["tmPrices"][m])})' for m in b["tms"])
         tms = f'<p class="bx-tm">{escape(t(L, "tms", tms=names))}</p>'
-    return (f'<li class="bx-card" data-build="{style}"><div class="bx-top"><h4>{escape(t(L, style))}</h4>'
+    cls = "bx-card is-best" if best else "bx-card"
+    return (f'<li class="{cls}" data-build="{style}"><div class="bx-top"><h4>{escape(t(L, style))}</h4>'
             f'<span class="bx-surv">{escape(t(L, "surv", s=L.dec(b["survival"], 0)))}</span></div>'
             f'<ul class="bx-chips">{"".join(_chip(L, m, moves_by) for m in b["attacks"])}</ul>'
             f'<p class="bx-line">{escape(line)}</p>{tms}</li>')
 
 
+def best_card(dex: int) -> tuple[str, str] | None:
+    """La build con más supervivencia. A igualdad, gana la primera en este orden."""
+    rows = BOUNDED["species"][str(dex)]
+    best = None
+    for avail in ("no_tm", "optimized"):
+        for style in ("melee", "ranged"):
+            b = rows.get(f"{style}|{avail}")
+            if b is None:
+                continue
+            if best is None or b["survival"] > best[0]:
+                best = (b["survival"], avail, style)
+    if best is None:
+        return None
+    return best[1], best[2]
+
+
 def builds_section(L, dex: int, moves_by: dict) -> str:
+    winner = best_card(dex)
     groups = []
     for avail in ("no_tm", "optimized"):
         cs = cards(dex, avail)
         if cs:
-            groups.append(f'<h3>{escape(t(L, avail))}</h3>'
-                          f'<ul class="bx-list">{"".join(_card(L, s, b, moves_by) for s, b in cs)}</ul>')
+            groups.append(f'<h3>{escape(t(L, avail))}</h3><ul class="bx-list">'
+                          f'{"".join(_card(L, s, b, moves_by, (avail, s) == winner) for s, b in cs)}</ul>')
     return (f'<section class="bx" id="build" aria-labelledby="bx-h"><h2 id="bx-h">{escape(t(L, "h"))}</h2>'
-            f'<p class="bx-lede">{escape(t(L, "lede"))}</p>{"".join(groups)}</section>')
+            f'{"".join(groups)}</section>')
 
 
 def abilities_section(L, home: str = "") -> str:
@@ -162,24 +178,22 @@ def natures_by_stat_section(L, home: str) -> str:
     def w(nid: str, style: str) -> int:
         return wins.get(style, {}).get(nid, 0)
 
-    def cell(nid: str, stat: str) -> str:
-        if stat not in ("pa", "sa"):  # el ranking no probó estas naturalezas: no es un 0
-            return escape(t(L, "untested"))
-        return f'{w(nid, "melee")} / {w(nid, "ranged")}'
-
     blocks = []
     for stat in ("pa", "sa", "df", "sd", "spd"):
         ns = sorted((n for n in GAME["natures"] if n["up"] == stat),
                     key=lambda n: (-(w(n["id"], "melee") + w(n["id"], "ranged")), order.index(n["id"])))
-        body = "".join(f'<tr><th scope="row">{escape(n["n"][_i(L)])}</th><td class="nat-down">{escape(STAT[n["down"]][_i(L)])}</td>'
-                       f'<td>{cell(n["id"], stat)}</td></tr>' for n in ns)
-        blocks.append(f'<h3>+{escape(STAT[stat][_i(L)])}</h3><div class="nat-table"><table><thead><tr>'
-                      f'<th scope="col">{escape(t(L, "ns_col_n"))}</th><th scope="col">{escape(t(L, "ns_col_d"))}</th>'
-                      f'<th scope="col">{escape(t(L, "ns_col_w"))}</th></tr></thead><tbody>{body}</tbody></table></div>')
+        items = []
+        for n in ns:
+            count = ""
+            if stat in ("pa", "sa"):
+                count = f'<b class="ns-n">{w(n["id"], "melee")} / {w(n["id"], "ranged")}</b>'
+            items.append(f'<li><span>{escape(n["n"][_i(L)])} <small>{escape(STAT[n["down"]][_i(L)])}</small></span>{count}</li>')
+        blocks.append(f'<section><h3>+{escape(STAT[stat][_i(L)])}</h3><ol>{"".join(items)}</ol></section>')
     neutral = [n["id"] for n in GAME["natures"] if not n["up"]]
     nm = sum(w(n, "melee") for n in neutral)
     nr = sum(w(n, "ranged") for n in neutral)
     return (f'<section class="pv-natures" id="naturalezas-por-estadistica" aria-labelledby="pv-ns-h">'
-            f'<h2 id="pv-ns-h">{escape(t(L, "ns_h"))}</h2><p class="lede">{escape(t(L, "ns_lede", rows=BOUNDED["source"]["rows"]))}'
-            f'<a href="{home}naturalezas.html">{escape(t(L, "ns_link"))}</a></p>'
-            f'{"".join(blocks)}<p>{escape(t(L, "ns_neutral", m=nm, r=nr))}</p></section>')
+            f'<h2 id="pv-ns-h">{escape(t(L, "ns_h"))}</h2>'
+            f'<p><a href="{home}naturalezas.html">{escape(t(L, "ns_link"))}</a></p>'
+            f'<div class="ns-cols">{"".join(blocks)}</div>'
+            f'<p class="ns-neutral">{escape(t(L, "ns_neutral", m=nm, r=nr))}</p></section>')
