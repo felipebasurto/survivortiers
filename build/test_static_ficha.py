@@ -99,10 +99,10 @@ class StaticMewtwo(unittest.TestCase):
         self.assertIn(f"<title>Mewtwo en {game}: tier {row['tier']}, mejor build y ataques | SurvivorTiers</title>", es)
         self.assertIn(f"<title>Mewtwo in {game}: {row['tier']} tier, best build and moves | SurvivorTiers</title>", en)
         self.assertEqual(row["build"], pair["best"])
-        for html, why in ((es, "Por qué es el nº"), (en, "Why it is #")):
+        for html, why in ((es, "Por qué es el nº "), (en, "Why it is #")):
             self.assertRegex(html, r"<h1>Mewtwo <")
             text = _visible(html)
-            self.assertIn(f"{why} {row['rank']}", text)
+            self.assertIn(f"{why}{row['rank']}", re.sub(r"# (\d)", r"#\1", text))
             self.assertIn(f'<section class="why" id="porque"', html)
             self.assertIn(f'<section class="sheet stats" id="stats"', html)
             self.assertIn('<section class="bx" id="build"', html)
