@@ -28,7 +28,7 @@ Recall does not prove the prior is good for every species. It does not prove a b
 
 A winner is the best build the funnel measured under the 10% margin, or the highest survivor when nothing cleared the margin. `no_safe_candidate` means the interval did not clear the margin. It does not mean the species has no usable build. The rates at 0%, 5%, and 10% show how many strata fail as the margin gets stricter. They are not a tier list.
 
-The morning ETA from this VM's 4-thread median of 171.16 matches/s is 0.436 hours and 0.49 USD at 1.12 USD/h for a 32-vCPU host. The plan upper bound is 2,147,412 tasks. Later stages run fewer groups than that bound. The old 16-vCPU host, scaled the same way, is slower and still under the 2.5 hour and 3 USD cap.
+The morning ETA from this VM's 4-thread median of 171.16 matches/s is 0.436 hours and 0.49 USD at 1.12 USD/h for a 32-vCPU host. The plan upper bound is 2,147,412 tasks. Later stages run fewer groups than that bound. The old 16-vCPU host, scaled the same way, is slower and still under the 2.5 hour and 3 USD cap. That ETA is match time. Selection reads each stage's cache once. Three reads of 1,193,640 files on this VM took 36.4 s, 20.8 s, and 5.6 s.
 
 ## Pending decisions
 
@@ -40,8 +40,18 @@ The frame harness matches the canvas buffer for one seed and changes it for anot
 
 ## Compute tonight
 
-About 81 seconds of pokesim wall. S0 was 24.424 s. The killed smoke wrapper was about 14.3 s. Resume was 17.7 s. Ditto recall was 24.1 s. The later smoke wrapper skipped the cache and used under 1 s of pokesim time. Gate 2 is Playwright and is not in that total.
+About 148 seconds of pokesim wall. S0 was 24.424 s. The first smoke, its resume, and Ditto recall were about 56 s. An indexed smoke then wrote checkpoints for 25.4 s before SIGINT, and that resume printed `total 8.0s`. The landed fingerprint wrote for 3.7 s before SIGINT and the resume printed `total 30.1s`. That resume left 592 checkpoints unchanged and added 4,428 new files. Gate 2 is Playwright and is not in that total. The index measurement is a unit test over fixture files, not matches.
+
+## Attention
+
+A shipping review of commit 477d484 failed because `rows_for` scanned every task once per candidate. At full scale that selection ran longer than the 900 second wall, so stage D never started and a resume repeated the same scan. The current code builds one index per stage. The nomination result is the same when the cache is complete. Stage A still wins when a seed exists in both stage A and stage B.
+
+29,691 of 84,365 stage A candidates have a lead the web adapter will not publish. 1,179 of 3,010 strata have that lead on the proxy-top candidate. 334 strata have no legal lead. The adapter publishes the measured stock control when that is the only legal row. The simulator still accepts the off-type lead.
+
+The smoke cache uses about 4 KB of disk per checkpoint. The full upper bound is about 8.6 GB of blocks, plus a 243 MB plan. Keep at least 15 GB free. Smoke and full write `simulator/runpod-funnel/funnel-results.tar.gz`.
+
+Recall's funnel pick is the best screening member of the prior top 30. It is not the stage D winner.
 
 ## Landing
 
-The branch is `sim/funnel-runpod-2026-10-22`. CI on the pull request and the merge commit are recorded when they finish. The morning commands are in `docs/simulator/RUNPOD-MORNING.md`.
+The branch is `sim/funnel-runpod-2026-10-22`. The pull request is https://github.com/felipebasurto/survivortiers/pull/59. The engine fingerprint on this revision is `7dab36c5b880c8b3ea0e719929881234e3af49f5f1aa7be456353e0f35f4b952`. CI on the pull request and the merge commit are recorded when they finish. The morning commands are in `docs/simulator/RUNPOD-MORNING.md`.

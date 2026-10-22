@@ -792,31 +792,24 @@ fn run_tasks(
     Ok(())
 }
 
-fn rows_for<'a>(cache: &Path, tasks: &'a [Value], config_id: &str, seeds: &[u32]) -> Vec<Value> {
-    let mut out = Vec::new();
+type MetricIndex = HashMap<String, HashMap<u32, Value>>;
+
+fn metric_index(cache: &Path, tasks: &[Value]) -> MetricIndex {
+    let mut out: MetricIndex = HashMap::new();
     for task in tasks {
-        if task["configurationId"].as_str() != Some(config_id) {
-            continue;
-        }
-        let seed = task["seed"].as_u64().unwrap_or(u64::MAX) as u32;
-        if !seeds.contains(&seed) {
-            continue;
-        }
-        if let Some(row) = cached(cache, task["taskId"].as_str().unwrap_or("")) {
-            out.push(row);
-        }
+        let Some(id) = task["configurationId"].as_str() else { continue };
+        let Some(seed) = task["seed"].as_u64() else { continue };
+        let Some(row) = cached(cache, task["taskId"].as_str().unwrap_or("")) else { continue };
+        out.entry(id.to_string()).or_default().insert(seed as u32, row["row"]["metrics"].clone());
     }
     out
 }
 
-fn metric_map(rows: &[Value]) -> HashMap<u32, Value> {
-    let mut out = HashMap::new();
-    for row in rows {
-        if let Some(seed) = row["seed"].as_u64() {
-            out.insert(seed as u32, row["row"]["metrics"].clone());
-        }
+fn overlay(mut base: HashMap<u32, Value>, over: &HashMap<u32, Value>) -> HashMap<u32, Value> {
+    for (seed, metrics) in over {
+        base.insert(*seed, metrics.clone());
     }
-    out
+    base
 }
 
 fn paired(candidate: &HashMap<u32, Value>, control: &HashMap<u32, Value>, seeds: &[u32]) -> Option<[Vec<f64>; 4]> {
@@ -881,6 +874,8 @@ fn execute(data: &Data, plan_path: &str, cache_dir: &str, out: &str) -> Result<(
     if started.elapsed().as_secs_f64() >= spec.max_wall {
         return write_partial(&plan, &spec, &cache, out, started, "A");
     }
+    let index_a = metric_index(&cache, &stage_a);
+    let empty = HashMap::new();
     let mut stage_b_tasks = Vec::new();
     let mut promoted: BTreeMap<(u32, String, String), Vec<String>> = BTreeMap::new();
     for stratum in plan["strata"].as_array().into_iter().flatten() {
@@ -888,12 +883,12 @@ fn execute(data: &Data, plan_path: &str, cache_dir: &str, out: &str) -> Result<(
         let style = stratum["style"].as_str().unwrap_or("");
         let branch = stratum["branch"].as_str().unwrap_or("");
         let control_id = configs.values().find(|c| c.dex == dex && c.id.contains("|branch:control_no_tm|")).map(|c| c.id.clone());
-        let control_rows = control_id.as_deref().map(|id| metric_map(&rows_for(&cache, &stage_a, id, &spec.seeds_a))).unwrap_or_default();
+        let control_rows = control_id.as_deref().and_then(|id| index_a.get(id)).unwrap_or(&empty);
         let mut ranked = Vec::new();
         for candidate in stratum["candidates"].as_array().into_iter().flatten() {
             let id = candidate["id"].as_str().unwrap_or("");
-            let mine = metric_map(&rows_for(&cache, &stage_a, id, &spec.seeds_a));
-            if let Some(ds) = paired(&mine, &control_rows, &spec.seeds_a) {
+            let mine = index_a.get(id).unwrap_or(&empty);
+            if let Some(ds) = paired(mine, control_rows, &spec.seeds_a) {
                 ranked.push((mean_survival(&ds), id.to_string()));
             }
         }
@@ -916,18 +911,19 @@ fn execute(data: &Data, plan_path: &str, cache_dir: &str, out: &str) -> Result<(
     if started.elapsed().as_secs_f64() >= spec.max_wall {
         return write_partial(&plan, &spec, &cache, out, started, "B");
     }
+    let index_b = metric_index(&cache, &stage_b_tasks);
     let mut stage_c_tasks = Vec::new();
     let mut stage_c_ids: BTreeMap<(u32, String, String), Vec<String>> = BTreeMap::new();
     for ((dex, style, branch), ids) in &promoted {
         let base = mon(data, *dex)?;
         let control_id = configs.values().find(|c| c.dex == *dex && c.id.contains("|branch:control_no_tm|")).map(|c| c.id.clone());
         let control_rows = control_id.as_deref().map(|id| {
-            metric_map(&rows_for(&cache, &stage_b_tasks, id, &spec.seeds_b).into_iter().chain(rows_for(&cache, &stage_a, id, &spec.seeds_b)).collect::<Vec<_>>())
+            overlay(index_b.get(id).cloned().unwrap_or_default(), index_a.get(id).unwrap_or(&empty))
         }).unwrap_or_default();
         let mut ranked = Vec::new();
         for id in ids {
-            let mine = metric_map(&rows_for(&cache, &stage_b_tasks, id, &spec.seeds_b));
-            if let Some(ds) = paired(&mine, &control_rows, &spec.seeds_b) {
+            let mine = index_b.get(id).unwrap_or(&empty);
+            if let Some(ds) = paired(mine, &control_rows, &spec.seeds_b) {
                 ranked.push((mean_survival(&ds), id.clone()));
             }
         }
@@ -960,16 +956,17 @@ fn execute(data: &Data, plan_path: &str, cache_dir: &str, out: &str) -> Result<(
     if started.elapsed().as_secs_f64() >= spec.max_wall {
         return write_partial(&plan, &spec, &cache, out, started, "C");
     }
+    let index_c = metric_index(&cache, &stage_c_tasks);
     let mut stage_d_tasks = Vec::new();
     let mut chosen_d: BTreeMap<(u32, String, String), String> = BTreeMap::new();
     for ((dex, style, branch), ids) in &stage_c_ids {
         let control_id = configs.values().find(|c| c.dex == *dex && c.id.contains("|branch:control_no_tm|")).map(|c| c.id.clone());
-        let control_rows = control_id.as_deref().map(|id| metric_map(&rows_for(&cache, &stage_a, id, &spec.seeds_c))).unwrap_or_default();
-        let means = control_means(&control_rows, &spec.seeds_c);
+        let control_rows = control_id.as_deref().and_then(|id| index_a.get(id)).unwrap_or(&empty);
+        let means = control_means(control_rows, &spec.seeds_c);
         let mut ranked = Vec::new();
         for id in ids {
-            let mine = metric_map(&rows_for(&cache, &stage_c_tasks, id, &spec.seeds_c));
-            if let Some(ds) = paired(&mine, &control_rows, &spec.seeds_c) {
+            let mine = index_c.get(id).unwrap_or(&empty);
+            if let Some(ds) = paired(mine, control_rows, &spec.seeds_c) {
                 ranked.push((passes(&ds, means, MARGIN), mean_survival(&ds), id.clone()));
             }
         }
@@ -990,7 +987,7 @@ fn execute(data: &Data, plan_path: &str, cache_dir: &str, out: &str) -> Result<(
     run_tasks(data, &tables, &pool, &cache, &configs, &refs, spec.seconds, started, spec.max_wall, spec.max_failed, "D")?;
     let complete = stage_d_tasks.iter().all(|task| cached(&cache, task["taskId"].as_str().unwrap_or("")).is_some())
         && stage_a.iter().filter(|task| task["stage"] == "D" || spec.seeds_d.contains(&(task["seed"].as_u64().unwrap_or(0) as u32))).all(|task| cached(&cache, task["taskId"].as_str().unwrap_or("")).is_some());
-    write_results(data, &plan, &spec, &cache, &configs, &stage_a, &stage_d_tasks, &chosen_d, out, started, complete)
+    write_results(data, &plan, &spec, &cache, &configs, &index_a, &stage_d_tasks, &chosen_d, out, started, complete)
 }
 
 fn write_partial(plan: &Value, spec: &Spec, cache: &Path, out: &str, started: Instant, stage: &str) -> Result<(), String> {
@@ -1024,13 +1021,15 @@ fn write_results(
     spec: &Spec,
     cache: &Path,
     configs: &HashMap<String, Configuration>,
-    stage_a: &[Value],
+    index_a: &MetricIndex,
     stage_d: &[Value],
     chosen: &BTreeMap<(u32, String, String), String>,
     out: &str,
     started: Instant,
     complete: bool,
 ) -> Result<(), String> {
+    let index_d = metric_index(cache, stage_d);
+    let empty = HashMap::new();
     let mut winners = Vec::new();
     let mut rates = [0u64; 3];
     let mut strata_n = 0u64;
@@ -1038,8 +1037,8 @@ fn write_results(
         let Some(config) = configs.get(id) else { continue };
         let Some(base) = data.dex.iter().find(|m| m.dex == *dex) else { continue };
         let control = configs.values().find(|c| c.dex == *dex && c.id.contains("|branch:control_no_tm|"));
-        let mine = metric_map(&rows_for(cache, stage_d, id, &spec.seeds_d));
-        let control_rows = control.map(|c| metric_map(&rows_for(cache, stage_a, &c.id, &spec.seeds_d))).unwrap_or_default();
+        let mine = index_d.get(id).unwrap_or(&empty);
+        let control_rows = control.and_then(|c| index_a.get(&c.id)).unwrap_or(&empty);
         let Some(ds) = paired(&mine, &control_rows, &spec.seeds_d) else { continue };
         let means = control_means(&control_rows, &spec.seeds_d);
         strata_n += 1;
@@ -1111,7 +1110,7 @@ fn write_results(
     for id in control_ids {
         let Some(config) = configs.get(&id) else { continue };
         let Some(base) = data.dex.iter().find(|mon| mon.dex == config.dex) else { continue };
-        let mine = metric_map(&rows_for(cache, stage_a, &id, &spec.seeds_d));
+        let mine = index_a.get(&id).unwrap_or(&empty);
         let lives = spec
             .seeds_d
             .iter()
@@ -1501,5 +1500,113 @@ mod tests {
         let plan: Value = serde_json::from_slice(&fs::read(&dir).unwrap()).unwrap();
         assert_eq!(plan["rankingReady"], false);
         assert!(plan["ledger"]["stageATasks"].as_array().unwrap().iter().all(|task| task["stage"].as_str().is_some()));
+    }
+
+    #[test]
+    fn metric_index_keeps_each_config_and_a_later_row_replaces_the_seed() {
+        let dir = std::env::temp_dir().join(format!("funnel-index-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let tasks = vec![
+            json!({"taskId": "t1", "configurationId": "cfg-a", "seed": 1001}),
+            json!({"taskId": "t2", "configurationId": "cfg-b", "seed": 1001}),
+            json!({"taskId": "t3", "configurationId": "cfg-a", "seed": 1001}),
+            json!({"taskId": "missing", "configurationId": "cfg-a", "seed": 1002}),
+        ];
+        for (id, survival) in [("t1", 1.0), ("t2", 9.0), ("t3", 4.0)] {
+            fs::write(dir.join(format!("{id}.json")), serde_json::to_vec(&json!({
+                "seed": 1001,
+                "row": {"metrics": {"survivalSeconds": survival, "contactDamage": 0.0, "contactSeconds": 0.0, "trappedSeconds": 0.0}},
+            })).unwrap()).unwrap();
+        }
+        let index = metric_index(&dir, &tasks);
+        assert_eq!(index["cfg-a"][&1001]["survivalSeconds"], 4.0);
+        assert!(index["cfg-a"].get(&1002).is_none());
+        assert_eq!(index["cfg-b"][&1001]["survivalSeconds"], 9.0);
+        assert!(!index.contains_key("other"));
+        let stage_b = index.get("cfg-a").cloned().unwrap();
+        let mut stage_a = HashMap::new();
+        stage_a.insert(1001, json!({"survivalSeconds": 7.0, "contactDamage": 0.0, "contactSeconds": 0.0, "trappedSeconds": 0.0}));
+        let merged = overlay(stage_b, &stage_a);
+        let candidate = HashMap::from([(1001, json!({"survivalSeconds": 10.0, "contactDamage": 0.0, "contactSeconds": 0.0, "trappedSeconds": 0.0}))]);
+        let ds = paired(&candidate, &merged, &[1001]).unwrap();
+        assert!((mean_survival(&ds) - 3.0).abs() < 1e-9);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    #[ignore = "writes a stage-sized checkpoint directory under /tmp"]
+    fn metric_index_one_pass_stays_under_the_wall() {
+        let n: usize = std::env::var("FUNNEL_INDEX_N").ok().and_then(|s| s.parse().ok()).unwrap_or(1_193_640);
+        let dir = std::env::temp_dir().join(format!("funnel-index-scale-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let _cleanup = DirGuard(dir.clone());
+        let body = br#"{"seed":1001,"row":{"metrics":{"survivalSeconds":1.0,"contactDamage":0.0,"contactSeconds":0.0,"trappedSeconds":0.0}}}"#;
+        let mut tasks = Vec::with_capacity(n);
+        let write_started = Instant::now();
+        for i in 0..n {
+            let task_id = format!("t{i:07}");
+            fs::write(dir.join(format!("{task_id}.json")), body).unwrap();
+            tasks.push(json!({
+                "taskId": task_id,
+                "configurationId": format!("c{}", i / 4),
+                "seed": 1001 + (i % 4) as u32,
+            }));
+        }
+        let write_s = write_started.elapsed().as_secs_f64();
+        let dropped = std::process::Command::new("sh")
+            .arg("-c")
+            .arg("sync; echo 3 > /proc/sys/vm/drop_caches")
+            .stderr(std::process::Stdio::null())
+            .status()
+            .map(|status| status.success())
+            .unwrap_or(false);
+        let mut walls = Vec::new();
+        let mut cpus = Vec::new();
+        let mut indexed = 0usize;
+        for _ in 0..3 {
+            let cpu_before = proc_cpu_seconds();
+            let started = Instant::now();
+            let index = metric_index(&dir, &tasks);
+            walls.push(started.elapsed().as_secs_f64());
+            cpus.push(proc_cpu_seconds() - cpu_before);
+            indexed = index.len();
+            assert_eq!(index.get("c0").and_then(|m| m.get(&1001)).and_then(|m| m["survivalSeconds"].as_f64()), Some(1.0));
+        }
+        let mut candidate = HashMap::new();
+        let mut control = HashMap::new();
+        for seed in 1001..1005 {
+            candidate.insert(seed, json!({"survivalSeconds": 3.0, "contactDamage": 0.0, "contactSeconds": 0.0, "trappedSeconds": 0.0}));
+            control.insert(seed, json!({"survivalSeconds": 1.0, "contactDamage": 0.0, "contactSeconds": 0.0, "trappedSeconds": 0.0}));
+        }
+        let rank_started = Instant::now();
+        let mut acc = 0.0;
+        for _ in 0..(n / 4) {
+            acc += mean_survival(&paired(&candidate, &control, &[1001, 1002, 1003, 1004]).unwrap());
+        }
+        let rank_s = rank_started.elapsed().as_secs_f64();
+        assert!((acc - 2.0 * (n / 4) as f64).abs() < 1e-6);
+        eprintln!(
+            "index_n={n} configs={indexed} write_s={write_s:.3} dropped_caches={dropped} walls={walls:?} cpu_s={cpus:?} rank_s={rank_s:.3} acc={acc}"
+        );
+        assert!(walls.iter().all(|wall| *wall < 900.0), "index walls {walls:?}");
+        assert_eq!(indexed, n.div_ceil(4));
+    }
+
+    struct DirGuard(PathBuf);
+    impl Drop for DirGuard {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+
+    fn proc_cpu_seconds() -> f64 {
+        let text = fs::read_to_string("/proc/self/stat").unwrap_or_default();
+        let rest = text.split_once(')').map(|(_, tail)| tail).unwrap_or("");
+        let fields = rest.split_whitespace().collect::<Vec<_>>();
+        let utime = fields.get(11).and_then(|s| s.parse::<u64>().ok()).unwrap_or(0);
+        let stime = fields.get(12).and_then(|s| s.parse::<u64>().ok()).unwrap_or(0);
+        (utime + stime) as f64 / 100.0
     }
 }
