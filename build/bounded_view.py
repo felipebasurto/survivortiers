@@ -19,13 +19,13 @@ if BOUNDED["gameCommit"] != GAME["gameCommit"]:
     raise SystemExit("data/bounded_ranking.json no es del commit de game.json")
 
 T = {
-    "h": ("Builds del ranking acotado (simulador nuevo)", "Bounded ranking builds (new simulator)"),
+    "h": ("Builds del ranking acotado", "Bounded ranking builds"),
     "lede": ("La mejor build observada por estilo, con habilidad, naturaleza y MT, entre como mucho 12 candidatas por "
-             "estrato y confirmada con {seeds} semillas. Es diagnóstico (bounded-ranking-v2): no es un óptimo global ni "
-             "cambia el tier de arriba, que sigue siendo el de la fase 3.",
+             "estrato y confirmada con {seeds} semillas (bounded-ranking-v2). El tier de arriba sale de la mejor build "
+             "sin MT; las builds con MT se muestran aparte y no cuentan para el puesto.",
              "The best observed build per style, with ability, nature and TMs, among at most 12 candidates per stratum "
-             "and confirmed with {seeds} seeds. It is diagnostic (bounded-ranking-v2): not a global optimum, and it does "
-             "not change the tier above, which is still the phase 3 one."),
+             "and confirmed with {seeds} seeds (bounded-ranking-v2). The tier above comes from the best no-TM build; "
+             "TM builds are shown alongside and do not count for the rank."),
     "melee": ("Cuerpo a cuerpo", "Melee"), "ranged": ("A distancia", "Ranged"),
     "no_tm": ("sin MT", "no TM"), "optimized": ("con MT", "with TMs"),
     "ability": ("Habilidad", "Ability"), "nature": ("Naturaleza", "Nature"), "tms": ("MT necesarias", "TMs needed"),

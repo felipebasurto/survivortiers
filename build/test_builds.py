@@ -148,9 +148,9 @@ class FichaBuilds(unittest.TestCase):
                             self.assertIsNone(picks.split_group("+".join(alt["moves"]))[2])
                         else:
                             self.assertLessEqual(2 * alt["cover"]["resist"], b["cover"]["resist"])
-        self.assertEqual(seen, {"aggro", "cover"})
-        page = self._page("", 4)  # Charmander: las dos variantes en su build a distancia
-        self.assertEqual(re.findall(r'<details class="bd-alt" data-alt="(\w+)">', page)[:2], ["aggro", "cover"])
+        # El ranking acotado publica una build por estilo, sin variantes (data/species_variants.csv vacío).
+        self.assertEqual(seen, set())
+        self.assertEqual(re.findall(r'<details class="bd-alt"', self._page("", 4)), [])
 
     def test_boosts_have_no_range_tag(self) -> None:
         page = self._page("", 483)

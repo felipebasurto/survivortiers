@@ -128,7 +128,7 @@ def rows() -> tuple[list[dict], dict[str, float], float]:
 def write(path: Path) -> None:
     table, w, r2 = rows()
     with path.open("w", encoding="utf8", newline="") as f:
-        f.write(f"# build/why.py: efecto de cada factor en la puntuación de la mejor build (fase 3). R² {r2:.3f}. "
+        f.write(f"# build/why.py: efecto de cada factor en la supervivencia de la mejor build (ranking acotado). R² {r2:.3f}. "
                 "Pesos: " + ", ".join(f"{k} {v:+.3f}" for k, v in w.items()) + "\n")
         out = csv.DictWriter(f, fieldnames=list(table[0]), lineterminator="\n")
         out.writeheader()

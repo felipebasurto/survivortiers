@@ -1,6 +1,6 @@
 """HTML de la ficha de cada Pokémon: puesto, por qué está ahí, cuánto aguanta, sus dos builds y sus estadísticas.
 
-Los números salen de los datos ya generados (build/catalog.py: ranking y builds de la fase 3, data/species_why.csv,
+Los números salen de los datos ya generados (build/catalog.py: ranking y builds del ranking acotado vía build/bounded_tables.py, data/species_why.csv,
 moves.json) y de la misma regla de tirada que build/catalog.py (RATES y el pool de rareza más cercano). No hay cifras
 nuevas. No hay aparición salvaje en los datos: solo el banner de gacha.
 """

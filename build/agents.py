@@ -78,10 +78,10 @@ def _type_links(en: bool) -> str:
 
 def _method_line(meta: dict) -> str:
     m = meta["method"]
-    return (f"The rank comes only from simulated runs: {EN.num(m['games'])} runs of a bot using the game's code, in three "
-            f"phases (each move alone, then four-slot move groups, then each Pokémon's own groups). Each Pokémon is ranked "
-            f"by its best build's median score over {meta['seeds']} final runs; a run scores time alive × the square root "
-            f"of its capped damage rate times its capped kill rate. No hand-written rules.")
+    return (f"The rank comes only from simulated runs: {EN.num(m['games'])} runs of a bot using the game's code in the "
+            f"bounded ranking (bounded-ranking-v2: moves, ability and nature searched per Pokémon and style). Each Pokémon "
+            f"is ranked by the mean survival seconds of its best no-TM build over 16 confirmation runs. TM builds are "
+            f"published but do not count for the rank. No hand-written rules.")
 
 
 def llms_txt(meta: dict, index: list[dict]) -> str:
@@ -167,15 +167,15 @@ def llms_full_txt(meta: dict) -> str:
         "",
         f"1. Moves. Each of the {p1['attacks']} attacks plays alone on {p1['refs']} reference Pokémon of its class (physical attackers for physical moves, special for special), {p1['seeds']} runs per reference ({EN.num(p1['games'])} runs). score = geometric mean over the references of the move's median score divided by the median of all moves of its class on that reference. 1.0 is a typical move of its class. Tiers within each class by position: S top 10 %, A next 20 %, B 30 %, C 25 %, D the rest.",
         f"2. Groups. The best moves are combined into four-slot groups (three attacks + an attack boost, three + a defence boost, or two + attack boost + defence boost), played by the same references. {EN.num(p2['groups'])} groups over three rounds of {p2['seeds'][0]}, {p2['seeds'][1]} and {p2['seeds'][2]} runs per reference with fresh seeds ({EN.num(p2['games'])} runs).",
-        f"3. Builds. Each Pokémon tries its own groups (the moves it can learn). An additive model fitted on phase 2 preselects them: {EN.num(p3['groups'][0])} groups with {p3['seeds'][0]} runs, the best {EN.num(p3['groups'][1])} with {p3['seeds'][1]}, and the {EN.num(p3['groups'][2])} finalists with {p3['seeds'][2]}, each round with fresh seeds ({EN.num(p3['games'])} runs). Each Pokémon keeps its best melee build (at least one melee attack) and its best ranged build (none).",
-        f"4. Rank. The better of the two builds, by its median score over the {meta['seeds']} final runs. Survival across all Pokémon: median {t['median']} s, from {t['min']} s to {t['max']} s.",
-        f"5. Why. Least squares over the {meta['total']} Pokémon of log(best build score) on eight standardised factors (attack multiplier, group strength, HP, Defence, Sp. Def., speed, size, damage taken by type). R² {meta['why']['r2']}. Weights: {weights}. A factor's effect on a Pokémon is exp(weight × its standardised value) − 1, against an average Pokémon.",
+        f"3. Builds (previous method, kept for reference). Each Pokémon tried its own groups (the moves it can learn). An additive model fitted on phase 2 preselects them: {EN.num(p3['groups'][0])} groups with {p3['seeds'][0]} runs, the best {EN.num(p3['groups'][1])} with {p3['seeds'][1]}, and the {EN.num(p3['groups'][2])} finalists with {p3['seeds'][2]}, each round with fresh seeds ({EN.num(p3['games'])} runs). Each Pokémon keeps its best melee build (at least one melee attack) and its best ranged build (none).",
+        f"4. Rank (current). The rank no longer uses step 3: it comes from the bounded ranking (data/bounded_ranking.json, bounded-ranking-v2, 441,486 runs). Each Pokémon searched up to 12 groups per style with and without TMs, the neutral nature and four attack-raising natures, then confirmed the winner on 16 fresh seeds. The rank is the better of its two no-TM builds by mean survival seconds; ranking.csv median_score and median_s hold that mean, score_lo/score_hi the min/max of the 16 runs. Survival across all Pokémon: median {t['median']} s, from {t['min']} s to {t['max']} s.",
+        f"5. Why. Least squares over the {meta['total']} Pokémon of log(best build survival) on eight standardised factors (attack multiplier, group strength, HP, Defence, Sp. Def., speed, size, damage taken by type). R² {meta['why']['r2']}. Weights: {weights}. A factor's effect on a Pokémon is exp(weight × its standardised value) − 1, against an average Pokémon.",
         "",
         "## Files",
         "",
         "### data/ranking.csv",
         "",
-        "One row per Pokémon, sorted by rank: rank, dex, name (Spanish), tier, build (`melee` or `ranged`, the one that ranks it), group (move ids joined by `+`, attacks first, the first one starts the run), median_score, score_lo and score_hi (bootstrap interval of the median), median_s (median seconds survived), other_build and other_score (the other build and its score).",
+        "One row per Pokémon, sorted by rank: rank, dex, name (Spanish), tier, build (`melee` or `ranged`, the one that ranks it), group (move ids joined by `+`, attacks first, the first one starts the run), median_score, score_lo and score_hi (min and max of the 16 confirmation runs), median_s (mean seconds survived; the score is the same survival), other_build and other_score (the other build and its score).",
         "",
         "### data/pokemon-index.json",
         "",

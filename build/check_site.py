@@ -55,8 +55,9 @@ EXPECTED_COUNTS = tiers.COUNTS
 SPANISH_WORDS = re.compile(r"\b(el|los|las|del|con|para|puesto|aguante|daño|ficha|partidas?|repeticiones|cuántos)\b", re.I)
 LANGS = ("", "en/")
 # S+A rates from build/catalog.py on the phase-3 ranking.
-EXPECTED_GACHA = {"Kanto": 5.3, "Johto": 7.0, "Hoenn": 11.1, "Sinnoh": 11.2, "Teselia": 17.0, "Kalos": 12.9,
-                  "Alola": 21.7, "Galar": 12.6, "Paldea": 17.4}
+# Con los tiers del ranking acotado (data/ranking_fase3.csv desde build/bounded_tables.py).
+EXPECTED_GACHA = {"Kanto": 11.3, "Johto": 8.0, "Hoenn": 9.6, "Sinnoh": 16.8, "Teselia": 17.7, "Kalos": 11.4,
+                  "Alola": 15.7, "Galar": 10.3, "Paldea": 9.8}
 
 
 
@@ -446,8 +447,8 @@ def browser_check(base: str, index: list[dict], args, err, notes: list[str]) -> 
                 if info["kinds"][:1] != [pair.get("best")] or sorted(info["kinds"]) != ["melee", "ranged"] \
                         or info["best"] != [pair.get("best")]:
                     err(f"{lang}pokemon/?id={d}: las builds no son las dos de species.json con la mejor primero ({info})")
-                if any(r[:1] != [True] or any(r[1:]) or not 2 <= len(r) <= 4 for r in info["starts"]) or info["stats"] != 8:
-                    err(f"{lang}pokemon/?id={d}: cada build debe tener 2 a 4 ataques, el primero marcado, y sus cuatro cifras ({info})")
+                if any(r[:1] != [True] or any(r[1:]) or not 1 <= len(r) <= 4 for r in info["starts"]) or info["stats"] != 8:
+                    err(f"{lang}pokemon/?id={d}: cada build debe tener 1 a 4 ataques, el primero marcado, y sus cuatro cifras ({info})")
                 if not info["icons"]:
                     err(f"{lang}pokemon/?id={d}: los iconos de los ataques no cargan ({info})")
                 if not info["why"] or not info["surv"] or not info["statRows"]:
@@ -616,11 +617,11 @@ def main() -> int:
         err("data/species.json, data/moves.json o data/moves_unranked.json no se pueden leer")
         pairs, moves, unranked = {}, [], []
     move_ids = {m["id"] for m in moves} | {m["id"] for m in unranked}
-    # species.json: las dos builds de la fase 3 (build/species_builds.py) y cuál puntúa más
+    # species.json: las dos builds sin MT del ranking acotado (build/bounded_tables.py; alguna lleva un solo ataque) y cuál aguanta más
     for d in dexes:
         pair = pairs.get(str(d))
         ok = isinstance(pair, dict) and pair.get("best") in ("melee", "ranged") and all(
-            isinstance(pair.get(k), dict) and 2 <= len(pair[k]["moves"]) <= 4 and all(m in move_ids for m in pair[k]["moves"])
+            isinstance(pair.get(k), dict) and 1 <= len(pair[k]["moves"]) <= 4 and all(m in move_ids for m in pair[k]["moves"])
             and len(set(pair[k]["moves"])) == len(pair[k]["moves"]) and pair[k]["nBoost"] in (0, 1, 2)
             and pair[k]["time"] > 0 and pair[k]["lo"] <= pair[k]["score"] <= pair[k]["hi"]
             for k in ("melee", "ranged"))
