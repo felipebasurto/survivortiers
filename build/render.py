@@ -28,6 +28,7 @@ import landing  # noqa: E402
 import legal  # noqa: E402
 import novedades  # noqa: E402
 import objetos  # noqa: E402
+import learnsets  # noqa: E402
 import pasivas  # noqa: E402
 import tipos  # noqa: E402
 import pack  # noqa: E402
@@ -55,7 +56,8 @@ NAV_TOP = [("index", "index.html", "nav_tiers"), ("ataques", "ataques.html", "na
            ("objetos", "objetos.html", "nav_objetos"), ("gachas", "gachas.html", "nav_gachas")]
 NAV_GROUPS = [
     ("nav_more", [("novedades", "novedades.html", "nav_novedades"), ("planificador", "@planner", "nav_planificador"),
-                  ("pasivas", "pasivas.html", "nav_pasivas"), ("tipos", "tipos.html", "nav_tipos"),
+                  ("pasivas", "pasivas.html", "nav_pasivas"), ("naturalezas", "naturalezas.html", "nav_naturalezas"),
+                  ("tipos", "tipos.html", "nav_tipos"),
                   ("metodo", "metodo.html", "nav_metodo"), ("acerca", "acerca.html", "nav_acerca")]),
 ]
 NAV = NAV_TOP + [item for _, items in NAV_GROUPS for item in items]
@@ -393,6 +395,7 @@ def render_species(c: Ctx, entry: dict, moves: dict, prev: dict | None, nxt: dic
     html, ld = static_ficha.build(L, c.home, SPRITES, EXT, entry, moves, meta, entry["start"], prev, nxt, odds,
                                   guides=landing.guides_nav(L, c.home, types=entry["types"]), url=page_url(c),
                                   title=title, assets=c.assets)
+    html += learnsets.tm_section(L, entry["dex"], moves)
     return page(c, "ficha", title, desc, html + balls.defs(), meta, extra_head=ld,
                 head_links=static_ficha.alternates(species_path(entry["dex"], entry["nameEn"])), og_type="article")
 
@@ -654,6 +657,12 @@ def render_pasivas(c: Ctx, meta: dict) -> str:
                 L.t("pv_desc", game=legal.GAME_NAME), content, meta)
 
 
+def render_naturalezas(c: Ctx, meta: dict) -> str:
+    L = c.L
+    return page(c, "naturalezas", L.t("nat_title", site=legal.SITE_NAME),
+                L.t("nat_desc", game=legal.GAME_NAME), learnsets.naturalezas_content(L), meta)
+
+
 def render_tipos(c: Ctx, meta: dict) -> str:
     L = c.L
     return page(c, "tipos", L.t("tp_title", site=legal.SITE_NAME),
@@ -910,6 +919,7 @@ def main() -> int:
         put("ataques.html", lambda c: render_ataques(c, moves, meta, unranked))
         put("objetos.html", lambda c: render_objetos(c, meta))
         put("pasivas.html", lambda c: render_pasivas(c, meta))
+        put("naturalezas.html", lambda c: render_naturalezas(c, meta))
         put("tipos.html", lambda c: render_tipos(c, meta))
         put("gachas.html", lambda c: render_gachas(c, gachas, index, meta))
         put("coleccion.html", lambda c: render_coleccion(c, gachas, index, meta))

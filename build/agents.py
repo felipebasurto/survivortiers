@@ -22,7 +22,7 @@ from i18n import EN, ES, TYPE_NAMES, Lang
 
 ROOT = Path(__file__).resolve().parent.parent
 RANKING_SRC = ROOT / "data" / "ranking_fase3.csv"
-PAGES = ["", "novedades.html", "ataques.html", "objetos.html", "pasivas.html", "tipos.html", "gachas.html", "coleccion.html", "metodo.html", "acerca.html"]
+PAGES = ["", "novedades.html", "ataques.html", "objetos.html", "pasivas.html", "naturalezas.html", "tipos.html", "gachas.html", "coleccion.html", "metodo.html", "acerca.html"]
 LANG_PREFIX = {"es": "", "en": "en/"}
 
 
