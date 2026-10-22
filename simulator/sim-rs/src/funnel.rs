@@ -262,14 +262,29 @@ fn opener_indexes(data: &Data, base: &Mon) -> BTreeSet<usize> {
     legal
 }
 
-fn each_legal_group(data: &Data, base: &Mon, f: &mut impl FnMut(&[usize])) {
-    let legal = opener_indexes(data, base);
-    let buffs = base
+fn buff_indexes(data: &Data, base: &Mon) -> Vec<usize> {
+    let mut buffs: Vec<usize> = base
         .pool
         .iter()
         .copied()
         .filter(|&i| data.moves[i].kind_name == "buff" && data.moves[i].levels[0].buff != 0)
-        .collect::<Vec<_>>();
+        .collect();
+    for &ix in &base.tms {
+        if buffs.contains(&ix) {
+            continue;
+        }
+        if data.moves[ix].kind_name == "buff" && data.moves[ix].levels[0].buff != 0 {
+            buffs.push(ix);
+        }
+    }
+    buffs
+}
+
+fn each_legal_group(data: &Data, base: &Mon, f: &mut impl FnMut(&[usize])) {
+    let legal = opener_indexes(data, base);
+    // Taught buffs are partners, not starts. Dragon Dance is the only taught move that can
+    // sit in a melee group for 12 species. Leaving it out dropped those optimized_tm strata.
+    let buffs = buff_indexes(data, base);
     for melee in [true, false] {
         let attacks = attack_indexes(data, base)
             .into_iter()
@@ -398,6 +413,9 @@ fn build_config(
     let taught_lead = group[0] != base.start && !base.pool.contains(&group[0]);
     if taught_lead && branch != "optimized_tm" {
         return Err(format!("TM opener for dex {} belongs on the TM branch", base.dex));
+    }
+    if !tms.is_empty() && branch != "optimized_tm" {
+        return Err(format!("taught moves for dex {} belong on the TM branch", base.dex));
     }
     if let Some(other) = second.as_deref() {
         if other == data.moves[group[0]].id {
@@ -1914,6 +1932,88 @@ mod tests {
         });
         assert!(prior_ice);
         assert!(!prior_ember);
+    }
+
+    #[test]
+    fn onix_melee_keeps_dragon_dance_on_the_tm_branch() {
+        let data = data();
+        let onix = data.dex.iter().find(|m| m.dex == 95).unwrap();
+        let ability = default_ability(onix);
+        let ix = |id: &str| data.move_ix[id];
+        let config = build_config(
+            &data,
+            onix,
+            &[ix("body-slam"), ix("dragon-dance")],
+            "hardy",
+            ability.clone(),
+            "melee",
+            "optimized_tm",
+        )
+        .unwrap();
+        assert_eq!(config.moves[0], "body-slam");
+        assert_eq!(config.tms, vec!["dragon-dance".to_string()]);
+        assert!(taught_tm_cost(&data, onix, &config.tms).unwrap() > 0);
+        assert!(build_config(
+            &data,
+            onix,
+            &[ix("body-slam"), ix("dragon-dance")],
+            "hardy",
+            ability,
+            "melee",
+            "optimized_no_tm",
+        )
+        .is_err());
+        let mut dance_lead = false;
+        let mut melee_tm = false;
+        each_legal_group(&data, onix, &mut |group| {
+            if data.moves[group[0]].id == "dragon-dance" {
+                dance_lead = true;
+            }
+            if style_of_group(&data, group) == Some("melee") && branch_of(&data, onix, group) == "optimized_tm" {
+                melee_tm = true;
+            }
+        });
+        assert!(melee_tm);
+        assert!(!dance_lead);
+        let tallies = tally_species(&data, onix);
+        assert!(tallies.iter().any(|row| row.style == "melee" && row.branch == "optimized_tm" && row.groups > 0));
+    }
+
+    #[test]
+    fn enumeration_keeps_the_strata_the_prior_can_reach() {
+        let data = data();
+        let mut missing = Vec::new();
+        let mut enum_n = 0usize;
+        let mut beam_n = 0usize;
+        for base in &data.dex {
+            let enum_keys: BTreeSet<(String, String)> = tally_species(&data, base)
+                .into_iter()
+                .map(|row| (row.style.to_string(), row.branch.to_string()))
+                .collect();
+            enum_n += enum_keys.len();
+            let ability = default_ability(base);
+            let mut taught = base.tms.iter().map(|&ix| data.moves[ix].id.clone()).collect::<Vec<_>>();
+            taught.sort();
+            let mon = data.configure(base, "hardy", ability.as_deref(), &taught).unwrap();
+            let mut beam_keys = BTreeSet::new();
+            visit_groups(&data, base, &mon, &mut |group| {
+                let Some(style) = style_of_group(&data, &group) else {
+                    return;
+                };
+                let branch = branch_of(&data, base, &group);
+                if build_config(&data, base, &group, "hardy", ability.clone(), style, branch).is_err() {
+                    return;
+                }
+                beam_keys.insert((style.to_string(), branch.to_string()));
+            });
+            beam_n += beam_keys.len();
+            for key in beam_keys.difference(&enum_keys) {
+                missing.push(format!("{} {} {} {}", base.dex, base.name, key.0, key.1));
+            }
+        }
+        assert!(missing.is_empty(), "{}", missing.join("; "));
+        assert_eq!(enum_n, 3010, "enum {enum_n} beam {beam_n}");
+        assert_eq!(beam_n, 3010);
     }
 
     #[test]
