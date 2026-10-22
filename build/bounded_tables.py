@@ -2,14 +2,17 @@
 
     python3 build/bounded_tables.py
 
-Lee simulator/runpod-ranking/full/sim-results.json(.gz) y escribe data/species_builds.csv, data/ranking_fase3.csv
-(mismo formato que antes, el nombre se mantiene por compatibilidad) y vacía data/species_variants.csv.
+Lee simulator/runpod-ranking/full/candidates.json.gz (extracto de results.json: cada build simulada con sus partidas,
+etapas A con 2 semillas, B con 8 y confirmación con 16) y escribe data/species_builds.csv, data/ranking_fase3.csv,
+las builds de data/bounded_ranking.json y vacía data/species_variants.csv.
 
-Métrica: supervivencia media (s) de la mejor build confirmada sin MT de cada estilo, en las 16 partidas de
-confirmación. El ranking toma la mejor de las dos (cuerpo a cuerpo y distancia), como hacía la fase 3, y los tiers salen
-del puesto con los mismos cortes de data/tiers.json. Las builds con MT se enseñan aparte en la ficha: no todas las
-especies tienen una, así que no entran en el orden. score_lo y score_hi son el mínimo y el máximo de la
-supervivencia en esas 16 partidas.
+Reglas (Felipe, 22-10-2026):
+- Cada build publicada tiene 4 movimientos; las de menos se descartan.
+- Sin Placaje, Ataque Rápido ni Golpe Cuerpo, salvo en especies de tipo Normal.
+- Por especie, estilo y rama (sin MT / con MT) se elige la build que pasa con la etapa más alta (confirmada, luego B,
+  luego A) y, dentro de ella, la mayor mediana de supervivencia. Si ninguna pasa, no hay build (se dice en la ficha).
+- El puesto es la mediana de supervivencia de la mejor build sin MT de las dos (cuerpo a cuerpo y distancia); tiers
+  con los cortes de data/tiers.json. score_lo y score_hi son el mínimo y el máximo de sus partidas.
 """
 from __future__ import annotations
 
@@ -48,37 +51,99 @@ def _cat(mid: str) -> str:
     return MOVES[mid]["levels"][0]["cat"]
 
 
-def main() -> None:
-    doc = _load()
-    out = []
-    for r in doc["results"]:
-        b = r["build"]
-        if b["availability"] != "no_tm":
+CAND = ROOT / "simulator/runpod-ranking/full/candidates.json.gz"
+BANNED = ("tackle", "quick-attack", "body-slam")
+TYPES = {d["dex"]: d["types"] for d in GAME["dex"]}
+STAGE_RANK = {"confirmed": 3, "B": 2, "A": 1}
+BRANCH = {"optimized_no_tm": "no_tm", "optimized_tm": "optimized"}
+
+
+def allowed(dex: int, moves: list[str]) -> bool:
+    return len(moves) == 4 and ("normal" in TYPES[dex] or not set(BANNED) & set(moves))
+
+
+def select() -> tuple[dict, list]:
+    """(dex, estilo, rama) -> build elegida; y la lista de huecos sin build válida."""
+    c = json.loads(gzip.decompress(CAND.read_bytes()))
+    best = {}
+    for o in c["win"] + [o for o in c["cand"] if o["stage"] in ("A", "B")]:
+        if not allowed(o["dex"], o["moves"]):
             continue
-        ids = [a["id"] for a in sorted(b["attacks"], key=lambda a: a["position"])]
-        start = b["initial_attacks"]
+        surv = [m[0] for m in o["m"]]
+        key = (o["dex"], o["style"], BRANCH[o["branch"]])
+        rank = (STAGE_RANK[o["stage"]], statistics.median(surv))
+        if key not in best or rank > best[key][0]:
+            best[key] = (rank, o)
+    gaps = sorted((d["dex"], s, br) for d in GAME["dex"] for s in ("melee", "ranged") for br in ("no_tm", "optimized")
+                  if (d["dex"], s, br) not in best)
+    return {k: v[1] for k, v in best.items()}, gaps
+
+
+def _start(o: dict) -> list[str]:
+    g = o["group"]
+    return [g[0]] + ([o["secondStart"]] if o["secondStart"] and o["secondStart"] != g[0] else [])
+
+
+def _metrics(o: dict) -> dict:
+    ms = o["m"]
+    return {"survival": round(statistics.median(m[0] for m in ms), 1),
+            "kpm": round(statistics.fmean(m[1] * 60 / m[0] for m in ms), 2),
+            "dps": round(statistics.fmean(m[2] / m[0] for m in ms), 1),
+            "kills": round(statistics.fmean(m[1] for m in ms), 1), "seeds": len(ms), "stage": o["stage"]}
+
+
+def write_bounded(sel: dict, gaps: list) -> None:
+    path = ROOT / "data/bounded_ranking.json"
+    doc = json.loads(path.read_text(encoding="utf8"))
+    species = {str(d["dex"]): {} for d in GAME["dex"]}
+    wins = {"melee": {}, "ranged": {}}
+    for (dex, style, br), o in sorted(sel.items()):
+        species[str(dex)][f"{style}|{br}"] = dict(
+            attacks=o["moves"], start=_start(o), ability=o["ability"], nature=o["nature"], tms=o["tms"], **_metrics(o))
+        wins[style][o["nature"]] = wins[style].get(o["nature"], 0) + 1
+    doc["species"] = species
+    doc["natureWins"] = wins
+    doc["selection"] = {"rules": "4 movimientos; sin " + ", ".join(BANNED) + " salvo tipo Normal; etapa más alta, "
+                        "luego mediana de supervivencia", "source": "simulator/runpod-ranking/full/candidates.json.gz",
+                        "gaps": [list(g) for g in gaps]}
+    doc["source"]["rows"] = len(sel)
+    path.write_text(json.dumps(doc, ensure_ascii=False, indent=1, sort_keys=True) + "\n", encoding="utf8")
+
+
+def main() -> None:
+    sel, gaps = select()
+    write_bounded(sel, gaps)
+    out = []
+    for (dex, style, br), o in sorted(sel.items()):
+        if br != "no_tm":
+            continue
+        ids = o["moves"]
+        start = _start(o)
         attacks = [m for m in start if _kind(m) != "buff"] + [m for m in ids if m not in start and _kind(m) != "buff"]
         buffs = [m for m in ids if _kind(m) == "buff"]
         group = attacks + buffs
         cats = {_cat(m) for m in attacks}
-        matches = r["paired_confirmation"]["candidateMatches"]
-        surv = sorted(m["survivalSeconds"] for m in matches)
-        met = r["score"]["metrics"]
+        surv = sorted(m[0] for m in o["m"])
+        med = round(statistics.median(surv), 3)
         out.append({
-            "dex": r["pokemon"]["dex"], "name": NAMES[r["pokemon"]["dex"]], "build": b["style"], "group": "+".join(group),
+            "dex": dex, "name": NAMES[dex], "build": style, "group": "+".join(group),
             "attacks": " + ".join(MOVES[m]["levels"][0]["name"] for m in attacks),
             "boosts": " + ".join(MOVES[m]["levels"][0]["name"] for m in buffs),
-            "mix": cats.pop() if len(cats) == 1 else "mixed", "seeds": len(matches),
-            "median_s": round(met["survivalSeconds"], 3), "median_kills": round(met["meanKills"], 3),
-            "median_dealt": round(statistics.fmean(m["damage"] for m in matches), 3),
-            "median_score": round(met["survivalSeconds"], 3), "score_lo": round(surv[0], 3), "score_hi": round(surv[-1], 3),
+            "mix": cats.pop() if len(cats) == 1 else "mixed" if cats else "none", "seeds": len(surv),
+            "median_s": med, "median_kills": round(statistics.median(m[1] for m in o["m"]), 3),
+            "median_dealt": round(statistics.median(m[2] for m in o["m"]), 3),
+            "median_score": med, "score_lo": round(surv[0], 3), "score_hi": round(surv[-1], 3),
         })
     out.sort(key=lambda r: (r["dex"], r["build"]))
     dexes = {d["dex"] for d in GAME["dex"]}
     have = {(r["dex"], r["build"]) for r in out}
     missing = sorted((d, s) for d in dexes for s in ("melee", "ranged") if (d, s) not in have)
-    if missing:
-        raise SystemExit(f"faltan filas del ranking acotado: {missing}")
+    gp = ROOT / "data/bounded_gaps.csv"
+    gp.write_text("# Especie, estilo y rama sin build simulada de 4 movimientos que cumpla las reglas (build/bounded_tables.py).\n"
+                  "dex,name,build,branch\n" + "".join(f"{d},{NAMES[d]},{st},{br}\n" for d, st, br in gaps), encoding="utf8")
+    print(f"huecos: {len(gaps)} (data/bounded_gaps.csv)")
+    if any(d not in {r["dex"] for r in out} for d in dexes):
+        raise SystemExit(f"especies sin ninguna build sin MT válida: {missing}")
     with (ROOT / "data/species_builds.csv").open("w", encoding="utf8", newline="") as f:
         f.write(HEAD_B)
         w = csv.DictWriter(f, fieldnames=list(out[0]), lineterminator="\n")
@@ -96,8 +161,8 @@ def main() -> None:
     ranked = sorted(best.values(), key=lambda r: (-r["median_score"], r["dex"]))
     rows = [{"rank": i, "dex": r["dex"], "name": r["name"], "tier": tiers.TIER_OF[i], "build": r["build"],
              "group": r["group"], "median_score": r["median_score"], "score_lo": r["score_lo"], "score_hi": r["score_hi"],
-             "median_s": r["median_s"], "other_build": other[r["dex"]]["build"],
-             "other_score": other[r["dex"]]["median_score"]} for i, r in enumerate(ranked, 1)]
+             "median_s": r["median_s"], "other_build": other[r["dex"]]["build"] if r["dex"] in other else "",
+             "other_score": other[r["dex"]]["median_score"] if r["dex"] in other else ""} for i, r in enumerate(ranked, 1)]
     with (ROOT / "data/ranking_fase3.csv").open("w", encoding="utf8", newline="") as f:
         f.write(HEAD_R)
         w = csv.DictWriter(f, fieldnames=list(rows[0]), lineterminator="\n")

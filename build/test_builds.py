@@ -94,7 +94,7 @@ class FichaBuilds(unittest.TestCase):
         for dex in (94, 354):
             for prefix, L in (("", ES), ("en", EN)):
                 page = self._page(prefix, dex)
-                for kind in ("melee", "ranged"):
+                for kind in [k for k in ("melee", "ranged") if k in self.pairs[str(dex)]]:
                     first = self.moves[self.pairs[str(dex)][kind]["moves"][0]]
                     name = first["en"]["name"] if L.en else first["name"]
                     with self.subTest(dex=dex, prefix=prefix, kind=kind):
@@ -108,7 +108,7 @@ class FichaBuilds(unittest.TestCase):
     def test_every_move_row_has_its_game_icon(self) -> None:
         for dex, prefix, up in ((94, "", "../../"), (354, "en", "../../../")):
             page = re.sub(r'<details class="bd-alt".*?</details>', "", self._page(prefix, dex), flags=re.S)
-            ids = [m for k in ("melee", "ranged") for m in self.pairs[str(dex)][k]["moves"]]
+            ids = [m for k in ("melee", "ranged") if k in self.pairs[str(dex)] for m in self.pairs[str(dex)][k]["moves"]]
             srcs = re.findall(r'<span class="bd-ico"><img src="([^"]+)"', page)
             with self.subTest(dex=dex, prefix=prefix):
                 self.assertEqual(sorted(srcs), sorted(f"{up}img/moves/{m}.svg" for m in ids))
@@ -119,7 +119,7 @@ class FichaBuilds(unittest.TestCase):
         for dex in (6, 94, 150):
             pair = self.pairs[str(dex)]
             page = self._page("", dex)
-            for kind in ("melee", "ranged"):
+            for kind in [k for k in ("melee", "ranged") if k in pair]:
                 box = re.search(rf'<article class="bd-opt[^"]*" data-build="{kind}">.*?</article>', page, re.S).group(0)
                 main = box.split('<details', 1)[0]
                 cov = coverage.of_build(pair[kind]["moves"])

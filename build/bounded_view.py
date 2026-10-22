@@ -21,11 +21,13 @@ if BOUNDED["gameCommit"] != GAME["gameCommit"]:
 T = {
     "h": ("Builds del ranking acotado", "Bounded ranking builds"),
     "lede": ("La mejor build observada por estilo, con habilidad, naturaleza y MT, entre como mucho 12 candidatas por "
-             "estrato y confirmada con {seeds} semillas (bounded-ranking-v2). El tier de arriba sale de la mejor build "
-             "sin MT; las builds con MT se muestran aparte y no cuentan para el puesto.",
+             "estrato con 4 movimientos y sin Placaje, Ataque Rápido ni Golpe Cuerpo salvo tipo Normal (bounded-ranking-v2). "
+             "Se usa la confirmada ({seeds} semillas) si cumple; si no, la mejor de la ronda B o A. El tier sale de la mejor sin MT; las builds con MT se muestran aparte y no cuentan para el puesto.",
              "The best observed build per style, with ability, nature and TMs, among at most 12 candidates per stratum "
-             "and confirmed with {seeds} seeds (bounded-ranking-v2). The tier above comes from the best no-TM build; "
-             "TM builds are shown alongside and do not count for the rank."),
+             "with 4 moves and no Tackle, Quick Attack or Body Slam unless Normal type (bounded-ranking-v2). "
+             "The confirmed one ({seeds} seeds) is used if it passes, otherwise the best from round B or A. The tier comes from the best no-TM one; TM builds are shown alongside and do not count for the rank."),
+    "none_ok": ("No hay build simulada de 4 movimientos que cumpla las reglas.",
+                "There is no simulated 4-move build that meets the rules."),
     "melee": ("Cuerpo a cuerpo", "Melee"), "ranged": ("A distancia", "Ranged"),
     "no_tm": ("sin MT", "no TM"), "optimized": ("con MT", "with TMs"),
     "ability": ("Habilidad", "Ability"), "nature": ("Naturaleza", "Nature"), "tms": ("MT necesarias", "TMs needed"),
@@ -107,6 +109,8 @@ def ficha_section(L, dex: int, moves_by: dict) -> str:
         for avail in ("no_tm", "optimized"):
             b = rows.get(f"{style}|{avail}")
             if not b:
+                cards.append(f'<li class="bd-sim is-empty"><h3>{escape(t(L, style))} · {escape(t(L, avail))}</h3>'
+                             f'<p>{escape(t(L, "none_ok"))}</p></li>')
                 continue
             atk = " + ".join(escape(move_name(L, m, moves_by)) for m in b["attacks"])
             tms = ", ".join(f'{escape(move_name(L, m, moves_by))} ({L.num(GAME["tmPrices"][m])})' for m in b["tms"]) or t(L, "none")

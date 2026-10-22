@@ -56,8 +56,9 @@ SPANISH_WORDS = re.compile(r"\b(el|los|las|del|con|para|puesto|aguante|daño|fic
 LANGS = ("", "en/")
 # S+A rates from build/catalog.py on the phase-3 ranking.
 # Con los tiers del ranking acotado (data/ranking_fase3.csv desde build/bounded_tables.py).
-EXPECTED_GACHA = {"Kanto": 11.3, "Johto": 8.0, "Hoenn": 9.6, "Sinnoh": 16.8, "Teselia": 17.7, "Kalos": 11.4,
-                  "Alola": 15.7, "Galar": 10.3, "Paldea": 9.8}
+BANNED_MOVES = ("tackle", "quick-attack", "body-slam")  # salvo especies de tipo Normal (Felipe, 22-10-2026)
+EXPECTED_GACHA = {"Kanto": 4.6, "Johto": 13.0, "Hoenn": 7.4, "Sinnoh": 13.1, "Teselia": 15.6, "Kalos": 15.7,
+                  "Alola": 21.7, "Galar": 13.8, "Paldea": 14.1}
 
 
 
@@ -431,8 +432,9 @@ def browser_check(base: str, index: list[dict], args, err, notes: list[str]) -> 
                     src: document.querySelector('.ficha-sprite img').src,
                     kinds: [...document.querySelectorAll('#build .bd-opt')].map(e => e.dataset.build),
                     best: [...document.querySelectorAll('#build .bd-opt.is-best')].map(e => e.dataset.build),
-                    starts: [...document.querySelectorAll('#build .bd-opt')].map(o => [...o.querySelectorAll(':scope > .bd-rows > .bd-row')].map(r => r.classList.contains('is-start'))),
+                    starts: [...document.querySelectorAll('#build .bd-opt:not(.is-empty)')].map(o => [...o.querySelectorAll(':scope > .bd-rows > .bd-row')].map(r => r.classList.contains('is-start'))),
                     stats: document.querySelectorAll('#build .bd-opt .bd-stats dd').length,
+                    nbuilds: document.querySelectorAll('#build .bd-opt:not(.is-empty)').length,
                     why: document.querySelectorAll('#porque .why-row, #porque .why-flat').length,
                     surv: !!document.querySelector('#supervivencia .surv-bar'),
                     icons: [...document.querySelectorAll('#build .bd-ico img')].every(i => i.complete && i.naturalWidth > 0) && document.querySelectorAll('#build .bd-ico img').length >= 4,
@@ -447,8 +449,8 @@ def browser_check(base: str, index: list[dict], args, err, notes: list[str]) -> 
                 if info["kinds"][:1] != [pair.get("best")] or sorted(info["kinds"]) != ["melee", "ranged"] \
                         or info["best"] != [pair.get("best")]:
                     err(f"{lang}pokemon/?id={d}: las builds no son las dos de species.json con la mejor primero ({info})")
-                if any(r[:1] != [True] or any(r[1:]) or not 1 <= len(r) <= 4 for r in info["starts"]) or info["stats"] != 8:
-                    err(f"{lang}pokemon/?id={d}: cada build debe tener 1 a 4 ataques, el primero marcado, y sus cuatro cifras ({info})")
+                if any(r[:1] != [True] or any(r[1:]) or len(r) != 4 for r in info["starts"]) or info["stats"] != 4 * info["nbuilds"]:
+                    err(f"{lang}pokemon/?id={d}: cada build debe tener 4 ataques, el primero marcado, y sus cuatro cifras ({info})")
                 if not info["icons"]:
                     err(f"{lang}pokemon/?id={d}: los iconos de los ataques no cargan ({info})")
                 if not info["why"] or not info["surv"] or not info["statRows"]:
@@ -617,15 +619,28 @@ def main() -> int:
         err("data/species.json, data/moves.json o data/moves_unranked.json no se pueden leer")
         pairs, moves, unranked = {}, [], []
     move_ids = {m["id"] for m in moves} | {m["id"] for m in unranked}
-    # species.json: las dos builds sin MT del ranking acotado (build/bounded_tables.py; alguna lleva un solo ataque) y cuál aguanta más
+    # species.json: las builds sin MT del ranking acotado (build/bounded_tables.py) y cuál aguanta más. Un estilo puede
+    # faltar (data/bounded_gaps.csv); las que hay llevan 4 movimientos y, salvo tipo Normal, ningún movimiento vetado.
+    types_of = {p["dex"]: p.get("t") or p.get("types") for p in index}
+    bounded = json.loads((ROOT / "data" / "bounded_ranking.json").read_text(encoding="utf8"))["species"]
+    for d in dexes:
+        normal = "normal" in json.dumps(types_of.get(d) or "").lower() or "Normal" in json.dumps(types_of.get(d) or "")
+        published = [b["moves"] for k, b in (pairs.get(str(d)) or {}).items() if isinstance(b, dict)]
+        published += [b["attacks"] for b in bounded.get(str(d), {}).values()]
+        for mv in published:
+            if len(mv) != 4:
+                err(f"Pokémon {d}: build publicada con {len(mv)} movimientos, no 4: {mv}")
+            if not normal and set(BANNED_MOVES) & set(mv):
+                err(f"Pokémon {d}: build publicada con movimiento vetado {sorted(set(BANNED_MOVES) & set(mv))}")
     for d in dexes:
         pair = pairs.get(str(d))
-        ok = isinstance(pair, dict) and pair.get("best") in ("melee", "ranged") and all(
-            isinstance(pair.get(k), dict) and 1 <= len(pair[k]["moves"]) <= 4 and all(m in move_ids for m in pair[k]["moves"])
+        kinds = [k for k in ("melee", "ranged") if isinstance((pair or {}).get(k), dict)]
+        ok = isinstance(pair, dict) and pair.get("best") in kinds and all(
+            len(pair[k]["moves"]) == 4 and all(m in move_ids for m in pair[k]["moves"])
             and len(set(pair[k]["moves"])) == len(pair[k]["moves"]) and pair[k]["nBoost"] in (0, 1, 2)
             and pair[k]["time"] > 0 and pair[k]["lo"] <= pair[k]["score"] <= pair[k]["hi"]
-            for k in ("melee", "ranged"))
-        if ok and pair["melee"]["score"] != pair["ranged"]["score"]:
+            for k in kinds)
+        if ok and len(kinds) == 2 and pair["melee"]["score"] != pair["ranged"]["score"]:
             ok = pair[pair["best"]]["score"] == max(pair["melee"]["score"], pair["ranged"]["score"])
         if not ok:
             err(f"data/species.json: builds incompletas o raras para el Pokémon {d}")
