@@ -1960,4 +1960,10 @@ input[type="search"]:focus-visible { outline: 2px solid var(--accent); outline-o
 .wx-fx { display: flex; flex-wrap: wrap; gap: 4px 0; }
 .pv-link { margin-top: 24px; }
 @media (max-width: 560px) { .wx-list li { grid-template-columns: 1fr; gap: 6px; } }
-
+.hx { max-width: 360px; margin: 0 auto; }
+.hx-svg { width: 100%; height: auto; overflow: visible; }
+.hx-svg text { fill: var(--ink-2); font: 600 12px var(--ui); }
+.hx-svg .hx-val { fill: var(--ink); font-weight: 700; }
+.hx-grid, .hx-axis { fill: none; stroke: var(--rule); stroke-width: 1; }
+.hx-poly { fill: color-mix(in srgb, var(--accent) 38%, transparent); stroke: var(--accent); stroke-width: 2; }
+.st-extra { justify-content: center; }

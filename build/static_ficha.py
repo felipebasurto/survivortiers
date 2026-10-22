@@ -203,23 +203,54 @@ def why(L: Lang, entry: dict, moves: dict[str, dict]) -> str:
 
 
 # ---------------------------------------------------------------- estadísticas
-_BARS = (("hp", "st_hp", 0, ""), ("pa", "cb_pa", 2, "×"), ("sa", "cb_sa", 2, "×"), ("df", "cb_df", 0, ""),
-         ("sd", "cb_sd", 0, ""), ("spd", "st_spd", 0, ""))
-_EXTRA = (("size", "st_size", 1, ""), ("types", "st_types", 2, "×"))
+# Orden del hexágono de los juegos: PS arriba y luego, en sentido horario, Ataque, Defensa, Velocidad, Def. Esp., At. Esp.
+_HEX = (("hp", "st_hp", 0, ""), ("pa", "cb_pa", 2, "×"), ("df", "cb_df", 0, ""),
+        ("spd", "st_spd", 0, ""), ("sd", "cb_sd", 0, ""), ("sa", "cb_sa", 2, "×"))
+_HEX_SHORT = {"hp": ("PS", "HP"), "pa": ("Ataque", "Attack"), "df": ("Defensa", "Defense"),
+              "spd": ("Velocidad", "Speed"), "sd": ("Def. Esp.", "Sp. Def."), "sa": ("At. Esp.", "Sp. Atk")}
 
 
 def _shown(L: Lang, v: float, digits: int, pre: str) -> str:
     return pre + (L.dec(v, digits) if digits else str(round(v)))
 
 
+def _hex_xy(i: int, r: float, cx: float, cy: float) -> tuple[float, float]:
+    a = math.radians(-90 + i * 60)
+    return cx + r * math.cos(a), cy + r * math.sin(a)
+
+
+def _radar(L: Lang, entry: dict) -> str:
+    cx, cy, radius = 180, 168, 78
+    rings = []
+    for k in (0.25, 0.5, 0.75, 1):
+        pts = " ".join(f"{x:.1f},{y:.1f}" for i in range(6) for x, y in [_hex_xy(i, radius * k, cx, cy)])
+        rings.append(f'<polygon class="hx-grid" points="{pts}"/>')
+    axes, labels, poly, aria = [], [], [], []
+    for i, (key, lab, digits, pre) in enumerate(_HEX):
+        x, y = _hex_xy(i, radius, cx, cy)
+        axes.append(f'<line class="hx-axis" x1="{cx}" y1="{cy}" x2="{x:.1f}" y2="{y:.1f}"/>')
+        px, py = _hex_xy(i, radius * entry["pct"][key] / 100, cx, cy)
+        poly.append(f"{px:.1f},{py:.1f}")
+        shown = _shown(L, entry["game"][key], digits, pre)
+        aria.append(f"{L.t(lab)} {shown}")
+        lx, ly = _hex_xy(i, radius + 36, cx, cy)
+        anchor = "middle" if i in (0, 3) else ("start" if i in (1, 2) else "end")
+        short = _HEX_SHORT[key][1 if L.en else 0]
+        labels.append(f'<text x="{lx:.1f}" y="{ly - 2:.1f}" text-anchor="{anchor}">{esc(short)}</text>'
+                      f'<text class="hx-val" x="{lx:.1f}" y="{ly + 13:.1f}" text-anchor="{anchor}">{esc(shown)}</text>')
+    return (f'<svg class="hx-svg" viewBox="0 0 360 336" role="img" aria-label="{esc(", ".join(aria))}">'
+            f'{"".join(rings)}{"".join(axes)}<polygon class="hx-poly" points="{" ".join(poly)}"/>'
+            f'{"".join(labels)}</svg>')
+
+
+_EXTRA = (("size", "st_size", 1, ""), ("types", "st_types", 2, "×"))
+
+
 def stats(L: Lang, entry: dict) -> str:
-    bars = "".join(
-        f'<li><span class="st-name">{esc(L.t(lab))}</span><output>{esc(_shown(L, entry["game"][key], digits, pre))}</output>'
-        f'{_pct_bar(entry["pct"][key], L.t("pct_alt", pct=entry["pct"][key]))}</li>' for key, lab, digits, pre in _BARS)
     extra = "".join(f'<li><span>{esc(L.t(lab))}</span> <b>{esc(_shown(L, entry["game"][key], digits, pre))}</b></li>'
                     for key, lab, digits, pre in _EXTRA)
     return (f'<section class="sheet stats" id="stats" aria-labelledby="stats-h">'
-            f'<h2 id="stats-h">{esc(L.t("st_h"))}</h2><ul class="st-list">{bars}</ul>'
+            f'<h2 id="stats-h">{esc(L.t("st_h"))}</h2><div class="hx">{_radar(L, entry)}</div>'
             f'<ul class="st-extra">{extra}</ul></section>')
 
 
