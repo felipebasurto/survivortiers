@@ -34,6 +34,22 @@ const MORNING_SEEDS_A: u64 = 4;
 const MORNING_SEEDS_B: u64 = 32;
 const MORNING_SEEDS_C: u64 = 4;
 const MORNING_SEEDS_D: u64 = 32;
+const RECALL_GAP: f64 = 0.05;
+const RECALL_CONFIRM: usize = 50;
+const RECALL_SEEDS_A: [u32; 4] = [1001, 1002, 1003, 1004];
+const RECALL_SEEDS_B: [u32; 32] = seed_range::<32>(1101);
+const RECALL_SEEDS_CONFIRM: [u32; 32] = seed_range::<32>(3001);
+const RECALL_SEEDS_VERIFY: [u32; 1024] = seed_range::<1024>(4001);
+
+const fn seed_range<const N: usize>(first: u32) -> [u32; N] {
+    let mut out = [0; N];
+    let mut i = 0;
+    while i < N {
+        out[i] = first + i as u32;
+        i += 1;
+    }
+    out
+}
 const MATCH_CEILING: u64 = 17_116 * 72_000 / 100;
 // Longer than the 2.5 h wrapper. A 900 s plan wall returned on purpose and the
 // next resume reloaded the plan and reread finished checkpoints.
@@ -580,11 +596,9 @@ fn morning_cost(rows: &[BudgetRow], cap: usize, species: u64, recall_tasks: u64)
     }
 }
 
-fn recall_upper(data: &Data, dex: u32, confirm_seeds: u64) -> Result<u64, String> {
+fn recall_upper(data: &Data, dex: u32) -> Result<u64, String> {
     let rows = tally_species(data, mon(data, dex)?);
-    let groups = rows.iter().map(|row| row.groups as u64).sum::<u64>();
-    let confirm = rows.iter().map(|row| (row.groups as u64).min(50) * confirm_seeds).sum::<u64>();
-    Ok(groups * MORNING_SEEDS_A + confirm)
+    Ok(rows.iter().map(|row| recall_stratum_upper(row.groups as u64)).sum())
 }
 
 fn roster(data: &Data) -> &'static Roster {
@@ -610,7 +624,7 @@ fn roster(data: &Data) -> &'static Roster {
         recall_dexes.dedup();
         let recall_tasks = recall_dexes
             .into_iter()
-            .filter_map(|dex| recall_upper(data, dex, MORNING_SEEDS_D).ok())
+            .filter_map(|dex| recall_upper(data, dex).ok())
             .sum();
         let mut caps = rows.iter().map(|row| row.groups).collect::<Vec<_>>();
         caps.push(0);
@@ -975,10 +989,9 @@ fn write_plan(data: &Data, spec: &Spec, out: &str) -> Result<Value, String> {
     for &dex in &spec.recall {
         let rows = tally_species(data, mon(data, dex)?);
         let groups = rows.iter().map(|row| row.groups as u64).sum::<u64>();
-        let screen = groups * 4;
-        let confirm = rows.iter().map(|row| (row.groups as u64).min(50) * spec.seeds_d.len() as u64).sum::<u64>();
-        recall_tasks += screen + confirm;
-        recall_detail.push(json!({"dex": dex, "groups": groups, "screeningTasks": screen, "confirmationUpper": confirm}));
+        let upper = rows.iter().map(|row| recall_stratum_upper(row.groups as u64)).sum::<u64>();
+        recall_tasks += upper;
+        recall_detail.push(json!({"dex": dex, "groups": groups, "tasksUpper": upper}));
     }
     let tasks_upper = stage_a_tasks + stage_b_upper + stage_c_upper + stage_d_upper + control_tasks + recall_tasks;
     if tasks_upper > spec.max_matches {
@@ -1566,9 +1579,15 @@ fn write_report(results_path: &str, report_path: &str, recall_path: Option<&str>
     let mut text = String::new();
     match &recall {
         Some(doc) if doc["ok"] == true => {
-            let failed = doc["rows"].as_array().into_iter().flatten().filter(|row| row["pass"] != true).count();
-            let total = doc["rows"].as_array().map(Vec::len).unwrap_or(0);
-            text.push_str(&format!("Recall: {failed} of {total} style/branch rows failed the 5% gap.\n\n"));
+            let rows = doc["rows"].as_array().cloned().unwrap_or_default();
+            let count = |verdict: &str| rows.iter().filter(|row| row["verdict"] == verdict).count();
+            text.push_str(&format!(
+                "Recall: {} pass, {} fail, {} inconclusive of {} style/branch rows on the 5% gap.\n\n",
+                count("pass"),
+                count("fail"),
+                count("inconclusive"),
+                rows.len(),
+            ));
         }
         _ => text.push_str("Recall failed or was not run. The funnel rows below are not a recall verdict.\n\n"),
     }
@@ -1602,13 +1621,16 @@ fn write_report(results_path: &str, report_path: &str, recall_path: Option<&str>
         text.push_str("\nRecall rows\n");
         for row in doc["rows"].as_array().into_iter().flatten() {
             text.push_str(&format!(
-                "dex {} {} {}: rank {} gap upper {} pass {}\n",
+                "dex {} {} {}: {} rank {} gap {:.2} [{:.2}, {:.2}] allowance {:.2}\n",
                 row["dex"].as_u64().unwrap_or(0),
                 row["style"].as_str().unwrap_or(""),
                 row["branch"].as_str().unwrap_or(""),
+                row["verdict"].as_str().unwrap_or("inconclusive"),
                 row["rank"].as_str().unwrap_or("absent"),
-                row["gapUpper"].as_f64().unwrap_or(f64::NAN),
-                row["pass"].as_bool().unwrap_or(false),
+                row["gap"]["mean"].as_f64().unwrap_or(f64::NAN),
+                row["gap"]["lower"].as_f64().unwrap_or(f64::NAN),
+                row["gap"]["upper"].as_f64().unwrap_or(f64::NAN),
+                row["allowance"].as_f64().unwrap_or(f64::NAN),
             ));
         }
     }
@@ -1618,12 +1640,39 @@ fn write_report(results_path: &str, report_path: &str, recall_path: Option<&str>
     fs::write(report_path, text).map_err(|e| e.to_string())
 }
 
-pub(crate) fn gap_passes(deltas: &[f64], real_mean: f64) -> (f64, bool) {
+pub(crate) fn recall_verdict(deltas: &[f64], real_mean: f64) -> (Value, &'static str) {
     let interval = paired_interval(deltas);
-    let upper = interval["upper"].as_f64().unwrap_or(f64::MAX);
-    (upper, deltas.len() >= 2 && upper <= 0.05 * real_mean.max(0.))
+    let allowance = RECALL_GAP * real_mean.max(0.);
+    let verdict = match (interval["lower"].as_f64(), interval["upper"].as_f64()) {
+        (_, Some(upper)) if upper <= allowance => "pass",
+        (Some(lower), _) if lower > allowance => "fail",
+        _ => "inconclusive",
+    };
+    (interval, verdict)
 }
 
+fn recall_stratum_upper(groups: u64) -> u64 {
+    groups * RECALL_SEEDS_A.len() as u64
+        + groups.min(MORNING_GROUPS_B) * RECALL_SEEDS_B.len() as u64
+        + groups.min(RECALL_CONFIRM as u64 + 1) * RECALL_SEEDS_CONFIRM.len() as u64
+        + 2 * RECALL_SEEDS_VERIFY.len() as u64
+}
+
+fn recall_lives(cache: &Path, id: &str, stage: &str, seeds: &[u32]) -> Option<Vec<f64>> {
+    seeds
+        .iter()
+        .map(|seed| cached(cache, &task_id("recall", id, stage, *seed)).map(|row| row["row"]["metrics"]["survivalSeconds"].as_f64().unwrap_or(0.)))
+        .collect()
+}
+
+fn mean_of(xs: &[f64]) -> f64 {
+    xs.iter().sum::<f64>() / xs.len().max(1) as f64
+}
+
+// Recall mirrors the funnel on the default profile: stage A screens the
+// shortlist, stage B picks among its top 4. The real best is chosen on the
+// confirmation seeds and the gap is measured on fresh seeds, so neither pick
+// is scored on the seeds that chose it.
 fn recall_one(data: &Data, dex: u32, cache: &Path, threads: usize, seconds: f64) -> Result<Vec<Value>, String> {
     let base = mon(data, dex)?;
     let groups = legal_groups(data, base);
@@ -1636,126 +1685,82 @@ fn recall_one(data: &Data, dex: u32, cache: &Path, threads: usize, seconds: f64)
         let (score, _, _) = config_proxy(data, base, &config);
         proposals.push((score, style.to_string(), branch.to_string(), config));
     }
+    let by_id = proposals.iter().map(|row| (row.3.id.clone(), row.3.clone())).collect::<HashMap<_, _>>();
     let pool = rayon::ThreadPoolBuilder::new().num_threads(threads).build().map_err(|e| e.to_string())?;
     let tables = Tables::new();
-    let seeds_a = (1001..=1004).collect::<Vec<_>>();
-    let seeds_d = (3001..=3032).collect::<Vec<_>>();
-    let tasks = proposals.iter().flat_map(|(_, _, _, config)| {
-        seeds_a.iter().copied().map(|seed| (config.clone(), seed, "recall-a"))
-    }).collect::<Vec<_>>();
-    pool.install(|| {
-        tasks.par_iter().for_each(|(config, seed, stage)| {
-            let id = task_id("recall", &config.id, stage, *seed);
-            if cached(cache, &id).is_some() {
-                return;
-            }
-            if let Ok(row) = run_configuration(data, &tables, config, *seed, seconds) {
-                let record = json!({"taskId": id, "configurationId": config.id, "stage": stage, "seed": seed, "row": row});
-                let _ = atomic_json(&cache.join(format!("{id}.json")), &record);
-            }
+    let run = |ids: &[String], stage: &str, seeds: &[u32]| {
+        let tasks = ids
+            .iter()
+            .filter_map(|id| by_id.get(id))
+            .flat_map(|config| seeds.iter().map(move |seed| (config, *seed)))
+            .collect::<Vec<_>>();
+        pool.install(|| {
+            tasks.par_iter().for_each(|(config, seed)| {
+                let id = task_id("recall", &config.id, stage, *seed);
+                if cached(cache, &id).is_some() {
+                    return;
+                }
+                if let Ok(row) = run_configuration(data, &tables, config, *seed, seconds) {
+                    let record = json!({"taskId": id, "configurationId": config.id, "stage": stage, "seed": seed, "row": row});
+                    let _ = atomic_json(&cache.join(format!("{id}.json")), &record);
+                }
+            });
         });
-    });
+    };
+    let best = |ids: &[String], stage: &str, seeds: &[u32]| {
+        ids.iter()
+            .filter_map(|id| recall_lives(cache, id, stage, seeds).map(|lives| (mean_of(&lives), id.clone())))
+            .max_by(|a, b| a.0.total_cmp(&b.0).then_with(|| b.1.cmp(&a.1)))
+    };
+    run(&by_id.keys().cloned().collect::<Vec<_>>(), "recall-a", &RECALL_SEEDS_A);
     let mut by_key: BTreeMap<(String, String), Vec<(f64, String, f64)>> = BTreeMap::new();
     for (score, style, branch, config) in &proposals {
-        let mut lives = Vec::new();
-        for seed in &seeds_a {
-            let id = task_id("recall", &config.id, "recall-a", *seed);
-            if let Some(row) = cached(cache, &id) {
-                lives.push(row["row"]["metrics"]["survivalSeconds"].as_f64().unwrap_or(0.));
-            }
-        }
-        if lives.len() == seeds_a.len() {
-            let mean = lives.iter().sum::<f64>() / lives.len() as f64;
-            by_key.entry((style.clone(), branch.clone())).or_default().push((*score, config.id.clone(), mean));
+        if let Some(lives) = recall_lives(cache, &config.id, "recall-a", &RECALL_SEEDS_A) {
+            by_key.entry((style.clone(), branch.clone())).or_default().push((*score, config.id.clone(), mean_of(&lives)));
         }
     }
     let mut rows = Vec::new();
-    let mut confirm = Vec::new();
     for ((style, branch), mut list) in by_key {
         list.sort_by(|a, b| b.2.total_cmp(&a.2).then_with(|| a.1.cmp(&b.1)));
-        let real_id = list.first().map(|row| row.1.clone());
         let mut by_prior = list.clone();
         by_prior.sort_by(|a, b| b.0.total_cmp(&a.0).then_with(|| a.1.cmp(&b.1)));
-        let shortlist = if list.len() <= roster(data).cap {
-            by_prior.iter().map(|row| row.1.clone()).collect::<Vec<_>>()
-        } else {
-            by_prior.iter().take(FALLBACK_GROUPS).map(|row| row.1.clone()).collect::<Vec<_>>()
-        };
-        let funnel_id = list.iter().filter(|row| shortlist.contains(&row.1)).max_by(|a, b| a.2.total_cmp(&b.2)).map(|row| row.1.clone());
-        let rank = real_id.as_ref().and_then(|id| shortlist.iter().position(|x| x == id).map(|i| i + 1));
-        let mut confirm_ids = list.iter().take(50).map(|row| row.1.clone()).collect::<Vec<_>>();
+        let keep = if list.len() <= roster(data).cap { by_prior.len() } else { FALLBACK_GROUPS };
+        let shortlist = by_prior.iter().take(keep).map(|row| row.1.clone()).collect::<BTreeSet<_>>();
+        let promoted = list.iter().filter(|row| shortlist.contains(&row.1)).take(MORNING_GROUPS_B as usize).map(|row| row.1.clone()).collect::<Vec<_>>();
+        run(&promoted, "recall-b", &RECALL_SEEDS_B);
+        let funnel_id = best(&promoted, "recall-b", &RECALL_SEEDS_B).map(|(_, id)| id);
+        let mut confirm_ids = list.iter().take(RECALL_CONFIRM).map(|row| row.1.clone()).collect::<Vec<_>>();
         if let Some(id) = &funnel_id {
-            if !confirm_ids.iter().any(|existing| existing == id) {
+            if !confirm_ids.contains(id) {
                 confirm_ids.push(id.clone());
             }
         }
-        for id in &confirm_ids {
-            let config = proposals.iter().find(|row| row.3.id == *id).map(|row| row.3.clone());
-            if let Some(config) = config {
-                for seed in &seeds_d {
-                    confirm.push((config.clone(), *seed));
-                }
-            }
-        }
+        run(&confirm_ids, "recall-confirm", &RECALL_SEEDS_CONFIRM);
+        let real_id = best(&confirm_ids, "recall-confirm", &RECALL_SEEDS_CONFIRM).map(|(_, id)| id);
+        let rank = real_id.as_ref().and_then(|id| by_prior.iter().position(|row| &row.1 == id)).filter(|i| *i < keep).map(|i| (i + 1).to_string());
+        let pair = [real_id.clone(), funnel_id.clone()].into_iter().flatten().collect::<Vec<_>>();
+        run(&pair, "recall-verify", &RECALL_SEEDS_VERIFY);
+        let real_lives = real_id.as_deref().and_then(|id| recall_lives(cache, id, "recall-verify", &RECALL_SEEDS_VERIFY));
+        let funnel_lives = funnel_id.as_deref().and_then(|id| recall_lives(cache, id, "recall-verify", &RECALL_SEEDS_VERIFY));
+        let (real_mean, deltas) = match (&real_lives, &funnel_lives) {
+            (Some(real), Some(funnel)) => (mean_of(real), real.iter().zip(funnel).map(|(r, f)| r - f).collect::<Vec<_>>()),
+            _ => (0., Vec::new()),
+        };
+        let (gap, verdict) = recall_verdict(&deltas, real_mean);
         rows.push(json!({
             "dex": dex,
             "style": style,
             "branch": branch,
-            "rank": rank.map(|n| n.to_string()).unwrap_or_else(|| "absent".into()),
-            "realId": real_id,
+            "groups": list.len(),
+            "rank": rank.unwrap_or_else(|| "absent".into()),
             "funnelId": funnel_id,
-            "confirmIds": confirm_ids,
+            "realId": real_id,
+            "realMean": real_mean,
+            "gap": gap,
+            "allowance": RECALL_GAP * real_mean.max(0.),
+            "verdict": verdict,
+            "pass": verdict == "pass",
         }));
-    }
-    pool.install(|| {
-        confirm.par_iter().for_each(|(config, seed)| {
-            let id = task_id("recall", &config.id, "recall-d", *seed);
-            if cached(cache, &id).is_some() {
-                return;
-            }
-            if let Ok(row) = run_configuration(data, &tables, config, *seed, seconds) {
-                let record = json!({"taskId": id, "configurationId": config.id, "stage": "recall-d", "seed": seed, "row": row});
-                let _ = atomic_json(&cache.join(format!("{id}.json")), &record);
-            }
-        });
-    });
-    for row in &mut rows {
-        let funnel = row["funnelId"].as_str().unwrap_or("").to_string();
-        let ids = row["confirmIds"].as_array().cloned().unwrap_or_default();
-        let mut best_id = String::new();
-        let mut best_mean = f64::MIN;
-        let mut means: HashMap<String, Vec<f64>> = HashMap::new();
-        for id_value in &ids {
-            let Some(id) = id_value.as_str() else { continue };
-            let mut lives = Vec::new();
-            for seed in &seeds_d {
-                if let Some(saved) = cached(cache, &task_id("recall", id, "recall-d", *seed)) {
-                    lives.push(saved["row"]["metrics"]["survivalSeconds"].as_f64().unwrap_or(0.));
-                }
-            }
-            if lives.len() != seeds_d.len() {
-                continue;
-            }
-            let mean = lives.iter().sum::<f64>() / lives.len() as f64;
-            if mean > best_mean || (mean == best_mean && (best_id.is_empty() || id < best_id.as_str())) {
-                best_mean = mean;
-                best_id = id.to_string();
-            }
-            means.insert(id.to_string(), lives);
-        }
-        let mut deltas = Vec::new();
-        if let (Some(real_lives), Some(funnel_lives)) = (means.get(&best_id), means.get(&funnel)) {
-            for (ar, br) in real_lives.iter().zip(funnel_lives.iter()) {
-                deltas.push(ar - br);
-            }
-        }
-        let real_mean = if best_id.is_empty() { 0. } else { best_mean };
-        let (upper, pass) = gap_passes(&deltas, real_mean);
-        row["confirmedRealId"] = json!(best_id);
-        row["gapUpper"] = json!(upper);
-        row["realMean"] = json!(real_mean);
-        row["pass"] = json!(pass);
-        row.as_object_mut().map(|obj| obj.remove("confirmIds"));
     }
     Ok(rows)
 }
@@ -1844,12 +1849,12 @@ mod tests {
     }
 
     #[test]
-    fn gap_upper_bound_uses_the_five_percent_rule() {
-        let (_, pass) = gap_passes(&[1.0, 1.0, 1.0], 100.0);
-        assert!(pass);
-        let (upper, fail) = gap_passes(&[10.0, 10.0, 10.0], 100.0);
-        assert!(!fail);
-        assert!((upper - 10.0).abs() < 1e-9);
+    fn recall_verdict_passes_fails_or_stays_inconclusive_against_five_percent() {
+        assert_eq!(recall_verdict(&[1.0, 1.0, 1.0], 100.0).1, "pass");
+        assert_eq!(recall_verdict(&[0.0; 8], 100.0).1, "pass");
+        assert_eq!(recall_verdict(&[10.0, 10.0, 10.0], 100.0).1, "fail");
+        assert_eq!(recall_verdict(&[-20.0, 0.0, 20.0], 100.0).1, "inconclusive");
+        assert_eq!(recall_verdict(&[1.0], 100.0).1, "inconclusive");
     }
 
     #[test]
