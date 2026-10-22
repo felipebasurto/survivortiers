@@ -309,7 +309,8 @@ def _validate_build(build: dict[str, Any], at: str, errors: list[str], game: dic
                     continue
                 move = moves.get(mid, {})
                 move_type = move.get("type")
-                if mid not in set(species.get("pool", [])) or move_type not in set(species.get("types", [])) or move.get("kind") == "buff":
+                native_types = set(species.get("types", [])) | {"normal"}
+                if mid not in set(species.get("pool", [])) or move_type not in native_types or move.get("kind") == "buff":
                     errors.append(f"{at}.build.initial_attacks contains a move that is not a legal native start choice or purchased TM")
             ability = build.get("ability", {})
             legal_abilities = {x for x in species.get("abilities", []) if isinstance(x, str)}

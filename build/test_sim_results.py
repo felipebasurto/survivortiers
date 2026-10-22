@@ -141,6 +141,13 @@ class SimResultsContractTests(unittest.TestCase):
         data = fixture()
         data["provenance"]["game_commit"] = game["gameCommit"]
         data["results"][0]["build"]["initial_attacks"] = ["quick-attack"]
+        sim_results.validate_results(data, game)
+        data = fixture()
+        data["provenance"]["game_commit"] = game["gameCommit"]
+        pikachu = next(row for row in game["dex"] if row["dex"] == 25)
+        pikachu["pool"] = [*pikachu["pool"], "ember"]
+        data["results"][0]["build"]["attacks"][0]["id"] = "ember"
+        data["results"][0]["build"]["initial_attacks"] = ["ember"]
         with self.assertRaisesRegex(sim_results.ResultContractError, "not a legal native start choice"):
             sim_results.validate_results(data, game)
         data = fixture()
