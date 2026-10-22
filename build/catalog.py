@@ -249,8 +249,9 @@ def load_pokemon(credits: dict, shiny: set[int]) -> list[dict]:
     for name, table in (("ranking_fase3.csv", rows), ("species_builds.csv", builds), ("species_why.csv", why)):
         if sorted(table) != dexes:
             raise CatalogError(f"{name}: los números de Pokédex no coinciden con pokedex_export.json")
-    if any(sorted(b) != sorted(BUILD_KINDS) for b in builds.values()):
-        raise CatalogError("species_builds.csv: cada Pokémon lleva una build melee y una ranged")
+    # Ranking acotado: un estilo puede no tener build válida (data/bounded_gaps.csv); la ficha lo dice.
+    if any(not b or set(b) - set(BUILD_KINDS) for b in builds.values()):
+        raise CatalogError("species_builds.csv: cada Pokémon lleva al menos una build, melee o ranged")
     if any([w["f"] for w in ws] != list(WHY_FACTORS) for ws in why.values()):
         raise CatalogError(f"species_why.csv: cada Pokémon lleva los factores {WHY_FACTORS} en ese orden")
     # Estadísticas del juego que usa el simulador (v3_data.json) y su percentil entre los 966.

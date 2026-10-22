@@ -58,7 +58,7 @@ check('cada build recomendada: sin repetidos, máximo 2 potenciadores, ids en el
   for (const p of index) {
     const rec = tools.recommended(p.dex, species);
     const pool = tools.poolOf(p.types, game.pool);
-    const known = new Set([...pool, ...['melee', 'ranged'].flatMap(k => species.builds[String(p.dex)][k].moves)]);
+    const known = new Set([...pool, ...['melee', 'ranged'].flatMap(k => (species.builds[String(p.dex)][k] || {moves: []}).moves)]);
     const ids = rec.group.filter(Boolean);
     assert.equal(new Set(ids).size, ids.length, 'repetido en ' + p.dex);
     assert.ok(ids.length <= tools.PLAN_SLOTS, 'más de cuatro en ' + p.dex);

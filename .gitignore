@@ -24,3 +24,4 @@ simulator/runpod-ranking/full/*
 !simulator/runpod-ranking/full/README.md
 !simulator/runpod-ranking/full/manifest.runtime.json
 !simulator/runpod-ranking/full/runner.log
+!simulator/runpod-ranking/full/candidates.json.gz

@@ -10,3 +10,8 @@ está en git: vive en la copia del repo del Mac de Felipe (`~/Downloads/survivor
 y puede subirse como asset de una GitHub Release. La caché de partidas tampoco se sube.
 
 Publicado el 22-10-2026 por decisión de Felipe, antes de cerrar Gate 2: es diagnóstico, no un óptimo global.
+
+`candidates.json.gz` (4,5 MB) es un extracto de `results.json`: por cada build simulada (etapas A, B y ganadoras
+confirmadas) su configuración y, por partida, [supervivencia s, bajas, daño]. Lo lee `build/bounded_tables.py`, que
+aplica las reglas de publicación (4 movimientos; sin Placaje, Ataque Rápido ni Golpe Cuerpo salvo tipo Normal) y
+reescribe las builds de `data/bounded_ranking.json`. Orden: `bounded_export.py` y después `bounded_tables.py`.

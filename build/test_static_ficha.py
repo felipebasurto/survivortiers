@@ -114,7 +114,7 @@ class StaticMewtwo(unittest.TestCase):
             self.assertIn(f'rel="canonical" href="{legal.SITE_URL}/', html)
             self.assertIn('hreflang="es"', html)
             self.assertIn('hreflang="en"', html)
-        for kind in ("melee", "ranged"):
+        for kind in [k for k in ("melee", "ranged") if k in pair]:
             for mid in pair[kind]["moves"]:
                 self.assertIn(moves[mid]["name"], _visible(es))
                 self.assertIn(moves[mid]["en"]["name"], _visible(en))

@@ -84,8 +84,8 @@ class Method(unittest.TestCase):
             self.assertIn(legal.UPDATED_COMMIT, html)
             self.assertIn('class="notice"', html)
             self.assertIn(L.num(meta["method"]["games"]), html)
-        self.assertIn("supervivencia media de sus 16 partidas de confirmación", _read("metodo.html"))
-        self.assertIn("mean survival of its 16 confirmation runs", _read("en/metodo.html"))
+        self.assertIn("mediana de supervivencia de sus partidas", _read("metodo.html"))
+        self.assertIn("median survival over its runs", _read("en/metodo.html"))
         self.assertNotIn("Por último, una regla", _read("metodo.html"))
 
     def test_score_refs_come_from_the_sim(self) -> None:
@@ -109,7 +109,7 @@ class AgentFiles(unittest.TestCase):
         self.assertTrue(text.startswith("# SurvivorTiers"))
         self.assertIn(legal.freshness_text(EN), text)
         self.assertIn("Best five right now", text)
-        self.assertIn("mean survival seconds of its best no-TM build", text)
+        self.assertIn("median survival seconds of its best 4-move no-TM build", text)
         self.assertIn(f"{legal.SITE_URL}/en/metodo", text)
         self.assertNotIn("sheet percentiles", text)
         full = _read("llms-full.txt")

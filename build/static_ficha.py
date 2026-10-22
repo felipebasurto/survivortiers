@@ -255,6 +255,8 @@ def _gap_pct(high: float, low: float) -> int:
 
 def _winner(pair: dict[str, dict]) -> str | None:
     """La build de mayor puntuación; con empate, ninguna."""
+    if len(pair) < 2:
+        return next(iter(pair))
     if pair["melee"]["score"] == pair["ranged"]["score"]:
         return None
     return max(BUILD_NAME, key=lambda k: pair[k]["score"])
@@ -279,7 +281,7 @@ def build_names(L: Lang, moves: dict[str, dict], b: dict) -> tuple[str, str]:
 
 def _build_answer(L: Lang, moves: dict[str, dict], pair: dict[str, dict], best: str) -> str:
     parts = []
-    for kind in (best, BUILD_OTHER_KIND[best]):
+    for kind in (k for k in (best, BUILD_OTHER_KIND[best]) if k in pair):
         attacks, boosts = build_names(L, moves, pair[kind])
         parts.append(L.t("faq_a_build", kind=L.t(BUILD_NAME[kind]), attacks=attacks, buffs=boosts,
                          start=_move_name(L, moves, pair[kind]["moves"][0])))
@@ -389,13 +391,20 @@ def _build_option(L: Lang, assets: str, moves: dict[str, dict], kind: str, b: di
             f'{coverage_html(L, b)}{alts}</article>')
 
 
+def _no_build(L: Lang, kind: str) -> str:
+    """Estilo sin build simulada de 4 movimientos que cumpla las reglas (data/bounded_gaps.csv): se dice, no se inventa."""
+    return (f'<article class="bd-opt is-empty" data-build="{kind}"><h3 class="bd-kind">{esc(L.t(BUILD_NAME[kind]))}</h3>'
+            f'<p class="bd-verdict">{esc(L.t("bd_none"))}</p></article>')
+
+
 def builds(L: Lang, assets: str, entry: dict, moves: dict[str, dict], start_move: str) -> str:
     pair = entry["builds"]
     win = _winner(pair)
     order = (entry["r"]["best"], BUILD_OTHER_KIND[entry["r"]["best"]])
     t = entry["types"]
     mono = t[0] if len(t) == 1 else None
-    options = "".join(_build_option(L, assets, moves, k, pair[k], pair[BUILD_OTHER_KIND[k]], win, mono) for k in order)
+    options = "".join(_build_option(L, assets, moves, k, pair[k], pair.get(BUILD_OTHER_KIND[k], pair[k]), win, mono)
+                      if k in pair else _no_build(L, k) for k in order)
     note = f'<p class="bd-default">{esc(L.t("mono_note", type=L.type_name(mono)))}</p>' if mono else ""
     dashes = sorted({m for b in pair.values() if isinstance(b, dict) for m in b["moves"] if moves[m]["kind"] == "dash"})
     if dashes:
