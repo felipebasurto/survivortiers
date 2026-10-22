@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "kind": "bounded-ranking",
+  "policyVersion": "bounded-ranking-v2",
+  "gameCommit": "ce5785313b0205af8b9477423f64b0a7b7039dcd",
+  "engineFingerprint": "runtime-resolved-by-wrapper",
+  "dex": "all",
+  "secondsPerMatch": 900,
+  "threads": 32,
+  "candidatesPerStratum": 12,
+  "seeds": {
+    "A": [1001, 1002],
+    "B": [1101, 1102, 1103, 1104, 1105, 1106, 1107, 1108],
+    "D": [3001, 3002, 3003, 3004, 3005, 3006, 3007, 3008, 3009, 3010, 3011, 3012, 3013, 3014, 3015, 3016]
+  }
+}

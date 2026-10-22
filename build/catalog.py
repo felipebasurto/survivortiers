@@ -137,6 +137,17 @@ def load_moves() -> list[dict]:
         move["mech"] = {"homing": mech["homing"], "pierce": mech["pierce"], "count": mech["count"]}
         move["damage"] = game_moves.damage_class(mid, r["kind"])
         moves.append(move)
+    lab_path = os.environ.get("POKESIM_ATTACK_LAB")
+    if lab_path:
+        from lab_view import laboratory_rows
+        current = json.loads((ROOT / "simulator/data/game.json").read_text(encoding="utf8"))
+        observations = laboratory_rows(json.loads(Path(lab_path).read_text(encoding="utf8")), current["gameCommit"])
+        expected = {move["id"] for move in moves}
+        if set(observations) != expected:
+            raise CatalogError("laboratory must cover every attack in the moves catalog")
+        for move in moves:
+            if move["id"] in observations:
+                move["laboratory"] = observations[move["id"]]
     return moves
 
 

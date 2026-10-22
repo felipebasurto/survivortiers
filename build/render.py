@@ -527,6 +527,29 @@ def best_groups(L: Lang, moves_by: dict[str, dict]) -> str:
             f'<p class="lede">{esc(L.t("mv_groups_lede", n=GROUP_TOP))}</p><div class="bg-grid">{"".join(cards)}</div></section>')
 
 
+def laboratory_table(L: Lang, moves: list[dict]) -> str:
+    measured = sorted((m for m in moves if "laboratory" in m),
+                      key=lambda m: (-m["laboratory"]["score"], m["id"]))
+    if not measured:
+        return ""
+    rows = []
+    for rank, move in enumerate(measured, 1):
+        lab = move["laboratory"]
+        name = move["en"]["name"] if L.en else move["name"]
+        scenarios = ", ".join(f"{r['id']} ({r['level']}): {L.dec(r['damagePerSecond'], 1)}"
+                              for r in lab["scenarios"])
+        rows.append(f'<tr><td>{rank}</td><th scope="row">{esc(name)}</th>'
+                    f'<td>{esc(L.dec(lab["earlyScore"], 1))}</td>'
+                    f'<td>{esc(L.dec(lab["lateScore"], 1))}</td>'
+                    f'<td><details><summary>{esc(L.t("lab_scenarios"))}</summary>{esc(scenarios)}</details></td></tr>')
+    return (f'<section id="laboratorio"><h2>{esc(L.t("lab_title"))}</h2>'
+            f'<p class="lede">{esc(L.t("lab_description", n=len(measured)))}</p>'
+            f'<table><thead><tr><th>#</th><th>{esc(L.t("lab_move"))}</th>'
+            f'<th>{esc(L.t("lab_initial"))}</th><th>{esc(L.t("lab_maximum"))}</th>'
+            f'<th>{esc(L.t("lab_scenarios"))}</th></tr></thead><tbody>{"".join(rows)}</tbody></table></section>'
+            f'<h2>{esc(L.t("lab_historical"))}</h2>')
+
+
 def render_ataques(c: Ctx, moves: list[dict], meta: dict, unranked: list[dict]) -> str:
     L = c.L
     moves_by = {m["id"]: m for m in moves + unranked}
@@ -553,6 +576,7 @@ def render_ataques(c: Ctx, moves: list[dict], meta: dict, unranked: list[dict]) 
                    'stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>')
     content = f"""
 <h1>{esc(L.t("ataques_h1"))}</h1>
+{laboratory_table(L, moves)}
 <p class="lede">{esc(L.t("mv_lede", refs=p1["refs"], seeds=p1["seeds"]))}</p>
 <div class="search-field mv-finder">{search_icon}<input id="mv-q" type="search" autocomplete="off" placeholder="{esc(L.t("mv_search"))}" aria-label="{esc(L.t("mv_search"))}"></div>
 <p id="mv-none" class="mv-none" hidden>{esc(L.t("mv_none"))}</p>

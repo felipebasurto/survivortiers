@@ -14,6 +14,14 @@ GAME_NAME = "PokéSurvivor"
 SITE_NAME = "SurvivorTiers"
 
 STR: dict[str, tuple[str, str]] = {
+    "lab_title": ("Daño medido en laboratorio", "Measured laboratory damage"),
+    "lab_description": ("{n} ataques medidos con el mismo Pokémon de laboratorio. Daño por segundo en escenarios controlados; el orden resume ambos niveles y todos los escenarios con el mismo peso. No predice por sí solo la mejor build.",
+                        "{n} moves measured with the same laboratory Pokémon. Damage per second in controlled scenarios; order gives both levels and all scenarios equal weight. It does not by itself predict the best build."),
+    "lab_move": ("Ataque", "Move"),
+    "lab_initial": ("DPS inicial", "Initial DPS"),
+    "lab_maximum": ("DPS a nivel máximo", "Maximum-level DPS"),
+    "lab_scenarios": ("Escenarios", "Scenarios"),
+    "lab_historical": ("Clasificación histórica", "Historical ranking"),
     # ------------------------------------------------------------ base
     "skip": ("Saltar al contenido", "Skip to content"),
     "og_alt": ("Tier list no oficial de PokéSurvivor: cartas de las fichas S con sprites de pixel art.",
