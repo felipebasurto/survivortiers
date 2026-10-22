@@ -30,6 +30,7 @@ import novedades  # noqa: E402
 import objetos  # noqa: E402
 import learnsets  # noqa: E402
 import pasivas  # noqa: E402
+import habilidades  # noqa: E402
 import bounded_view  # noqa: E402
 import tipos  # noqa: E402
 import pack  # noqa: E402
@@ -57,7 +58,7 @@ NAV_TOP = [("index", "index.html", "nav_tiers"), ("ataques", "ataques.html", "na
            ("objetos", "objetos.html", "nav_objetos"), ("gachas", "gachas.html", "nav_gachas")]
 NAV_GROUPS = [
     ("nav_more", [("novedades", "novedades.html", "nav_novedades"), ("planificador", "@planner", "nav_planificador"),
-                  ("pasivas", "pasivas.html", "nav_pasivas"), ("naturalezas", "naturalezas.html", "nav_naturalezas"),
+                  ("pasivas", "pasivas.html", "nav_pasivas"), ("habilidades", "habilidades.html", "nav_habilidades"), ("naturalezas", "naturalezas.html", "nav_naturalezas"),
                   ("tipos", "tipos.html", "nav_tipos"),
                   ("metodo", "metodo.html", "nav_metodo"), ("acerca", "acerca.html", "nav_acerca")]),
 ]
@@ -659,6 +660,12 @@ def render_pasivas(c: Ctx, meta: dict) -> str:
                 L.t("pv_desc", game=legal.GAME_NAME), content, meta)
 
 
+def render_habilidades(c: Ctx, meta: dict, index: list[dict]) -> str:
+    L = c.L
+    return page(c, "habilidades", L.t("hab_title", site=legal.SITE_NAME),
+                L.t("hab_desc", game=legal.GAME_NAME), habilidades.content(L, c.home, index), meta)
+
+
 def render_naturalezas(c: Ctx, meta: dict) -> str:
     L = c.L
     return page(c, "naturalezas", L.t("nat_title", site=legal.SITE_NAME),
@@ -920,6 +927,7 @@ def main() -> int:
         put("ataques.html", lambda c: render_ataques(c, moves, meta, unranked))
         put("objetos.html", lambda c: render_objetos(c, meta))
         put("pasivas.html", lambda c: render_pasivas(c, meta))
+        put("habilidades.html", lambda c: render_habilidades(c, meta, index))
         put("naturalezas.html", lambda c: render_naturalezas(c, meta))
         put("tipos.html", lambda c: render_tipos(c, meta))
         put("gachas.html", lambda c: render_gachas(c, gachas, index, meta))
