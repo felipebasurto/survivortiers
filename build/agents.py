@@ -22,7 +22,7 @@ from i18n import EN, ES, TYPE_NAMES, Lang
 
 ROOT = Path(__file__).resolve().parent.parent
 RANKING_SRC = ROOT / "data" / "ranking_fase3.csv"
-PAGES = ["", "novedades.html", "ataques.html", "objetos.html", "pasivas.html", "naturalezas.html", "tipos.html", "gachas.html", "coleccion.html", "metodo.html", "acerca.html"]
+PAGES = ["", "novedades.html", "ataques.html", "objetos.html", "pasivas.html", "habilidades.html", "naturalezas.html", "tipos.html", "gachas.html", "coleccion.html", "metodo.html", "acerca.html"]
 LANG_PREFIX = {"es": "", "en": "en/"}
 
 
@@ -121,6 +121,7 @@ Base URL: {u}
 - Best Pokémon by type (EN), one page per type: {_type_links(True)}.
 - [Moves (EN)]({u}/en/ataques): phase 1 move tier list and the best phase 2 groups.
 - [Items (EN)]({u}/en/objetos): what each item does, from the game code. Not ranked.
+- [Abilities (EN)]({u}/en/habilidades): all 271 abilities with their exact in-game effect from the game code (js/data/ability-fx.js) and the species that have each one.
 - [Passives (EN)]({u}/en/pasivas): the level-up cards, boosts and abilities as the game code defines them, plus the natures that raise each stat with their win counts in the bounded ranking.
 - [Move types (EN)]({u}/en/tipos): how each move type hits the enemies that spawn, from the game's type chart, plus weather.
 - [What's new (EN)]({u}/en/novedades): game updates and site changes.

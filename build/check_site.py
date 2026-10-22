@@ -479,7 +479,7 @@ def browser_check(base: str, index: list[dict], args, err, notes: list[str]) -> 
 
 THEME_LIGHT, THEME_DARK = theme.THEME_COLOR["light"], theme.THEME_COLOR["dark"]
 PNG_OK = ("og.png", "apple-touch-icon.png")
-THEME_PAGES = ("", "novedades.html", "coleccion.html", "pokemon/25-pikachu/", "metodo.html", "ataques.html", "pasivas.html", "en/", "en/novedades.html", "en/pokemon/25-pikachu/", "en/coleccion.html", "en/pasivas.html")
+THEME_PAGES = ("", "novedades.html", "coleccion.html", "pokemon/25-pikachu/", "metodo.html", "ataques.html", "pasivas.html", "habilidades.html", "en/", "en/novedades.html", "en/pokemon/25-pikachu/", "en/coleccion.html", "en/pasivas.html")
 THEME_STATE_JS = """() => ({
     theme: document.documentElement.dataset.theme || null,
     bg: getComputedStyle(document.documentElement).getPropertyValue('--bg').trim(),
@@ -641,7 +641,7 @@ def main() -> int:
 
     # rastreo
     start = [f"{base}{lang}{p}" for lang in LANGS
-             for p in ("", "novedades.html", "metodo.html", "ataques.html", "objetos.html", "pasivas.html", "gachas.html", "coleccion.html", "acerca.html",
+             for p in ("", "novedades.html", "metodo.html", "ataques.html", "objetos.html", "pasivas.html", "habilidades.html", "gachas.html", "coleccion.html", "acerca.html",
                        "pokemon/")]
     start.append(base + "404.html")
     seen: dict[str, Page | None] = {}

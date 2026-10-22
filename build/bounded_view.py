@@ -44,6 +44,9 @@ T = {
     "ab_generic": ("Pasiva genérica: +8 % de daño con los movimientos de su tipo principal.",
                    "Generic passive: +8 % damage with moves of its main type."),
     "ab_plus": (" Además, la pasiva genérica de su tipo.", " Also the generic passive of its type."),
+    "ab_short": ("Las {n} habilidades del juego y lo que hace cada una están en su propia página.",
+                 "The {n} abilities in the game and what each one does have their own page."),
+    "ab_link": ("Ver todas las habilidades", "See all abilities"),
     "ab_col": ("Habilidad", "Ability"), "ab_eff": ("Efecto", "Effect"),
     "ns_h": ("Mejores naturalezas por estadística", "Best natures per stat"),
     "ns_lede": ("Para cada estadística, las cuatro naturalezas que la suben un 10 % y la que bajan un 10 %. Criterio de "
@@ -123,7 +126,14 @@ def ficha_section(L, dex: int, moves_by: dict) -> str:
             f'</section>')
 
 
-def abilities_section(L) -> str:
+def abilities_section(L, home: str = "") -> str:
+    """Enlace corto a habilidades.html, que tiene la lista completa."""
+    return (f'<section class="pv-abilities" id="habilidades" aria-labelledby="pv-ab-h">'
+            f'<h2 id="pv-ab-h">{escape(t(L, "ab_h"))}</h2><p class="lede">{escape(t(L, "ab_short", n=len(ABIL)))} '
+            f'<a href="{home}habilidades.html">{escape(t(L, "ab_link"))}</a></p></section>')
+
+
+def abilities_full_section(L) -> str:
     rows = []
     for aid, a in sorted(ABIL.items(), key=lambda kv: kv[1]["n"][_i(L)]):
         if a["generic"]:

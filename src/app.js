@@ -1646,7 +1646,7 @@
       none.hidden = cards.some(c => !c.hidden) || labRows.some(r => !r.hidden);
     });
   }
-  if (page === 'ataques') initMoves();
+  if (page === 'ataques' || page === 'habilidades') initMoves();
 
   document.addEventListener('click', (e) => {
     document.querySelectorAll('.nav-group[open]').forEach((d) => { if (!d.contains(e.target)) d.open = false; });
