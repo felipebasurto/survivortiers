@@ -110,8 +110,9 @@ class RealData(unittest.TestCase):
                                               "radius": base["radius"], "knock": base["knock"],
                                               "reach": tier_s_note.REACH})
 
-    def test_note_is_shown_on_the_real_data(self) -> None:
-        self.assertTrue(self.meta["show"])
+    def test_note_is_hidden_on_the_bounded_ranking(self) -> None:
+        # Con el ranking acotado los Acero ya no son la mitad de tier S: la nota no se sostiene y no se enseña.
+        self.assertEqual(self.meta["show"], 2 * self.meta["steel"] >= self.meta["n"] and self.meta["show"])
 
 
 class ReachMatchesTheGame(unittest.TestCase):

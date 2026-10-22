@@ -393,8 +393,17 @@ def method_numbers(moves: list[dict]) -> dict:
                "final": sum(1 for r in bonds if int(r["seeds"]) == PHASE2_SEEDS[-1])},
         "p3": {"groups": rounds, "seeds": list(PHASE3_SEEDS), "games": p3_games, "variants": len(_read_csv(VARIANTS_CSV)),
                "duels": duels, "promoted": _promoted(), "rule": _lines(RESULTS / "fase3" / "rule_picks.csv")},
-        "games": p1_games + p2_games + p3_games,
+        # Partidas del ranking acotado, que da el puesto de cada Pokémon.
+        "games": _bounded_games(),
     }
+
+
+# Partidas del run del ranking acotado (simulator/runpod-ranking/full/README.md).
+BOUNDED_GAMES = 441_486
+
+
+def _bounded_games() -> int:
+    return BOUNDED_GAMES
 
 
 def why_model() -> dict:
