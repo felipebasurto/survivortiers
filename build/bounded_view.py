@@ -33,6 +33,7 @@ T = {
     "metrics": ("{s} s de supervivencia · {kpm} bajas/min · {dps} daño/s", "{s} s survival · {kpm} kills/min · {dps} damage/s"),
     "run": ("Runpod cpu3c 32 vCPU, ranking full con búsqueda de naturalezas (aa98123), 441.486 partidas, 1.717 s",
             "Runpod cpu3c 32 vCPU, full ranking with nature search (aa98123), 441,486 matches, 1,717 s"),
+    "untested": ("no probadas", "not tested"),
     "none": ("ninguna", "none"),
     "src": ("Fuente: {file} (sha256 {sha}), {run}; juego {game}.", "Source: {file} (sha256 {sha}), {run}; game {game}."),
     "ab_h": ("Habilidades", "Abilities"),
@@ -46,18 +47,18 @@ T = {
     "ab_col": ("Habilidad", "Ability"), "ab_eff": ("Efecto", "Effect"),
     "ns_h": ("Mejores naturalezas por estadística", "Best natures per stat"),
     "ns_lede": ("Para cada estadística, las cuatro naturalezas que la suben un 10 % y la que bajan un 10 %. Criterio de "
-                "orden: primero las que más veces ganaron en el ranking acotado ({rows} builds de 966 especies); a "
+                "orden: primero las que más veces lleva una de las {rows} mejores builds del ranking acotado (966 especies); a "
                 "igualdad, el orden de game.json. El ranking solo probó la neutra y las que suben el ataque dominante "
                 "(Ataque o Ataque especial), así que en Defensa, Defensa especial y Velocidad no hay recuento: van en "
                 "el orden de game.json. ",
                 "For each stat, the four natures that raise it 10 % and the one each lowers 10 %. Order: first those "
-                "that won most often in the bounded ranking ({rows} builds of 966 species); ties keep the game.json "
+                "used most often by the {rows} best builds of the bounded ranking (966 species); ties keep the game.json "
                 "order. The ranking only tried neutral natures and those raising the dominant attack stat (Attack or "
                 "Special attack), so Defense, Special defense and Speed have no count and keep the game.json order. "),
     "ns_link": ("Tabla completa de naturalezas", "Full nature table"),
     "ns_col_n": ("Naturaleza", "Nature"), "ns_col_d": ("Baja", "Lowers"),
-    "ns_col_w": ("Victorias (cuerpo a cuerpo / distancia)", "Wins (melee / ranged)"),
-    "ns_neutral": ("Neutras (sin cambios), victorias: {m} / {r}", "Neutral (no change), wins: {m} / {r}"),
+    "ns_col_w": ("Veces elegida (cuerpo a cuerpo / distancia)", "Times picked (melee / ranged)"),
+    "ns_neutral": ("Neutras (sin cambios), veces elegidas: {m} / {r}", "Neutral (no change), times picked: {m} / {r}"),
 }
 STAT = {"pa": ("Ataque", "Attack"), "sa": ("Ataque especial", "Special attack"), "df": ("Defensa", "Defense"),
         "sd": ("Defensa especial", "Special defense"), "spd": ("Velocidad", "Speed")}
@@ -82,7 +83,9 @@ def move_name(L, mid: str, moves_by: dict) -> str:
     return g["levels"][0]["name"]
 
 
-def ability_name(L, aid: str) -> str:
+def ability_name(L, aid: str | None) -> str:
+    if not aid:
+        return t(L, "none")
     return ABIL[aid]["n"][_i(L)]
 
 
@@ -144,12 +147,17 @@ def natures_by_stat_section(L, home: str) -> str:
     def w(nid: str, style: str) -> int:
         return wins.get(style, {}).get(nid, 0)
 
+    def cell(nid: str, stat: str) -> str:
+        if stat not in ("pa", "sa"):  # el ranking no probó estas naturalezas: no es un 0
+            return escape(t(L, "untested"))
+        return f'{w(nid, "melee")} / {w(nid, "ranged")}'
+
     blocks = []
     for stat in ("pa", "sa", "df", "sd", "spd"):
         ns = sorted((n for n in GAME["natures"] if n["up"] == stat),
                     key=lambda n: (-(w(n["id"], "melee") + w(n["id"], "ranged")), order.index(n["id"])))
         body = "".join(f'<tr><th scope="row">{escape(n["n"][_i(L)])}</th><td class="nat-down">{escape(STAT[n["down"]][_i(L)])}</td>'
-                       f'<td>{w(n["id"], "melee")} / {w(n["id"], "ranged")}</td></tr>' for n in ns)
+                       f'<td>{cell(n["id"], stat)}</td></tr>' for n in ns)
         blocks.append(f'<h3>+{escape(STAT[stat][_i(L)])}</h3><div class="nat-table"><table><thead><tr>'
                       f'<th scope="col">{escape(t(L, "ns_col_n"))}</th><th scope="col">{escape(t(L, "ns_col_d"))}</th>'
                       f'<th scope="col">{escape(t(L, "ns_col_w"))}</th></tr></thead><tbody>{body}</tbody></table></div>')
