@@ -10,6 +10,8 @@ if (( $# )); then shift; fi
 cd -- "$TASK_SIM_DIR"
 
 cost_limit() {
+  # Production run and resume keep the 7200s default. funnel exports a wall from
+  # vm-rate.json maxHours before it calls this, so that default is not the funnel cap.
   local task_rate="${POKESIM_HOURLY_USD:-1.12}"
   local task_budget="${POKESIM_BUDGET_USD:-4.00}"
   local task_wall="${POKESIM_MAX_WALL_SECONDS:-7200}"
@@ -64,9 +66,19 @@ case "$TASK_ACTION" in
       printf '%s\n' 'Run prepare first so simulator/sim-rs/target/release/pokesim exists.' >&2
       exit 2
     fi
+    if [[ -z "${POKESIM_HOURLY_USD:-}" ]]; then
+      export POKESIM_HOURLY_USD="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["hourlyUsd"])' "$TASK_SCRIPT_DIR/vm-rate.json")"
+    fi
+    if [[ -z "${POKESIM_BUDGET_USD:-}" ]]; then
+      export POKESIM_BUDGET_USD="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["maxUsd"])' "$TASK_SCRIPT_DIR/vm-rate.json")"
+    fi
+    if [[ -z "${POKESIM_MAX_WALL_SECONDS:-}" ]]; then
+      export POKESIM_MAX_WALL_SECONDS="$(python3 -c 'import json,sys; print(int(float(json.load(open(sys.argv[1]))["maxHours"]) * 3600))' "$TASK_SCRIPT_DIR/vm-rate.json")"
+    fi
     FUNNEL_OUT="$TASK_SIM_DIR/runpod-funnel/$FUNNEL_PRESET"
     mkdir -p -- "$FUNNEL_OUT"
     "$TASK_BINARY" funnel plan "$FUNNEL_MANIFEST" "$FUNNEL_OUT/plan.json" > "$FUNNEL_OUT/plan-counts.json"
+    export FUNNEL_WRAPPER_PATH="$FUNNEL_OUT/wrapper-seconds"
     python3 - "$FUNNEL_OUT/plan-counts.json" "$TASK_SCRIPT_DIR/vm-rate.json" "$FUNNEL_DRY" <<'PY'
 import json, os, sys
 counts, rate, dry = json.load(open(sys.argv[1])), json.load(open(sys.argv[2])), sys.argv[3] == "1"
@@ -77,8 +89,16 @@ tasks = int(counts["tasksUpperBound"])
 hours = tasks / scaled / 3600.0
 price = float(os.environ.get("POKESIM_HOURLY_USD", rate["hourlyUsd"]))
 budget = float(os.environ.get("POKESIM_BUDGET_USD", rate["maxUsd"]))
-cap = min(float(rate["maxUsd"]), budget)
+money_cap = min(float(rate["maxUsd"]), budget)
 cost = hours * price
+wall = float(os.environ.get("POKESIM_MAX_WALL_SECONDS", float(rate["maxHours"]) * 3600))
+dollar = int(budget / price * 3600) - 300
+if dollar < 1 or wall < 1:
+    print("ABORT: budget, price, or wall leaves no wrapper time", file=sys.stderr)
+    sys.exit(2)
+wrapper = dollar if dollar <= wall else int(wall)
+match_s = tasks / scaled
+free_inodes = os.statvfs(".").f_favail
 print(f"tasksUpperBound {tasks}")
 print(f"recallTasksUpper {counts.get('recallTasksUpper', 0)}")
 if "fullGroupCap" in counts:
@@ -86,11 +106,17 @@ if "fullGroupCap" in counts:
 print(f"measured median {median:.2f} matches/s at {rate['threads']} threads on {rate['hostCores']} cores, {len(samples)} runs, range {samples[0]:.2f}-{samples[-1]:.2f}")
 print(f"inferred {rate['targetVcpu']}-vCPU rate {scaled:.2f} matches/s, linear in the measured per-core rate")
 print(f"ETA {hours:.3f} h, cost {cost:.2f} USD at {price:.2f} USD/h for a cpu5c-sized 32-vCPU host")
-print("The ETA uses the plan upper bound. Later stages run fewer groups than the bound, so the morning job should finish sooner.")
-over = hours > float(rate["maxHours"]) or cost > cap
+print(f"wrapper wall {wrapper} s after recall, match time {match_s:.0f} s")
+print(f"free inodes {free_inodes}, checkpoint files {tasks}")
+print("The ETA is match time for the plan upper bound. The wrapper clock starts after recall. Checkpoint index reads sit inside the wrapper and are not in the ETA.")
+over = hours > float(rate["maxHours"]) or cost > money_cap or match_s > wrapper
 if over:
-    print(f"ABORT: ETA or cost exceeds {rate['maxHours']} h or {cap:.2f} USD", file=sys.stderr)
+    print(
+        f"ABORT: ETA or cost exceeds {rate['maxHours']} h or {money_cap:.2f} USD, or match time exceeds the wrapper wall of {wrapper} s",
+        file=sys.stderr,
+    )
     sys.exit(3)
+open(os.environ["FUNNEL_WRAPPER_PATH"], "w").write(f"{wrapper}\n")
 if dry:
     sys.exit(0)
 PY
@@ -100,8 +126,30 @@ PY
     fi
     command -v timeout >/dev/null || { printf '%s\n' 'GNU timeout is required (Ubuntu: coreutils).' >&2; exit 2; }
     if [[ "$FUNNEL_PRESET" == "full" ]]; then
+      python3 - "$FUNNEL_OUT/plan-counts.json" <<'PY'
+import json, os, sys
+tasks = int(json.load(open(sys.argv[1]))["tasksUpperBound"])
+free = os.statvfs(".").f_favail
+print(f"free inodes {free}, checkpoint files {tasks}")
+if free < tasks:
+    print(f"ABORT: {free} free inodes is below {tasks} checkpoint files.", file=sys.stderr)
+    sys.exit(3)
+PY
       FUNNEL_THREADS="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["limits"]["threads"])' "$FUNNEL_MANIFEST")"
       "$TASK_BINARY" funnel calibrate "$FUNNEL_THREADS" | tee "$FUNNEL_OUT/calibrate.json"
+      python3 - "$FUNNEL_OUT/calibrate.json" "$FUNNEL_OUT/plan-counts.json" "$FUNNEL_OUT/wrapper-seconds" <<'PY'
+import json, sys
+cal = json.load(open(sys.argv[1]))
+counts = json.load(open(sys.argv[2]))
+wrapper = int(float(open(sys.argv[3]).read()))
+rate = float(cal["matchesPerSecond"])
+tasks = int(counts["tasksUpperBound"])
+need = tasks / wrapper
+print(f"calibrate {rate:.2f} matches/s. The upper bound needs {need:.2f} matches/s inside {wrapper} s of match time.")
+if rate < need:
+    print(f"ABORT: calibrate {rate:.2f} matches/s is under {need:.2f}. The upper bound misses the wrapper wall.", file=sys.stderr)
+    sys.exit(3)
+PY
     fi
     FUNNEL_RECALL_OK=1
     if [[ "$FUNNEL_PRESET" == "full" ]]; then
@@ -187,7 +235,11 @@ PY
     fi
     "$TASK_BINARY" funnel report "${FUNNEL_REPORT_ARGS[@]}"
     PYTHONPATH="$TASK_REPO_DIR" python3 "$TASK_REPO_DIR/build/funnel_export.py" "$FUNNEL_OUT/results.json" "$FUNNEL_OUT/web.json"
-    tar -C "$TASK_SIM_DIR/runpod-funnel" -czf "$TASK_SIM_DIR/runpod-funnel/funnel-results.tar.gz" "$FUNNEL_PRESET"
+    tar -C "$TASK_SIM_DIR/runpod-funnel" -czf "$TASK_SIM_DIR/runpod-funnel/funnel-results.tar.gz" \
+      --exclude="$FUNNEL_PRESET/cache" \
+      --exclude="$FUNNEL_PRESET/plan.json" \
+      --exclude="$FUNNEL_PRESET/recall-cache-*" \
+      "$FUNNEL_PRESET"
     printf '%s\n' "Funnel $FUNNEL_PRESET finished. Archive: simulator/runpod-funnel/funnel-results.tar.gz. Terminate the pod yourself. This script does not stop billing."
     ;;
   run|resume)

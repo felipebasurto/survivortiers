@@ -24,6 +24,6 @@ Al terminar, copia `simulator/runpod-results.json` y `simulator/runpod-cache`. D
 
 `prepare`, `plan`, `benchmark`, `cost`, `run` y `resume` siguen siendo el haz de producción anterior. El haz medido el 21 de octubre queda descartado como búsqueda a publicar. No lo relances para el ranking.
 
-`funnel smoke` corre tres especies y escribe `simulator/runpod-funnel/smoke/`. `funnel full` calibra, hace el recall, recorre las especies y empaqueta `simulator/runpod-funnel/funnel-results.tar.gz`. Si el recall falla, el embudo sigue y la primera línea de `report.md` lo dice.
+`funnel smoke` corre tres especies y escribe `simulator/runpod-funnel/smoke/`. `funnel full` calibra, hace el recall, recorre las especies y empaqueta `simulator/runpod-funnel/funnel-results.tar.gz` sin `cache` ni `plan.json`. El tope del embudo sale de `maxHours` en `vm-rate.json` (9000 s). `run` sigue en 7200 s. Si el recall falla, el embudo sigue y la primera línea de `report.md` lo dice. Los resultados son un diagnóstico, no un ranking.
 
 Los resultados miden un shortlist, no un óptimo global. `rankingReady` sigue en false. No los publiques en la web hasta revisarlos.
