@@ -35,6 +35,9 @@ const MORNING_SEEDS_B: u64 = 32;
 const MORNING_SEEDS_C: u64 = 4;
 const MORNING_SEEDS_D: u64 = 32;
 const MATCH_CEILING: u64 = 17_116 * 72_000 / 100;
+// Longer than the 2.5 h wrapper. A 900 s plan wall returned on purpose and the
+// next resume reloaded the plan and reread finished checkpoints.
+const FUNNEL_WALL_LIMIT: f64 = 10800.0;
 
 struct Spec {
     raw: Value,
@@ -125,8 +128,8 @@ fn parse_spec(data: &Data, v: Value) -> Result<Spec, String> {
         .ok_or("threads must be 1..=256")? as usize;
     let max_wall = limits["maxWallSeconds"]
         .as_f64()
-        .filter(|n| *n > 0. && *n <= 900.)
-        .ok_or("maxWallSeconds must be in (0,900]")?;
+        .filter(|n| *n > 0. && *n <= FUNNEL_WALL_LIMIT)
+        .ok_or("maxWallSeconds must be in (0,10800]")?;
     let max_failed = limits["maxFailedTasks"].as_u64().ok_or("maxFailedTasks")? as u32;
     let max_matches = limits["maxMatches"].as_u64().ok_or("maxMatches")?;
     let tm_budget = match v.get("tmBudget") {
@@ -2092,6 +2095,7 @@ mod tests {
         assert_eq!(value["stages"]["D"]["seeds"].as_array().unwrap().len() as u64, MORNING_SEEDS_D);
         assert_eq!(value["recallDexes"][0], 54);
         assert_eq!(value["recallDexes"][1], "smallest");
+        assert_eq!(value["limits"]["maxWallSeconds"].as_u64(), Some(10800));
     }
 
     #[test]
