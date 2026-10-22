@@ -1,0 +1,86 @@
+[2026-10-22T14:50:45Z] starting attack-lab
+game=ce5785313b0205af8b9477423f64b0a7b7039dcd engine=4 nature=hardy ability=slot-1 tms= second=none
+total 0.3s
+[2026-10-22T14:50:46Z] starting synergy-lab
+game=ce5785313b0205af8b9477423f64b0a7b7039dcd engine=4 nature=hardy ability=slot-1 tms= second=none
+synergy-lab group 1/15: attacks=["hex", "hail"] buffs=[]
+synergy-lab group 2/15: attacks=["hex", "flamethrower"] buffs=[]
+synergy-lab group 3/15: attacks=["hex", "flame-charge"] buffs=[]
+synergy-lab group 4/15: attacks=["bonemerang"] buffs=["swords-dance"]
+synergy-lab group 5/15: attacks=["meteor-mash"] buffs=["swords-dance"]
+synergy-lab group 6/15: attacks=["rock-slide"] buffs=["swords-dance"]
+synergy-lab group 7/15: attacks=["dragon-claw"] buffs=["swords-dance"]
+synergy-lab group 8/15: attacks=["bonemerang"] buffs=["dragon-dance"]
+synergy-lab group 9/15: attacks=["meteor-mash"] buffs=["dragon-dance"]
+synergy-lab group 10/15: attacks=["rock-slide"] buffs=["dragon-dance"]
+synergy-lab group 11/15: attacks=["dragon-claw"] buffs=["dragon-dance"]
+synergy-lab group 12/15: attacks=["hail"] buffs=["nasty-plot"]
+synergy-lab group 13/15: attacks=["hyper-beam"] buffs=["nasty-plot"]
+synergy-lab group 14/15: attacks=["solar-beam"] buffs=["nasty-plot"]
+synergy-lab group 15/15: attacks=["ominous-wind"] buffs=["nasty-plot"]
+total 1.1s
+[2026-10-22T14:50:51Z] starting ranking-run
+game=ce5785313b0205af8b9477423f64b0a7b7039dcd engine=4 nature=hardy ability=slot-1 tms= second=none
+bounded-ranking round A: 147985 configurations x 2 seeds
+[2026-10-22T14:51:45Z] heartbeat ranking-run; elapsed 54s; log=/root/survivortiers/simulator/runpod-ranking/full/runner.log
+bounded-ranking heartbeat: stage="A", stage runs=5992/147985, runs=5992, elapsed=60.01123545s
+[2026-10-22T14:52:45Z] heartbeat ranking-run; elapsed 114s; log=/root/survivortiers/simulator/runpod-ranking/full/runner.log
+bounded-ranking heartbeat: stage="A", stage runs=11904/147985, runs=11904, elapsed=120.024115754s
+[2026-10-22T14:53:45Z] heartbeat ranking-run; elapsed 174s; log=/root/survivortiers/simulator/runpod-ranking/full/runner.log
+bounded-ranking heartbeat: stage="A", stage runs=20383/147985, runs=20383, elapsed=180.107763408s
+[2026-10-22T14:54:45Z] heartbeat ranking-run; elapsed 234s; log=/root/survivortiers/simulator/runpod-ranking/full/runner.log
+bounded-ranking heartbeat: stage="A", stage runs=34980/147985, runs=34980, elapsed=240.124515026s
+[2026-10-22T14:55:45Z] heartbeat ranking-run; elapsed 294s; log=/root/survivortiers/simulator/runpod-ranking/full/runner.log
+bounded-ranking heartbeat: stage="A", stage runs=49922/147985, runs=49922, elapsed=300.142300271s
+[2026-10-22T14:56:45Z] heartbeat ranking-run; elapsed 354s; log=/root/survivortiers/simulator/runpod-ranking/full/runner.log
+bounded-ranking heartbeat: stage="A", stage runs=60456/147985, runs=60456, elapsed=360.170500938s
+[2026-10-22T14:57:45Z] heartbeat ranking-run; elapsed 414s; log=/root/survivortiers/simulator/runpod-ranking/full/runner.log
+bounded-ranking heartbeat: stage="A", stage runs=67578/147985, runs=67578, elapsed=420.198807907s
+[2026-10-22T14:58:45Z] heartbeat ranking-run; elapsed 474s; log=/root/survivortiers/simulator/runpod-ranking/full/runner.log
+bounded-ranking heartbeat: stage="A", stage runs=73382/147985, runs=73382, elapsed=480.22928694s
+[2026-10-22T14:59:45Z] heartbeat ranking-run; elapsed 534s; log=/root/survivortiers/simulator/runpod-ranking/full/runner.log
+bounded-ranking heartbeat: stage="A", stage runs=79260/147985, runs=79260, elapsed=540.24111387s
+[2026-10-22T15:00:45Z] heartbeat ranking-run; elapsed 594s; log=/root/survivortiers/simulator/runpod-ranking/full/runner.log
+bounded-ranking heartbeat: stage="A", stage runs=90016/147985, runs=90016, elapsed=600.357580577s
+[2026-10-22T15:01:45Z] heartbeat ranking-run; elapsed 654s; log=/root/survivortiers/simulator/runpod-ranking/full/runner.log
+bounded-ranking heartbeat: stage="A", stage runs=104457/147985, runs=104457, elapsed=660.371455756s
+[2026-10-22T15:02:45Z] heartbeat ranking-run; elapsed 714s; log=/root/survivortiers/simulator/runpod-ranking/full/runner.log
+bounded-ranking heartbeat: stage="A", stage runs=113247/147985, runs=113247, elapsed=720.408896646s
+[2026-10-22T15:03:45Z] heartbeat ranking-run; elapsed 774s; log=/root/survivortiers/simulator/runpod-ranking/full/runner.log
+bounded-ranking heartbeat: stage="A", stage runs=129096/147985, runs=129096, elapsed=780.447028806s
+[2026-10-22T15:04:45Z] heartbeat ranking-run; elapsed 834s; log=/root/survivortiers/simulator/runpod-ranking/full/runner.log
+bounded-ranking heartbeat: stage="A", stage runs=142717/147985, runs=142717, elapsed=840.464051611s
+bounded-ranking round A: 966 configurations x 2 seeds
+bounded-ranking round B: 9030 configurations x 8 seeds
+[2026-10-22T15:05:45Z] heartbeat ranking-run; elapsed 894s; log=/root/survivortiers/simulator/runpod-ranking/full/runner.log
+bounded-ranking heartbeat: stage="B", stage runs=381/9030, runs=149332, elapsed=900.480469408s
+[2026-10-22T15:06:45Z] heartbeat ranking-run; elapsed 954s; log=/root/survivortiers/simulator/runpod-ranking/full/runner.log
+bounded-ranking heartbeat: stage="B", stage runs=1817/9030, runs=150768, elapsed=960.484737512s
+[2026-10-22T15:07:45Z] heartbeat ranking-run; elapsed 1014s; log=/root/survivortiers/simulator/runpod-ranking/full/runner.log
+bounded-ranking heartbeat: stage="B", stage runs=2946/9030, runs=151897, elapsed=1020.493927996s
+[2026-10-22T15:08:46Z] heartbeat ranking-run; elapsed 1075s; log=/root/survivortiers/simulator/runpod-ranking/full/runner.log
+bounded-ranking heartbeat: stage="B", stage runs=4121/9030, runs=153072, elapsed=1080.50155097s
+[2026-10-22T15:09:46Z] heartbeat ranking-run; elapsed 1135s; log=/root/survivortiers/simulator/runpod-ranking/full/runner.log
+bounded-ranking heartbeat: stage="B", stage runs=5209/9030, runs=154160, elapsed=1140.544185358s
+[2026-10-22T15:10:46Z] heartbeat ranking-run; elapsed 1195s; log=/root/survivortiers/simulator/runpod-ranking/full/runner.log
+bounded-ranking heartbeat: stage="B", stage runs=6526/9030, runs=155477, elapsed=1200.608470482s
+[2026-10-22T15:11:46Z] heartbeat ranking-run; elapsed 1255s; log=/root/survivortiers/simulator/runpod-ranking/full/runner.log
+bounded-ranking heartbeat: stage="B", stage runs=7821/9030, runs=156772, elapsed=1260.624401511s
+[2026-10-22T15:12:46Z] heartbeat ranking-run; elapsed 1315s; log=/root/survivortiers/simulator/runpod-ranking/full/runner.log
+bounded-ranking round D: 3010 configurations x 16 seeds
+bounded-ranking heartbeat: stage="D", stage runs=0/3010, runs=157981, elapsed=1320.669981368s
+[2026-10-22T15:13:46Z] heartbeat ranking-run; elapsed 1375s; log=/root/survivortiers/simulator/runpod-ranking/full/runner.log
+bounded-ranking heartbeat: stage="D", stage runs=721/3010, runs=158702, elapsed=1380.689881127s
+[2026-10-22T15:14:46Z] heartbeat ranking-run; elapsed 1435s; log=/root/survivortiers/simulator/runpod-ranking/full/runner.log
+bounded-ranking heartbeat: stage="D", stage runs=1412/3010, runs=159393, elapsed=1440.724149173s
+[2026-10-22T15:15:46Z] heartbeat ranking-run; elapsed 1495s; log=/root/survivortiers/simulator/runpod-ranking/full/runner.log
+bounded-ranking heartbeat: stage="D", stage runs=1985/3010, runs=159966, elapsed=1500.806183524s
+[2026-10-22T15:16:46Z] heartbeat ranking-run; elapsed 1555s; log=/root/survivortiers/simulator/runpod-ranking/full/runner.log
+bounded-ranking heartbeat: stage="D", stage runs=2635/3010, runs=160616, elapsed=1560.826168453s
+bounded-ranking round B: 966 configurations x 8 seeds
+[2026-10-22T15:17:46Z] heartbeat ranking-run; elapsed 1615s; log=/root/survivortiers/simulator/runpod-ranking/full/runner.log
+bounded-ranking heartbeat: stage="B", stage runs=508/966, runs=161499, elapsed=1620.873658725s
+bounded-ranking round D: 966 configurations x 16 seeds
+[2026-10-22T15:18:46Z] heartbeat ranking-run; elapsed 1675s; log=/root/survivortiers/simulator/runpod-ranking/full/runner.log
+bounded-ranking heartbeat: stage="D", stage runs=482/966, runs=162439, elapsed=1680.907584799s
+total 1722.9s

@@ -1,0 +1,2715 @@
+{
+"abilities": {
+"adaptability": {
+"en": "+25% damage with moves of its own types.",
+"es": "+25 % de daño con los movimientos de sus tipos.",
+"generic": false,
+"n": [
+"Adaptable",
+"Adaptability"
+],
+"plus": false
+},
+"aftermath": {
+"en": "Once per run, when low on HP, it explodes and hurts everything around.",
+"es": "Una vez por partida, al quedar con poca vida, explota y daña a los de alrededor.",
+"generic": false,
+"n": [
+"Detonación",
+"Aftermath"
+],
+"plus": true
+},
+"air-lock": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Bucle Aire",
+"Air Lock"
+],
+"plus": false
+},
+"analytic": {
+"en": "+15% damage to enemies below half HP.",
+"es": "+15 % de daño a enemigos con menos de la mitad de vida.",
+"generic": false,
+"n": [
+"Cálculo Final",
+"Analytic"
+],
+"plus": true
+},
+"anger-point": {
+"en": "The first time it drops below half HP it gets angry: +25% damage for the rest of the run.",
+"es": "La primera vez que baja de la mitad de vida se enfurece: +25 % de daño el resto de la partida.",
+"generic": false,
+"n": [
+"Irascible",
+"Anger Point"
+],
+"plus": false
+},
+"anticipation": {
+"en": "Senses danger: dodges 6% of hits.",
+"es": "Presiente el peligro: esquiva el 6 % de los golpes.",
+"generic": false,
+"n": [
+"Anticipación",
+"Anticipation"
+],
+"plus": true
+},
+"arena-trap": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Trampa Arena",
+"Arena Trap"
+],
+"plus": false
+},
+"armor-tail": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Cola Armadura",
+"Armor Tail"
+],
+"plus": false
+},
+"aroma-veil": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Velo Aroma",
+"Aroma Veil"
+],
+"plus": false
+},
+"aura-break": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Rompeaura",
+"Aura Break"
+],
+"plus": false
+},
+"bad-dreams": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Mal Sueño",
+"Bad Dreams"
+],
+"plus": false
+},
+"ball-fetch": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Recogebolas",
+"Ball Fetch"
+],
+"plus": false
+},
+"battery": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Batería",
+"Battery"
+],
+"plus": false
+},
+"battle-armor": {
+"en": "Takes 8% less damage.",
+"es": "Recibe un 8 % menos de daño.",
+"generic": false,
+"n": [
+"Armadura Batalla",
+"Battle Armor"
+],
+"plus": false
+},
+"beads-of-ruin": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Abalorio Debacle",
+"Beads of Ruin"
+],
+"plus": false
+},
+"beast-boost": {
+"en": "Each enemy defeated gives +0.5% damage (up to +15%).",
+"es": "Cada enemigo derrotado le da +0,5 % de daño (hasta +15 %).",
+"generic": false,
+"n": [
+"Ultraimpulso",
+"Beast Boost"
+],
+"plus": false
+},
+"berserk": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Cólera",
+"Berserk"
+],
+"plus": false
+},
+"big-pecks": {
+"en": "Takes 8% less physical damage.",
+"es": "Recibe un 8 % menos de daño físico.",
+"generic": false,
+"n": [
+"Sacapecho",
+"Big Pecks"
+],
+"plus": true
+},
+"blaze": {
+"en": "+35% Fire-type damage at low HP (under 1/3).",
+"es": "+35 % de daño de tipo Fuego con poca vida (menos de 1/3).",
+"generic": false,
+"n": [
+"Mar Llamas",
+"Blaze"
+],
+"plus": false
+},
+"bulletproof": {
+"en": "Takes 15% less special damage.",
+"es": "Recibe un 15 % menos de daño especial.",
+"generic": false,
+"n": [
+"Antibalas",
+"Bulletproof"
+],
+"plus": true
+},
+"cheek-pouch": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Carrillo",
+"Cheek Pouch"
+],
+"plus": false
+},
+"chilling-neigh": {
+"en": "Each enemy defeated gives +0.5% damage (up to +15%).",
+"es": "Cada enemigo derrotado le da +0,5 % de daño (hasta +15 %).",
+"generic": false,
+"n": [
+"Relincho Blanco",
+"Chilling Neigh"
+],
+"plus": false
+},
+"chlorophyll": {
+"en": "+50% speed in sun.",
+"es": "+50 % de velocidad con sol.",
+"generic": false,
+"n": [
+"Clorofila",
+"Chlorophyll"
+],
+"plus": false
+},
+"clear-body": {
+"en": "Sticky traps and terrain do not slow it down.",
+"es": "No le frenan las trampas pegajosas ni el terreno.",
+"generic": false,
+"n": [
+"Cuerpo Puro",
+"Clear Body"
+],
+"plus": false
+},
+"cloud-nine": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Aclimatación",
+"Cloud Nine"
+],
+"plus": false
+},
+"color-change": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Cambio Color",
+"Color Change"
+],
+"plus": false
+},
+"comatose": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Letargo Perenne",
+"Comatose"
+],
+"plus": false
+},
+"commander": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Comandar",
+"Commander"
+],
+"plus": false
+},
+"competitive": {
+"en": "If it is slowed it fights back: +20% special damage while it lasts.",
+"es": "Si le frenan, se pica: +20 % de daño especial mientras dure.",
+"generic": false,
+"n": [
+"Tenacidad",
+"Competitive"
+],
+"plus": true
+},
+"compound-eyes": {
+"en": "+6% critical hit chance.",
+"es": "+6 % de probabilidad de golpe crítico.",
+"generic": false,
+"n": [
+"Ojo Compuesto",
+"Compound Eyes"
+],
+"plus": false
+},
+"contrary": {
+"en": "The other way round: when slowed, it goes faster.",
+"es": "Al revés: frenado, va más rápido.",
+"generic": false,
+"n": [
+"Respondón",
+"Contrary"
+],
+"plus": true
+},
+"corrosion": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Corrosión",
+"Corrosion"
+],
+"plus": false
+},
+"cotton-down": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Pelusa",
+"Cotton Down"
+],
+"plus": false
+},
+"cud-chew": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Rumia",
+"Cud Chew"
+],
+"plus": false
+},
+"cursed-body": {
+"en": "Sometimes slows whoever hits it in melee.",
+"es": "A veces frena a quien le golpea cuerpo a cuerpo.",
+"generic": false,
+"n": [
+"Cuerpo Maldito",
+"Cursed Body"
+],
+"plus": false
+},
+"cute-charm": {
+"en": "Whoever hits it in melee is smitten (slowed).",
+"es": "Quien le golpea cuerpo a cuerpo se queda embobado (frenado).",
+"generic": false,
+"n": [
+"Gran Encanto",
+"Cute Charm"
+],
+"plus": false
+},
+"damp": {
+"en": "Explosions from kamikaze Pokémon do not hurt it.",
+"es": "Las explosiones de los Pokémon kamikaze no le dañan.",
+"generic": false,
+"n": [
+"Humedad",
+"Damp"
+],
+"plus": true
+},
+"dancer": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Pareja de Baile",
+"Dancer"
+],
+"plus": false
+},
+"dark-aura": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Aura Oscura",
+"Dark Aura"
+],
+"plus": false
+},
+"dauntless-shield": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Escudo Recio",
+"Dauntless Shield"
+],
+"plus": false
+},
+"dazzling": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Cuerpo Vívido",
+"Dazzling"
+],
+"plus": false
+},
+"defeatist": {
+"en": "Glass cannon: +15% damage above half HP; below it, −25%.",
+"es": "Cañón de cristal: +15 % de daño con más de la mitad de vida; con menos, −25 %.",
+"generic": false,
+"n": [
+"Flaqueza",
+"Defeatist"
+],
+"plus": false
+},
+"defiant": {
+"en": "If it is slowed it fights back: +20% physical damage while it lasts.",
+"es": "Si le frenan, se pica: +20 % de daño físico mientras dure.",
+"generic": false,
+"n": [
+"Competitivo",
+"Defiant"
+],
+"plus": true
+},
+"disguise": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Disfraz",
+"Disguise"
+],
+"plus": false
+},
+"download": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Descarga",
+"Download"
+],
+"plus": false
+},
+"dragons-maw": {
+"en": "+20% damage with Dragon-type moves.",
+"es": "+20 % de daño con movimientos de tipo Dragón.",
+"generic": false,
+"n": [
+"Mandíbula Dragón",
+"Dragon’s Maw"
+],
+"plus": false
+},
+"drizzle": {
+"en": "Brings rain at the start of the run and every 3 minutes.",
+"es": "Pone lluvia al empezar la partida y cada 3 minutos.",
+"generic": false,
+"n": [
+"Llovizna",
+"Drizzle"
+],
+"plus": false
+},
+"drought": {
+"en": "Brings sun at the start of the run and every 3 minutes.",
+"es": "Pone sol al empezar la partida y cada 3 minutos.",
+"generic": false,
+"n": [
+"Sequía",
+"Drought"
+],
+"plus": false
+},
+"dry-skin": {
+"en": "Water heals it and rain restores HP, but Fire deals 25% more.",
+"es": "El Agua le cura y con lluvia recupera vida, pero el Fuego le hace un 25 % más.",
+"generic": false,
+"n": [
+"Piel Seca",
+"Dry Skin"
+],
+"plus": false
+},
+"early-bird": {
+"en": "Sticky traps and terrain do not slow it down.",
+"es": "No le frenan las trampas pegajosas ni el terreno.",
+"generic": false,
+"n": [
+"Madrugar",
+"Early Bird"
+],
+"plus": true
+},
+"earth-eater": {
+"en": "Ground-type attacks deal no damage: they heal it a little.",
+"es": "Los ataques de tipo Tierra no le hacen daño: le curan un poco.",
+"generic": false,
+"n": [
+"Geofagia",
+"Earth Eater"
+],
+"plus": false
+},
+"effect-spore": {
+"en": "Whoever hits it in melee is slowed or poisoned.",
+"es": "Quien le golpea cuerpo a cuerpo se frena o se envenena.",
+"generic": false,
+"n": [
+"Efecto Espora",
+"Effect Spore"
+],
+"plus": false
+},
+"electric-surge": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Electrogénesis",
+"Electric Surge"
+],
+"plus": false
+},
+"electromorphosis": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Dinamo",
+"Electromorphosis"
+],
+"plus": false
+},
+"emergency-exit": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Retirada",
+"Emergency Exit"
+],
+"plus": false
+},
+"fairy-aura": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Aura Feérica",
+"Fairy Aura"
+],
+"plus": false
+},
+"filter": {
+"en": "Super effective attacks deal 25% less.",
+"es": "Los ataques muy eficaces le hacen un 25 % menos.",
+"generic": false,
+"n": [
+"Filtro",
+"Filter"
+],
+"plus": false
+},
+"flame-body": {
+"en": "Whoever hits it in melee gets burned.",
+"es": "Quien le golpea cuerpo a cuerpo se quema.",
+"generic": false,
+"n": [
+"Cuerpo Llama",
+"Flame Body"
+],
+"plus": false
+},
+"flare-boost": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Ímpetu Ardiente",
+"Flare Boost"
+],
+"plus": false
+},
+"flash-fire": {
+"en": "Fire-type attacks deal no damage: they heal it a little.",
+"es": "Los ataques de tipo Fuego no le hacen daño: le curan un poco.",
+"generic": false,
+"n": [
+"Absorbe Fuego",
+"Flash Fire"
+],
+"plus": false
+},
+"flower-gift": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Don Floral",
+"Flower Gift"
+],
+"plus": false
+},
+"flower-veil": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Velo Flor",
+"Flower Veil"
+],
+"plus": false
+},
+"fluffy": {
+"en": "Takes 30% less physical damage.",
+"es": "Recibe un 30 % menos de daño físico.",
+"generic": false,
+"n": [
+"Peluche",
+"Fluffy"
+],
+"plus": false
+},
+"forecast": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Predicción",
+"Forecast"
+],
+"plus": false
+},
+"forewarn": {
+"en": "Senses danger: dodges 6% of hits.",
+"es": "Presiente el peligro: esquiva el 6 % de los golpes.",
+"generic": false,
+"n": [
+"Alerta",
+"Forewarn"
+],
+"plus": true
+},
+"friend-guard": {
+"en": "Takes 6% less damage.",
+"es": "Recibe un 6 % menos de daño.",
+"generic": false,
+"n": [
+"Compiescolta",
+"Friend Guard"
+],
+"plus": true
+},
+"frisk": {
+"en": "Pulls items from farther away (+20% magnet).",
+"es": "Atrae los objetos desde más lejos (+20 % de imán).",
+"generic": false,
+"n": [
+"Cacheo",
+"Frisk"
+],
+"plus": true
+},
+"full-metal-body": {
+"en": "Sticky traps and terrain do not slow it down.",
+"es": "No le frenan las trampas pegajosas ni el terreno.",
+"generic": false,
+"n": [
+"Guardia Metálica",
+"Full Metal Body"
+],
+"plus": false
+},
+"fur-coat": {
+"en": "Takes 40% less physical damage.",
+"es": "Recibe un 40 % menos de daño físico.",
+"generic": false,
+"n": [
+"Pelaje Recio",
+"Fur Coat"
+],
+"plus": false
+},
+"gale-wings": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Alas Vendaval",
+"Gale Wings"
+],
+"plus": false
+},
+"gluttony": {
+"en": "Healing heals it 40% more.",
+"es": "Las curas le curan un 40 % más.",
+"generic": false,
+"n": [
+"Gula",
+"Gluttony"
+],
+"plus": true
+},
+"good-as-gold": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Cuerpo Áureo",
+"Good as Gold"
+],
+"plus": false
+},
+"gooey": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Baba",
+"Gooey"
+],
+"plus": false
+},
+"grass-pelt": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Manto Frondoso",
+"Grass Pelt"
+],
+"plus": false
+},
+"grassy-surge": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Herbogénesis",
+"Grassy Surge"
+],
+"plus": false
+},
+"grim-neigh": {
+"en": "Each enemy defeated gives +0.5% damage (up to +15%).",
+"es": "Cada enemigo derrotado le da +0,5 % de daño (hasta +15 %).",
+"generic": false,
+"n": [
+"Relincho Negro",
+"Grim Neigh"
+],
+"plus": false
+},
+"gulp-missile": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Tragamisil",
+"Gulp Missile"
+],
+"plus": false
+},
+"guts": {
+"en": "+30% physical damage under half HP.",
+"es": "+30 % de daño físico con menos de la mitad de vida.",
+"generic": false,
+"n": [
+"Agallas",
+"Guts"
+],
+"plus": false
+},
+"harvest": {
+"en": "Healing heals it 30% more.",
+"es": "Las curas le curan un 30 % más.",
+"generic": false,
+"n": [
+"Cosecha",
+"Harvest"
+],
+"plus": true
+},
+"healer": {
+"en": "Recovers 0.3% of its HP per second.",
+"es": "Recupera un 0,3 % de su vida por segundo.",
+"generic": false,
+"n": [
+"Alma Cura",
+"Healer"
+],
+"plus": true
+},
+"heatproof": {
+"en": "Takes half damage from Fire.",
+"es": "Recibe la mitad de daño de Fuego.",
+"generic": false,
+"n": [
+"Ignífugo",
+"Heatproof"
+],
+"plus": false
+},
+"heavy-metal": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Metal Pesado",
+"Heavy Metal"
+],
+"plus": false
+},
+"honey-gather": {
+"en": "+15% PokéCoins in the run.",
+"es": "+15 % de Pokémonedas en la partida.",
+"generic": false,
+"n": [
+"Recogemiel",
+"Honey Gather"
+],
+"plus": false
+},
+"hospitality": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Hospitalidad",
+"Hospitality"
+],
+"plus": false
+},
+"huge-power": {
+"en": "+50% damage with physical moves.",
+"es": "+50 % de daño con movimientos físicos.",
+"generic": false,
+"n": [
+"Potencia",
+"Huge Power"
+],
+"plus": false
+},
+"hunger-switch": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Mutapetito",
+"Hunger Switch"
+],
+"plus": false
+},
+"hustle": {
+"en": "+25% damage with physical moves, but 1 in 6 physical hits comes out weak.",
+"es": "+25 % de daño con movimientos físicos, pero 1 de cada 6 golpes físicos sale flojo.",
+"generic": false,
+"n": [
+"Entusiasmo",
+"Hustle"
+],
+"plus": false
+},
+"hydration": {
+"en": "In rain it recovers 1% HP per second and nothing slows it.",
+"es": "Con lluvia recupera un 1 % de vida por segundo y nada le frena.",
+"generic": false,
+"n": [
+"Hidratación",
+"Hydration"
+],
+"plus": true
+},
+"hyper-cutter": {
+"en": "+6% damage with physical moves.",
+"es": "+6 % de daño con movimientos físicos.",
+"generic": false,
+"n": [
+"Corte Fuerte",
+"Hyper Cutter"
+],
+"plus": true
+},
+"ice-body": {
+"en": "Recovers 1.5% HP per second in snow.",
+"es": "Con nieve recupera un 1,5 % de vida por segundo.",
+"generic": false,
+"n": [
+"Gélido",
+"Ice Body"
+],
+"plus": false
+},
+"ice-face": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Cara de Hielo",
+"Ice Face"
+],
+"plus": false
+},
+"ice-scales": {
+"en": "Takes 40% less special damage.",
+"es": "Recibe un 40 % menos de daño especial.",
+"generic": false,
+"n": [
+"Escama de Hielo",
+"Ice Scales"
+],
+"plus": false
+},
+"illuminate": {
+"en": "Pulls items from farther away (+10% magnet).",
+"es": "Atrae los objetos desde más lejos (+10 % de imán).",
+"generic": false,
+"n": [
+"Iluminación",
+"Illuminate"
+],
+"plus": true
+},
+"illusion": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Ilusión",
+"Illusion"
+],
+"plus": false
+},
+"immunity": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Inmunidad",
+"Immunity"
+],
+"plus": false
+},
+"imposter": {
+"en": "Transforms: hits and endures like a balanced Pokémon.",
+"es": "Se transforma: pega y aguanta como un Pokémon equilibrado.",
+"generic": false,
+"n": [
+"Impostor",
+"Imposter"
+],
+"plus": false
+},
+"infiltrator": {
+"en": "Its hits break enemy shields.",
+"es": "Sus golpes rompen los escudos de los enemigos.",
+"generic": false,
+"n": [
+"Allanamiento",
+"Infiltrator"
+],
+"plus": true
+},
+"innards-out": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Revés",
+"Innards Out"
+],
+"plus": false
+},
+"inner-focus": {
+"en": "Sticky traps and terrain do not slow it down.",
+"es": "No le frenan las trampas pegajosas ni el terreno.",
+"generic": false,
+"n": [
+"Fuerza Mental",
+"Inner Focus"
+],
+"plus": false
+},
+"insomnia": {
+"en": "Sticky traps and terrain do not slow it down.",
+"es": "No le frenan las trampas pegajosas ni el terreno.",
+"generic": false,
+"n": [
+"Insomnio",
+"Insomnia"
+],
+"plus": false
+},
+"intimidate": {
+"en": "Enemies deal 12% less physical damage to it.",
+"es": "Los enemigos le hacen un 12 % menos de daño físico.",
+"generic": false,
+"n": [
+"Intimidación",
+"Intimidate"
+],
+"plus": false
+},
+"intrepid-sword": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Espada Indómita",
+"Intrepid Sword"
+],
+"plus": false
+},
+"iron-barbs": {
+"en": "Whoever hits it in melee takes damage.",
+"es": "Quien le golpea cuerpo a cuerpo recibe daño.",
+"generic": false,
+"n": [
+"Punta Acero",
+"Iron Barbs"
+],
+"plus": false
+},
+"iron-fist": {
+"en": "+25% damage with punches.",
+"es": "+25 % de daño con los puñetazos.",
+"generic": false,
+"n": [
+"Puño Férreo",
+"Iron Fist"
+],
+"plus": false
+},
+"justified": {
+"en": "+15% damage to Dark-type Pokémon.",
+"es": "+15 % de daño a los Pokémon de tipo Siniestro.",
+"generic": false,
+"n": [
+"Justiciero",
+"Justified"
+],
+"plus": true
+},
+"keen-eye": {
+"en": "+5% critical hit chance.",
+"es": "+5 % de probabilidad de golpe crítico.",
+"generic": false,
+"n": [
+"Vista Lince",
+"Keen Eye"
+],
+"plus": true
+},
+"klutz": {
+"en": "Without an item, +12% damage.",
+"es": "Sin objeto, +12 % de daño.",
+"generic": false,
+"n": [
+"Zoquete",
+"Klutz"
+],
+"plus": true
+},
+"leaf-guard": {
+"en": "In sun nothing slows it and it takes 15% less damage.",
+"es": "Con sol no le frena nada y recibe un 15 % menos de daño.",
+"generic": false,
+"n": [
+"Defensa Hoja",
+"Leaf Guard"
+],
+"plus": true
+},
+"levitate": {
+"en": "Floats: unaffected by water, lava and traps, and Ground barely hurts it.",
+"es": "Flota: no le afectan el agua, la lava ni las trampas, y la Tierra le hace muy poco.",
+"generic": false,
+"n": [
+"Levitación",
+"Levitate"
+],
+"plus": false
+},
+"libero": {
+"en": "+12% damage with all its moves.",
+"es": "+12 % de daño con todos sus movimientos.",
+"generic": false,
+"n": [
+"Líbero",
+"Libero"
+],
+"plus": false
+},
+"light-metal": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Metal Liviano",
+"Light Metal"
+],
+"plus": false
+},
+"lightning-rod": {
+"en": "Electric-type attacks deal no damage: they heal it a little.",
+"es": "Los ataques de tipo Eléctrico no le hacen daño: le curan un poco.",
+"generic": false,
+"n": [
+"Pararrayos",
+"Lightning Rod"
+],
+"plus": false
+},
+"limber": {
+"en": "Sticky traps and terrain do not slow it down.",
+"es": "No le frenan las trampas pegajosas ni el terreno.",
+"generic": false,
+"n": [
+"Flexibilidad",
+"Limber"
+],
+"plus": false
+},
+"lingering-aroma": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Olor Persistente",
+"Lingering Aroma"
+],
+"plus": false
+},
+"liquid-ooze": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Lodo Líquido",
+"Liquid Ooze"
+],
+"plus": false
+},
+"liquid-voice": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Voz Fluida",
+"Liquid Voice"
+],
+"plus": false
+},
+"long-reach": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Remoto",
+"Long Reach"
+],
+"plus": false
+},
+"magic-bounce": {
+"en": "Takes 15% less special damage and dodges 10% of those hits.",
+"es": "Recibe un 15 % menos de daño especial y esquiva el 10 % de esos golpes.",
+"generic": false,
+"n": [
+"Espejo Mágico",
+"Magic Bounce"
+],
+"plus": true
+},
+"magic-guard": {
+"en": "Only attacks hurt it: not lava or traps.",
+"es": "Sólo le hacen daño los ataques: ni la lava ni las trampas.",
+"generic": false,
+"n": [
+"Muro Mágico",
+"Magic Guard"
+],
+"plus": false
+},
+"magician": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Prestidigitador",
+"Magician"
+],
+"plus": false
+},
+"magma-armor": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Escudo Magma",
+"Magma Armor"
+],
+"plus": false
+},
+"magnet-pull": {
+"en": "Pulls items from farther away (+20% magnet).",
+"es": "Atrae los objetos desde más lejos (+20 % de imán).",
+"generic": false,
+"n": [
+"Imán",
+"Magnet Pull"
+],
+"plus": true
+},
+"marvel-scale": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Escama Especial",
+"Marvel Scale"
+],
+"plus": false
+},
+"mega-launcher": {
+"en": "+30% damage with pulses and spheres.",
+"es": "+30 % de daño con los pulsos y esferas.",
+"generic": false,
+"n": [
+"Megadisparador",
+"Mega Launcher"
+],
+"plus": false
+},
+"merciless": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Ensañamiento",
+"Merciless"
+],
+"plus": false
+},
+"minus": {
+"en": "+10% damage with special moves.",
+"es": "+10 % de daño con movimientos especiales.",
+"generic": false,
+"n": [
+"Menos",
+"Minus"
+],
+"plus": false
+},
+"mirror-armor": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Coraza Reflejo",
+"Mirror Armor"
+],
+"plus": false
+},
+"misty-surge": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Nebulogénesis",
+"Misty Surge"
+],
+"plus": false
+},
+"mold-breaker": {
+"en": "+12% damage to bosses.",
+"es": "+12 % de daño a los jefes.",
+"generic": false,
+"n": [
+"Rompemoldes",
+"Mold Breaker"
+],
+"plus": true
+},
+"moody": {
+"en": "Every 10 s, +10% to something at random: attack, special attack, speed or defense.",
+"es": "Cada 10 s, +10 % a algo al azar: ataque, ataque especial, velocidad o defensa.",
+"generic": false,
+"n": [
+"Veleta",
+"Moody"
+],
+"plus": true
+},
+"motor-drive": {
+"en": "Electric-type attacks deal no damage: they heal it a little.",
+"es": "Los ataques de tipo Eléctrico no le hacen daño: le curan un poco.",
+"generic": false,
+"n": [
+"Electromotor",
+"Motor Drive"
+],
+"plus": false
+},
+"moxie": {
+"en": "Each enemy defeated gives +0.5% damage (up to +15%).",
+"es": "Cada enemigo derrotado le da +0,5 % de daño (hasta +15 %).",
+"generic": false,
+"n": [
+"Autoestima",
+"Moxie"
+],
+"plus": false
+},
+"multiscale": {
+"en": "Takes half damage while at (nearly) full HP.",
+"es": "Con la vida casi llena recibe la mitad de daño.",
+"generic": false,
+"n": [
+"Multiescamas",
+"Multiscale"
+],
+"plus": false
+},
+"multitype": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Multitipo",
+"Multitype"
+],
+"plus": false
+},
+"mummy": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Momia",
+"Mummy"
+],
+"plus": false
+},
+"natural-cure": {
+"en": "Recovers 0.3% of its HP per second.",
+"es": "Recupera un 0,3 % de su vida por segundo.",
+"generic": false,
+"n": [
+"Cura Natural",
+"Natural Cure"
+],
+"plus": true
+},
+"neutralizing-gas": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Gas Reactivo",
+"Neutralizing Gas"
+],
+"plus": false
+},
+"no-guard": {
+"en": "Everything hits: +15% damage dealt, but takes 10% more.",
+"es": "Todo acierta: +15 % de daño hecho, pero recibe un 10 % más.",
+"generic": false,
+"n": [
+"Indefenso",
+"No Guard"
+],
+"plus": false
+},
+"normalize": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Normalidad",
+"Normalize"
+],
+"plus": false
+},
+"oblivious": {
+"en": "Sticky traps and terrain do not slow it down.",
+"es": "No le frenan las trampas pegajosas ni el terreno.",
+"generic": false,
+"n": [
+"Despiste",
+"Oblivious"
+],
+"plus": false
+},
+"orichalcum-pulse": {
+"en": "Brings sun at the start of the run and every 3 minutes.",
+"es": "Pone sol al empezar la partida y cada 3 minutos.",
+"generic": false,
+"n": [
+"Latido Oricalco",
+"Orichalcum Pulse"
+],
+"plus": false
+},
+"overcoat": {
+"en": "Takes 5% less special damage.",
+"es": "Recibe un 5 % menos de daño especial.",
+"generic": false,
+"n": [
+"Funda",
+"Overcoat"
+],
+"plus": true
+},
+"overgrow": {
+"en": "+35% Grass-type damage at low HP (under 1/3).",
+"es": "+35 % de daño de tipo Planta con poca vida (menos de 1/3).",
+"generic": false,
+"n": [
+"Espesura",
+"Overgrow"
+],
+"plus": false
+},
+"own-tempo": {
+"en": "Sticky traps and terrain do not slow it down.",
+"es": "No le frenan las trampas pegajosas ni el terreno.",
+"generic": false,
+"n": [
+"Ritmo Propio",
+"Own Tempo"
+],
+"plus": false
+},
+"perish-body": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Cuerpo Mortal",
+"Perish Body"
+],
+"plus": false
+},
+"pickpocket": {
+"en": "When hit, it sometimes snatches a coin.",
+"es": "Al recibir golpes, a veces les quita una moneda.",
+"generic": false,
+"n": [
+"Hurto",
+"Pickpocket"
+],
+"plus": true
+},
+"pickup": {
+"en": "+15% PokéCoins in the run.",
+"es": "+15 % de Pokémonedas en la partida.",
+"generic": false,
+"n": [
+"Recogida",
+"Pickup"
+],
+"plus": false
+},
+"pixilate": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Piel Feérica",
+"Pixilate"
+],
+"plus": false
+},
+"plus": {
+"en": "+10% damage with special moves.",
+"es": "+10 % de daño con movimientos especiales.",
+"generic": false,
+"n": [
+"Más",
+"Plus"
+],
+"plus": false
+},
+"poison-heal": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Antídoto",
+"Poison Heal"
+],
+"plus": false
+},
+"poison-point": {
+"en": "Whoever hits it in melee gets poisoned.",
+"es": "Quien le golpea cuerpo a cuerpo se envenena.",
+"generic": false,
+"n": [
+"Punto Tóxico",
+"Poison Point"
+],
+"plus": false
+},
+"poison-touch": {
+"en": "Its melee attacks and dashes poison.",
+"es": "Sus ataques cuerpo a cuerpo y embestidas envenenan.",
+"generic": false,
+"n": [
+"Toque Tóxico",
+"Poison Touch"
+],
+"plus": false
+},
+"power-spot": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Fuente Energía",
+"Power Spot"
+],
+"plus": false
+},
+"prankster": {
+"en": "Its boosting moves recharge 30% faster.",
+"es": "Sus potenciadores se recargan un 30 % antes.",
+"generic": false,
+"n": [
+"Bromista",
+"Prankster"
+],
+"plus": true
+},
+"pressure": {
+"en": "Takes 8% less damage.",
+"es": "Recibe un 8 % menos de daño.",
+"generic": false,
+"n": [
+"Presión",
+"Pressure"
+],
+"plus": false
+},
+"prism-armor": {
+"en": "Super effective attacks deal 25% less.",
+"es": "Los ataques muy eficaces le hacen un 25 % menos.",
+"generic": false,
+"n": [
+"Armadura Prisma",
+"Prism Armor"
+],
+"plus": false
+},
+"propeller-tail": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Hélice Caudal",
+"Propeller Tail"
+],
+"plus": false
+},
+"protean": {
+"en": "+12% damage with all its moves.",
+"es": "+12 % de daño con todos sus movimientos.",
+"generic": false,
+"n": [
+"Mutatipo",
+"Protean"
+],
+"plus": false
+},
+"protosynthesis": {
+"en": "In sun, +20% damage.",
+"es": "Con sol, +20 % de daño.",
+"generic": false,
+"n": [
+"Paleosíntesis",
+"Protosynthesis"
+],
+"plus": true
+},
+"psychic-surge": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Psicogénesis",
+"Psychic Surge"
+],
+"plus": false
+},
+"punk-rock": {
+"en": "+30% damage with sound moves.",
+"es": "+30 % de daño con los sonidos.",
+"generic": false,
+"n": [
+"Punk Rock",
+"Punk Rock"
+],
+"plus": false
+},
+"pure-power": {
+"en": "+50% damage with physical moves.",
+"es": "+50 % de daño con movimientos físicos.",
+"generic": false,
+"n": [
+"Energía Pura",
+"Pure Power"
+],
+"plus": false
+},
+"purifying-salt": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Sal Purificadora",
+"Purifying Salt"
+],
+"plus": false
+},
+"quark-drive": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Carga Cuark",
+"Quark Drive"
+],
+"plus": false
+},
+"queenly-majesty": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Regia Presencia",
+"Queenly Majesty"
+],
+"plus": false
+},
+"quick-feet": {
+"en": "When slowed, it goes faster (instead of slower).",
+"es": "Frenado, va más rápido (en vez de más lento).",
+"generic": false,
+"n": [
+"Pies Rápidos",
+"Quick Feet"
+],
+"plus": true
+},
+"rain-dish": {
+"en": "Recovers 1.5% HP per second in rain.",
+"es": "Con lluvia recupera un 1,5 % de vida por segundo.",
+"generic": false,
+"n": [
+"Cura Lluvia",
+"Rain Dish"
+],
+"plus": false
+},
+"rattled": {
+"en": "Bug, Ghost or Dark hits scare it: +25% speed for a moment.",
+"es": "Los golpes de Bicho, Fantasma o Siniestro le asustan: +25 % de velocidad un momento.",
+"generic": false,
+"n": [
+"Cobardía",
+"Rattled"
+],
+"plus": true
+},
+"receiver": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Receptor",
+"Receiver"
+],
+"plus": false
+},
+"reckless": {
+"en": "+25% damage with dashes.",
+"es": "+25 % de daño con las embestidas.",
+"generic": false,
+"n": [
+"Audaz",
+"Reckless"
+],
+"plus": false
+},
+"refrigerate": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Piel Helada",
+"Refrigerate"
+],
+"plus": false
+},
+"regenerator": {
+"en": "Recovers 0.6% of its HP per second.",
+"es": "Recupera un 0,6 % de su vida por segundo.",
+"generic": false,
+"n": [
+"Regeneración",
+"Regenerator"
+],
+"plus": false
+},
+"ripen": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Maduración",
+"Ripen"
+],
+"plus": false
+},
+"rivalry": {
+"en": "+15% damage to enemies that share a type with it.",
+"es": "+15 % de daño a los enemigos que comparten un tipo con él.",
+"generic": false,
+"n": [
+"Rivalidad",
+"Rivalry"
+],
+"plus": true
+},
+"rks-system": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Sistema Alfa",
+"RKS System"
+],
+"plus": false
+},
+"rock-head": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Cabeza Roca",
+"Rock Head"
+],
+"plus": false
+},
+"rough-skin": {
+"en": "Whoever hits it in melee takes damage.",
+"es": "Quien le golpea cuerpo a cuerpo recibe daño.",
+"generic": false,
+"n": [
+"Piel Tosca",
+"Rough Skin"
+],
+"plus": false
+},
+"run-away": {
+"en": "+8% speed.",
+"es": "+8 % de velocidad.",
+"generic": false,
+"n": [
+"Fuga",
+"Run Away"
+],
+"plus": false
+},
+"sand-force": {
+"en": "+30% Rock, Ground and Steel damage in a sandstorm.",
+"es": "+30 % de daño Roca, Tierra y Acero con tormenta de arena.",
+"generic": false,
+"n": [
+"Poder Arena",
+"Sand Force"
+],
+"plus": false
+},
+"sand-rush": {
+"en": "+50% speed in a sandstorm.",
+"es": "+50 % de velocidad con tormenta de arena.",
+"generic": false,
+"n": [
+"Ímpetu Arena",
+"Sand Rush"
+],
+"plus": false
+},
+"sand-spit": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Expulsarena",
+"Sand Spit"
+],
+"plus": false
+},
+"sand-stream": {
+"en": "Brings a sandstorm at the start of the run and every 3 minutes.",
+"es": "Pone una tormenta de arena al empezar la partida y cada 3 minutos.",
+"generic": false,
+"n": [
+"Chorro Arena",
+"Sand Stream"
+],
+"plus": false
+},
+"sand-veil": {
+"en": "In a sandstorm it dodges 15% of hits.",
+"es": "Con tormenta de arena esquiva el 15 % de los golpes.",
+"generic": false,
+"n": [
+"Velo Arena",
+"Sand Veil"
+],
+"plus": true
+},
+"sap-sipper": {
+"en": "Grass-type attacks deal no damage: they heal it a little.",
+"es": "Los ataques de tipo Planta no le hacen daño: le curan un poco.",
+"generic": false,
+"n": [
+"Herbívoro",
+"Sap Sipper"
+],
+"plus": false
+},
+"schooling": {
+"en": "School form: +25% HP and, above 1/4 HP, +50% damage.",
+"es": "Forma banco: +25 % de vida y, con más de 1/4 de vida, +50 % de daño.",
+"generic": false,
+"n": [
+"Banco",
+"Schooling"
+],
+"plus": false
+},
+"scrappy": {
+"en": "Its Normal and Fighting moves fully hit Ghost types.",
+"es": "Sus movimientos Normal y Lucha dañan del todo a los Fantasma.",
+"generic": false,
+"n": [
+"Intrépido",
+"Scrappy"
+],
+"plus": false
+},
+"seed-sower": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Disemillar",
+"Seed Sower"
+],
+"plus": false
+},
+"serene-grace": {
+"en": "Burns, poisons and slows from its moves are twice as strong.",
+"es": "Las quemaduras, venenos y frenazos de sus movimientos son el doble de fuertes.",
+"generic": false,
+"n": [
+"Dicha",
+"Serene Grace"
+],
+"plus": false
+},
+"shadow-shield": {
+"en": "Takes half damage while at (nearly) full HP.",
+"es": "Con la vida casi llena recibe la mitad de daño.",
+"generic": false,
+"n": [
+"Guardia Espectro",
+"Shadow Shield"
+],
+"plus": false
+},
+"shadow-tag": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Sombra Trampa",
+"Shadow Tag"
+],
+"plus": false
+},
+"sharpness": {
+"en": "+30% damage with slicing moves.",
+"es": "+30 % de daño con los cortes.",
+"generic": false,
+"n": [
+"Cortante",
+"Sharpness"
+],
+"plus": false
+},
+"shed-skin": {
+"en": "Every 5 s it sheds: removes slows and recovers 2% HP.",
+"es": "Cada 5 s muda: se quita los frenazos y recupera un 2 % de vida.",
+"generic": false,
+"n": [
+"Mudar",
+"Shed Skin"
+],
+"plus": true
+},
+"sheer-force": {
+"en": "+25% damage with moves that burn, poison, slow or push, but they lose that effect.",
+"es": "+25 % de daño con movimientos que queman, envenenan, frenan o empujan, pero pierden ese efecto.",
+"generic": false,
+"n": [
+"Potencia Bruta",
+"Sheer Force"
+],
+"plus": false
+},
+"shell-armor": {
+"en": "Takes 8% less damage.",
+"es": "Recibe un 8 % menos de daño.",
+"generic": false,
+"n": [
+"Caparazón",
+"Shell Armor"
+],
+"plus": false
+},
+"shield-dust": {
+"en": "Sticky traps and terrain do not slow it down.",
+"es": "No le frenan las trampas pegajosas ni el terreno.",
+"generic": false,
+"n": [
+"Polvo Escudo",
+"Shield Dust"
+],
+"plus": true
+},
+"shields-down": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Escudo Limitado",
+"Shields Down"
+],
+"plus": false
+},
+"simple": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Simple",
+"Simple"
+],
+"plus": false
+},
+"skill-link": {
+"en": "+25% damage with multi-hit moves.",
+"es": "+25 % de daño con los movimientos de varios golpes.",
+"generic": false,
+"n": [
+"Encadenado",
+"Skill Link"
+],
+"plus": true
+},
+"slow-start": {
+"en": "Slow start: for the first minute it deals −40% damage and moves slower; after that, full power.",
+"es": "Arranca lento: el primer minuto hace −40 % de daño y va más despacio; después, a plena potencia.",
+"generic": false,
+"n": [
+"Inicio Lento",
+"Slow Start"
+],
+"plus": false
+},
+"slush-rush": {
+"en": "+50% speed in snow.",
+"es": "+50 % de velocidad con nieve.",
+"generic": false,
+"n": [
+"Quitanieves",
+"Slush Rush"
+],
+"plus": false
+},
+"sniper": {
+"en": "Its critical hits deal ×2 damage (instead of ×1.5).",
+"es": "Sus golpes críticos hacen ×2 de daño (en vez de ×1,5).",
+"generic": false,
+"n": [
+"Francotirador",
+"Sniper"
+],
+"plus": false
+},
+"snow-cloak": {
+"en": "In snow it dodges 15% of hits.",
+"es": "Con nieve esquiva el 15 % de los golpes.",
+"generic": false,
+"n": [
+"Manto Níveo",
+"Snow Cloak"
+],
+"plus": true
+},
+"snow-warning": {
+"en": "Brings snow at the start of the run and every 3 minutes.",
+"es": "Pone nieve al empezar la partida y cada 3 minutos.",
+"generic": false,
+"n": [
+"Nevada",
+"Snow Warning"
+],
+"plus": false
+},
+"solar-power": {
+"en": "+40% special damage in sun, but the sun drains some HP.",
+"es": "+40 % de daño especial con sol, pero el sol le quita algo de vida.",
+"generic": false,
+"n": [
+"Poder Solar",
+"Solar Power"
+],
+"plus": false
+},
+"solid-rock": {
+"en": "Super effective attacks deal 25% less.",
+"es": "Los ataques muy eficaces le hacen un 25 % menos.",
+"generic": false,
+"n": [
+"Roca Sólida",
+"Solid Rock"
+],
+"plus": false
+},
+"soul-heart": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Coránima",
+"Soul-Heart"
+],
+"plus": false
+},
+"soundproof": {
+"en": "Takes 10% less special damage.",
+"es": "Recibe un 10 % menos de daño especial.",
+"generic": false,
+"n": [
+"Insonorizar",
+"Soundproof"
+],
+"plus": true
+},
+"speed-boost": {
+"en": "Every 10 seconds it gets 1.5% faster (up to +30%).",
+"es": "Cada 10 segundos va un 1,5 % más rápido (hasta +30 %).",
+"generic": false,
+"n": [
+"Impulso",
+"Speed Boost"
+],
+"plus": false
+},
+"stakeout": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Vigilante",
+"Stakeout"
+],
+"plus": false
+},
+"stall": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Rezagado",
+"Stall"
+],
+"plus": false
+},
+"stalwart": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Acérrimo",
+"Stalwart"
+],
+"plus": false
+},
+"stamina": {
+"en": "Each melee hit it takes raises its defense a little.",
+"es": "Cada golpe cuerpo a cuerpo que recibe le sube un poco la defensa.",
+"generic": false,
+"n": [
+"Firmeza",
+"Stamina"
+],
+"plus": false
+},
+"stance-change": {
+"en": "Switches every 8 s between blade (+20% damage) and shield (−20% damage taken).",
+"es": "Alterna cada 8 s entre filo (+20 % de daño) y escudo (−20 % de daño recibido).",
+"generic": false,
+"n": [
+"Cambio Táctico",
+"Stance Change"
+],
+"plus": false
+},
+"static": {
+"en": "Whoever hits it in melee is slowed (paralyzed).",
+"es": "Quien le golpea cuerpo a cuerpo se queda frenado (paralizado).",
+"generic": false,
+"n": [
+"Electricidad Estática",
+"Static"
+],
+"plus": false
+},
+"steadfast": {
+"en": "When hit, +10% speed for a moment (stacks).",
+"es": "Al recibir un golpe, +10 % de velocidad un momento (se acumula).",
+"generic": false,
+"n": [
+"Impasible",
+"Steadfast"
+],
+"plus": true
+},
+"steelworker": {
+"en": "+20% damage with Steel-type moves.",
+"es": "+20 % de daño con movimientos de tipo Acero.",
+"generic": false,
+"n": [
+"Acero Templado",
+"Steelworker"
+],
+"plus": false
+},
+"steely-spirit": {
+"en": "+20% damage with Steel-type moves.",
+"es": "+20 % de daño con movimientos de tipo Acero.",
+"generic": false,
+"n": [
+"Alma Acerada",
+"Steely Spirit"
+],
+"plus": false
+},
+"stench": {
+"en": "Its hits sometimes slow (1 in 10).",
+"es": "Sus golpes a veces frenan (1 de cada 10).",
+"generic": false,
+"n": [
+"Hedor",
+"Stench"
+],
+"plus": true
+},
+"sticky-hold": {
+"en": "Pulls items from farther away (+20% magnet).",
+"es": "Atrae los objetos desde más lejos (+20 % de imán).",
+"generic": false,
+"n": [
+"Viscosidad",
+"Sticky Hold"
+],
+"plus": true
+},
+"storm-drain": {
+"en": "Water-type attacks deal no damage: they heal it a little.",
+"es": "Los ataques de tipo Agua no le hacen daño: le curan un poco.",
+"generic": false,
+"n": [
+"Colector",
+"Storm Drain"
+],
+"plus": false
+},
+"strong-jaw": {
+"en": "+30% damage with bites.",
+"es": "+30 % de daño con los mordiscos.",
+"generic": false,
+"n": [
+"Mandíbula Fuerte",
+"Strong Jaw"
+],
+"plus": false
+},
+"sturdy": {
+"en": "A hit that would KO it leaves it with 1 HP (every 90 s).",
+"es": "Un golpe que le dejaría KO le deja con 1 de vida (cada 90 s).",
+"generic": false,
+"n": [
+"Robustez",
+"Sturdy"
+],
+"plus": false
+},
+"suction-cups": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Ventosas",
+"Suction Cups"
+],
+"plus": false
+},
+"super-luck": {
+"en": "+10% critical hit chance.",
+"es": "+10 % de probabilidad de golpe crítico.",
+"generic": false,
+"n": [
+"Afortunado",
+"Super Luck"
+],
+"plus": false
+},
+"supersweet-syrup": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Néctar Dulce",
+"Supersweet Syrup"
+],
+"plus": false
+},
+"supreme-overlord": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"General Supremo",
+"Supreme Overlord"
+],
+"plus": false
+},
+"swarm": {
+"en": "+35% Bug-type damage at low HP (under 1/3).",
+"es": "+35 % de daño de tipo Bicho con poca vida (menos de 1/3).",
+"generic": false,
+"n": [
+"Enjambre",
+"Swarm"
+],
+"plus": false
+},
+"sweet-veil": {
+"en": "Sticky traps and terrain do not slow it down.",
+"es": "No le frenan las trampas pegajosas ni el terreno.",
+"generic": false,
+"n": [
+"Velo Dulce",
+"Sweet Veil"
+],
+"plus": true
+},
+"swift-swim": {
+"en": "+50% speed in rain.",
+"es": "+50 % de velocidad con lluvia.",
+"generic": false,
+"n": [
+"Nado Rápido",
+"Swift Swim"
+],
+"plus": false
+},
+"symbiosis": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Simbiosis",
+"Symbiosis"
+],
+"plus": false
+},
+"synchronize": {
+"en": "Whoever hits it in melee takes part of the hit back.",
+"es": "Quien le golpea cuerpo a cuerpo recibe parte del golpe.",
+"generic": false,
+"n": [
+"Sincronía",
+"Synchronize"
+],
+"plus": true
+},
+"tangled-feet": {
+"en": "When slowed, it dodges 20% of hits.",
+"es": "Frenado, esquiva el 20 % de los golpes.",
+"generic": false,
+"n": [
+"Tumbos",
+"Tangled Feet"
+],
+"plus": true
+},
+"technician": {
+"en": "+35% damage with weak-hitting moves.",
+"es": "+35 % de daño con los ataques de golpes flojos.",
+"generic": false,
+"n": [
+"Experto",
+"Technician"
+],
+"plus": false
+},
+"telepathy": {
+"en": "Reads intentions: dodges 8% of hits.",
+"es": "Lee las intenciones: esquiva el 8 % de los golpes.",
+"generic": false,
+"n": [
+"Telepatía",
+"Telepathy"
+],
+"plus": true
+},
+"tera-shift": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Teracambio",
+"Tera Shift"
+],
+"plus": false
+},
+"teravolt": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Terravoltaje",
+"Teravolt"
+],
+"plus": false
+},
+"thermal-exchange": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Termoconversión",
+"Thermal Exchange"
+],
+"plus": false
+},
+"thick-fat": {
+"en": "Takes 40% less damage from Fire and Ice.",
+"es": "Recibe un 40 % menos de daño de Fuego y Hielo.",
+"generic": false,
+"n": [
+"Sebo",
+"Thick Fat"
+],
+"plus": false
+},
+"tinted-lens": {
+"en": "Its not very effective moves deal normal damage.",
+"es": "Sus movimientos poco eficaces hacen daño normal.",
+"generic": false,
+"n": [
+"Cromolente",
+"Tinted Lens"
+],
+"plus": false
+},
+"torrent": {
+"en": "+35% Water-type damage at low HP (under 1/3).",
+"es": "+35 % de daño de tipo Agua con poca vida (menos de 1/3).",
+"generic": false,
+"n": [
+"Torrente",
+"Torrent"
+],
+"plus": false
+},
+"tough-claws": {
+"en": "+25% damage with melee attacks and dashes.",
+"es": "+25 % de daño con ataques cuerpo a cuerpo y embestidas.",
+"generic": false,
+"n": [
+"Garra Dura",
+"Tough Claws"
+],
+"plus": false
+},
+"toxic-boost": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Ímpetu Tóxico",
+"Toxic Boost"
+],
+"plus": false
+},
+"toxic-chain": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Cadena Tóxica",
+"Toxic Chain"
+],
+"plus": false
+},
+"toxic-debris": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Capa Tóxica",
+"Toxic Debris"
+],
+"plus": false
+},
+"trace": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Calco",
+"Trace"
+],
+"plus": false
+},
+"transistor": {
+"en": "+20% damage with Electric-type moves.",
+"es": "+20 % de daño con movimientos de tipo Eléctrico.",
+"generic": false,
+"n": [
+"Transistor",
+"Transistor"
+],
+"plus": false
+},
+"triage": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Primer Auxilio",
+"Triage"
+],
+"plus": false
+},
+"truant": {
+"en": "Slow but heavy: recharges take 60% longer, but each hit deals +35%.",
+"es": "Golpes sueltos y fuertes: tarda un 60 % más en recargar, pero cada golpe hace +35 %.",
+"generic": false,
+"n": [
+"Ausente",
+"Truant"
+],
+"plus": false
+},
+"turboblaze": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Turbollama",
+"Turboblaze"
+],
+"plus": false
+},
+"unaware": {
+"en": "Unimpressed: takes 8% less damage.",
+"es": "No se deja impresionar: recibe un 8 % menos de daño.",
+"generic": false,
+"n": [
+"Ignorante",
+"Unaware"
+],
+"plus": true
+},
+"unburden": {
+"en": "Without an item it is 15% faster.",
+"es": "Sin objeto va un 15 % más rápido.",
+"generic": false,
+"n": [
+"Liviano",
+"Unburden"
+],
+"plus": true
+},
+"unnerve": {
+"en": "Makes enemies nervous: they deal 6% less damage to it.",
+"es": "Pone nerviosos a los enemigos: le hacen un 6 % menos de daño.",
+"generic": false,
+"n": [
+"Nerviosismo",
+"Unnerve"
+],
+"plus": true
+},
+"unseen-fist": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Puño Invisible",
+"Unseen Fist"
+],
+"plus": false
+},
+"victory-star": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Tinovictoria",
+"Victory Star"
+],
+"plus": false
+},
+"vital-spirit": {
+"en": "Sticky traps and terrain do not slow it down.",
+"es": "No le frenan las trampas pegajosas ni el terreno.",
+"generic": false,
+"n": [
+"Espíritu Vital",
+"Vital Spirit"
+],
+"plus": false
+},
+"volt-absorb": {
+"en": "Electric-type attacks deal no damage: they heal it a little.",
+"es": "Los ataques de tipo Eléctrico no le hacen daño: le curan un poco.",
+"generic": false,
+"n": [
+"Absorbe Electricidad",
+"Volt Absorb"
+],
+"plus": false
+},
+"wandering-spirit": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Alma Errante",
+"Wandering Spirit"
+],
+"plus": false
+},
+"water-absorb": {
+"en": "Water-type attacks deal no damage: they heal it a little.",
+"es": "Los ataques de tipo Agua no le hacen daño: le curan un poco.",
+"generic": false,
+"n": [
+"Absorbe Agua",
+"Water Absorb"
+],
+"plus": false
+},
+"water-bubble": {
+"en": "+40% Water-type damage and takes half damage from Fire.",
+"es": "+40 % de daño de tipo Agua y recibe la mitad de daño de Fuego.",
+"generic": false,
+"n": [
+"Pompa",
+"Water Bubble"
+],
+"plus": false
+},
+"water-compaction": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Hidrorrefuerzo",
+"Water Compaction"
+],
+"plus": false
+},
+"water-veil": {
+"en": "Lava does not burn it and it takes half damage from Fire.",
+"es": "La lava no le quema y recibe la mitad de daño de Fuego.",
+"generic": false,
+"n": [
+"Velo Agua",
+"Water Veil"
+],
+"plus": true
+},
+"weak-armor": {
+"en": "When hit physically it gets lighter: +20% speed for a moment.",
+"es": "Al recibir un golpe físico se aligera: +20 % de velocidad un momento.",
+"generic": false,
+"n": [
+"Armadura Frágil",
+"Weak Armor"
+],
+"plus": true
+},
+"well-baked-body": {
+"en": "Fire-type attacks deal no damage: they heal it a little.",
+"es": "Los ataques de tipo Fuego no le hacen daño: le curan un poco.",
+"generic": false,
+"n": [
+"Cuerpo Horneado",
+"Well-Baked Body"
+],
+"plus": false
+},
+"white-smoke": {
+"en": "Sticky traps and terrain do not slow it down.",
+"es": "No le frenan las trampas pegajosas ni el terreno.",
+"generic": false,
+"n": [
+"Humo Blanco",
+"White Smoke"
+],
+"plus": false
+},
+"wimp-out": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Huida",
+"Wimp Out"
+],
+"plus": false
+},
+"wind-power": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Energía Eólica",
+"Wind Power"
+],
+"plus": false
+},
+"wind-rider": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Surcavientos",
+"Wind Rider"
+],
+"plus": false
+},
+"wonder-guard": {
+"en": "Anything not super effective barely hurts it (35%); super effective hits deal 50% more.",
+"es": "Lo que no es muy eficaz apenas le hace daño (35 %); lo muy eficaz, un 50 % más.",
+"generic": false,
+"n": [
+"Superguarda",
+"Wonder Guard"
+],
+"plus": false
+},
+"wonder-skin": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Piel Milagro",
+"Wonder Skin"
+],
+"plus": false
+},
+"zen-mode": {
+"en": "Below half HP it enters Zen Mode: +30% special damage.",
+"es": "Con menos de la mitad de vida entra en Modo Daruma: +30 % de daño especial.",
+"generic": false,
+"n": [
+"Modo Daruma",
+"Zen Mode"
+],
+"plus": true
+},
+"zero-to-hero": {
+"en": null,
+"es": null,
+"generic": true,
+"n": [
+"Cambio Heroico",
+"Zero to Hero"
+],
+"plus": false
+}
+},
+"gameCommit": "ce5785313b0205af8b9477423f64b0a7b7039dcd"
+}

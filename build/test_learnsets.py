@@ -51,8 +51,17 @@ class TmTest(unittest.TestCase):
 
     def test_english_move_name_falls_back_to_spanish(self) -> None:
         L = lang("en")
-        self.assertEqual(learnsets._move_name(L, "xx-unknown", {}), "Xx Unknown")
+        with self.assertRaises(ValueError):
+            learnsets._move_name(L, "xx-unknown", {})
         self.assertEqual(learnsets._move_name(L, "xx", {"xx": {"name": "Ataque"}}), "Ataque")
+
+
+    def test_boost_tms_use_spanish_game_names(self) -> None:
+        # Danza Espada, Danza Dragón, Maquinación y Agilidad son potenciadores (moves_unranked), no ataques del ranking.
+        es = lang("es")
+        names = {mid: learnsets._move_name(es, mid, {}) for mid in ("swords-dance", "dragon-dance", "nasty-plot", "agility")}
+        self.assertEqual(names, {"swords-dance": "Danza Espada", "dragon-dance": "Danza Dragón",
+                                 "nasty-plot": "Maquinación", "agility": "Agilidad"})
 
 
 if __name__ == "__main__":
