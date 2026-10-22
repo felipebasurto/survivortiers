@@ -121,7 +121,7 @@ Base URL: {u}
 - Best Pokémon by type (EN), one page per type: {_type_links(True)}.
 - [Moves (EN)]({u}/en/ataques): phase 1 move tier list and the best phase 2 groups.
 - [Items (EN)]({u}/en/objetos): what each item does, from the game code. Not ranked.
-- [Passives (EN)]({u}/en/pasivas): the level-up cards and boosts as the game code defines them. Not ranked.
+- [Passives (EN)]({u}/en/pasivas): the level-up cards, boosts and abilities as the game code defines them, plus the natures that raise each stat with their win counts in the bounded ranking.
 - [Move types (EN)]({u}/en/tipos): how each move type hits the enemies that spawn, from the game's type chart, plus weather.
 - [What's new (EN)]({u}/en/novedades): game updates and site changes.
 - [Gacha (EN)]({u}/en/gachas): banners and pull odds.

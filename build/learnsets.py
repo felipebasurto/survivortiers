@@ -52,8 +52,11 @@ def naturalezas_content(L) -> str:
 
 def _move_name(L, mid: str, moves_by: dict) -> str:
     m = moves_by.get(mid)
-    if m is None:
-        return mid.replace("-", " ").title()
+    if m is None:  # moves_by debe ser moves + unranked (render.py): sin él, un potenciador saldría con su id en inglés
+        name = (GAME["moves"].get(mid) or {}).get("levels", [{}])[0].get("name")
+        if not name or L.en:
+            raise ValueError(f"MT {mid!r} sin nombre en el catálogo (¿falta moves_unranked?)")
+        return name
     if L.en:
         return (m.get("en") or {}).get("name") or m["name"]
     return m["name"]

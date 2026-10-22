@@ -16,4 +16,11 @@ simulator/results/fase2/*_only.txt
 simulator/results/fase3/*_only.txt
 
 # Reproducible laboratory/ranking caches and generated diagnostic artifacts
-simulator/runpod-ranking/
+simulator/runpod-ranking/*
+!simulator/runpod-ranking/full/
+simulator/runpod-ranking/full/*
+!simulator/runpod-ranking/full/sim-results.json.gz
+!simulator/runpod-ranking/full/SHA256SUMS
+!simulator/runpod-ranking/full/README.md
+!simulator/runpod-ranking/full/manifest.runtime.json
+!simulator/runpod-ranking/full/runner.log
