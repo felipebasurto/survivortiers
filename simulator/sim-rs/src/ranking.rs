@@ -247,6 +247,35 @@ fn config(
     branch: &str,
     st: &str,
 ) -> Result<Configuration, String> {
+    configure_build(data, base, group, branch, st, "hardy")
+}
+
+/// Natures the ranking tries for one move group: neutral, plus every nature that raises the
+/// group's dominant offensive stat (physical `cat` 1 -> `pa`, special `cat` 2 -> `sa`). Each of
+/// those natures lowers a different stat, so the search decides which drop costs least.
+fn nature_options(data: &Data, group: &[usize]) -> Result<Vec<String>, String> {
+    let attacks = || group.iter().copied().filter(|&i| data.moves[i].is_attack());
+    let physical = attacks().filter(|&i| data.moves[i].levels[0].cat == 1).count();
+    let special = attacks().filter(|&i| data.moves[i].levels[0].cat == 2).count();
+    let raised = if physical >= special { "pa" } else { "sa" };
+    let natures = data.natures.as_array().ok_or("nature table missing")?;
+    let mut out = vec!["hardy".to_string()];
+    for n in natures {
+        if n["up"].as_str() == Some(raised) {
+            out.push(n["id"].as_str().ok_or("nature id missing")?.to_string());
+        }
+    }
+    Ok(out)
+}
+
+fn configure_build(
+    data: &Data,
+    base: &Mon,
+    group: &[usize],
+    branch: &str,
+    st: &str,
+    nature: &str,
+) -> Result<Configuration, String> {
     let mut ordered = group.to_vec();
     let teach_ids = group
         .iter()
@@ -278,7 +307,6 @@ fn config(
     } else {
         None
     };
-    let nature = "hardy";
     let eq = selection::nature_equivalence(data, base, nature)?;
     // The stock control keeps the species' own default ability; only candidates choose by prior.
     let ability = if branch == "control" {
@@ -322,7 +350,7 @@ fn config(
     let dex = base.dex;
     let moves = ids.clone();
     let id = format!(
-        "dex{dex}|{}|{branch}|{st}|ability:{}",
+        "dex{dex}|{}|{branch}|{st}|ability:{}|nature:{nature}",
         ids.join(","),
         ability.as_deref().unwrap_or("default")
     );
@@ -655,6 +683,7 @@ fn propose(
         add(vec![i]);
     }
     let mut out = Vec::new();
+    let mut taken = 0usize;
     for mut g in groups {
         g.sort_by(|a, b| {
             lab_move_rank(data, base, lab, *b)
@@ -680,10 +709,14 @@ fn propose(
         if tm_budget.is_some_and(|m| cost > m) {
             continue;
         }
-        if let Ok(c) = config(data, base, &g, branch, st) {
-            out.push(c);
+        // The move cap bounds groups; each group then fans out over its nature options.
+        for nature in nature_options(data, &g)? {
+            if let Ok(c) = configure_build(data, base, &g, branch, st, &nature) {
+                out.push(c);
+            }
         }
-        if out.len() == cap.min(CAP) {
+        taken += 1;
+        if taken == cap.min(CAP) {
             break;
         }
     }
@@ -1320,12 +1353,14 @@ mod tests {
             data.moves[data.harden].id.clone(),
             data.moves[data.agility].id.clone(),
         ];
-        assert!(p["counts"]["matchesUpperBound"].as_u64().unwrap() < 300_000);
+        // Each of the 12 move groups per stratum fans out to at most 5 natures (neutral plus the
+        // four that raise the dominant offensive stat). Measured full roster upper bound: 441,506.
+        assert!(p["counts"]["matchesUpperBound"].as_u64().unwrap() < 500_000);
         for row in rows {
             *counts
                 .entry(row["stratum"].as_str().unwrap().to_owned())
                 .or_default() += 1;
-            assert!(counts[row["stratum"].as_str().unwrap()] <= 12);
+            assert!(counts[row["stratum"].as_str().unwrap()] <= 12 * 5);
             let c = &row["config"];
             let dex = c["dex"].as_u64().unwrap() as u32;
             let base = data.dex.iter().find(|m| m.dex == dex).unwrap();
@@ -1404,6 +1439,31 @@ mod tests {
             retained_defense,
             "Harden/Agility proposals must reach the survival rounds"
         );
+    }
+
+    #[test]
+    fn nature_options_follow_the_groups_dominant_offense() {
+        let data = data();
+        let physical = data
+            .moves
+            .iter()
+            .position(|m| m.is_attack() && m.levels[0].cat == 1)
+            .unwrap();
+        let special = data
+            .moves
+            .iter()
+            .position(|m| m.is_attack() && m.levels[0].cat == 2)
+            .unwrap();
+        let p = nature_options(&data, &[physical]).unwrap();
+        assert_eq!(p[0], "hardy");
+        assert_eq!(p.len(), 5);
+        assert!(p.iter().any(|n| n == "adamant"));
+        assert!(!p.iter().any(|n| n == "modest"));
+        let s = nature_options(&data, &[special]).unwrap();
+        assert_eq!(s[0], "hardy");
+        assert_eq!(s.len(), 5);
+        assert!(s.iter().any(|n| n == "modest"));
+        assert!(!s.iter().any(|n| n == "adamant"));
     }
 
     #[test]

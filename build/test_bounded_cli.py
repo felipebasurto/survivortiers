@@ -49,7 +49,8 @@ class BoundedCliTests(unittest.TestCase):
             planned = json.loads(plan.read_text())
             counts = planned["counts"]["strata"]
             self.assertTrue(counts)
-            self.assertLessEqual(max(counts.values()), 12)
+            # 12 move groups per stratum, each fanned out to at most 5 natures (neutral + 4).
+            self.assertLessEqual(max(counts.values()), 12 * 5)
             self.command("ranking", "run", plan, cache, output)
             first = json.loads(output.read_text())
             self.assertTrue(first["complete"])

@@ -138,7 +138,7 @@ m=json.load(open(sys.argv[1])); g=json.load(open(sys.argv[2]))
 print(len(g['dex']) if m['dex']=='all' else len(m['dex']))
 PY
 )"
-        printf 'Ranking analytic upper estimate: %s species x 4 style/TM strata x [12xA2 + 3xB8 + 1xD16 candidates + 1x(A2+B8+D16) stock control] = %s tasks.\n' "$RANKING_DEXES" "$((RANKING_DEXES * 4 * 90))"
+        printf 'Ranking analytic upper estimate: %s species x 4 style/TM strata x [12 move groups x up to 5 natures x A2 + 3xB8 + 1xD16 candidates + 1x(A2+B8+D16) stock control] = %s tasks.\n' "$RANKING_DEXES" "$((RANKING_DEXES * 4 * 186))"
       fi
       printf '%s\n' 'Task counts are upper estimates; runtime and cost are unmeasured.'
       exit 0
