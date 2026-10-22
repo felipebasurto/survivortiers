@@ -42,7 +42,7 @@ The frame harness matches the canvas buffer for one seed and changes it for anot
 
 ## Compute tonight
 
-About 628 seconds of pokesim wall. The log through fingerprint `b8fde7d5…` was about 349 s. An intermediate smoke, before taught buffs kept their pool order, printed `total 94.6s`. The smoke on `a3f664be…` printed `total 90.9s`, wrote 20,412 checkpoints, and validated 3 web results. The dry-run on that fingerprint printed `total 73.9s` and is planning, not matches. The smoke on `28efded8…` printed `total 92.6s`, wrote 20,412 checkpoints, and validated 3 web results. That dry-run printed `total 73.8s`. Gate 2 is Playwright and is not in that total. The index measurement is a unit test over fixture files, not matches.
+About 740 seconds of pokesim wall. The log through fingerprint `b8fde7d5…` was about 349 s. An intermediate smoke, before taught buffs kept their pool order, printed `total 94.6s`. The smoke on `a3f664be…` printed `total 90.9s`, wrote 20,412 checkpoints, and validated 3 web results. The dry-run on that fingerprint printed `total 73.9s` and is planning, not matches. The smoke on `28efded8…` printed `total 92.6s`, wrote 20,412 checkpoints, and validated 3 web results. That dry-run printed `total 73.8s`. A later SIGINT at 8,682 checkpoints resumed to 20,412 with 0 files rewritten. The resume printed `total 68.6s`. Gate 2 is Playwright and is not in that total. The index measurement is a unit test over fixture files, not matches.
 
 ## Attention
 
