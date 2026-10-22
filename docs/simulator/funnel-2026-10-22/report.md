@@ -5,7 +5,7 @@ A fresh clone of `origin/main` passed `prepare`, `funnel smoke`, and `funnel ful
 Smoke wrote Caterpie, Ditto, and Eevee, a v1 web document that passed `validate_results`, and `report.md`. The branch resume rewrote 0 of 8,682 checkpoints.
 Dry-run printed 12,057,504 tasks, 2.446 hours, and 2.74 USD. `production plan` accepted 240,480 tasks at fingerprint `28efded8…`.
 The pinned site render of this tree matches `3fae073`: 2,130 files, empty diff.
-Merged https://github.com/felipebasurto/survivortiers/pull/59 by rebase. Main tip `3b4c8b3cc8a0b50dd8c453861165c390b13cf2ee`.
+Merged https://github.com/felipebasurto/survivortiers/pull/59 by rebase at `3b4c8b3cc8a0b50dd8c453861165c390b13cf2ee`. This report is the commit after that tip.
 Morning: rent a 32-vCPU cpu5c, run the commands in `docs/simulator/RUNPOD-MORNING.md`, and terminate the Pod yourself.
 Inferred ETA is 2.446 hours and 2.74 USD at 1.12 USD per hour. The wrapper stops under about 1206 matches per second.
 Pokesim wall tonight is about 853 seconds, under 45 minutes. `rankingReady` stays false.
