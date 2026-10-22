@@ -318,7 +318,6 @@ def render_index(c: Ctx, pokemon: list[dict], meta: dict) -> str:
     content = f"""
 
 <h1>{esc(L.t("index_h1", game=legal.GAME_NAME))}</h1>
-{improved_notice(c)}
 <p class="fresh">{esc(legal.freshness_text(L, meta))}</p>
 <div class="finder">
   <div class="search">
@@ -390,14 +389,13 @@ def render_ficha(c: Ctx, index: list[dict], meta: dict) -> str:
 
 
 def render_species(c: Ctx, entry: dict, moves: dict, prev: dict | None, nxt: dict | None, odds: tuple[float, int],
-                   meta: dict, ranges: dict) -> str:
+                   meta: dict) -> str:
     L = c.L
     title, desc = static_ficha.head_texts(L, entry, moves)
-    html, ld = static_ficha.build(L, c.home, SPRITES, EXT, entry, moves, meta, entry["start"], prev, nxt, odds,
-                                  guides=landing.guides_nav(L, c.home, types=entry["types"]), url=page_url(c),
-                                  title=title, assets=c.assets, ranges=ranges)
-    html += learnsets.tm_section(L, entry["dex"], moves)
-    return page(c, "ficha", title, desc, html + balls.defs(), meta, extra_head=ld,
+    html = static_ficha.build(L, c.home, SPRITES, EXT, entry, moves, meta, entry["start"], prev, nxt, odds,
+                              guides=landing.guides_nav(L, c.home, types=entry["types"]),
+                              tms=learnsets.tm_section(L, entry["dex"], moves))
+    return page(c, "ficha", title, desc, html + balls.defs(), meta,
                 head_links=static_ficha.alternates(species_path(entry["dex"], entry["nameEn"])), og_type="article")
 
 
@@ -520,8 +518,7 @@ def best_groups(L: Lang, moves_by: dict[str, dict]) -> str:
                 names = []
                 for mid in r["group"].split("+"):
                     m = moves_by[mid]
-                    badge = (f'<span class="tier-badge mini {m["tier"]}">{m["tier"]}</span>' if "tier" in m else "")
-                    names.append(f'<span class="bg-mv{" is-buff" if "tier" not in m else ""}">{badge}'
+                    names.append(f'<span class="bg-mv{" is-buff" if "tier" not in m else ""}">'
                                  f'{esc(m["en"]["name"] if L.en else m["name"])}</span>')
                 items.append(f'<li><span class="bg-moves">{"".join(names)}</span>'
                              f'<em class="bg-val">{esc(L.dec(float(r["score_rel"]), 2))}×</em></li>')
@@ -561,13 +558,10 @@ def laboratory_table(L: Lang, moves: list[dict]) -> str:
             f'<span class="lab-arrow" aria-hidden="true">→</span>'
             f'<b>{esc(L.dec(_lab_dps(lab, ids, "maximum"), 1))}</b></td>'
             for _, ids in LAB_GROUPS)
-        scenarios = ", ".join(f"{r['id']} ({r['level']}): {L.dec(r['damagePerSecond'], 1)}"
-                              for r in lab["scenarios"])
         search = " ".join([move["name"], move["en"]["name"] or "", types[move["type"]], kind]).lower()
         rows.append(f'<tr class="lab-row" data-q="{esc(search)}"><td>{rank}</td>'
                     f'<th scope="row"><span class="lab-name">{esc(name)}</span>'
-                    f'<span class="mv-tags">{type_pill(L, move["type"])}{static_ficha.range_html(L, move)}{shape}{effects}</span>'
-                    f'<details><summary>{esc(L.t("lab_scenarios"))}</summary>{esc(scenarios)}</details></th>'
+                    f'<span class="mv-tags">{type_pill(L, move["type"])}{static_ficha.range_html(L, move)}{shape}{effects}</span></th>'
                     f'{cells}<td class="lab-score">{esc(L.dec(lab["score"], 1))}</td></tr>')
     heads = "".join(f'<th scope="col">{esc(L.t(key))}<small>{esc(L.t("lab_ini_max"))}</small></th>' for key, _ in LAB_GROUPS)
     return (f'<section id="laboratorio" class="lab"><h2>{esc(L.t("lab_title"))}</h2>'
@@ -619,14 +613,14 @@ def render_ataques(c: Ctx, moves: list[dict], meta: dict, unranked: list[dict]) 
     content = f"""
 <h1>{esc(L.t("ataques_h1"))}</h1>
 {head}
-<details class="more">
-<summary>{esc(L.t("mv_read_h"))}</summary>
+{"".join(blocks)}
+{best_groups(L, moves_by)}
+<section id="leer" class="mv-read">
+<h2>{esc(L.t("mv_read_h"))}</h2>
 {damage_legend(L)}
 {range_legend(L)}
 {move_scale(L)}
-</details>
-{"".join(blocks)}
-{best_groups(L, moves_by)}
+</section>
 """
     return page(c, "ataques", L.t("ataques_title", site=legal.SITE_NAME),
                 L.t("ataques_desc", n=len(moves) + len(unranked), game=legal.GAME_NAME), content, meta)
@@ -895,7 +889,6 @@ def main() -> int:
         if "icon" in m:
             write(f"img/moves/{mid}.svg", move_icon_svg(m["icon"], standalone=True))
     odds = static_ficha.odds_table(full)
-    ranges = static_ficha.stat_ranges(full)
     sheet_paths = [f"pokemon/{species_path(e['dex'], e['nameEn'])}/" for e in ordered]
     by_dex = {p["dex"]: p for p in full}
     for L in LANGS:
@@ -928,7 +921,7 @@ def main() -> int:
             prev = ordered[i - 1] if i else None
             nxt = ordered[i + 1] if i + 1 < len(ordered) else None
             rel = f"pokemon/{species_path(entry['dex'], entry['nameEn'])}/index.html"
-            put(rel, lambda c, e=entry, pv=prev, nx=nxt: render_species(c, e, moves_by, pv, nx, odds[e["dex"]], meta, ranges))
+            put(rel, lambda c, e=entry, pv=prev, nx=nxt: render_species(c, e, moves_by, pv, nx, odds[e["dex"]], meta))
     write("data/game-stats.json", json.dumps(gamestats.site_json(), ensure_ascii=False, separators=(",", ":")) + "\n")
     write("404.html", render_404(meta))
     share_image.save(SITE / "og.png")

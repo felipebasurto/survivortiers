@@ -262,10 +262,6 @@ def seo_check(base: str, body_by_url: dict[str, str], index: list[dict], err, no
             err(f"{base}{lang}: JSON-LD de la portada incompleto ({sorted(types)})")
     for url, html in pages.items():
         if re.search(r"/pokemon/\d+-[a-z0-9-]+/$", url):
-            ld = [json.loads(m.replace("<\\/", "</")) for m in LD_RE.findall(html)]
-            faq = next((d for d in ld if d.get("@type") == "FAQPage"), None)
-            if not faq or not faq.get("dateModified") or not faq.get("mainEntity"):
-                err(f"{url}: falta el FAQPage con dateModified")
             tier = re.search(r"\btier [SABCD]\b|\b[SABCD] tier\b", html_lib.unescape(re.search(r"<title>([^<]+)</title>", html).group(1)))
             if not tier:
                 err(f"{url}: el título no lleva el tier")

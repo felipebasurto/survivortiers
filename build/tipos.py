@@ -91,7 +91,7 @@ def _weather(L: Lang) -> str:
     chips = []
     for w, effects in WEATHER:
         bits = "".join(f'<span class="tp-wx">{_type_pill(L, t)}<b>×{L.dec(k, 1)}</b></span>' for t, k in effects)
-        chips.append(f'<li><b>{escape(L.t("tp_wx_" + w))}</b>{bits}</li>')
+        chips.append(f'<li><b>{escape(L.t("tp_wx_" + w))}</b><span class="wx-fx">{bits}</span></li>')
     return (f'<section id="clima" aria-labelledby="tp-wx-h"><h2 id="tp-wx-h">{escape(L.t("tp_wx_h"))}</h2>'
             f'<ul class="wx-list">{"".join(chips)}</ul></section>')
 

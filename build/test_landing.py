@@ -139,7 +139,6 @@ class LinksAndFreshness(unittest.TestCase):
     def test_date_modified_in_structured_data(self) -> None:
         meta = _meta()
         date = meta["generatedAt"][:10]
-        self.assertEqual(_ld(_read("pokemon/150-mewtwo/index.html"))["dateModified"], date)
         self.assertEqual(_ld(_read("mejores-tipo/psiquico/index.html"))["dateModified"], date)
 
     def test_sitemap_has_landing_pages_in_both_languages(self) -> None:

@@ -99,18 +99,19 @@ class StaticMewtwo(unittest.TestCase):
         self.assertIn(f"<title>Mewtwo en {game}: tier {row['tier']}, mejor build y ataques | SurvivorTiers</title>", es)
         self.assertIn(f"<title>Mewtwo in {game}: {row['tier']} tier, best build and moves | SurvivorTiers</title>", en)
         self.assertEqual(row["build"], pair["best"])
-        for html, why in ((es, "Por qué está en el puesto"), (en, "Why it ranks")):
+        for html, why in ((es, "Por qué es el nº"), (en, "Why it is #")):
             self.assertRegex(html, r"<h1>Mewtwo <")
             text = _visible(html)
             self.assertIn(f"{why} {row['rank']}", text)
             self.assertIn(f'<section class="why" id="porque"', html)
             self.assertIn(f'<section class="sheet stats" id="stats"', html)
             self.assertIn('<section class="bx" id="build"', html)
-            self.assertEqual(html.count('class="bx-card is-best"'), 1)
+            self.assertEqual(html.count('class="bx-best"'), 1)
             self.assertNotIn('class="why-note"', html)
-            self.assertIn('class="hx-svg"', html)
+            self.assertNotIn('class="hx-svg"', html)
             self.assertNotIn(legal.UPDATED_COMMIT, text)
-            self.assertIn("FAQPage", html)
+            self.assertNotIn("FAQPage", html)
+            self.assertNotIn('id="faq"', html)
             self.assertIn(f'rel="canonical" href="{legal.SITE_URL}/', html)
             self.assertIn('hreflang="es"', html)
             self.assertIn('hreflang="en"', html)
@@ -170,39 +171,10 @@ class WhyRows(unittest.TestCase):
             {"f": "f0", "effect": 0.3}, {"f": "f1", "effect": 0.2}, {"f": "f2", "effect": 0.1}])
 
 
-def _faq_pairs(page: str) -> list[tuple[str, str]]:
-    section = re.search(r'<section class="sheet faq".*?</section>', page, re.S)
-    if not section:
-        return []
-    return [(html_lib.unescape(q), html_lib.unescape(a))
-            for q, a in re.findall(r"<dt>(.*?)</dt><dd>(.*?)</dd>", section.group(0), re.S)]
-
-
-class FaqCopy(unittest.TestCase):
+class ObtainCopy(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         sitefixture.ensure_site()
-
-    def test_visible_faq_matches_jsonld_exactly(self) -> None:
-        for rel in ("pokemon/150-mewtwo/index.html", "en/pokemon/150-mewtwo/index.html",
-                    "pokemon/1000-gholdengo/index.html", "pokemon/829-gossifleur/index.html"):
-            page = (SITE / rel).read_text(encoding="utf8")
-            ld = json.loads(re.search(r'<script type="application/ld\+json">(.*?)</script>', page, re.S).group(1))
-            pairs = _faq_pairs(page)
-            self.assertEqual(len(pairs), 3, rel)
-            self.assertEqual(pairs, [(e["name"], e["acceptedAnswer"]["text"]) for e in ld["mainEntity"]], rel)
-
-    def test_mewtwo_questions_are_the_player_ones(self) -> None:
-        es = [q for q, _ in _faq_pairs((SITE / "pokemon" / "150-mewtwo" / "index.html").read_text(encoding="utf8"))]
-        en = [q for q, _ in _faq_pairs((SITE / "en" / "pokemon" / "150-mewtwo" / "index.html").read_text(encoding="utf8"))]
-        self.assertEqual(es, ["¿Vale la pena?", "¿Qué ataques le pongo?", "¿Cómo se consigue?"])
-        self.assertEqual(en, ["Is it worth it?", "Which moves should I use?", "How do you get it?"])
-
-    def test_faq_answers_do_not_repeat_the_name(self) -> None:
-        for rel in ("pokemon/150-mewtwo/index.html", "en/pokemon/150-mewtwo/index.html"):
-            page = (SITE / rel).read_text(encoding="utf8")
-            section = re.search(r'<section class="sheet faq".*?</section>', page, re.S).group(0)
-            self.assertNotIn("Mewtwo", section)
 
     def test_join_uses_e_before_i_sound(self) -> None:
         self.assertEqual(static_ficha._join(ES, ["Vozarrón", "Hipnosis"]), "Vozarrón e Hipnosis")
@@ -214,18 +186,14 @@ class FaqCopy(unittest.TestCase):
         self.assertEqual(static_ficha._join(ES, ["Solo"]), "Solo")
         self.assertEqual(static_ficha._join(ES, []), "")
 
-    def test_faq_branches(self) -> None:
-        plain = static_ficha._faqs(ES, "A", 87, "Cuerpo a cuerpo: Psíquico y Vozarrón.", "Kanto", False, "0,25", 400)
-        self.assertEqual([a for _, a in plain], [
-            "Sí, está entre los buenos: tier A, puesto 87 de 966.", "Cuerpo a cuerpo: Psíquico y Vozarrón.",
-            "Sale en el banner Kanto. Cada tirada tiene un 0,25\u00a0% de probabilidad, así que de media hacen falta "
-            "unas 400 tiradas, sin contar las garantías."])
-        leg = static_ficha._faqs(ES, "B", 300, "A distancia: Vozarrón.", "Galar", True, "2", 51)
-        self.assertTrue(leg[-1][1].startswith("Es de los legendarios y sale en el banner Galar."))
-        en = static_ficha._faqs(EN, "D", 966, "Ranged: Hyper Voice, with Swords Dance.", "Galar", False, "2.0", 51)
-        self.assertEqual(en[-1][1], "It is on the Galar banner. Each pull has a 2.0% chance, so on average it takes "
-                                    "about 51 pulls, not counting pity guarantees.")
-
+    def test_obtain_text_names_the_gacha_not_a_banner(self) -> None:
+        plain = static_ficha._obtain(ES, "Kanto", False, "0,25", 400)
+        self.assertEqual(plain, "Está en la gacha de Kanto. Cada tirada tiene un 0,25\u00a0% de probabilidad, así que de "
+                                "media hacen falta unas 400 tiradas, sin contar las garantías.")
+        self.assertTrue(static_ficha._obtain(ES, "Galar", True, "2", 51).startswith("Es de los legendarios y está en la gacha de Galar."))
+        self.assertEqual(static_ficha._obtain(EN, "Galar", False, "2.0", 51),
+                         "It is in the Galar gacha. Each pull has a 2.0% chance, so on average it takes about 51 pulls, "
+                         "not counting pity guarantees.")
 
 if __name__ == "__main__":
     unittest.main()

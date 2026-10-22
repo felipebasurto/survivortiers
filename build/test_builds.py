@@ -66,7 +66,7 @@ class FichaBuilds(unittest.TestCase):
                 page = self._page(prefix, dex)
                 with self.subTest(dex=dex, prefix=prefix):
                     self.assertLess(page.index('id="build"'), page.index('id="porque"'))
-                    cards = re.findall(r'<li class="bx-card(?: is-best)?" data-build="(\w+)">(.*?)</ul><p', page, re.S)
+                    cards = re.findall(r'<li class="bx-card" data-build="(\w+)">(.*?)</dl></li>', page, re.S)
                     self.assertEqual(cards[0][0], best)
                     for _, body in cards:
                         self.assertTrue(1 <= len(re.findall(r'class="bx-chip[" ]', body)) <= 4)
