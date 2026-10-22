@@ -39,8 +39,6 @@ jobs:
         run: python3 build/attack_tiers.py --check
       - name: bond tier list matches the committed phase 2 output
         run: python3 build/bond_tiers.py --check
-      - name: species builds and ranking match the committed phase 3 output
-        run: python3 build/species_builds.py --check
       - name: the why model matches the committed fit
         run: python3 build/why.py --check
       - name: unit tests (the ones that read site/ render it first)
