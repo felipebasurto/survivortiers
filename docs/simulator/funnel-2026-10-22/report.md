@@ -6,7 +6,7 @@ The morning search is `pokesim funnel`. It is not the 21 October production beam
 
 For each species the funnel keeps four builds when a legal TM exists, and two when it does not. Each style is melee or ranged. Each branch is the natural movepool or a movepool that teaches at least one TM. The search is the base role only. Aggro and coverage stay web controls.
 
-Stage A screens the top 30 groups from the existing prior, on seeds 1001–1004. Stage B keeps 4 groups on seeds 1101–1132. Stage C keeps 2 groups and expands nature and ability on seeds 1001–1004. Stage D measures the chosen build and the stock no-TM control on seeds 3001–3032. Those seeds are never used to choose the build. A TM build is reported even when it loses, with the paired difference and the interval.
+Stage A enumerates every legal group for a species and branch when that count is at most 5082, and screens them on seeds 1001–1004. The cap is the largest distinct group count whose morning ledger stays inside 12,323,520 tasks, which is 2.5 hours at the 1369.28 matches per second inferred for 32 vCPU. Above the cap, stage A keeps the prior shortlist of 30. On this roster that is 1905 fully enumerated strata (2,251,463 groups) and 1093 beamed strata (32,790 groups). The prior move beam of 24 applies only on the beamed strata. The plan has 2,998 strata. The previous shortlist plan had 3,010. A stratum whose only leads are taught TMs sits outside this walk, which uses the natural lead pool. Stage B keeps 4 groups on seeds 1101–1132. Stage C keeps 2 groups and expands nature and ability on seeds 1001–1004. Stage D measures the chosen build and the stock no-TM control on seeds 3001–3032. Those seeds are never used to choose the build. A TM build is reported even when it loses, with the paired difference and the interval.
 
 `tmCost` is the sum of shop prices for TMs that must be taught. A move already in the natural pool costs 0. `tmBudget` is optional and has no default.
 
@@ -20,7 +20,7 @@ The old pipeline had a separate additive model and a Python search. This funnel 
 
 Recall remeasures the legal groups for a species, then compares the funnel's pick with the best group it found, on seeds 3001–3032. It passes when the 95% upper bound of (real best − funnel best) is at most 5% of the real best's survival.
 
-On Ditto, dex 132, both styles failed. The real best was absent from the prior's top 30. Melee gap upper 54.57 against a real mean of 148.11. Ranged gap upper 21.87 against a real mean of 131.28. Rank is absent for both. Stage A stays at 30 because the full-plan upper bound already fits the time and money cap. Widening A is a pending decision.
+On Ditto, dex 132, both styles still fail D6 after the widening. The run is fingerprint `9e41dc3b839ba0847d75798eadbf9a4435344e84301421bfcce540bff1960a92`, file `/tmp/recall-ditto-wide.json`. Ditto is under the cap (44 melee groups, 445 ranged), so the shortlist is every legal group. The screening best is in that shortlist. Melee prior rank 43, gap upper 74.43, real mean 148.11. `funnelId` and `realId` are `tackle,swords-dance`. The 32-seed confirmation winner is `tackle,agility,harden`. The four screening seeds ranked that group 42nd of 44, so stage B's four groups never see it. Ranged prior rank 107, gap upper 27.03, real mean 131.28. `funnelId` and `realId` are `hyper-voice,rapid-spin,agility,harden`. The confirmation winner is `hyper-voice,hyper-beam,rapid-spin,nasty-plot`. Those two ranged means differ by 0.66 seconds. The paired interval's upper bound is 27.03, and 5% of 131.28 is 6.56. The confirmation winner's screening rank is 3, which is inside stage B, but recall scores the screening winner. The 5% rule was left as written. An earlier recall, when the real best was absent from a top-30 shortlist, is a different measurement.
 
 Recall does not prove the prior is good for every species. It does not prove a build is the best the game can roll. It does not make `rankingReady` true. Psyduck was not recalled on this VM because that command would have exceeded the 5 minute cap. The morning wrapper recalls dex 54 and the smallest species.
 
@@ -28,11 +28,11 @@ Recall does not prove the prior is good for every species. It does not prove a b
 
 A winner is the best build the funnel measured under the 10% margin, or the highest survivor when nothing cleared the margin. `no_safe_candidate` means the interval did not clear the margin. It does not mean the species has no usable build. The rates at 0%, 5%, and 10% show how many strata fail as the margin gets stricter. They are not a tier list.
 
-The morning ETA from this VM's 4-thread median of 171.16 matches/s is 0.436 hours and 0.49 USD at 1.12 USD/h for a 32-vCPU host. The plan upper bound is 2,147,412 tasks. Later stages run fewer groups than that bound. The old 16-vCPU host, scaled the same way, is slower and still under the 2.5 hour and 3 USD cap. That ETA is match time. Selection reads each stage's cache once. Three reads of 1,193,640 files on this VM took 36.4 s, 20.8 s, and 5.6 s.
+The morning ETA from this VM's 4-thread median of 171.16 matches/s is 2.219 hours and 2.49 USD at 1.12 USD/h for a 32-vCPU host. The plan upper bound is 10,939,668 tasks. Stage A is 9,137,012 of those. Later stages run fewer groups than the bound. A linear scale of the old 16-vCPU host is about 2.81 hours and 3.15 USD, which misses the cap. The number predicate 5 uses is the rate measured on this VM, and that one fits. That ETA is match time. Selection reads each stage's cache once. Three reads of 1,193,640 files on this VM took 36.4 s, 20.8 s, and 5.6 s. Scaled linearly to 9,137,012 stage A files, the median is about 159 s and the slowest reading is about 279 s. That scale was not remeasured.
 
 ## Pending decisions
 
-The 10% selection margin and the 5% recall gap are provisional. Ditto failed recall. Do not widen stage A on the strength of that one species until you decide to. `rankingReady` stays false. Do not publish a ranking from this run.
+Stage A widening is decided. Every species gets a full group search up to 5082 groups, and the prior shortlist of 30 only above that cap. The 10% selection margin and the 5% recall gap stay provisional until gate 2. Ditto still fails D6, because four screening seeds disagree with the 32-seed confirmation. Stage B stays at 4 and stage C stays at 2. `rankingReady` stays false. Do not publish a ranking from this run.
 
 ## Gate 2
 
@@ -40,18 +40,20 @@ The frame harness matches the canvas buffer for one seed and changes it for anot
 
 ## Compute tonight
 
-About 148 seconds of pokesim wall. S0 was 24.424 s. The first smoke, its resume, and Ditto recall were about 56 s. An indexed smoke then wrote checkpoints for 25.4 s before SIGINT, and that resume printed `total 8.0s`. The landed fingerprint wrote for 3.7 s before SIGINT and the resume printed `total 30.1s`. That resume left 592 checkpoints unchanged and added 4,428 new files. Gate 2 is Playwright and is not in that total. The index measurement is a unit test over fixture files, not matches.
+About 239 seconds of pokesim wall. The log through fingerprint `7dab36c5…` was about 148 s. On `9e41dc3b…`, SIGINT wrote 90 smoke checkpoints across 0.632 s. Resume printed `total 89.4s`, left those 90 files unchanged, and finished at 19,908 files. The Ditto rerun reused the recall cache and printed `total 0.6s`. The dry-run plan printed `total 68.9s` and is planning, not matches. Gate 2 is Playwright and is not in that total. The index measurement is a unit test over fixture files, not matches.
 
 ## Attention
 
 A shipping review of commit 477d484 failed because `rows_for` scanned every task once per candidate. At full scale that selection ran longer than the 900 second wall, so stage D never started and a resume repeated the same scan. The current code builds one index per stage. The nomination result is the same when the cache is complete. Stage A still wins when a seed exists in both stage A and stage B.
 
-29,691 of 84,365 stage A candidates have a lead the web adapter will not publish. 1,179 of 3,010 strata have that lead on the proxy-top candidate. 334 strata have no legal lead. The adapter publishes the measured stock control when that is the only legal row. The simulator still accepts the off-type lead.
+971,403 of 2,284,253 stage A candidates have a lead the web adapter will not publish. 1,212 of 2,998 strata have that lead on the proxy-top candidate. 387 strata have no legal lead. The adapter publishes the measured stock control when that is the only legal row. The simulator still accepts the off-type lead.
 
-The smoke cache uses about 4 KB of disk per checkpoint. The full upper bound is about 8.6 GB of blocks, plus a 243 MB plan. Keep at least 15 GB free. Smoke and full write `simulator/runpod-funnel/funnel-results.tar.gz`.
+The full upper bound is about 42 GB of checkpoint blocks, plus a 4.8 GB plan. Keep at least 50 GB free, and rent the 64 GB cpu5c, because the runner loads the plan. Smoke and full write `simulator/runpod-funnel/funnel-results.tar.gz`.
 
-Recall's funnel pick is the best screening member of the prior top 30. It is not the stage D winner.
+Recall's funnel pick is the best screening member of the stage A shortlist. Under the cap that shortlist is every legal group. Stage D and the 32-seed confirmation use other seeds and can name another group.
+
+Harden (Fortaleza) and Agility are not forced into a fourth slot. `visit_groups` in `production.rs` keeps each attack group and appends buff copies only when the attack list is shorter than 4. A size-4 attack group gets no buff. `each_legal_group` does the same for strata under the cap, and that path does not use `MOVE_BEAM_CAP`. `main.rs:1037` is `group_name` for the old research sweep. It appends `agility` or `harden` when `kit.buffs` bit 2 is set. `kits` builds those kits as candidates. For two attacks it pairs an attack buff with either status move. For three attacks it offers an attack buff, and separately a Harden or Agility kit. The funnel does not call `kits` or `group_name`. On Ditto the melee confirmation winner is `tackle,agility,harden`, so the data selected both status moves. The ranged confirmation winner is `hyper-voice,hyper-beam,rapid-spin,nasty-plot`, with neither. The smoke web row for Ditto melee is `body-slam,tackle,swords-dance,harden` because that group won the staged search.
 
 ## Landing
 
-The branch is `sim/funnel-runpod-2026-10-22`. The pull request is https://github.com/felipebasurto/survivortiers/pull/59. The engine fingerprint on this revision is `7dab36c5b880c8b3ea0e719929881234e3af49f5f1aa7be456353e0f35f4b952`. CI on the pull request and the merge commit are recorded when they finish. The morning commands are in `docs/simulator/RUNPOD-MORNING.md`.
+The branch is `sim/funnel-runpod-2026-10-22`. The pull request is https://github.com/felipebasurto/survivortiers/pull/59. The engine fingerprint on this revision is `9e41dc3b839ba0847d75798eadbf9a4435344e84301421bfcce540bff1960a92`. CI on this revision and the merge commit are recorded when they finish. The morning commands are in `docs/simulator/RUNPOD-MORNING.md`.

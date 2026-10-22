@@ -101,10 +101,13 @@ fn canonical(v: &Value, out: &mut Vec<u8>) {
         _ => out.extend(serde_json::to_vec(v).unwrap()),
     }
 }
-pub(crate) fn hash_value(v: &Value) -> String {
+pub(crate) fn canonical_bytes(v: &Value) -> Vec<u8> {
     let mut b = Vec::new();
     canonical(v, &mut b);
-    format!("{:x}", Sha256::digest(b))
+    b
+}
+pub(crate) fn hash_value(v: &Value) -> String {
+    format!("{:x}", Sha256::digest(canonical_bytes(v)))
 }
 pub(crate) fn compiler_version() -> String {
     Command::new("rustc")

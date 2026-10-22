@@ -67,20 +67,22 @@ case "$TASK_ACTION" in
     FUNNEL_OUT="$TASK_SIM_DIR/runpod-funnel/$FUNNEL_PRESET"
     mkdir -p -- "$FUNNEL_OUT"
     "$TASK_BINARY" funnel plan "$FUNNEL_MANIFEST" "$FUNNEL_OUT/plan.json" > "$FUNNEL_OUT/plan-counts.json"
-    python3 - "$FUNNEL_OUT/plan.json" "$TASK_SCRIPT_DIR/vm-rate.json" "$FUNNEL_DRY" <<'PY'
+    python3 - "$FUNNEL_OUT/plan-counts.json" "$TASK_SCRIPT_DIR/vm-rate.json" "$FUNNEL_DRY" <<'PY'
 import json, os, sys
-plan, rate, dry = json.load(open(sys.argv[1])), json.load(open(sys.argv[2])), sys.argv[3] == "1"
+counts, rate, dry = json.load(open(sys.argv[1])), json.load(open(sys.argv[2])), sys.argv[3] == "1"
 samples = sorted(float(x) for x in rate["matchesPerSecond"])
 median = samples[len(samples) // 2]
 scaled = median / float(rate["threads"]) * float(rate["targetVcpu"])
-tasks = int(plan["counts"]["tasksUpperBound"])
+tasks = int(counts["tasksUpperBound"])
 hours = tasks / scaled / 3600.0
 price = float(os.environ.get("POKESIM_HOURLY_USD", rate["hourlyUsd"]))
 budget = float(os.environ.get("POKESIM_BUDGET_USD", rate["maxUsd"]))
 cap = min(float(rate["maxUsd"]), budget)
 cost = hours * price
 print(f"tasksUpperBound {tasks}")
-print(f"recallTasksUpper {plan['counts'].get('recallTasksUpper', 0)}")
+print(f"recallTasksUpper {counts.get('recallTasksUpper', 0)}")
+if "fullGroupCap" in counts:
+    print(f"fullGroupCap {counts['fullGroupCap']} strataFull {counts.get('strataFull', 0)} strataBeam {counts.get('strataBeam', 0)}")
 print(f"measured median {median:.2f} matches/s at {rate['threads']} threads on {rate['hostCores']} cores, {len(samples)} runs, range {samples[0]:.2f}-{samples[-1]:.2f}")
 print(f"inferred {rate['targetVcpu']}-vCPU rate {scaled:.2f} matches/s, linear in the measured per-core rate")
 print(f"ETA {hours:.3f} h, cost {cost:.2f} USD at {price:.2f} USD/h for a cpu5c-sized 32-vCPU host")
@@ -109,8 +111,36 @@ PY
           FUNNEL_RECALL_OK=0
           printf 'Recall for dex %s failed. Continuing the funnel.\n' "$FUNNEL_DEX" >&2
         fi
-      done < <(python3 -c 'import json,sys; d=json.load(open(sys.argv[1]));
-print("\n".join(str(row.get("dex")) for row in d.get("recall") or []))' "$FUNNEL_OUT/plan.json")
+      done < <(python3 - "$FUNNEL_OUT/plan.json" <<'PY'
+import json, sys
+needle = b',"recall":'
+with open(sys.argv[1], "rb") as handle:
+    window = b""
+    while True:
+        chunk = handle.read(1 << 20)
+        if not chunk:
+            raise SystemExit("recall list missing from plan")
+        window += chunk
+        at = window.find(needle)
+        if at < 0:
+            window = window[-(len(needle) - 1):]
+            continue
+        buf = window[at + len(needle):]
+        decoder = json.JSONDecoder()
+        while True:
+            try:
+                rows, _ = decoder.raw_decode(buf.decode())
+                break
+            except json.JSONDecodeError:
+                more = handle.read(1 << 20)
+                if not more:
+                    raise
+                buf += more
+        break
+for row in rows:
+    print(row.get("dex"))
+PY
+)
       python3 - "$FUNNEL_OUT" "$FUNNEL_RECALL_OK" <<'PY'
 import json, pathlib, sys
 out, ok = pathlib.Path(sys.argv[1]), sys.argv[2] == "1"

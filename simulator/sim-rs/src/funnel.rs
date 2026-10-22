@@ -4,7 +4,7 @@ use crate::{
     data::{Data, Kind, Mon},
     engine::Tables,
     production::{
-        atomic_json, compiler_version, config_proxy, hash_value, normalized_exposure,
+        atomic_json, canonical_bytes, compiler_version, config_proxy, hash_value, normalized_exposure,
         paired_interval, run_configuration, task_id, taught_tm_cost, visit_groups,
     },
     research,
@@ -12,17 +12,29 @@ use crate::{
 };
 use rayon::prelude::*;
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
     fs::{self, File, OpenOptions},
-    io::Write,
+    io::{Read, Write},
     path::{Path, PathBuf},
-    sync::atomic::{AtomicU32, Ordering},
+    sync::{
+        atomic::{AtomicU32, Ordering},
+        OnceLock,
+    },
     time::Instant,
 };
 
 const POLICY: &str = "survivortiers-funnel-v1";
 const MARGIN: f64 = 0.10;
+const FALLBACK_GROUPS: usize = 30;
+const MORNING_GROUPS_B: u64 = 4;
+const MORNING_GROUPS_C: u64 = 2;
+const MORNING_SEEDS_A: u64 = 4;
+const MORNING_SEEDS_B: u64 = 32;
+const MORNING_SEEDS_C: u64 = 4;
+const MORNING_SEEDS_D: u64 = 32;
+const MATCH_CEILING: u64 = 17_116 * 72_000 / 100;
 
 struct Spec {
     raw: Value,
@@ -236,13 +248,18 @@ fn choose(items: &[usize], need: usize, from: usize, acc: &mut Vec<usize>, out: 
     }
 }
 
-pub(crate) fn legal_groups(data: &Data, base: &Mon) -> BTreeSet<Vec<usize>> {
+fn each_legal_group(data: &Data, base: &Mon, f: &mut impl FnMut(&[usize])) {
     let legal: BTreeSet<usize> = base
         .start_choices(&data.moves)
         .into_iter()
         .filter(|&i| data.moves[i].is_attack())
         .collect();
-    let mut groups = BTreeSet::new();
+    let buffs = base
+        .pool
+        .iter()
+        .copied()
+        .filter(|&i| data.moves[i].kind_name == "buff" && data.moves[i].levels[0].buff != 0)
+        .collect::<Vec<_>>();
     for melee in [true, false] {
         let attacks = attack_indexes(data, base)
             .into_iter()
@@ -259,41 +276,39 @@ pub(crate) fn legal_groups(data: &Data, base: &Mon) -> BTreeSet<Vec<usize>> {
                     let mut rest = combo.iter().copied().filter(|&i| i != lead).collect::<Vec<_>>();
                     rest.sort();
                     rest.insert(0, lead);
-                    groups.insert(rest);
-                }
-            }
-        }
-    }
-    let buffs = base
-        .pool
-        .iter()
-        .copied()
-        .filter(|&i| data.moves[i].kind_name == "buff" && data.moves[i].levels[0].buff != 0)
-        .collect::<Vec<_>>();
-    let attacks_only = groups.iter().cloned().collect::<Vec<_>>();
-    for g in attacks_only {
-        if g.len() < 4 {
-            for &b in &buffs {
-                if !g.contains(&b) {
-                    let mut x = g.clone();
-                    x.push(b);
-                    groups.insert(x);
-                }
-            }
-        }
-        if g.len() <= 2 {
-            for i in 0..buffs.len() {
-                for j in (i + 1)..buffs.len() {
-                    if !g.contains(&buffs[i]) && !g.contains(&buffs[j]) {
-                        let mut x = g.clone();
-                        x.push(buffs[i]);
-                        x.push(buffs[j]);
-                        groups.insert(x);
+                    f(&rest);
+                    if rest.len() < 4 {
+                        for &b in &buffs {
+                            if !rest.contains(&b) {
+                                let mut with = rest.clone();
+                                with.push(b);
+                                f(&with);
+                            }
+                        }
+                    }
+                    if rest.len() <= 2 {
+                        for i in 0..buffs.len() {
+                            for j in (i + 1)..buffs.len() {
+                                if !rest.contains(&buffs[i]) && !rest.contains(&buffs[j]) {
+                                    let mut with = rest.clone();
+                                    with.push(buffs[i]);
+                                    with.push(buffs[j]);
+                                    f(&with);
+                                }
+                            }
+                        }
                     }
                 }
             }
         }
     }
+}
+
+pub(crate) fn legal_groups(data: &Data, base: &Mon) -> BTreeSet<Vec<usize>> {
+    let mut groups = BTreeSet::new();
+    each_legal_group(data, base, &mut |group| {
+        groups.insert(group.to_vec());
+    });
     groups
 }
 
@@ -443,43 +458,224 @@ fn default_ability(base: &Mon) -> Option<String> {
     base.abilities.iter().flatten().next().cloned()
 }
 
-fn beam_for_stratum(
+struct Tally {
+    style: &'static str,
+    branch: &'static str,
+    groups: usize,
+    sample: Vec<usize>,
+}
+
+fn tally_species(data: &Data, base: &Mon) -> Vec<Tally> {
+    let mut rows: Vec<Tally> = Vec::new();
+    each_legal_group(data, base, &mut |group| {
+        let Some(style) = style_of_group(data, group) else {
+            return;
+        };
+        let branch = branch_of(data, base, group);
+        if let Some(row) = rows.iter_mut().find(|row| row.style == style && row.branch == branch) {
+            row.groups += 1;
+        } else {
+            rows.push(Tally { style, branch, groups: 1, sample: group.to_vec() });
+        }
+    });
+    rows
+}
+
+struct BudgetRow {
+    groups: usize,
+    profiles: usize,
+}
+
+struct Roster {
+    cap: usize,
+    tasks: u64,
+    stage_a: u64,
+    full_strata: usize,
+    beam_strata: usize,
+    enumerated_groups: u64,
+    beamed_groups: u64,
+    recall_tasks: u64,
+}
+
+fn morning_cost(rows: &[BudgetRow], cap: usize, species: u64, recall_tasks: u64) -> Roster {
+    let mut stage_a = 0u64;
+    let mut stage_b = 0u64;
+    let mut stage_c = 0u64;
+    let mut stage_d = 0u64;
+    let mut full_strata = 0usize;
+    let mut beam_strata = 0usize;
+    let mut enumerated_groups = 0u64;
+    let mut beamed_groups = 0u64;
+    for row in rows {
+        let under = row.groups <= cap;
+        let kept = if under {
+            row.groups as u64
+        } else {
+            (row.groups as u64).min(FALLBACK_GROUPS as u64)
+        };
+        let stage_b_groups = kept.min(MORNING_GROUPS_B);
+        let stage_c_groups = stage_b_groups.min(MORNING_GROUPS_C);
+        stage_a += kept * MORNING_SEEDS_A;
+        stage_b += stage_b_groups * MORNING_SEEDS_B;
+        stage_c += stage_c_groups * row.profiles.max(1) as u64 * MORNING_SEEDS_C;
+        stage_d += MORNING_SEEDS_D;
+        if under {
+            full_strata += 1;
+            enumerated_groups += kept;
+        } else {
+            beam_strata += 1;
+            beamed_groups += kept;
+        }
+    }
+    let controls = species * (MORNING_SEEDS_A + MORNING_SEEDS_B + MORNING_SEEDS_D);
+    Roster {
+        cap,
+        tasks: stage_a + stage_b + stage_c + stage_d + controls + recall_tasks,
+        stage_a,
+        full_strata,
+        beam_strata,
+        enumerated_groups,
+        beamed_groups,
+        recall_tasks,
+    }
+}
+
+fn recall_upper(data: &Data, dex: u32, confirm_seeds: u64) -> Result<u64, String> {
+    let rows = tally_species(data, mon(data, dex)?);
+    let groups = rows.iter().map(|row| row.groups as u64).sum::<u64>();
+    let confirm = rows.iter().map(|row| (row.groups as u64).min(50) * confirm_seeds).sum::<u64>();
+    Ok(groups * MORNING_SEEDS_A + confirm)
+}
+
+fn roster(data: &Data) -> &'static Roster {
+    static CELL: OnceLock<Roster> = OnceLock::new();
+    CELL.get_or_init(|| {
+        let species = data.dex.len() as u64;
+        let rows = data
+            .dex
+            .par_iter()
+            .flat_map(|base| {
+                tally_species(data, base)
+                    .into_iter()
+                    .map(|row| {
+                        let profiles = profile_count(data, base, &row.sample, row.style, None).unwrap_or(1);
+                        BudgetRow { groups: row.groups, profiles }
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+        let smallest = smallest_dex(data).unwrap_or(132);
+        let mut recall_dexes = vec![54, smallest];
+        recall_dexes.sort_unstable();
+        recall_dexes.dedup();
+        let recall_tasks = recall_dexes
+            .into_iter()
+            .filter_map(|dex| recall_upper(data, dex, MORNING_SEEDS_D).ok())
+            .sum();
+        let mut caps = rows.iter().map(|row| row.groups).collect::<Vec<_>>();
+        caps.push(0);
+        caps.sort_unstable();
+        caps.dedup();
+        let mut chosen = morning_cost(&rows, 0, species, recall_tasks);
+        for candidate in caps {
+            let cost = morning_cost(&rows, candidate, species, recall_tasks);
+            if cost.tasks <= MATCH_CEILING {
+                chosen = cost;
+            } else {
+                break;
+            }
+        }
+        chosen
+    })
+}
+
+fn sort_proposals(list: &mut [Proposal]) {
+    list.sort_by(|a, b| b.score.total_cmp(&a.score).then_with(|| a.config.id.cmp(&b.config.id)));
+}
+
+fn has_key(set: &BTreeSet<(String, String)>, style: &str, branch: &str) -> bool {
+    set.iter().any(|(have_style, have_branch)| have_style == style && have_branch == branch)
+}
+
+fn push_proposal(
+    data: &Data,
+    base: &Mon,
+    group: &[usize],
+    ability: &Option<String>,
+    budget: Option<u64>,
+    grouped: &mut BTreeMap<(String, String), Vec<Proposal>>,
+) {
+    let Some(style) = style_of_group(data, group) else {
+        return;
+    };
+    let branch = branch_of(data, base, group);
+    let Ok(config) = build_config(data, base, group, "hardy", ability.clone(), style, branch) else {
+        return;
+    };
+    if !within_budget(data, base, &config, budget) {
+        return;
+    }
+    let (score, _, _) = config_proxy(data, base, &config);
+    grouped.entry((style.to_string(), branch.to_string())).or_default().push(Proposal {
+        config,
+        score,
+        moves: group.to_vec(),
+    });
+}
+
+fn groups_for(
     data: &Data,
     base: &Mon,
     spec: &Spec,
-) -> Result<BTreeMap<(String, String), Vec<Proposal>>, String> {
-    let ability = default_ability(base);
-    let mut taught = base.tms.iter().map(|&ix| data.moves[ix].id.clone()).collect::<Vec<_>>();
-    taught.sort();
-    let mon = data.configure(base, "hardy", ability.as_deref(), &taught)?;
-    let mut grouped: BTreeMap<(String, String), Vec<Proposal>> = BTreeMap::new();
-    visit_groups(data, base, &mon, &mut |group| {
-        let Some(style) = style_of_group(data, &group) else {
-            return;
-        };
-        let branch = branch_of(data, base, &group);
-        let Ok(config) = build_config(data, base, &group, "hardy", ability.clone(), style, branch) else {
-            return;
-        };
-        if !within_budget(data, base, &config, spec.tm_budget) {
-            return;
+    cap: usize,
+) -> Result<(BTreeMap<(String, String), Vec<Proposal>>, BTreeSet<(String, String)>), String> {
+    let tallies = tally_species(data, base);
+    let mut under = BTreeSet::new();
+    let mut over = BTreeSet::new();
+    for row in &tallies {
+        let key = (row.style.to_string(), row.branch.to_string());
+        if row.groups <= cap {
+            under.insert(key);
+        } else {
+            over.insert(key);
         }
-        let (score, _, _) = config_proxy(data, base, &config);
-        grouped.entry((style.into(), branch.into())).or_default().push(Proposal {
-            config,
-            score,
-            moves: group,
-        });
-    });
-    for list in grouped.values_mut() {
-        list.sort_by(|a, b| {
-            b.score
-                .total_cmp(&a.score)
-                .then_with(|| a.config.id.cmp(&b.config.id))
-        });
-        list.truncate(spec.groups_a);
     }
-    Ok(grouped)
+    let ability = default_ability(base);
+    let mut grouped = BTreeMap::new();
+    if !under.is_empty() {
+        each_legal_group(data, base, &mut |group| {
+            let Some(style) = style_of_group(data, group) else {
+                return;
+            };
+            let branch = branch_of(data, base, group);
+            if !has_key(&under, style, branch) {
+                return;
+            }
+            push_proposal(data, base, group, &ability, spec.tm_budget, &mut grouped);
+        });
+    }
+    if !over.is_empty() {
+        let mut taught = base.tms.iter().map(|&ix| data.moves[ix].id.clone()).collect::<Vec<_>>();
+        taught.sort();
+        let mon = data.configure(base, "hardy", ability.as_deref(), &taught)?;
+        visit_groups(data, base, &mon, &mut |group| {
+            let Some(style) = style_of_group(data, &group) else {
+                return;
+            };
+            let branch = branch_of(data, base, &group);
+            if !has_key(&over, style, branch) {
+                return;
+            }
+            push_proposal(data, base, &group, &ability, spec.tm_budget, &mut grouped);
+        });
+    }
+    for (key, list) in &mut grouped {
+        sort_proposals(list);
+        if has_key(&over, &key.0, &key.1) {
+            list.truncate(spec.groups_a);
+        }
+    }
+    Ok((grouped, over))
 }
 
 fn profile_count(
@@ -502,30 +698,145 @@ fn within_budget(data: &Data, base: &Mon, config: &Configuration, budget: Option
     budget.is_none_or(|limit| cost <= limit)
 }
 
-struct PlanBuild {
-    value: Value,
-    counts: Value,
+struct PartGuard {
+    paths: Vec<PathBuf>,
 }
 
-fn build_plan(data: &Data, spec: &Spec) -> Result<PlanBuild, String> {
-    let mut strata = Vec::new();
-    let mut stage_a = Vec::new();
-    let mut configs = BTreeMap::new();
+impl Drop for PartGuard {
+    fn drop(&mut self) {
+        for path in &self.paths {
+            let _ = fs::remove_file(path);
+        }
+    }
+}
+
+struct Sink {
+    inner: File,
+    hash: Sha256,
+}
+
+impl Sink {
+    fn push(&mut self, bytes: &[u8]) -> Result<(), String> {
+        self.hash.update(bytes);
+        self.inner.write_all(bytes).map_err(|e| e.to_string())
+    }
+
+    fn finish(mut self) -> Result<String, String> {
+        self.inner.flush().map_err(|e| e.to_string())?;
+        self.inner.sync_all().map_err(|e| e.to_string())?;
+        Ok(format!("{:x}", self.hash.finalize()))
+    }
+}
+
+fn write_value(file: &mut File, started: &mut bool, item: &Value) -> Result<(), String> {
+    if *started {
+        file.write_all(b",").map_err(|e| e.to_string())?;
+    }
+    *started = true;
+    file.write_all(&canonical_bytes(item)).map_err(|e| e.to_string())
+}
+
+fn push_field(sink: &mut Sink, started: &mut bool, name: &str, value: &Value) -> Result<(), String> {
+    if *started {
+        sink.push(b",")?;
+    }
+    *started = true;
+    sink.push(b"\"")?;
+    sink.push(name.as_bytes())?;
+    sink.push(b"\":")?;
+    sink.push(&canonical_bytes(value))
+}
+
+fn copy_into(sink: &mut Sink, path: &Path) -> Result<(), String> {
+    let mut input = File::open(path).map_err(|e| e.to_string())?;
+    let mut buf = vec![0u8; 1 << 20];
+    loop {
+        let n = input.read(&mut buf).map_err(|e| e.to_string())?;
+        if n == 0 {
+            break;
+        }
+        sink.push(&buf[..n])?;
+    }
+    Ok(())
+}
+
+fn seal_plan(unsigned: &Path, out: &Path, digest: &str) -> Result<(), String> {
+    let mut input = File::open(unsigned).map_err(|e| e.to_string())?;
+    let len = input.metadata().map_err(|e| e.to_string())?.len();
+    if len == 0 {
+        return Err("empty funnel plan".into());
+    }
+    let tmp = out.with_extension(format!("tmp-{}", std::process::id()));
+    let mut output = File::create(&tmp).map_err(|e| e.to_string())?;
+    let mut left = len - 1;
+    let mut buf = vec![0u8; 1 << 20];
+    while left > 0 {
+        let want = left.min(buf.len() as u64) as usize;
+        let n = input.read(&mut buf[..want]).map_err(|e| e.to_string())?;
+        if n == 0 {
+            return Err("funnel plan ended early".into());
+        }
+        output.write_all(&buf[..n]).map_err(|e| e.to_string())?;
+        left -= n as u64;
+    }
+    let mut last = [0u8; 1];
+    input.read_exact(&mut last).map_err(|e| e.to_string())?;
+    if last[0] != b'}' {
+        return Err("funnel plan did not end on an object".into());
+    }
+    write!(output, ",\"planHash\":\"{digest}\"}}").map_err(|e| e.to_string())?;
+    output.sync_all().map_err(|e| e.to_string())?;
+    if let Some(parent) = out.parent() {
+        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    fs::rename(&tmp, out).map_err(|e| e.to_string())
+}
+
+fn morning_shape(spec: &Spec, species: usize) -> bool {
+    spec.dex.len() == species
+        && spec.groups_a == FALLBACK_GROUPS
+        && spec.groups_b == MORNING_GROUPS_B as usize
+        && spec.groups_c == MORNING_GROUPS_C as usize
+        && spec.seeds_a.len() == MORNING_SEEDS_A as usize
+        && spec.seeds_b.len() == MORNING_SEEDS_B as usize
+        && spec.seeds_c.len() == MORNING_SEEDS_C as usize
+        && spec.seeds_d.len() == MORNING_SEEDS_D as usize
+}
+
+fn write_plan(data: &Data, spec: &Spec, out: &str) -> Result<Value, String> {
+    let width = roster(data);
+    let parent = Path::new(out).parent().filter(|path| !path.as_os_str().is_empty()).unwrap_or_else(|| Path::new("."));
+    fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    let token = format!("{}-{}", std::process::id(), out.len());
+    let tasks_path = parent.join(format!(".funnel-tasks-{token}.part"));
+    let strata_path = parent.join(format!(".funnel-strata-{token}.part"));
+    let unsigned_path = parent.join(format!(".funnel-unsigned-{token}.part"));
+    let _cleanup = PartGuard { paths: vec![tasks_path.clone(), strata_path.clone(), unsigned_path.clone()] };
+    let mut tasks_file = File::create(&tasks_path).map_err(|e| e.to_string())?;
+    let mut strata_file = File::create(&strata_path).map_err(|e| e.to_string())?;
+    let mut task_started = false;
+    let mut strata_started = false;
     let mut controls = Vec::new();
+    let mut control_configs = Vec::new();
     let mut unavailable = Vec::new();
     let mut stage_a_tasks = 0u64;
     let mut stage_b_upper = 0u64;
     let mut stage_c_upper = 0u64;
     let mut stage_d_upper = 0u64;
+    let mut strata_n = 0u64;
+    let mut strata_full = 0u64;
+    let mut strata_beam = 0u64;
     for &dex in &spec.dex {
         let base = mon(data, dex)?;
         let control = stock_control(data, base)?;
-        let control_json = config_json(data, base, &control, config_proxy(data, base, &control).0)?;
-        controls.push(control_json);
-        configs.insert(control.id.clone(), control);
-        let grouped = beam_for_stratum(data, base, spec)?;
+        controls.push(config_json(data, base, &control, config_proxy(data, base, &control).0)?);
+        control_configs.push(control);
+        let (grouped, over) = groups_for(data, base, spec, width.cap)?;
         let mut seen = BTreeSet::new();
         for ((style, branch), proposals) in &grouped {
+            if proposals.is_empty() {
+                continue;
+            }
             seen.insert((style.clone(), branch.clone()));
             let profiles = profile_count(data, base, &proposals[0].moves, style, spec.tm_budget).unwrap_or(1);
             let n_a = proposals.len();
@@ -535,26 +846,33 @@ fn build_plan(data: &Data, spec: &Spec) -> Result<PlanBuild, String> {
             stage_b_upper += (n_b * spec.seeds_b.len()) as u64;
             stage_c_upper += (n_c * profiles * spec.seeds_c.len()) as u64;
             stage_d_upper += spec.seeds_d.len() as u64;
+            let beamed = has_key(&over, style, branch);
+            if beamed {
+                strata_beam += 1;
+            } else {
+                strata_full += 1;
+            }
             let mut rows = Vec::new();
             for proposal in proposals {
                 rows.push(config_json(data, base, &proposal.config, proposal.score)?);
                 for &seed in &spec.seeds_a {
-                    stage_a.push(json!({
+                    write_value(&mut tasks_file, &mut task_started, &json!({
                         "taskId": task_id(&spec.hash, &proposal.config.id, "A", seed),
                         "configurationId": proposal.config.id,
                         "stage": "A",
                         "seed": seed,
-                    }));
+                    }))?;
                 }
-                configs.insert(proposal.config.id.clone(), proposal.config.clone());
             }
-            strata.push(json!({
+            strata_n += 1;
+            write_value(&mut strata_file, &mut strata_started, &json!({
                 "dex": dex,
                 "style": style,
                 "branch": branch,
+                "search": if beamed { "beam" } else { "full" },
                 "profilesPerGroup": profiles,
                 "candidates": rows,
-            }));
+            }))?;
         }
         for style in ["melee", "ranged"] {
             for branch in ["optimized_no_tm", "optimized_tm"] {
@@ -565,8 +883,10 @@ fn build_plan(data: &Data, spec: &Spec) -> Result<PlanBuild, String> {
                     "species has no legal TM"
                 } else if spec.tm_budget.is_some() && branch == "optimized_tm" {
                     "tm budget or the move beam left no base-role group"
+                } else if has_key(&over, style, branch) {
+                    "prior shortlist left no base-role group"
                 } else {
-                    "no legal base-role group in the move beam"
+                    "no legal base-role group"
                 };
                 unavailable.push(json!({"dex": dex, "variantId": format!("{style}:base:{branch}"), "reason": reason}));
                 for role in ["aggro", "coverage", "both"] {
@@ -588,39 +908,47 @@ fn build_plan(data: &Data, spec: &Spec) -> Result<PlanBuild, String> {
             }
         }
     }
-    for control in configs.values().filter(|c| c.id.contains("|branch:control_no_tm|")) {
+    for control in &control_configs {
         for seed in spec.seeds_a.iter().chain(&spec.seeds_b).chain(&spec.seeds_d) {
-            stage_a.push(json!({
-                "taskId": task_id(&spec.hash, &control.id, if spec.seeds_d.contains(seed) { "D" } else if spec.seeds_b.contains(seed) { "B" } else { "A" }, *seed),
+            let stage = if spec.seeds_d.contains(seed) {
+                "D"
+            } else if spec.seeds_b.contains(seed) {
+                "B"
+            } else {
+                "A"
+            };
+            write_value(&mut tasks_file, &mut task_started, &json!({
+                "taskId": task_id(&spec.hash, &control.id, stage, *seed),
                 "configurationId": control.id,
-                "stage": if spec.seeds_d.contains(seed) { "D" } else if spec.seeds_b.contains(seed) { "B" } else { "A" },
+                "stage": stage,
                 "seed": *seed,
-            }));
+            }))?;
         }
     }
+    tasks_file.sync_all().map_err(|e| e.to_string())?;
+    strata_file.sync_all().map_err(|e| e.to_string())?;
+    drop(tasks_file);
+    drop(strata_file);
     let control_tasks = spec.dex.len() as u64 * (spec.seeds_a.len() + spec.seeds_b.len() + spec.seeds_d.len()) as u64;
     let mut recall_tasks = 0u64;
     let mut recall_detail = Vec::new();
     for &dex in &spec.recall {
-        let base = mon(data, dex)?;
-        let groups = legal_groups(data, base);
-        let mut per_branch: BTreeMap<(String, String), u64> = BTreeMap::new();
-        for group in &groups {
-            let Some(style) = style_of_group(data, group) else { continue };
-            let branch = branch_of(data, base, group);
-            *per_branch.entry((style.to_string(), branch.to_string())).or_default() += 1;
-        }
-        let screen = groups.len() as u64 * 4;
-        let confirm = per_branch
-            .values()
-            .map(|n| n.min(&50) * spec.seeds_d.len() as u64)
-            .sum::<u64>();
+        let rows = tally_species(data, mon(data, dex)?);
+        let groups = rows.iter().map(|row| row.groups as u64).sum::<u64>();
+        let screen = groups * 4;
+        let confirm = rows.iter().map(|row| (row.groups as u64).min(50) * spec.seeds_d.len() as u64).sum::<u64>();
         recall_tasks += screen + confirm;
-        recall_detail.push(json!({"dex": dex, "groups": groups.len(), "screeningTasks": screen, "confirmationUpper": confirm}));
+        recall_detail.push(json!({"dex": dex, "groups": groups, "screeningTasks": screen, "confirmationUpper": confirm}));
     }
     let tasks_upper = stage_a_tasks + stage_b_upper + stage_c_upper + stage_d_upper + control_tasks + recall_tasks;
     if tasks_upper > spec.max_matches {
         return Err(format!("funnel ceiling {tasks_upper} exceeds maxMatches"));
+    }
+    if morning_shape(spec, data.dex.len()) && tasks_upper > MATCH_CEILING {
+        return Err(format!(
+            "funnel ceiling {tasks_upper} exceeds the measured 2.5 h budget {MATCH_CEILING} at cap {}",
+            width.cap
+        ));
     }
     let counts = json!({
         "stageA": stage_a_tasks,
@@ -630,35 +958,55 @@ fn build_plan(data: &Data, spec: &Spec) -> Result<PlanBuild, String> {
         "controlTasks": control_tasks,
         "recallTasksUpper": recall_tasks,
         "tasksUpperBound": tasks_upper,
-        "strata": strata.len(),
+        "strata": strata_n,
+        "strataFull": strata_full,
+        "strataBeam": strata_beam,
         "species": spec.dex.len(),
+        "fullGroupCap": width.cap,
+        "matchCeiling": MATCH_CEILING,
+        "rosterTasksUpper": width.tasks,
+        "rosterStageA": width.stage_a,
+        "rosterStrataFull": width.full_strata,
+        "rosterStrataBeam": width.beam_strata,
+        "rosterEnumeratedGroups": width.enumerated_groups,
+        "rosterBeamedGroups": width.beamed_groups,
+        "rosterRecallTasks": width.recall_tasks,
     });
-    let mut plan = json!({
-        "schema": 1,
-        "kind": "funnel",
-        "policyVersion": POLICY,
-        "rankingReady": false,
-        "manifest": spec.raw,
-        "manifestHash": spec.hash,
-        "gameCommit": research::GAME_COMMIT,
-        "engineFingerprint": research::fingerprint(),
-        "rustc": compiler_version(),
-        "marginFraction": MARGIN,
-        "controls": controls,
-        "strata": strata,
-        "unavailable": unavailable,
-        "recall": recall_detail,
-        "ledger": {"stageATasks": stage_a},
-        "counts": counts,
-    });
-    plan["planHash"] = json!(hash_value(&plan));
-    Ok(PlanBuild { value: plan, counts })
-}
-
-fn write_plan(data: &Data, spec: &Spec, out: &str) -> Result<Value, String> {
-    let built = build_plan(data, spec)?;
-    atomic_json(Path::new(out), &built.value)?;
-    Ok(built.counts)
+    let mut sink = Sink { inner: File::create(&unsigned_path).map_err(|e| e.to_string())?, hash: Sha256::new() };
+    sink.push(b"{")?;
+    let mut started = false;
+    push_field(&mut sink, &mut started, "controls", &Value::Array(controls))?;
+    push_field(&mut sink, &mut started, "counts", &counts)?;
+    push_field(&mut sink, &mut started, "engineFingerprint", &json!(research::fingerprint()))?;
+    push_field(&mut sink, &mut started, "gameCommit", &json!(research::GAME_COMMIT))?;
+    push_field(&mut sink, &mut started, "kind", &json!("funnel"))?;
+    if started {
+        sink.push(b",")?;
+    }
+    sink.push(b"\"ledger\":{\"stageATasks\":[")?;
+    copy_into(&mut sink, &tasks_path)?;
+    sink.push(b"]}")?;
+    started = true;
+    push_field(&mut sink, &mut started, "manifest", &spec.raw)?;
+    push_field(&mut sink, &mut started, "manifestHash", &json!(spec.hash))?;
+    push_field(&mut sink, &mut started, "marginFraction", &json!(MARGIN))?;
+    push_field(&mut sink, &mut started, "policyVersion", &json!(POLICY))?;
+    push_field(&mut sink, &mut started, "rankingReady", &json!(false))?;
+    push_field(&mut sink, &mut started, "recall", &Value::Array(recall_detail))?;
+    push_field(&mut sink, &mut started, "rustc", &json!(compiler_version()))?;
+    push_field(&mut sink, &mut started, "schema", &json!(1))?;
+    if started {
+        sink.push(b",")?;
+    }
+    sink.push(b"\"strata\":[")?;
+    copy_into(&mut sink, &strata_path)?;
+    sink.push(b"]")?;
+    started = true;
+    push_field(&mut sink, &mut started, "unavailable", &Value::Array(unavailable))?;
+    sink.push(b"}")?;
+    let digest = sink.finish()?;
+    seal_plan(&unsigned_path, Path::new(out), &digest)?;
+    Ok(counts)
 }
 
 struct Lock {
@@ -1288,7 +1636,11 @@ fn recall_one(data: &Data, dex: u32, cache: &Path, threads: usize, seconds: f64)
         let real_id = list.first().map(|row| row.1.clone());
         let mut by_prior = list.clone();
         by_prior.sort_by(|a, b| b.0.total_cmp(&a.0).then_with(|| a.1.cmp(&b.1)));
-        let shortlist = by_prior.iter().take(30).map(|row| row.1.clone()).collect::<Vec<_>>();
+        let shortlist = if list.len() <= roster(data).cap {
+            by_prior.iter().map(|row| row.1.clone()).collect::<Vec<_>>()
+        } else {
+            by_prior.iter().take(FALLBACK_GROUPS).map(|row| row.1.clone()).collect::<Vec<_>>()
+        };
         let funnel_id = list.iter().filter(|row| shortlist.contains(&row.1)).max_by(|a, b| a.2.total_cmp(&b.2)).map(|row| row.1.clone());
         let rank = real_id.as_ref().and_then(|id| shortlist.iter().position(|x| x == id).map(|i| i + 1));
         let mut confirm_ids = list.iter().take(50).map(|row| row.1.clone()).collect::<Vec<_>>();
@@ -1500,6 +1852,114 @@ mod tests {
         let plan: Value = serde_json::from_slice(&fs::read(&dir).unwrap()).unwrap();
         assert_eq!(plan["rankingReady"], false);
         assert!(plan["ledger"]["stageATasks"].as_array().unwrap().iter().all(|task| task["stage"].as_str().is_some()));
+        let (loaded, _, _) = load_plan(&data, dir.to_str().unwrap()).unwrap();
+        assert_eq!(loaded["planHash"], plan["planHash"]);
+        let ditto = data.dex.iter().find(|m| m.dex == 132).unwrap();
+        let tallies = tally_species(&data, ditto);
+        let cap = counts["fullGroupCap"].as_u64().unwrap() as usize;
+        assert!(!plan["strata"].as_array().unwrap().is_empty());
+        for stratum in plan["strata"].as_array().unwrap() {
+            assert_eq!(stratum["search"], "full");
+            let style = stratum["style"].as_str().unwrap();
+            let branch = stratum["branch"].as_str().unwrap();
+            let tally = tallies.iter().find(|row| row.style == style && row.branch == branch).unwrap();
+            assert_eq!(stratum["candidates"].as_array().unwrap().len(), tally.groups);
+            assert!(tally.groups <= cap);
+        }
+    }
+
+    #[test]
+    fn canonical_bytes_are_what_hash_value_digests() {
+        let value = json!({"b": 1, "a": [true, null], "nested": {"z": "x", "m": 0.5}});
+        let bytes = canonical_bytes(&value);
+        assert_eq!(hash_value(&value), format!("{:x}", Sha256::digest(bytes)));
+    }
+
+    #[test]
+    fn morning_manifest_matches_the_budget_constants() {
+        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../runpod/funnel-full.json");
+        let value: Value = serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
+        assert_eq!(value["stages"]["A"]["groups"].as_u64(), Some(FALLBACK_GROUPS as u64));
+        assert_eq!(value["stages"]["B"]["groups"].as_u64(), Some(MORNING_GROUPS_B));
+        assert_eq!(value["stages"]["C"]["groups"].as_u64(), Some(MORNING_GROUPS_C));
+        assert_eq!(value["stages"]["A"]["seeds"].as_array().unwrap().len() as u64, MORNING_SEEDS_A);
+        assert_eq!(value["stages"]["B"]["seeds"].as_array().unwrap().len() as u64, MORNING_SEEDS_B);
+        assert_eq!(value["stages"]["C"]["seeds"].as_array().unwrap().len() as u64, MORNING_SEEDS_C);
+        assert_eq!(value["stages"]["D"]["seeds"].as_array().unwrap().len() as u64, MORNING_SEEDS_D);
+        assert_eq!(value["recallDexes"][0], 54);
+        assert_eq!(value["recallDexes"][1], "smallest");
+    }
+
+    #[test]
+    fn roster_cap_stays_inside_the_measured_budget() {
+        let data = data();
+        let width = roster(&data);
+        assert!(width.tasks <= MATCH_CEILING, "tasks {}", width.tasks);
+        assert!(width.cap > FALLBACK_GROUPS, "cap {}", width.cap);
+        assert!(width.full_strata > 0);
+        assert!(width.beam_strata > 0);
+        eprintln!(
+            "cap={} tasks={} stageA={} full={} beam={} enumerated={} beamed={} recall={}",
+            width.cap,
+            width.tasks,
+            width.stage_a,
+            width.full_strata,
+            width.beam_strata,
+            width.enumerated_groups,
+            width.beamed_groups,
+            width.recall_tasks
+        );
+    }
+
+    #[test]
+    fn mew_keeps_small_strata_whole_and_beams_the_rest() {
+        let data = data();
+        let manifest = json!({
+            "schema": 1,
+            "kind": "funnel",
+            "gameCommit": research::GAME_COMMIT,
+            "engineFingerprint": research::fingerprint(),
+            "policyVersion": POLICY,
+            "dex": [151],
+            "secondsPerMatch": 900,
+            "limits": {"threads": 1, "maxWallSeconds": 30, "maxFailedTasks": 1, "maxMatches": 5000000},
+            "stages": {
+                "A": {"groups": 30, "seeds": [1001, 1002, 1003, 1004]},
+                "B": {"groups": 4, "seeds": [1101, 1102]},
+                "C": {"groups": 2, "seeds": [1001, 1002, 1003, 1004]},
+                "D": {"seeds": [3001, 3002]},
+            },
+            "recallDexes": [],
+        });
+        let spec = parse_spec(&data, manifest).unwrap();
+        let path = std::env::temp_dir().join(format!("funnel-mew-{}.json", std::process::id()));
+        let counts = write_plan(&data, &spec, path.to_str().unwrap()).unwrap();
+        let plan: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+        load_plan(&data, path.to_str().unwrap()).unwrap();
+        let _ = fs::remove_file(&path);
+        let mew = data.dex.iter().find(|m| m.dex == 151).unwrap();
+        let tallies = tally_species(&data, mew);
+        let cap = counts["fullGroupCap"].as_u64().unwrap() as usize;
+        let mut saw_full = false;
+        let mut saw_beam = false;
+        for stratum in plan["strata"].as_array().unwrap() {
+            let style = stratum["style"].as_str().unwrap();
+            let branch = stratum["branch"].as_str().unwrap();
+            let tally = tallies.iter().find(|row| row.style == style && row.branch == branch).unwrap();
+            let n = stratum["candidates"].as_array().unwrap().len();
+            if stratum["search"] == "full" {
+                assert_eq!(n, tally.groups, "{style} {branch}");
+                assert!(tally.groups <= cap);
+                saw_full = true;
+            } else {
+                assert_eq!(stratum["search"], "beam");
+                assert!(n <= spec.groups_a);
+                assert!(tally.groups > cap);
+                saw_beam = true;
+            }
+        }
+        assert!(saw_full);
+        assert!(saw_beam);
     }
 
     #[test]
