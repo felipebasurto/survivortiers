@@ -80,7 +80,7 @@ case "$TASK_ACTION" in
     "$TASK_BINARY" funnel plan "$FUNNEL_MANIFEST" "$FUNNEL_OUT/plan.json" > "$FUNNEL_OUT/plan-counts.json"
     export FUNNEL_WRAPPER_PATH="$FUNNEL_OUT/wrapper-seconds"
     python3 - "$FUNNEL_OUT/plan-counts.json" "$TASK_SCRIPT_DIR/vm-rate.json" "$FUNNEL_DRY" <<'PY'
-import json, os, sys
+import json, os, re, sys
 counts, rate, dry = json.load(open(sys.argv[1])), json.load(open(sys.argv[2])), sys.argv[3] == "1"
 samples = sorted(float(x) for x in rate["matchesPerSecond"])
 median = samples[len(samples) // 2]
@@ -91,7 +91,11 @@ price = float(os.environ.get("POKESIM_HOURLY_USD", rate["hourlyUsd"]))
 budget = float(os.environ.get("POKESIM_BUDGET_USD", rate["maxUsd"]))
 money_cap = min(float(rate["maxUsd"]), budget)
 cost = hours * price
-wall = float(os.environ.get("POKESIM_MAX_WALL_SECONDS", float(rate["maxHours"]) * 3600))
+wall_text = os.environ.get("POKESIM_MAX_WALL_SECONDS", "")
+if wall_text and re.fullmatch(r"[0-9]+(?:[.][0-9]+)?", wall_text) is None:
+    print("ABORT: wall must be a plain positive number", file=sys.stderr)
+    sys.exit(2)
+wall = float(wall_text) if wall_text else float(rate["maxHours"]) * 3600
 dollar = int(budget / price * 3600) - 300
 if dollar < 1 or wall < 1:
     print("ABORT: budget, price, or wall leaves no wrapper time", file=sys.stderr)
@@ -129,11 +133,14 @@ PY
       python3 - "$FUNNEL_OUT/plan-counts.json" <<'PY'
 import json, os, sys
 tasks = int(json.load(open(sys.argv[1]))["tasksUpperBound"])
-free = os.statvfs(".").f_favail
-print(f"free inodes {free}, checkpoint files {tasks}")
-if free < tasks:
+st = os.statvfs(".")
+free, reported = st.f_favail, st.f_files
+print(f"free inodes {free}, inode counter {reported}, checkpoint files {tasks}")
+if reported > 0 and free < tasks:
     print(f"ABORT: {free} free inodes is below {tasks} checkpoint files.", file=sys.stderr)
     sys.exit(3)
+if reported == 0:
+    print("filesystem reported no inode counter. The inode gate did not stop the run.")
 PY
       FUNNEL_THREADS="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["limits"]["threads"])' "$FUNNEL_MANIFEST")"
       "$TASK_BINARY" funnel calibrate "$FUNNEL_THREADS" | tee "$FUNNEL_OUT/calibrate.json"
@@ -143,11 +150,21 @@ cal = json.load(open(sys.argv[1]))
 counts = json.load(open(sys.argv[2]))
 wrapper = int(float(open(sys.argv[3]).read()))
 rate = float(cal["matchesPerSecond"])
+threads = max(1, int(cal["threads"]))
+samples = max(1, int(cal["tasks"]))
+waves = (samples + threads - 1) // threads
+steady = rate * waves / (samples / threads)
 tasks = int(counts["tasksUpperBound"])
 need = tasks / wrapper
-print(f"calibrate {rate:.2f} matches/s. The upper bound needs {need:.2f} matches/s inside {wrapper} s of match time.")
-if rate < need:
-    print(f"ABORT: calibrate {rate:.2f} matches/s is under {need:.2f}. The upper bound misses the wrapper wall.", file=sys.stderr)
+print(
+    f"calibrate {rate:.2f} matches/s over {samples} tasks on {threads} threads "
+    f"({waves} waves). Full-wave equivalent {steady:.2f}. The upper bound needs {need:.2f}."
+)
+if steady < need:
+    print(
+        f"ABORT: full-wave equivalent {steady:.2f} matches/s is under {need:.2f}. The upper bound misses the wrapper wall.",
+        file=sys.stderr,
+    )
     sys.exit(3)
 PY
     fi
