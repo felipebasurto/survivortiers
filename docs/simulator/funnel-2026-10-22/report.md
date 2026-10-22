@@ -1,5 +1,15 @@
 # Funnel for the morning of 22 October
 
+Predicates 1 to 9 hold. CI is green on PR 59 and on main `3b4c8b3`.
+A fresh clone of `origin/main` passed `prepare`, `funnel smoke`, and `funnel full --dry-run`.
+Smoke wrote Caterpie, Ditto, and Eevee, a v1 web document that passed `validate_results`, and `report.md`. The branch resume rewrote 0 of 8,682 checkpoints.
+Dry-run printed 12,057,504 tasks, 2.446 hours, and 2.74 USD. `production plan` accepted 240,480 tasks at fingerprint `28efded8…`.
+The pinned site render of this tree matches `3fae073`: 2,130 files, empty diff.
+Merged https://github.com/felipebasurto/survivortiers/pull/59 by rebase. Main tip `3b4c8b3cc8a0b50dd8c453861165c390b13cf2ee`.
+Morning: rent a 32-vCPU cpu5c, run the commands in `docs/simulator/RUNPOD-MORNING.md`, and terminate the Pod yourself.
+Inferred ETA is 2.446 hours and 2.74 USD at 1.12 USD per hour. The wrapper stops under about 1206 matches per second.
+Pokesim wall tonight is about 853 seconds, under 45 minutes. `rankingReady` stays false.
+
 The morning search is `pokesim funnel`. It is not the 21 October production beam.
 
 ## What it does
@@ -62,4 +72,10 @@ Harden (Fortaleza) and Agility are not forced into a fourth slot. `visit_groups`
 
 ## Landing
 
-The branch is `sim/funnel-runpod-2026-10-22`. The pull request is https://github.com/felipebasurto/survivortiers/pull/59. The engine fingerprint on this revision is `28efded862f089b48f6ee92ee978c4eaaf300ff02dde17ef3781941a1b747211`. CI on this revision and the merge commit are recorded when they finish. The morning commands are in `docs/simulator/RUNPOD-MORNING.md`.
+The shipping review of `a40aacb` returned PASS+NOTES. That tree is the tree on main. The notes are that the 1369 rate is a linear scale of this 4-core VM, that about 194 seconds of wrapper slack sit against an unmeasured plan load and a stage A index whose slow scaled reading is about 312 seconds, and that a Pod between about 1206 and 1340 can pass and still exit 75. The review of `11ecbc9` also returned PASS+NOTES. An out-of-range `POKESIM_CALIBRATE_FLOOR` exits 2 after the 200 calibrate matches, not before them.
+
+PR 59 CI was green on `a40aacb` (rust and python). The rebase-merge tip is `3b4c8b3cc8a0b50dd8c453861165c390b13cf2ee`. CI on that commit is success: https://github.com/felipebasurto/survivortiers/actions/runs/39714671821. GitHub listed no deployments. The only workflow is `tests.yml`. Hook listing returned 403. `vercel.json` would rebuild the site if Vercel is connected. The pinned render matched `3fae073`.
+
+A fresh clone of that tip passed `prepare` (fingerprint `28efded862f089b48f6ee92ee978c4eaaf300ff02dde17ef3781941a1b747211`), `funnel smoke` (exit 0, 20,412 tasks, 0 failures, 112.6 s, 3 validated results, `report.md` present), and `funnel full --dry-run` (exit 0, 12,057,504 tasks, 2.446 h, 2.74 USD, wrapper 9000 s, match time 8806 s). `run.sh plan` wrote a production plan with `tasksUpperBound` 240,480 and `rankingReady` false. No deploy was run. No Pod was created.
+
+The decision log matches the work through the pinned render. The opening row still says `in progress`. The 1340 stop line in an earlier row is the gate before the 0.9 floor. The site row names `e521e7e`. The merged tree is the same tree as `a40aacb`, and that render also matched. The log did not yet contain this review or this merge. Those rows are appended with this landing.
