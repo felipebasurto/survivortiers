@@ -31,7 +31,6 @@ import objetos  # noqa: E402
 import learnsets  # noqa: E402
 import pasivas  # noqa: E402
 import habilidades  # noqa: E402
-import bounded_view  # noqa: E402
 import tipos  # noqa: E402
 import pack  # noqa: E402
 import planner  # noqa: E402
@@ -397,7 +396,6 @@ def render_species(c: Ctx, entry: dict, moves: dict, prev: dict | None, nxt: dic
     html, ld = static_ficha.build(L, c.home, SPRITES, EXT, entry, moves, meta, entry["start"], prev, nxt, odds,
                                   guides=landing.guides_nav(L, c.home, types=entry["types"]), url=page_url(c),
                                   title=title, assets=c.assets)
-    html += bounded_view.ficha_section(L, entry["dex"], moves)
     html += learnsets.tm_section(L, entry["dex"], moves)
     return page(c, "ficha", title, desc, html + balls.defs(), meta, extra_head=ld,
                 head_links=static_ficha.alternates(species_path(entry["dex"], entry["nameEn"])), og_type="article")

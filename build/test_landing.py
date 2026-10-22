@@ -126,8 +126,8 @@ class LinksAndFreshness(unittest.TestCase):
 
     def test_freshness_line_on_index_ficha_and_landing(self) -> None:
         es_line, en_line = legal.freshness_text(ES), legal.freshness_text(EN)
-        self.assertEqual(es_line, f"Actualizado al parche del 19 oct 2026 ({legal.UPDATED_COMMIT})")
-        self.assertEqual(en_line, f"Updated to the Oct 19, 2026 patch ({legal.UPDATED_COMMIT})")
+        self.assertEqual(es_line, "Actualizado al parche del 19 oct 2026")
+        self.assertEqual(en_line, "Updated to the Oct 19, 2026 patch")
         for rel in ("index.html", "mejores-pokemon/index.html", "metodo.html"):
             self.assertIn(es_line, _read(rel), rel)
         for rel in ("en/index.html", "en/best-pokemon/index.html", "en/metodo.html"):

@@ -12,8 +12,8 @@ def method_counts(L: Lang, meta: dict) -> dict[str, str]:
 
 
 def freshness_text(L: Lang, meta: dict | None = None) -> str:
-    """«Actualizado al parche del 19 oct 2026 (5a23d49)»: el único sitio donde se compone, desde UPDATED_DATE y UPDATED_COMMIT."""
-    return L.t("fresh", date=L.date(UPDATED_DATE), sha=UPDATED_COMMIT)
+    """«Actualizado al parche del 19 oct 2026»: el único sitio donde se compone, desde UPDATED_DATE."""
+    return L.t("fresh", date=L.date(UPDATED_DATE))
 
 
 def rebuilt_text(L: Lang, meta: dict) -> str:

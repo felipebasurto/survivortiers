@@ -81,11 +81,11 @@ class Method(unittest.TestCase):
     def test_method_describes_the_current_pipeline(self) -> None:
         meta = json.loads(_read("data/meta.json"))
         for html, L in ((_read("metodo.html"), ES), (_read("en/metodo.html"), EN)):
-            self.assertIn(legal.UPDATED_COMMIT, html)
+            self.assertIn(legal.freshness_text(L), html)
             self.assertIn('class="notice"', html)
             self.assertIn(L.num(meta["method"]["games"]), html)
-        self.assertIn("mediana de supervivencia de sus partidas", _read("metodo.html"))
-        self.assertIn("median survival over its runs", _read("en/metodo.html"))
+        self.assertIn("su build confirmada sin MT (16 partidas)", _read("metodo.html"))
+        self.assertIn("its confirmed no-TM build (16 runs)", _read("en/metodo.html"))
         self.assertNotIn("Por último, una regla", _read("metodo.html"))
 
     def test_score_refs_come_from_the_sim(self) -> None:

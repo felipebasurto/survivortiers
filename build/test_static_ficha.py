@@ -85,7 +85,7 @@ class StaticMewtwo(unittest.TestCase):
     def setUpClass(cls) -> None:
         sitefixture.ensure_site()
 
-    def test_sample_page_has_rank_why_survival_builds_and_stats_without_js(self) -> None:
+    def test_sample_page_has_rank_builds_why_and_stats_without_js(self) -> None:
         es_path = SITE / "pokemon" / "150-mewtwo" / "index.html"
         en_path = SITE / "en" / "pokemon" / "150-mewtwo" / "index.html"
         self.assertTrue(es_path.is_file(), "falta la ficha estática: python3 build/render.py")
@@ -98,26 +98,25 @@ class StaticMewtwo(unittest.TestCase):
         game = legal.GAME_NAME
         self.assertIn(f"<title>Mewtwo en {game}: tier {row['tier']}, mejor build y ataques | SurvivorTiers</title>", es)
         self.assertIn(f"<title>Mewtwo in {game}: {row['tier']} tier, best build and moves | SurvivorTiers</title>", en)
-        best = pair[pair["best"]]
         self.assertEqual(row["build"], pair["best"])
         for html, why in ((es, "Por qué está en el puesto"), (en, "Why it ranks")):
             self.assertRegex(html, r"<h1>Mewtwo <")
             text = _visible(html)
             self.assertIn(f"{why} {row['rank']}", text)
-            self.assertIn(static_ficha.mmss(best["time"]), text)
             self.assertIn(f'<section class="why" id="porque"', html)
-            self.assertIn(f'<section class="surv" id="supervivencia"', html)
             self.assertIn(f'<section class="sheet stats" id="stats"', html)
-            self.assertEqual(html.count('class="bd-opt'), 2)
+            self.assertIn('<section class="bx" id="build"', html)
             self.assertNotIn(legal.UPDATED_COMMIT, text)
             self.assertIn("FAQPage", html)
             self.assertIn(f'rel="canonical" href="{legal.SITE_URL}/', html)
             self.assertIn('hreflang="es"', html)
             self.assertIn('hreflang="en"', html)
-        for kind in [k for k in ("melee", "ranged") if k in pair]:
-            for mid in pair[kind]["moves"]:
-                self.assertIn(moves[mid]["name"], _visible(es))
-                self.assertIn(moves[mid]["en"]["name"], _visible(en))
+        shown = json.loads((ROOT / "data" / "bounded_ranking.json").read_text(encoding="utf8"))["species"]["150"]
+        for b in shown.values():
+            for mid in b["attacks"]:
+                if mid in moves:
+                    self.assertIn(moves[mid]["name"], _visible(es))
+                    self.assertIn(moves[mid]["en"]["name"], _visible(en))
         shell = (SITE / "pokemon" / "index.html").read_text(encoding="utf8")
         self.assertIn('id="slugs"', shell)
         self.assertEqual(len(re.findall(r'<li><a href="[^"]*pokemon/\d+-', shell)), 966)

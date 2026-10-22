@@ -1,13 +1,15 @@
-"""Ranking acotado (data/bounded_ranking.json) en la ficha, y habilidades y naturalezas por estadística en pasivas.html.
+"""Mejores builds de la ficha (data/bounded_ranking.json), y habilidades y naturalezas por estadística en pasivas.html.
 
-Todo sale de simulator/data/game.json, data/abilities.json (build/ability_export.py, código del juego en el commit
-fijado) y data/bounded_ranking.json (build/bounded_export.py). Los textos van aquí en parejas (es, en).
+Todo sale de simulator/data/game.json, data/abilities.json y data/bounded_ranking.json. Los textos van aquí en
+parejas (es, en).
 """
 from __future__ import annotations
 
 import json
 from html import escape
 from pathlib import Path
+
+from typedata import TYPE_COLOR
 
 ROOT = Path(__file__).resolve().parent.parent
 GAME = json.loads((ROOT / "simulator/data/game.json").read_text(encoding="utf8"))
@@ -19,25 +21,17 @@ if BOUNDED["gameCommit"] != GAME["gameCommit"]:
     raise SystemExit("data/bounded_ranking.json no es del commit de game.json")
 
 T = {
-    "h": ("Builds del ranking acotado", "Bounded ranking builds"),
-    "lede": ("La mejor build observada por estilo, con habilidad, naturaleza y MT, entre como mucho 12 candidatas por "
-             "estrato con 4 movimientos y sin Placaje, Ataque Rápido ni Golpe Cuerpo salvo tipo Normal (bounded-ranking-v2). "
-             "Se usa la confirmada ({seeds} semillas) si cumple; si no, la mejor de la ronda B o A. El tier sale de la mejor sin MT; las builds con MT se muestran aparte y no cuentan para el puesto.",
-             "The best observed build per style, with ability, nature and TMs, among at most 12 candidates per stratum "
-             "with 4 moves and no Tackle, Quick Attack or Body Slam unless Normal type (bounded-ranking-v2). "
-             "The confirmed one ({seeds} seeds) is used if it passes, otherwise the best from round B or A. The tier comes from the best no-TM one; TM builds are shown alongside and do not count for the rank."),
-    "none_ok": ("No hay build simulada de 4 movimientos que cumpla las reglas.",
-                "There is no simulated 4-move build that meets the rules."),
+    "h": ("Mejores builds", "Best builds"),
+    "lede": ("La build que más aguanta en la simulación con cada estilo.",
+             "The build that survives longest in the simulation with each style."),
     "melee": ("Cuerpo a cuerpo", "Melee"), "ranged": ("A distancia", "Ranged"),
-    "no_tm": ("sin MT", "no TM"), "optimized": ("con MT", "with TMs"),
-    "ability": ("Habilidad", "Ability"), "nature": ("Naturaleza", "Nature"), "tms": ("MT necesarias", "TMs needed"),
-    "start": ("Empieza con", "Starts with"),
-    "metrics": ("{s} s de supervivencia · {kpm} bajas/min · {dps} daño/s", "{s} s survival · {kpm} kills/min · {dps} damage/s"),
-    "run": ("Runpod cpu3c 32 vCPU, ranking full con búsqueda de naturalezas (aa98123), 441.486 partidas, 1.717 s",
-            "Runpod cpu3c 32 vCPU, full ranking with nature search (aa98123), 441,486 matches, 1,717 s"),
+    "no_tm": ("Sin MT", "No TMs"), "optimized": ("Con MT", "With TMs"),
+    "line": ("Empieza con {start} · Habilidad {ability} · Naturaleza {nature}",
+             "Starts with {start} · Ability {ability} · Nature {nature}"),
+    "tms": ("MT: {tms}", "TMs: {tms}"),
+    "surv": ("{s} s de supervivencia", "{s} s survival"),
     "untested": ("no probadas", "not tested"),
     "none": ("ninguna", "none"),
-    "src": ("Fuente: {file} (sha256 {sha}), {run}; juego {game}.", "Source: {file} (sha256 {sha}), {run}; game {game}."),
     "ab_h": ("Habilidades", "Abilities"),
     "ab_lede": ("Las {n} habilidades de game.json con su efecto en el juego (js/data/ability-fx.js). Las que no tienen "
                 "efecto propio dan la pasiva genérica: +8 % de daño con los movimientos del tipo principal.",
@@ -52,12 +46,12 @@ T = {
     "ab_col": ("Habilidad", "Ability"), "ab_eff": ("Efecto", "Effect"),
     "ns_h": ("Mejores naturalezas por estadística", "Best natures per stat"),
     "ns_lede": ("Para cada estadística, las cuatro naturalezas que la suben un 10 % y la que bajan un 10 %. Criterio de "
-                "orden: primero las que más veces lleva una de las {rows} mejores builds del ranking acotado (966 especies); a "
+                "orden: primero las que más veces llevan las mejores builds de los 966 Pokémon; a "
                 "igualdad, el orden de game.json. El ranking solo probó la neutra y las que suben el ataque dominante "
                 "(Ataque o Ataque especial), así que en Defensa, Defensa especial y Velocidad no hay recuento: van en "
                 "el orden de game.json. ",
                 "For each stat, the four natures that raise it 10 % and the one each lowers 10 %. Order: first those "
-                "used most often by the {rows} best builds of the bounded ranking (966 species); ties keep the game.json "
+                "used most often by the best builds of the 966 Pokémon; ties keep the game.json "
                 "order. The ranking only tried neutral natures and those raising the dominant attack stat (Attack or "
                 "Special attack), so Defense, Special defense and Speed have no count and keep the game.json order. "),
     "ns_link": ("Tabla completa de naturalezas", "Full nature table"),
@@ -94,40 +88,47 @@ def ability_name(L, aid: str | None) -> str:
     return ABIL[aid]["n"][_i(L)]
 
 
-def nature_label(L, nid: str) -> str:
-    n = NAT[nid]
-    name = n["n"][_i(L)]
-    if not n["up"]:
-        return name
-    return f'{name} (+{STAT[n["up"]][_i(L)]}, −{STAT[n["down"]][_i(L)]})'
-
-
-def ficha_section(L, dex: int, moves_by: dict) -> str:
+def cards(dex: int, avail: str) -> list[tuple[str, dict]]:
+    """(estilo, build) de una rama, la que más aguanta primero."""
     rows = BOUNDED["species"][str(dex)]
-    cards = []
-    for style in ("melee", "ranged"):
-        for avail in ("no_tm", "optimized"):
-            b = rows.get(f"{style}|{avail}")
-            if not b:
-                cards.append(f'<li class="bd-sim is-empty"><h3>{escape(t(L, style))} · {escape(t(L, avail))}</h3>'
-                             f'<p>{escape(t(L, "none_ok"))}</p></li>')
-                continue
-            atk = " + ".join(escape(move_name(L, m, moves_by)) for m in b["attacks"])
-            tms = ", ".join(f'{escape(move_name(L, m, moves_by))} ({L.num(GAME["tmPrices"][m])})' for m in b["tms"]) or t(L, "none")
-            cards.append(
-                f'<li class="bd-sim"><h3>{escape(t(L, style))} · {escape(t(L, avail))}</h3>'
-                f'<p class="bd-sim-moves">{atk}</p><dl>'
-                f'<dt>{escape(t(L, "start"))}</dt><dd>{escape(", ".join(move_name(L, m, moves_by) for m in b["start"]))}</dd>'
-                f'<dt>{escape(t(L, "ability"))}</dt><dd>{escape(ability_name(L, b["ability"]))}</dd>'
-                f'<dt>{escape(t(L, "nature"))}</dt><dd>{escape(nature_label(L, b["nature"]))}</dd>'
-                f'<dt>{escape(t(L, "tms"))}</dt><dd>{tms}</dd></dl>'
-                f'<p class="bd-sim-metrics">{escape(t(L, "metrics", s=L.dec(b["survival"], 1), kpm=L.dec(b["kpm"], 1), dps=L.dec(b["dps"], 1)))}</p></li>')
-    src = BOUNDED["source"]
-    return (f'<section class="learn bounded" id="ranking-acotado" aria-labelledby="bnd-h">'
-            f'<h2 id="bnd-h">{escape(t(L, "h"))}</h2><p>{escape(t(L, "lede", seeds=BOUNDED["confirmationSeeds"]))}</p>'
-            f'<ul class="bd-sim-list">{"".join(cards)}</ul>'
-            f'<p class="bd-sim-src">{escape(t(L, "src", file=src["file"], sha=src["sha256"][:12], run=t(L, "run"), game=BOUNDED["gameCommit"][:7]))}</p>'
-            f'</section>')
+    out = [(s, rows[f"{s}|{avail}"]) for s in ("melee", "ranged") if f"{s}|{avail}" in rows]
+    return sorted(out, key=lambda sb: -sb[1]["survival"])
+
+
+def best_build(dex: int) -> tuple[str, dict]:
+    return cards(dex, "no_tm")[0]
+
+
+def _chip(L, mid: str, moves_by: dict) -> str:
+    m = moves_by.get(mid) or GAME["moves"][mid]
+    buff = " is-buff" if m["kind"] == "buff" else ""
+    return (f'<li class="bx-chip{buff}" style="--tc:{TYPE_COLOR[m["type"]]}">'
+            f'{escape(move_name(L, mid, moves_by))}</li>')
+
+
+def _card(L, style: str, b: dict, moves_by: dict) -> str:
+    start = ", ".join(move_name(L, m, moves_by) for m in b["start"])
+    nat = NAT[b["nature"]]
+    line = t(L, "line", start=start, ability=ability_name(L, b["ability"]), nature=nat["n"][_i(L)])
+    tms = ""
+    if b["tms"]:
+        names = ", ".join(f'{move_name(L, m, moves_by)} ({L.num(GAME["tmPrices"][m])})' for m in b["tms"])
+        tms = f'<p class="bx-tm">{escape(t(L, "tms", tms=names))}</p>'
+    return (f'<li class="bx-card" data-build="{style}"><div class="bx-top"><h4>{escape(t(L, style))}</h4>'
+            f'<span class="bx-surv">{escape(t(L, "surv", s=L.dec(b["survival"], 0)))}</span></div>'
+            f'<ul class="bx-chips">{"".join(_chip(L, m, moves_by) for m in b["attacks"])}</ul>'
+            f'<p class="bx-line">{escape(line)}</p>{tms}</li>')
+
+
+def builds_section(L, dex: int, moves_by: dict) -> str:
+    groups = []
+    for avail in ("no_tm", "optimized"):
+        cs = cards(dex, avail)
+        if cs:
+            groups.append(f'<h3>{escape(t(L, avail))}</h3>'
+                          f'<ul class="bx-list">{"".join(_card(L, s, b, moves_by) for s, b in cs)}</ul>')
+    return (f'<section class="bx" id="build" aria-labelledby="bx-h"><h2 id="bx-h">{escape(t(L, "h"))}</h2>'
+            f'<p class="bx-lede">{escape(t(L, "lede"))}</p>{"".join(groups)}</section>')
 
 
 def abilities_section(L, home: str = "") -> str:
