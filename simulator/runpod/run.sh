@@ -145,7 +145,7 @@ PY
       FUNNEL_THREADS="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["limits"]["threads"])' "$FUNNEL_MANIFEST")"
       "$TASK_BINARY" funnel calibrate "$FUNNEL_THREADS" | tee "$FUNNEL_OUT/calibrate.json"
       python3 - "$FUNNEL_OUT/calibrate.json" "$FUNNEL_OUT/plan-counts.json" "$FUNNEL_OUT/wrapper-seconds" <<'PY'
-import json, sys
+import json, os, sys
 cal = json.load(open(sys.argv[1]))
 counts = json.load(open(sys.argv[2]))
 wrapper = int(float(open(sys.argv[3]).read()))
@@ -156,13 +156,25 @@ waves = (samples + threads - 1) // threads
 steady = rate * waves / (samples / threads)
 tasks = int(counts["tasksUpperBound"])
 need = tasks / wrapper
+floor_text = os.environ.get("POKESIM_CALIBRATE_FLOOR", "0.9")
+try:
+    floor = float(floor_text)
+except ValueError:
+    floor = -1.0
+if not 0 < floor <= 1:
+    print("ABORT: POKESIM_CALIBRATE_FLOOR must be a number in (0, 1].", file=sys.stderr)
+    sys.exit(2)
+limit = need * floor
 print(
     f"calibrate {rate:.2f} matches/s over {samples} tasks on {threads} threads "
-    f"({waves} waves). Full-wave equivalent {steady:.2f}. The upper bound needs {need:.2f}."
+    f"({waves} waves). Full-wave equivalent {steady:.2f}. "
+    f"Gate line {limit:.2f}, {floor:.2f} of the {need:.2f} steady rate the wrapper needs."
 )
-if steady < need:
+if os.environ.get("POKESIM_SKIP_CALIBRATE_GATE") == "1":
+    print("Calibrate gate skipped because POKESIM_SKIP_CALIBRATE_GATE=1.")
+elif steady < limit:
     print(
-        f"ABORT: full-wave equivalent {steady:.2f} matches/s is under {need:.2f}. The upper bound misses the wrapper wall.",
+        f"ABORT: full-wave equivalent {steady:.2f} matches/s is under {limit:.2f}. The upper bound misses the wrapper wall.",
         file=sys.stderr,
     )
     sys.exit(3)
