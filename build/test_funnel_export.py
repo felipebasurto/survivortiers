@@ -2,7 +2,7 @@ import json
 import unittest
 from pathlib import Path
 
-from build.funnel_export import export_document
+from build.funnel_export import export_document, legal_initial
 
 
 GAME = json.loads((Path(__file__).resolve().parents[1] / "simulator/data/game.json").read_text())
@@ -81,3 +81,15 @@ class FunnelExportTests(unittest.TestCase):
         covered = {(row["dex"], row["style"], row["availability"]) for row in document["unavailable_variants"]}
         self.assertIn((132, "ranged", "optimized"), covered)
         self.assertNotIn((132, "melee", "no_tm"), covered)
+
+    def test_psyduck_stock_confusion_and_a_taught_tm(self) -> None:
+        psyduck = _species(54)
+        self.assertEqual(psyduck["start"], "confusion")
+        self.assertEqual(legal_initial(GAME, psyduck, ["confusion"], set()), "confusion")
+        self.assertEqual(legal_initial(GAME, psyduck, ["tackle"], set()), "tackle")
+        self.assertIsNone(legal_initial(GAME, psyduck, ["ice-beam"], set()))
+        self.assertEqual(legal_initial(GAME, psyduck, ["ice-beam"], {"ice-beam"}), "ice-beam")
+        self.assertIsNone(legal_initial(GAME, psyduck, ["ember"], set()))
+        self.assertIsNone(legal_initial(GAME, psyduck, ["swords-dance"], {"swords-dance"}))
+        document = export_document(_funnel(54, True), GAME)
+        self.assertEqual(document["results"][0]["build"]["initial_attacks"], ["confusion"])

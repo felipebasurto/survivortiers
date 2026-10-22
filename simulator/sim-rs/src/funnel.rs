@@ -248,12 +248,22 @@ fn choose(items: &[usize], need: usize, from: usize, acc: &mut Vec<usize>, out: 
     }
 }
 
-fn each_legal_group(data: &Data, base: &Mon, f: &mut impl FnMut(&[usize])) {
-    let legal: BTreeSet<usize> = base
+fn opener_indexes(data: &Data, base: &Mon) -> BTreeSet<usize> {
+    let mut legal: BTreeSet<usize> = base
         .start_choices(&data.moves)
         .into_iter()
         .filter(|&i| data.moves[i].is_attack())
         .collect();
+    for &ix in &base.tms {
+        if data.moves[ix].is_attack() {
+            legal.insert(ix);
+        }
+    }
+    legal
+}
+
+fn each_legal_group(data: &Data, base: &Mon, f: &mut impl FnMut(&[usize])) {
+    let legal = opener_indexes(data, base);
     let buffs = base
         .pool
         .iter()
@@ -384,6 +394,15 @@ fn build_config(
     let configured = data.configure(base, nature, ability.as_deref(), &tms)?;
     if !configured.start_choices(&data.moves).contains(&group[0]) || !data.moves[group[0]].is_attack() {
         return Err(format!("illegal lead for dex {}", base.dex));
+    }
+    let taught_lead = group[0] != base.start && !base.pool.contains(&group[0]);
+    if taught_lead && branch != "optimized_tm" {
+        return Err(format!("TM opener for dex {} belongs on the TM branch", base.dex));
+    }
+    if let Some(other) = second.as_deref() {
+        if other == data.moves[group[0]].id {
+            return Err(format!("second start repeats the opener for dex {}", base.dex));
+        }
     }
     Ok(Configuration {
         id,
@@ -1810,6 +1829,91 @@ mod tests {
         let (upper, fail) = gap_passes(&[10.0, 10.0, 10.0], 100.0);
         assert!(!fail);
         assert!((upper - 10.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn psyduck_confusion_is_a_natural_opener_and_a_tm_opener_is_charged() {
+        let data = data();
+        let psy = data.dex.iter().find(|m| m.dex == 54).unwrap();
+        let ix = |id: &str| data.move_ix[id];
+        assert_eq!(data.moves[psy.start].id, "confusion");
+        assert_ne!(data.moves[psy.start].levels[0].ty, psy.types[0]);
+        let ability = psy.abilities.iter().flatten().next().cloned();
+        let natural = build_config(
+            &data,
+            psy,
+            &[ix("confusion")],
+            "hardy",
+            ability.clone(),
+            "ranged",
+            "optimized_no_tm",
+        )
+        .unwrap();
+        assert!(natural.tms.is_empty());
+        assert_eq!(taught_tm_cost(&data, psy, &natural.tms).unwrap(), 0);
+        let tm = build_config(
+            &data,
+            psy,
+            &[ix("ice-beam")],
+            "hardy",
+            ability.clone(),
+            "ranged",
+            "optimized_tm",
+        )
+        .unwrap();
+        assert_eq!(tm.tms, vec!["ice-beam".to_string()]);
+        assert!(taught_tm_cost(&data, psy, &tm.tms).unwrap() > 0);
+        assert!(build_config(
+            &data,
+            psy,
+            &[ix("ice-beam")],
+            "hardy",
+            ability.clone(),
+            "ranged",
+            "optimized_no_tm",
+        )
+        .is_err());
+        assert!(build_config(&data, psy, &[ix("ember")], "hardy", ability.clone(), "ranged", "optimized_no_tm").is_err());
+        let mut confusion_lead = false;
+        let mut ice_lead = false;
+        let mut ember_lead = false;
+        let mut tm_lead_off_branch = false;
+        each_legal_group(&data, psy, &mut |group| {
+            let lead = data.moves[group[0]].id.as_str();
+            if lead == "confusion" {
+                confusion_lead = true;
+            } else if lead == "ice-beam" {
+                ice_lead = true;
+                if branch_of(&data, psy, group) != "optimized_tm"
+                    || taught_tm_cost(&data, psy, &tm_list(&data, psy, group)).unwrap() == 0
+                {
+                    tm_lead_off_branch = true;
+                }
+            } else if lead == "ember" {
+                ember_lead = true;
+            }
+        });
+        assert!(confusion_lead);
+        assert!(ice_lead);
+        assert!(!ember_lead);
+        assert!(!tm_lead_off_branch);
+        let mut prior_ember = false;
+        visit_groups(&data, psy, psy, &mut |group| {
+            if data.moves[group[0]].id == "ember" {
+                prior_ember = true;
+            }
+        });
+        let taught = data
+            .configure(psy, "hardy", ability.as_deref(), &["ice-beam".to_string()])
+            .unwrap();
+        let mut prior_ice = false;
+        visit_groups(&data, psy, &taught, &mut |group| {
+            if data.moves[group[0]].id == "ice-beam" {
+                prior_ice = true;
+            }
+        });
+        assert!(prior_ice);
+        assert!(!prior_ember);
     }
 
     #[test]

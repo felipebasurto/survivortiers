@@ -279,8 +279,10 @@ pub struct Mon {
 }
 
 impl Mon {
-    /// starters.js startChoices: the pool without buffs, plus the stock start even when it is off-type
-    /// (Confusión on Psyduck) so the player can always go back to it.
+    /// starters.js startChoices at ce57853. poolFor minus buffs, plus the stock start.
+    /// The exported pool is poolFor(natural): the species' own type pools plus every Normal move.
+    /// configure() adds taught TMs, which is poolFor without the natural flag. The stock start
+    /// stays even when it is off-type (Confusion on Psyduck).
     pub fn start_choices(&self, moves: &[Move]) -> Vec<usize> {
         let mut ids: Vec<usize> = self
             .pool

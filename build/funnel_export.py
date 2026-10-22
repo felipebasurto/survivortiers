@@ -38,9 +38,10 @@ def _attacks(config: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def legal_initial(game: dict[str, Any], species: dict[str, Any], group: list[str], tm_ids: set[str]) -> str | None:
+    """Game startChoices: own-type pools, Normal, taught TMs, and the stock start. Buffs are out."""
     moves = game.get("moves") or {}
     learned = set(species.get("pool") or [])
-    types = set(species.get("types") or [])
+    types = set(species.get("types") or []) | {"normal"}
     start = species.get("start")
     taught = set(species.get("tms") or [])
 

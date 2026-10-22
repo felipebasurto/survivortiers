@@ -2,7 +2,7 @@
   "schema": 1,
   "kind": "funnel",
   "gameCommit": "ce5785313b0205af8b9477423f64b0a7b7039dcd",
-  "engineFingerprint": "9e41dc3b839ba0847d75798eadbf9a4435344e84301421bfcce540bff1960a92",
+  "engineFingerprint": "b8fde7d5fd26b0fb5b1bc4a698c6264c8c294ef48409ab795e8007db688f71b6",
   "policyVersion": "survivortiers-funnel-v1",
   "dex": [
     132,
